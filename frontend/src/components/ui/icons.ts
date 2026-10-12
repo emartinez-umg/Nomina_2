@@ -1,4 +1,5 @@
 import {
+  Copy,
   Activity,
   AlertCircle,
   CheckCircle2,
@@ -43,6 +44,7 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 export const iconos = {
+  copiar: Copy,
   salud: Activity,
   baseDatos: Database,
   ayuda: HelpCircle,

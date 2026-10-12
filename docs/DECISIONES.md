@@ -137,3 +137,16 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   Días/jornada de un horario asignado se mantienen; un nuevo patrón permite cambios futuros.
 - El jefe responsable puede quedar pendiente hasta cargar empleados reales en fase 5. Al
   asignarlo debe estar activo y pertenecer al departamento de la jefatura.
+
+## FASE 5 — Expedientes e importación
+
+- Banco y centro de trabajo se habilitan en el CRUD declarativo: el alta no depende de SQL manual ni seeds ficticios.
+- Una sola transacción para empleado/contacto/salario/horario/usuario/auditoría; la misma exclusión de catálogos
+  y administración serializa altas, nombres de usuario y salarios. Revalidación del actor dentro de la transacción.
+- Ingreso inmutable tras alta; cambios salariales y horarios anexan vigencias posteriores al último cambio
+  y al último cierre. Asignaciones laborales con cierres se conservan, sin implementar nómina futura.
+- Carga CSV limitada a 100 filas/1 MB. Vista previa persistida por actor, revalidación al confirmar,
+  modos todo o nada/solo válidas y atomicidad de todas las filas elegidas; no se reimporta la misma carga.
+- Credenciales de una sola entrega, solo memoria del componente y sin caché; reporte durable sin claves.
+- SALARIO_MINIMO_MENSUAL (QUETZALES) lo configura RH según categoría y vigencia. Ausencia produce aviso;
+  no se agrega un importe supuesto. Las edades provienen de los parámetros vigentes en Oracle.

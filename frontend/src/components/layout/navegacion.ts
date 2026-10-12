@@ -15,6 +15,7 @@ const compartidos: Acceso[] = [
   },
   {
     titulo: 'Empleados',
+    ruta: '/empleados',
     icono: 'empleados',
     descripcion: 'Gestiona los datos del personal y su organización.',
   },

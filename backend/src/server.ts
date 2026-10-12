@@ -12,6 +12,8 @@ import { crearAuditoriaService } from './modules/auditoria/auditoria.service.js'
 
 import { crearCatalogosService } from './modules/catalogos/catalogos.service.js';
 
+import { crearEmpleadosService } from './modules/empleados/empleados.service.js';
+
 const logger = crearLogger(config.LOG_LEVEL);
 let db: BaseDatos | undefined;
 
@@ -23,6 +25,7 @@ try {
   const auth = await crearAuthService(baseDatos, config);
   const server = crearApp(service, logger, {
     auth,
+    empleados: crearEmpleadosService(baseDatos),
     catalogos: crearCatalogosService(baseDatos),
     usuarios: crearUsuariosService(baseDatos),
     auditoria: crearAuditoriaService(baseDatos),

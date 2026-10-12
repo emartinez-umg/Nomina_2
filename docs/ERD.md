@@ -778,3 +778,11 @@ No se añaden tablas: siguen siendo 53 de negocio y 14 migraciones V000–V013.
 La API de catálogos protege referencias activas, responsable del mismo departamento, horarios
 asignados, franjas de feriados y versiones legales ante traslapes/cierres. Las escrituras y su
 auditoría comparten transacción. Contratos y reglas: [CATALOGOS.md](CATALOGOS.md).
+
+## Servicios de empleados — FASE 5
+
+No se modifica el DDL ni las migraciones V000–V013. EMPLEADOS se guarda con contacto principal,
+HISTORIAL_SALARIAL y EMPLEADO_HORARIO en una transacción; el salario no se duplica en EMPLEADOS.
+CARGAS_MASIVAS/CARGA_MASIVA_FILAS conservan validación y resultados sin contraseñas. Baja lógica
+y cambios de vigencia preservan relaciones y auditoría. Bancos y centros se administran con el CRUD
+de catálogos existente. Contratos operativos en [EMPLEADOS.md](EMPLEADOS.md).

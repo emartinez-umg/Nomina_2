@@ -28,6 +28,8 @@ import { crearAuthService } from './auth.service.js';
 import type { AuthService, ConfigSeguridad } from './auth.service.js';
 import type { ActorAuditoria, Rol } from './auth.types.js';
 
+import { crearEmpleadosService } from '../empleados/empleados.service.js';
+import { columnasCsv, escribirCsv } from '../empleados/empleados.csv.js';
 import { crearCatalogosService } from '../catalogos/catalogos.service.js';
 
 const logger = crearLogger('silent');
@@ -58,6 +60,7 @@ const crearApi = (opciones = config) =>
     logger,
     {
       auth,
+      empleados: crearEmpleadosService(db),
       catalogos: crearCatalogosService(db),
       config: opciones,
       usuarios: crearUsuariosService(db),
@@ -561,7 +564,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await empleado.agent.get('/api/catalogos').expect(403);
       const rh = await entrarCuenta('RH');
       const r = await rh.agent.get('/api/catalogos').expect(200);
-      expect(r.body.data).toHaveLength(10);
+      expect(r.body.data).toHaveLength(12);
       expect(r.text).not.toContain('columna');
       await rh.agent.post('/api/catalogos/departamentos').send(base).expect(403);
       await rh.agent.get('/api/catalogos/departamentos').query({ sql: 'SELECT' }).expect(400);
@@ -979,6 +982,450 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         .get('/api/catalogos/restricciones')
         .expect(200)
         .then((r) => expect(r.body.data.ultimoCierre).toBe('2026-12-15'));
+    });
+  });
+  describe('Fase 5: gestión de empleados y cargas Oracle', () => {
+    let refs: {
+      idDepartamento: number;
+      idPuesto: number;
+      idJefatura: number;
+      idTipoContrato: number;
+      idCentroTrabajo: number;
+      idHorario: number;
+      idBanco: number;
+    };
+    let serial = 200;
+    let hoy = '';
+    const nitDe = (n: number) => {
+      const c = String(n);
+      const v = (11 - ([...c].reverse().reduce((s, d, i) => s + Number(d) * (i + 2), 0) % 11)) % 11;
+      return `${c}-${v === 10 ? 'K' : v}`;
+    };
+    const datos = () => {
+      const n = ++serial;
+      return {
+        codigo: `F5_${n}`,
+        nombres: 'Ana',
+        apellidos: 'Prueba',
+        dpi: String(1000000000000 + n),
+        nit: nitDe(800000 + n),
+        afiliacionIgss: String(99000 + n),
+        fechaNacimiento: '1995-05-15',
+        sexo: 'F',
+        estadoCivil: 'SOLTERO',
+        direccion: 'Dirección de prueba',
+        telefono: '55551234',
+        correo: `f5_${n}@example.test`,
+        ...refs,
+        fechaIngreso: hoy,
+        fechaFinContrato: null,
+        salarioBase: '5000.00',
+        cuentaBancaria: '123456',
+        tipoCuenta: 'AHORRO',
+        contactoNombre: 'Contacto Familiar',
+        contactoParentesco: 'Hermana',
+        contactoTelefono: '55554321',
+        estado: 'ACTIVO',
+        generarUsuario: false,
+      };
+    };
+    const csvDe = (filas: Record<string, unknown>[]) =>
+      escribirCsv([Array.from(columnasCsv), ...filas.map((d) => columnasCsv.map((k) => d[k]))]);
+    beforeAll(async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const crear = async (slug: string, body: object) => {
+        const r = await agent
+          .post(`/api/catalogos/${slug}`)
+          .set('X-CSRF-Token', csrf)
+          .send(body)
+          .expect(201);
+        return r.body.data.id as number;
+      };
+      const base = { codigo: 'F5_ORG', nombre: 'Organización fase cinco', descripcion: null };
+      const idDepartamento = await crear('departamentos', base);
+      const idPuesto = await crear('puestos', {
+        ...base,
+        idDepartamento,
+        salarioMinimo: null,
+        salarioMaximo: null,
+      });
+      const idJefatura = await crear('jefaturas', {
+        ...base,
+        idDepartamento,
+        idEmpleadoResponsable: null,
+      });
+      const idTipoContrato = Number(
+        await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO WHERE ACTIVO=1'),
+      );
+      const idCentroTrabajo = await crear('centros-trabajo', {
+        ...base,
+        localidad: 'GUATEMALA_CIUDAD',
+        direccion: null,
+      });
+      const idBanco = await crear('bancos', base);
+      const idHorario = await crear('horarios', {
+        ...base,
+        jornada: 'DIURNA',
+        dias: Array.from({ length: 7 }, (_, i) => ({
+          diaSemana: i + 1,
+          laborable: i < 5,
+          entrada: i < 5 ? '08:00' : null,
+          salida: i < 5 ? '17:00' : null,
+          cruzaMedianoche: false,
+          minutosDescanso: i < 5 ? 60 : 0,
+        })),
+      });
+      refs = {
+        idDepartamento,
+        idPuesto,
+        idJefatura,
+        idTipoContrato,
+        idCentroTrabajo,
+        idBanco,
+        idHorario,
+      };
+      const r = await agent.get('/api/empleados/reglas').expect(200);
+      hoy = r.body.data.hoy;
+      await ejecutar(
+        "INSERT INTO PARAMETROS_LEGALES (CODIGO,NOMBRE,VALOR,UNIDAD,VIGENTE_DESDE,FUNDAMENTO,MOTIVO) VALUES ('SALARIO_MINIMO_MENSUAL','Mínimo de prueba',6000,'QUETZALES',DATE '2026-01-01','Solo esquema de prueba','Prueba de advertencia')",
+      );
+    });
+    it('deniega empleado, CSRF ausente y acceso sin sesión', async () => {
+      await request(app).get('/api/empleados').expect(401);
+      const { agent, csrf } = await entrarCuenta();
+      await agent.get('/api/empleados').expect(403);
+      await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(datos()).expect(403);
+      const a = await entrarAdmin();
+      await a.agent.post('/api/empleados').send(datos()).expect(403);
+    });
+    it('alta individual guarda expediente, contacto, salario y horario atómicamente', async () => {
+      const { agent, csrf } = await entrarCuenta('RH');
+      const d = datos();
+      const r = await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(201);
+      expect(r.body.data.advertencias[0]).toContain('6000.00');
+      const id = r.body.data.empleado.id as number;
+      expect(r.body.data.empleado.dpi).toBe(d.dpi);
+      expect(r.body.data.empleado.salarioBase).toBe('5000.00');
+      expect(
+        await escalar('SELECT COUNT(*) FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:id', { id }),
+      ).toBe(1);
+      expect(
+        await escalar('SELECT COUNT(*) FROM EMPLEADO_HORARIO WHERE ID_EMPLEADO=:id', { id }),
+      ).toBe(1);
+      expect(
+        await escalar('SELECT TELEFONO FROM EMPLEADO_CONTACTOS_EMERGENCIA WHERE ID_EMPLEADO=:id', {
+          id,
+        }),
+      ).toBe(d.contactoTelefono);
+      for (const tipo of ['salario', 'descuentos', 'vacaciones', 'documentos', 'historial'])
+        await agent.get(`/api/empleados/${id}/pestanas/${tipo}`).expect(200);
+      for (const campo of ['dpi', 'nit', 'afiliacionIgss', 'correo', 'codigo']) {
+        const duplicado = { ...datos(), [campo]: d[campo as keyof typeof d] };
+        const e = await agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', csrf)
+          .send(duplicado)
+          .expect(409);
+        expect(e.body.error.campos).toHaveProperty(campo);
+      }
+    });
+    it('valida edades, ingreso futuro, pertenencia a departamento y datos bancarios', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      for (const cambio of [
+        { fechaNacimiento: '2027-01-01' },
+        { fechaIngreso: '2099-01-01' },
+        { idDepartamento: 999999 },
+        { tipoCuenta: null },
+        { fechaFinContrato: '2001-01-01' },
+      ]) {
+        const r = await agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...datos(), ...cambio });
+        expect([400, 409]).toContain(r.status);
+      }
+    });
+    it('filtros combinados, orden, paginación y exportación protegen documentos', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const d = datos();
+      const n = await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(201);
+      const filtros = {
+        nombre: 'Ana',
+        dpi: d.dpi,
+        nit: d.nit,
+        idDepartamento: refs.idDepartamento,
+        idPuesto: refs.idPuesto,
+        idJefatura: refs.idJefatura,
+        idTipoContrato: refs.idTipoContrato,
+        estado: 'ACTIVO',
+        ingresoDesde: hoy,
+        ingresoHasta: hoy,
+        salarioMin: '4999.99',
+        salarioMax: '5000.00',
+        ordenarPor: 'salarioBase',
+        direccion: 'desc',
+        limite: 1,
+      };
+      const r = await agent.get('/api/empleados').query(filtros).expect(200);
+      expect(r.body.data.total).toBe(1);
+      expect(r.body.data.registros[0].id).toBe(n.body.data.empleado.id);
+      expect(r.text).not.toContain(d.dpi);
+      expect(r.text).not.toContain(d.nit);
+      const csv = await agent.get('/api/empleados/exportar').query(filtros).expect(200);
+      expect(csv.body.data).toContain(d.codigo);
+      expect(csv.body.data).not.toContain(d.dpi);
+      await agent.get('/api/empleados').query({ ordenarPor: 'DPI DESC' }).expect(400);
+    });
+    it('edición guiada conserva ingreso y rechaza escritura de salario', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const d = datos();
+      const n = await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(201);
+      const id = n.body.data.empleado.id as number;
+      const edit: Record<string, unknown> = { ...d };
+      delete edit.salarioBase;
+      delete edit.generarUsuario;
+      const r = await agent
+        .patch(`/api/empleados/${id}`)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...edit, telefono: '55550000', motivo: 'Corregir contacto' })
+        .expect(200);
+      expect(r.body.data.telefono).toBe('55550000');
+      await agent
+        .patch(`/api/empleados/${id}`)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...edit, salarioBase: '9000', motivo: 'Cambio inválido' })
+        .expect(400);
+      await agent
+        .patch(`/api/empleados/${id}`)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...edit, fechaIngreso: '2026-10-01', motivo: 'Cambio inválido' })
+        .expect(422);
+    });
+    it('usuario con sufijo, cambio obligatorio y baja que revoca sesiones', async () => {
+      const { agent, csrf } = await entrarCuenta('RH');
+      const d = { ...datos(), generarUsuario: true };
+      const a = await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(201);
+      const b = await agent
+        .post('/api/empleados')
+        .set('X-CSRF-Token', csrf)
+        .send({ ...datos(), generarUsuario: true })
+        .expect(201);
+      expect(a.body.data.credenciales.usuario).toBe('ana.prueba');
+      expect(b.body.data.credenciales.usuario).toBe('ana.prueba2');
+      const cred = a.body.data.credenciales;
+      const empleado = await entrar(cred.usuario, cred.contrasenaTemporal);
+      await empleado.agent.get('/api/empleados').expect(403);
+      const id = a.body.data.empleado.id as number;
+      await agent
+        .get(`/api/empleados/${id}`)
+        .expect(200)
+        .then((r) => expect(r.text).not.toContain(cred.contrasenaTemporal));
+      await agent
+        .post(`/api/empleados/${id}/baja`)
+        .set('X-CSRF-Token', csrf)
+        .send({ fechaEgreso: '2027-01-01', motivo: 'Finalización del contrato', confirmado: true })
+        .expect(200);
+      expect(
+        await escalar('SELECT ACTIVO FROM USUARIOS WHERE ID_USUARIO=:id', { id: cred.idUsuario }),
+      ).toBe(0);
+      await empleado.agent.get('/api/auth/sesion').expect(401);
+    });
+    it('salario cierra vigencias, conserva futuro, exige motivo y protege periodos cerrados', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const r = await agent
+        .post('/api/empleados')
+        .set('X-CSRF-Token', csrf)
+        .send(datos())
+        .expect(201);
+      const id = r.body.data.empleado.id as number;
+      const body = {
+        salarioBase: '7000.01',
+        fechaEfectiva: '2027-01-01',
+        motivo: 'Ajuste salarial anual',
+        confirmado: true,
+      };
+      await agent
+        .post(`/api/empleados/${id}/salario`)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...body, fechaEfectiva: '2026-12-01' })
+        .expect(422);
+      await agent
+        .post(`/api/empleados/${id}/salario`)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...body, motivo: '' })
+        .expect(400);
+      const cambios = await Promise.all(
+        [1, 2].map(() =>
+          agent.post(`/api/empleados/${id}/salario`).set('X-CSRF-Token', csrf).send(body),
+        ),
+      );
+      expect(cambios.map((r) => r.status).sort()).toEqual([200, 422]);
+      expect(
+        await escalar(
+          "SELECT TO_CHAR(VIGENTE_HASTA,'YYYY-MM-DD') FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:id AND SALARIO_BASE=5000",
+          { id },
+        ),
+      ).toBe('2026-12-31');
+      await agent
+        .get(`/api/empleados/${id}`)
+        .expect(200)
+        .then((r) => expect(r.body.data.salarioBase).toBe('5000.00'));
+      const h = await agent.get(`/api/empleados/${id}/pestanas/salario`).expect(200);
+      expect(h.body.data.registros[0]['Salario mensual']).toBe('7000.01');
+      expect(h.body.data.registros[0]['Registrado por']).toBe(seed.ADMIN_USER);
+    });
+    it('rollback de alta y cambio salarial si falla auditoría', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const d = { ...datos(), generarUsuario: true };
+      const n = await agent
+        .post('/api/empleados')
+        .set('X-CSRF-Token', csrf)
+        .send(datos())
+        .expect(201);
+      const id = n.body.data.empleado.id as number;
+      await ejecutar(
+        "CREATE OR REPLACE TRIGGER F5_FALLAR_AUD BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ENTIDAD='EMPLEADOS' THEN RAISE_APPLICATION_ERROR(-20045,'Fallo de prueba'); END IF; END;",
+      );
+      try {
+        await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(500);
+        expect(
+          await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE CODIGO=:codigo', {
+            codigo: d.codigo,
+          }),
+        ).toBe(0);
+        expect(
+          await escalar('SELECT COUNT(*) FROM USUARIOS WHERE CORREO=:correo', { correo: d.correo }),
+        ).toBe(0);
+        await agent
+          .post(`/api/empleados/${id}/salario`)
+          .set('X-CSRF-Token', csrf)
+          .send({
+            salarioBase: '8000',
+            fechaEfectiva: '2027-01-01',
+            motivo: 'Cambio con fallo',
+            confirmado: true,
+          })
+          .expect(500);
+        expect(
+          await escalar('SELECT COUNT(*) FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:id', { id }),
+        ).toBe(1);
+        expect(
+          await escalar('SELECT VIGENTE_HASTA FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:id', {
+            id,
+          }),
+        ).toBe(null);
+      } finally {
+        await ejecutar('DROP TRIGGER F5_FALLAR_AUD');
+      }
+    });
+    it('carga: vista previa por fila, propiedad, todo o nada, solo válidas y reporte sin claves', async () => {
+      const { agent, csrf } = await entrarCuenta('RH');
+      const valida = { ...datos(), generarUsuario: true },
+        invalida = { ...datos(), telefono: '12' };
+      const p = await agent
+        .post('/api/empleados/cargas')
+        .set('X-CSRF-Token', csrf)
+        .send({ nombreArchivo: 'empleados.csv', csv: csvDe([valida, invalida]) })
+        .expect(201);
+      const id = p.body.data.id as number;
+      expect(p.body.data.filas[1].errores).toHaveProperty('telefono');
+      expect(p.body.data.filas[1].errores.telefono).toHaveLength(1);
+      expect(
+        await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE CODIGO=:codigo', {
+          codigo: valida.codigo,
+        }),
+      ).toBe(0);
+      const otro = await entrarAdmin();
+      await otro.agent.get(`/api/empleados/cargas/${id}/reporte`).expect(403);
+      await agent
+        .post(`/api/empleados/cargas/${id}/confirmar`)
+        .set('X-CSRF-Token', csrf)
+        .send({ modalidad: 'TODO_O_NADA', confirmado: true })
+        .expect(409);
+      const r = await agent
+        .post(`/api/empleados/cargas/${id}/confirmar`)
+        .set('X-CSRF-Token', csrf)
+        .send({ modalidad: 'SOLO_VALIDAS', confirmado: true })
+        .expect(200);
+      expect(r.body.data.importadas).toBe(1);
+      expect(r.body.data.credenciales).toHaveLength(1);
+      const rep = await agent.get(`/api/empleados/cargas/${id}/reporte`).expect(200);
+      expect(rep.body.data).toContain('IMPORTADA');
+      expect(rep.body.data).toContain('INVALIDA');
+      expect(rep.body.data).not.toContain(r.body.data.credenciales[0].contrasenaTemporal);
+      await agent
+        .post(`/api/empleados/cargas/${id}/confirmar`)
+        .set('X-CSRF-Token', csrf)
+        .send({ modalidad: 'SOLO_VALIDAS', confirmado: true })
+        .expect(409);
+    });
+    it('carga detecta duplicados internos y revalida cambios tras la vista previa', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const d = datos();
+      const dup = await agent
+        .post('/api/empleados/cargas')
+        .set('X-CSRF-Token', csrf)
+        .send({ nombreArchivo: 'duplicados.csv', csv: csvDe([d, { ...datos(), dpi: d.dpi }]) })
+        .expect(201);
+      expect(
+        dup.body.data.filas.every((f: { errores: Record<string, unknown> }) => f.errores.dpi),
+      ).toBe(true);
+      const p = await agent
+        .post('/api/empleados/cargas')
+        .set('X-CSRF-Token', csrf)
+        .send({ nombreArchivo: 'cambio.csv', csv: csvDe([d]) })
+        .expect(201);
+      await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(201);
+      await agent
+        .post(`/api/empleados/cargas/${p.body.data.id}/confirmar`)
+        .set('X-CSRF-Token', csrf)
+        .send({ modalidad: 'TODO_O_NADA', confirmado: true })
+        .expect(409);
+    });
+    it('carga revierte todo el lote y usuarios cuando la última fila falla', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const ds = [
+        { ...datos(), generarUsuario: true },
+        { ...datos(), generarUsuario: true },
+      ];
+      const p = await agent
+        .post('/api/empleados/cargas')
+        .set('X-CSRF-Token', csrf)
+        .send({ nombreArchivo: 'rollback.csv', csv: csvDe(ds) })
+        .expect(201);
+      const id = p.body.data.id as number;
+      await ejecutar(
+        `CREATE OR REPLACE TRIGGER F5_FALLAR_FILA BEFORE INSERT ON EMPLEADOS FOR EACH ROW BEGIN IF :NEW.CODIGO='${ds[1]!.codigo}' THEN RAISE_APPLICATION_ERROR(-20046,'Fallo de prueba'); END IF; END;`,
+      );
+      try {
+        await agent
+          .post(`/api/empleados/cargas/${id}/confirmar`)
+          .set('X-CSRF-Token', csrf)
+          .send({ modalidad: 'TODO_O_NADA', confirmado: true })
+          .expect(500);
+        for (const d of ds) {
+          expect(
+            await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE CODIGO=:codigo', {
+              codigo: d.codigo,
+            }),
+          ).toBe(0);
+          expect(
+            await escalar('SELECT COUNT(*) FROM USUARIOS WHERE CORREO=:correo', {
+              correo: d.correo,
+            }),
+          ).toBe(0);
+        }
+        expect(
+          await escalar('SELECT ESTADO FROM CARGAS_MASIVAS WHERE ID_CARGA_MASIVA=:id', { id }),
+        ).toBe('VALIDADA');
+      } finally {
+        await ejecutar('DROP TRIGGER F5_FALLAR_FILA');
+      }
+      await agent
+        .post(`/api/empleados/cargas/${id}/confirmar`)
+        .set('X-CSRF-Token', csrf)
+        .send({ modalidad: 'TODO_O_NADA', confirmado: true })
+        .expect(200);
     });
   });
 });

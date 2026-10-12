@@ -198,3 +198,9 @@ con comparación, exigen motivo y conservan vigencias sin afectar periodos cerra
 V013 añade rangos salariales referenciales de puestos e índices; `npm run db:setup` o Compose
 aplica la migración. Para la interfaz local: `NODE_ENV=development npm run dev`.
 Guía y contratos: [docs/CATALOGOS.md](docs/CATALOGOS.md).
+
+## Gestión de empleados (Fase 5)
+
+RH/ADMIN: abrir `/empleados` para altas, filtros, ficha, cambios salariales, baja y carga masiva.
+Crear primero la organización y centros/horarios en Catálogos. Configurar el mínimo salarial vigente
+según la categoría de la empresa. Operación, CSV, seguridad y endpoints en [EMPLEADOS.md](docs/EMPLEADOS.md).

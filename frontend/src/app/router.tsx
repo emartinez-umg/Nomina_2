@@ -1,3 +1,7 @@
+import { EmpleadosPage } from '../features/empleados/pages/EmpleadosPage';
+import { EmpleadoFormularioPage } from '../features/empleados/pages/EmpleadoFormulario';
+import { EmpleadoDetallePage } from '../features/empleados/pages/EmpleadoDetalle';
+import { CargaMasivaPage } from '../features/empleados/pages/CargaMasiva';
 import { createBrowserRouter } from 'react-router-dom';
 import { CatalogosPage } from '../features/catalogos/pages/CatalogosPage';
 import { SaludPage } from '../features/salud/pages/SaludPage';
@@ -36,6 +40,11 @@ export const rutas = [
           {
             element: <AppLayout />,
             children: [
+              { path: '/empleados', element: <EmpleadosPage /> },
+              { path: '/empleados/nuevo', element: <EmpleadoFormularioPage /> },
+              { path: '/empleados/carga-masiva', element: <CargaMasivaPage /> },
+              { path: '/empleados/:id', element: <EmpleadoDetallePage /> },
+              { path: '/empleados/:id/editar', element: <EmpleadoFormularioPage /> },
               { path: '/catalogos', element: <CatalogosPage /> },
               { path: '/catalogos/:catalogo', element: <CatalogosPage /> },
             ],

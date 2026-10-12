@@ -35,6 +35,7 @@ async function recuperarCsrf() {
   await recuperando;
 }
 interface Opciones {
+  timeoutMs?: number;
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal | undefined;
@@ -51,7 +52,7 @@ export async function solicitar<T>(
   const cancelar = () => controller.abort();
   if (opciones.signal?.aborted) cancelar();
   opciones.signal?.addEventListener('abort', cancelar, { once: true });
-  const timer = setTimeout(cancelar, 15000);
+  const timer = setTimeout(cancelar, opciones.timeoutMs ?? 15000);
   try {
     const response = await fetch(`/api${ruta}`, {
       method,

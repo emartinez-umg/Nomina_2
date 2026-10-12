@@ -105,6 +105,35 @@ const dinero = (nombre: string, columna: string, etiqueta: string, requerido = t
   );
 export const catalogos: Catalogo[] = [
   {
+    slug: 'bancos',
+    titulo: 'Bancos',
+    tabla: 'BANCOS',
+    pk: 'ID_BANCO',
+    campos: [codigo(), nombre(), descripcion],
+  },
+  {
+    slug: 'centros-trabajo',
+    titulo: 'Centros de trabajo',
+    tabla: 'CENTROS_TRABAJO',
+    pk: 'ID_CENTRO_TRABAJO',
+    campos: [
+      codigo(),
+      nombre(),
+      descripcion,
+      campo(
+        'localidad',
+        'LOCALIDAD',
+        'Localidad',
+        'texto',
+        'Localidad real para aplicar feriados locales.',
+        { requerido: true, max: 120 },
+      ),
+      campo('direccion', 'DIRECCION', 'Dirección', 'area', 'Ubicación del centro de trabajo.', {
+        max: 500,
+      }),
+    ],
+  },
+  {
     slug: 'departamentos',
     titulo: 'Departamentos',
     tabla: 'DEPARTAMENTOS',

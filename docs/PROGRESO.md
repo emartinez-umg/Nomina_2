@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 4 completada. Los registros de FASES 0–3 se conservan como historial; consultar
-la sección FASE 4 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 5 completada. Los registros de FASES 0–4 se conservan como historial; consultar
+la sección FASE 5 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -468,3 +468,105 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 5. Probar bloqueo de eliminación en uso y alternativa Desactivar. Reiniciar ayuda en listado/formulario.
 6. npm run lint; npm test; npm run typecheck; npm run build; npm run format:check.
 7. npm run verify:security; npm run db:verify; npm run verify:infra. Guía completa: docs/CATALOGOS.md.
+
+## FASE 5 — Gestión de empleados (backend + frontend)
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- CRUD RH/ADMIN con capas routes/controller/service/repository, Oracle thin y binds. Alta/edición
+  de datos personales, laborales, contacto principal de emergencia y banco; salario y horario
+  iniciales se guardan en sus historiales, sin duplicar el salario vigente en EMPLEADOS.
+- Formulario de cinco secciones, campos proporcionales, máscaras DPI/teléfono/NIT/moneda,
+  saneo al escribir/pegar, hints, validación al salir/resumen y errores de servidor por campo.
+  Edad parametrizada, nacimiento real/no futuro, ingreso desde edad mínima y hasta 30 días futuros;
+  fin de contrato y egreso desde el ingreso. Banco/cuenta/tipo se completan juntos o quedan vacíos.
+- Unicidad de código, DPI, NIT, IGSS y correo con mensajes específicos; NIT con verificador módulo 11.
+  Catálogos buscables/paginados, activos y con pertenencia al departamento; se incorporaron bancos
+  y centros de trabajo al CRUD declarativo existente para poder completar altas con datos reales.
+- Listado con filtros combinables por nombre, DPI, NIT, departamento, puesto, jefatura, contrato,
+  estado, ingreso y salario; chips removibles, limpiar, paginación y orden en servidor. CSV de toda
+  la consulta, DPI/NIT enmascarados y neutralización de fórmulas. Ficha con seis pestañas desde Oracle:
+  resumen, salario, descuentos, vacaciones, documentos e historial acotado al expediente.
+- Usuario EMPLEADO opcional en alta individual/masiva: nombre.apellido normalizado y sufijo por
+  colisión, contraseña aleatoria con cambio obligatorio. Entrega única en memoria con copiar/imprimir;
+  las claves quedan fuera de cachés de consultas, almacenamiento, auditoría, logs y reportes.
+- Cambios de salario con importe, fecha efectiva, motivo, actor y confirmación anterior/nuevo.
+  HISTORIAL_SALARIAL cierra la vigencia previa el día anterior y conserva cambios programados.
+  Advertencia contra SALARIO_MINIMO_MENSUAL vigente en la fecha elegida; aviso si falta configuración.
+- Baja lógica con fecha/motivo/confirmación, conservación del expediente, desactivación del usuario
+  y revocación de todas sus sesiones dentro de la misma transacción auditada.
+- CSV de 29 columnas: plantilla ilustrativa descargable, BOM/comillas escapadas, límite 100 filas/1 MB,
+  vista previa de errores/advertencias por fila, duplicados internos y revalidación al confirmar.
+  Modalidades todo o nada/solo válidas, importación atómica de las filas elegidas, reporte sin claves
+  y protección de propiedad/reconfirmación. Un fallo revierte también usuarios e historiales.
+- Bloqueos y revalidación del actor protegen escrituras, referencias, unicidad y cierres concurrentes.
+  Ayuda declarativa para listado, alta/edición, ficha, cambio salarial/baja y carga masiva, por rol;
+  funciona dentro del diálogo y puede reiniciarse desde la barra superior.
+- README, ERD, DECISIONES y guía docs/EMPLEADOS.md actualizados; sin nuevas migraciones ni datos
+  ficticios en la aplicación. Se reutilizaron las tablas e índices de FASE 1 y tokens del mockup.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier, git diff --check y builds backend/frontend sin errores.
+- 179 pruebas aprobadas: 99 backend y 80 frontend; también bajo Node 20 en Docker. Incluyen
+  validadores DPI/NIT/teléfono/correo/dinero/fechas, límites de edad y calendario, CSV malformado,
+  duplicados, sanitización, credencial de una sola entrega y flujo de confirmación de carga.
+- 42 pruebas Oracle thin/Supertest aprobadas mediante verify:security en host y Docker Node 20.
+  Las 11 pruebas añadidas cubren RBAC/CSRF, alta completa, unicidad, filtros combinados/exportación,
+  edición, usuario con sufijo, cambio obligatorio/baja/sesiones, salario futuro/cierres/concurrencia,
+  propiedad de carga, revalidación tras vista previa, reporte/replay y rollback provocado por triggers.
+  Se comprueba reversión de alta, cambio salarial y última fila de lote junto con todos sus usuarios.
+- Revisión en navegador con API/Oracle en esquema N2UI desechable: alta individual, máscaras,
+  referencias, ficha, nueva vigencia e historial salarial, ayuda dentro del diálogo y carga masiva.
+  Vista móvil a 390 px sin desbordamiento horizontal de página. Solo fixtures del esquema temporal.
+- Compose reconstruido con Oracle/API/nginx saludables; verify:infra comprueba rutas y bundles.
+  Los esquemas N2SEC/N2UI y procesos de revisión se eliminan al concluir; volumen real conservado.
+
+### Decisiones
+
+- Todas las escrituras de empleados y su auditoría se confirman juntas. La carga solo persiste
+  datos/errores/resultados, nunca contraseñas; el creador es el único que confirma o descarga el reporte.
+- La edición del expediente no cambia salario ni crea usuarios. Salario tiene operación independiente;
+  cambiar horario exige fecha efectiva. Se conserva la fecha de ingreso después del alta.
+- El listado/ficha consulta el salario vigente hoy (o al ingreso para altas futuras), sin adelantar
+  cambios programados. El historial expone todas las vigencias, motivo y usuario responsable.
+- Las pestañas de descuentos/vacaciones/documentos leen registros reales existentes; las acciones,
+  saldos calculados, PDF y flujos de esos módulos corresponden a sus fases futuras.
+
+### Supuestos
+
+- SALARIO_MINIMO_MENSUAL es un parámetro mensual QUETZALES de la categoría aplicable a la empresa.
+  RH define importe/fundamento/vigencia; no se inventó un mínimo legal ni se sembró un monto nuevo.
+  Un importe inferior genera advertencia y permite guardar, según el alcance solicitado.
+- La baja desactiva el acceso inmediatamente al confirmarla, incluso con egreso futuro. No se
+  implementó un programador de bajas. Ingreso protegido y asignaciones laborales sin cambios tras
+  cierres son reglas conservadoras para conservar historia; correcciones personales siguen disponibles.
+- Nuevas vigencias salariales/horario deben superar la última registrada y el último cierre global.
+  No se reemplazan cambios programados ni se reabren periodos desde este módulo.
+- CSV limitado a 100 empleados por transacción para controlar tiempo/memoria; la interfaz permite
+  dividir archivos mayores. Se usa un contacto principal de emergencia por expediente.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE 5.
+- Próximas fases únicamente según solicitud: cálculo de planilla, operaciones de descuentos,
+  vacaciones, solicitudes/documentos y demás módulos. Permanecen la revisión legal por RH y HTTPS
+  de producción registrados en fases anteriores.
+
+### Cómo probar
+
+1. Con .env configurado: docker compose up --build. Para HTTP local usar Node 20 y
+   NODE_ENV=development npm run dev; entrar como RH o ADMIN y abrir `/empleados`.
+2. Crear referencias reales en Catálogos (incluidos centro de trabajo/horario y banco si corresponde).
+   Configurar SALARIO_MINIMO_MENSUAL en Parámetros legales si aún no existe.
+3. Crear empleado, probar máscaras/fechas/duplicados y generar usuario opcional; copiar/imprimir
+   la clave antes de cerrar. Combinar filtros/rangos/orden y descargar CSV; abrir las seis pestañas.
+4. Registrar salario con fecha posterior al ingreso/último cambio/cierre, motivo y confirmación;
+   comprobar ambas vigencias. Probar baja y comprobar que el usuario ya no puede iniciar sesión.
+5. Descargar plantilla, sustituir ejemplo/IDs, subir CSV con filas válidas e inválidas y revisar errores;
+   corregir o elegir solo válidas, confirmar y descargar reporte. Reiniciar ayuda en cada pantalla.
+6. npm run lint; npm test; npm run typecheck; npm run build; npm run format:check.
+7. npm run verify:security (esquema desechable); npm run verify:infra. Contrato y detalles:
+   docs/EMPLEADOS.md. La suite Oracle también admite verify:security -- --docker con la imagen de build.
