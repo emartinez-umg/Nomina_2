@@ -1,32 +1,18 @@
-import { driver } from 'driver.js';
-import type { DriveStep } from 'driver.js';
-
-const pasos: DriveStep[] = [
-  {
-    element: '[data-tour="estado"]',
-    popover: {
-      title: 'Estado del sistema',
-      description:
-        'Esta página temporal comprueba la API y Oracle. El estado conectado solo aparece cuando una consulta real a la base de datos termina correctamente. Si hay un fallo, verás un mensaje para volver a intentar.',
+import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
+export const ayudaSalud: DefinicionAyuda = {
+  id: 'salud',
+  pasos: [
+    {
+      elemento: 'estado',
+      titulo: 'Disponibilidad del sistema',
+      descripcion:
+        'Esta consulta comprueba la API y su conexión real con Oracle. Mientras carga se muestra un indicador. Un error explica por qué no se puede confirmar la conexión; no significa que los datos hayan sido borrados.',
     },
-  },
-  {
-    element: '[data-tour="actualizar"]',
-    popover: {
-      title: 'Volver a comprobar',
-      description:
-        'Usa este botón después de restablecer la conexión. Mientras se consulta, el botón se deshabilita para evitar solicitudes repetidas. La comprobación también se repite automáticamente cada 30 segundos.',
+    {
+      elemento: 'actualizar',
+      titulo: 'Comprobar nuevamente',
+      descripcion:
+        'Este botón vuelve a consultar al servidor. Se deshabilita durante la solicitud para evitar duplicados. La página también actualiza la comprobación cada 30 segundos. Si el servicio sigue fallando, informa al administrador.',
     },
-  },
-];
-
-export function iniciarAyudaSalud() {
-  driver({
-    steps: pasos,
-    showProgress: true,
-    nextBtnText: 'Siguiente',
-    prevBtnText: 'Anterior',
-    doneBtnText: 'Entendido',
-    progressText: '{{current}} de {{total}}',
-  }).drive();
-}
+  ],
+};

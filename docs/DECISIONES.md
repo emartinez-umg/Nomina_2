@@ -95,3 +95,23 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   headers reenviados. Escalado a varias réplicas requiere almacenamiento/clave previa compartidos.
 - Integración Supertest contra un esquema Oracle N2SEC desechable, sin tocar datos de aplicación;
   inyección real de fallo de auditoría verifica rollback. No se adelantan pantallas ni CRUD de empleados.
+
+## FASE 3 — Frontend y autenticación visual
+
+- Las 38 páginas del mockup se revisan antes de implementar. Se refina el muestreo de paleta
+  (marca #1d395e, primario #28622a y fondo #f4f4f4) y se extrae su emblema. La fuente sigue siendo
+  una aproximación de sistema; no se incorpora una familia externa sin referencia comprobable.
+- El login usa usuario para respetar la API existente. Google/recordarme/registro no tienen
+  soporte en FASE 2 y no se presentan como acciones disponibles. Marca neutra Nómina hasta
+  que exista configuración de empresa. Detalles visuales y contratos en FRONTEND.md.
+- Guards de cliente complementan los del servidor. La identidad viene de /auth/sesion;
+  el token CSRF permanece en memoria y las cookies son del servidor. No hay polling que
+  mantenga viva una sesión inactiva ni repetición automática de escrituras.
+- Los módulos futuros quedan deshabilitados con explicación, sin estadísticas, contadores
+  ni empleados inventados. La búsqueda superior filtra secciones, no datos privados.
+- DateField usa react-day-picker con límites y restricciones recibidas; las reglas de negocio
+  futuras obtendrán horarios, feriados y periodos reales de la API. MoneyField usa Decimal.
+- UI controlada y Table con callbacks de paginación/orden en servidor. React Hook Form + Zod
+  en autenticación; errores del backend solo se asignan a campos expresamente permitidos.
+- El recorrido se ofrece en primera visita y se puede reiniciar. Únicamente esa preferencia
+  se guarda en localStorage, separada por página y rol.

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { HelpProvider } from '../../../components/help/HelpProvider';
 import { SaludPage } from './SaludPage';
 
 const exito = {
@@ -13,7 +14,9 @@ function mostrar() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(
     <QueryClientProvider client={client}>
-      <SaludPage />
+      <HelpProvider>
+        <SaludPage />
+      </HelpProvider>
     </QueryClientProvider>,
   );
 }

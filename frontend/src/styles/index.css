@@ -1,31 +1,569 @@
 @import 'tailwindcss';
+@import 'react-day-picker/style.css';
 @config '../../tailwind.config.ts';
 
 @layer base {
   body {
     @apply m-0 bg-fondo font-sans text-texto antialiased;
   }
-
   :focus-visible {
-    @apply outline outline-2 outline-offset-4 outline-marca;
+    @apply outline-2 outline-offset-4 outline-marca;
   }
-
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+  button:not(:disabled),
+  a {
+    cursor: pointer;
+  }
   button:disabled {
-    @apply cursor-wait opacity-70;
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+  h1 {
+    @apply text-4xl font-bold;
+  }
+  h2 {
+    @apply text-xl font-bold;
   }
 }
-
 @layer components {
+  .boton {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-control px-4 py-2 text-sm font-bold transition-colors;
+  }
+  .boton-primario,
+  .boton-primario:disabled {
+    @apply bg-primario text-white;
+  }
+  .boton-primario:hover:not(:disabled) {
+    background: #1d4d20;
+  }
+  .boton-secundario {
+    @apply border border-borde bg-superficie text-marca;
+  }
+  .boton-peligro {
+    @apply bg-peligro text-white;
+  }
+  .boton-texto {
+    @apply text-marca;
+  }
+  .boton-texto:hover:not(:disabled) {
+    @apply bg-informacion;
+  }
+  .boton-icono {
+    @apply h-10 w-10 shrink-0 p-2;
+  }
   .boton-primario {
-    @apply inline-flex items-center justify-center gap-2 rounded-boton bg-primario px-5 py-3 font-bold text-white transition-colors hover:bg-marca;
+    @apply shadow-sm;
+  }
+  .tarjeta {
+    @apply rounded-tarjeta bg-superficie p-6 shadow-tarjeta;
+  }
+  .tooltip {
+    @apply relative inline-flex max-w-full;
+  }
+  .tooltip-contenido {
+    @apply pointer-events-none fixed z-[10001] w-max max-w-[min(16rem,calc(100vw-1rem))] rounded-control bg-marca px-3 py-2 text-left text-xs font-normal text-white shadow-tarjeta;
+  }
+  .badge {
+    @apply inline-flex rounded-boton px-3 py-1 text-xs font-bold;
+  }
+  .badge-correcto {
+    @apply bg-suave text-primario;
+  }
+  .badge-peligro {
+    @apply bg-red-50 text-peligro;
+  }
+  .badge-aviso {
+    @apply bg-amber-50 text-aviso;
+  }
+  .badge-informacion {
+    @apply bg-informacion text-marca;
+  }
+  .modal {
+    @apply m-auto w-[min(92vw,32rem)] rounded-tarjeta border-0 bg-superficie p-6 text-marca shadow-tarjeta;
+  }
+  .modal::backdrop {
+    background: rgb(15 30 50 / 55%);
+  }
+  .estado-vacio {
+    @apply flex flex-col items-center gap-3 py-8 text-center text-secundario;
+  }
+  .estado-vacio h2 {
+    @apply text-marca;
+  }
+  .estado-vacio p {
+    @apply max-w-md text-sm leading-relaxed;
+  }
+  .toasts {
+    @apply fixed right-4 bottom-4 z-[10000] flex max-w-[calc(100vw-2rem)] flex-col gap-3;
+  }
+  .toast {
+    @apply flex max-w-md items-center gap-3 rounded-tarjeta border border-borde p-4 shadow-tarjeta;
+  }
+  .toast > svg {
+    @apply shrink-0;
+  }
+  .table-scroll {
+    @apply overflow-x-auto;
+  }
+  table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+  th {
+    @apply bg-informacion font-bold;
+  }
+  th,
+  td {
+    @apply border-b border-borde px-3 py-3;
+  }
+  tbody tr:nth-child(even) {
+    @apply bg-fondo;
+  }
+  .paginacion {
+    @apply mt-4 flex flex-wrap items-center justify-between gap-4 text-sm text-secundario;
+  }
+  .tabs {
+    @apply mb-6 flex gap-2 overflow-x-auto border-b border-borde;
+  }
+  .tabs button {
+    @apply flex items-center gap-2 rounded-t-control px-4 py-3;
+  }
+  .tabs button[aria-selected='true'] {
+    @apply border-b-2 border-primario bg-suave font-bold text-primario;
+  }
+  .breadcrumbs {
+    @apply mt-2 mb-6 flex flex-wrap gap-2 text-sm text-secundario;
+  }
+  .breadcrumbs li {
+    @apply flex items-center gap-2;
+  }
+  .breadcrumbs a:hover {
+    @apply underline;
+  }
+  .form-grid {
+    @apply grid grid-cols-12 gap-x-5 gap-y-5;
+  }
+  .campo {
+    @apply relative col-span-12 min-w-0;
+  }
+  .campo-etiqueta {
+    @apply mb-2 flex items-center gap-2 text-sm font-bold;
+  }
+  .campo-etiqueta label > span {
+    @apply text-peligro;
+  }
+  .campo-etiqueta .tooltip {
+    @apply text-secundario;
+  }
+  .control-grupo {
+    @apply flex min-h-11 items-center rounded-control border border-borde bg-superficie;
+  }
+  .control-grupo:focus-within {
+    @apply border-marca ring-1 ring-marca;
+  }
+  .control-grupo input {
+    @apply min-w-0 w-full rounded-control bg-transparent px-3 py-2.5 outline-none;
+  }
+  .control-grupo input:focus-visible {
+    @apply outline-none;
+  }
+  input:disabled,
+  textarea:disabled {
+    @apply cursor-not-allowed bg-fondo text-secundario;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: #697769;
+    opacity: 1;
+  }
+  .control-prefijo {
+    @apply pl-3 font-bold text-primario;
+  }
+  .control-error,
+  .control-grupo:has([aria-invalid='true']) {
+    @apply border-peligro;
+  }
+  .campo-hint {
+    @apply mt-1.5 text-xs leading-relaxed text-secundario;
+  }
+  .campo-error {
+    @apply mt-1.5 text-sm text-peligro;
+  }
+  textarea {
+    @apply w-full rounded-control border border-borde bg-superficie p-3;
+  }
+  textarea[aria-invalid='true'] {
+    @apply border-peligro;
+  }
+  .select-opciones {
+    @apply absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-control border border-borde bg-superficie py-1 shadow-tarjeta;
+  }
+  .select-opciones li {
+    @apply cursor-pointer px-3 py-2 text-sm;
+  }
+  .select-opciones li:hover,
+  .select-opciones .opcion-activa {
+    @apply bg-informacion;
+  }
+  .select-opciones [aria-selected='true'] {
+    @apply font-bold text-primario;
+  }
+  .calendario {
+    @apply z-20 mt-2 w-fit max-w-[calc(100vw-2rem)] rounded-control border border-borde bg-superficie p-3 shadow-tarjeta;
+    --rdp-accent-color: #28622a;
+    --rdp-accent-background-color: #e8f0e8;
+  }
+  .resumen-error {
+    @apply rounded-control border border-peligro bg-red-50 p-3 text-sm text-peligro;
+  }
+  .alerta {
+    @apply mb-5 rounded-control bg-informacion p-3 text-sm;
+  }
+  .auth-pagina {
+    @apply relative min-h-screen bg-superficie;
+  }
+  .auth-marca {
+    @apply absolute top-0 left-0 flex h-[94vh] w-[47%] flex-col items-center px-8 pb-14 pt-[6vh] text-center;
+  }
+  .auth-curva {
+    @apply pointer-events-none absolute inset-0 h-full w-full;
+    filter: drop-shadow(0 8px 7px rgb(0 0 0 / 15%));
+  }
+  .auth-marca > img,
+  .auth-marca > h1,
+  .auth-marca > p {
+    position: relative;
+  }
+  .auth-marca img {
+    width: min(68%, 28rem);
+    max-height: 57vh;
+    object-fit: contain;
+  }
+  .auth-marca h1 {
+    @apply mt-5 text-5xl;
+  }
+  .auth-marca p {
+    @apply mt-3 text-lg;
+  }
+  .auth-ayuda {
+    @apply absolute top-3 right-5 z-10;
+  }
+  .auth-contenedor {
+    @apply ml-[47%] flex min-h-screen flex-col items-center justify-center px-8 py-20;
+  }
+  .auth-panel {
+    @apply w-full max-w-xl bg-fondo px-10 py-10 shadow-tarjeta;
+  }
+  .auth-panel h2 {
+    @apply text-center text-4xl font-normal;
+  }
+  .auth-intro {
+    @apply mt-3 mb-6 text-center text-sm text-secundario;
+  }
+  .formulario-login {
+    @apply flex flex-col gap-5;
+  }
+  .formulario-login .campo-etiqueta {
+    @apply text-base;
+  }
+  .formulario-login > .boton {
+    @apply rounded-boton py-3;
+  }
+  .auth-soporte {
+    @apply mt-7 text-center text-sm leading-7;
+  }
+  .auth-soporte strong {
+    @apply text-primario;
+  }
+  .app-shell {
+    @apply min-h-screen;
+  }
+  .sidebar {
+    @apply fixed inset-y-0 left-0 z-40 flex w-sidebar flex-col bg-marca text-white;
+  }
+  .sidebar-logo {
+    @apply mb-3 flex h-28 shrink-0 items-center justify-center bg-[#c6c6c6];
+    border-bottom-right-radius: 50% 80%;
+    border-bottom-left-radius: 50% 35%;
+  }
+  .sidebar-logo img {
+    @apply h-24 w-24 object-contain;
+  }
+  .sidebar nav {
+    @apply flex-1 overflow-y-auto px-2;
+  }
+  .sidebar .tooltip {
+    @apply w-full;
+  }
+  .nav-item {
+    @apply my-1 flex min-h-10 w-full items-center gap-3 rounded-sm px-3 py-2 text-left text-base text-white;
+  }
+  .nav-activo {
+    @apply bg-primario;
+  }
+  .nav-item:disabled {
+    opacity: 0.8;
+  }
+  .sidebar-salir {
+    @apply border-t-2 border-[#91b69b] px-5 py-5;
+  }
+  .sidebar-salir .boton {
+    @apply text-white;
+  }
+  .sidebar-salir .boton:hover {
+    @apply bg-primario;
+  }
+  .app-cuerpo {
+    @apply ml-sidebar;
+  }
+  .barra-superior {
+    @apply sticky top-0 z-30 flex h-cabecera items-center justify-between gap-4 bg-superficie px-6 shadow-barra;
+  }
+  .buscador-global {
+    @apply relative flex w-72 items-center gap-2 text-secundario;
+  }
+  .buscador-global input {
+    @apply min-w-0 w-full rounded-control px-2 py-2 text-sm;
+  }
+  .buscador-resultados {
+    @apply absolute top-full left-0 z-40 mt-3 flex w-80 max-w-[85vw] flex-col gap-1 rounded-control border border-borde bg-superficie p-3 shadow-tarjeta;
+  }
+  .barra-acciones {
+    @apply flex shrink-0 items-center gap-3;
+  }
+  .panel-ancla {
+    @apply relative;
+  }
+  .panel-flotante {
+    @apply absolute top-full right-0 z-40 mt-3 w-80 max-w-[90vw] break-words rounded-control border border-borde bg-superficie p-5 shadow-tarjeta;
+  }
+  .panel-flotante p {
+    @apply mt-2 text-sm text-secundario;
+  }
+  .usuario-boton {
+    @apply flex items-center gap-3 rounded-control p-1 text-left;
+  }
+  .usuario-texto {
+    @apply flex flex-col text-sm;
+  }
+  .usuario-texto small {
+    @apply mt-1 text-xs;
+  }
+  .avatar {
+    @apply flex h-11 w-11 items-center justify-center rounded-full bg-marca text-sm font-bold text-white;
+  }
+  .app-contenido h1 {
+    font-size: 3rem;
+  }
+  .app-contenido {
+    @apply px-7 py-8;
+  }
+  .banda-informativa {
+    @apply flex items-center gap-3 rounded-md bg-suave px-5 py-4 font-bold text-primario;
+  }
+  .accesos-grid {
+    @apply mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-16;
+  }
+  .acceso-tarjeta {
+    @apply flex min-h-[25rem] flex-col items-center justify-center gap-4 px-6 py-8 text-center;
+  }
+  .acceso-icono {
+    @apply h-28 w-28 text-primario;
+    stroke-width: 1.8;
+  }
+  .acceso-tarjeta h2 {
+    @apply text-2xl;
+  }
+  .acceso-tarjeta p {
+    @apply max-w-xs text-sm text-secundario;
+  }
+  .acceso-tarjeta > .tooltip {
+    width: 100%;
+  }
+  .acceso-tarjeta .boton {
+    @apply mt-3 w-full;
+  }
+  .enlace-icono {
+    @apply inline-flex items-center gap-2 text-sm underline;
+  }
+  .oferta-ayuda {
+    @apply fixed right-5 bottom-5 z-40 flex max-w-lg flex-col gap-3 rounded-tarjeta border border-borde bg-superficie p-5 shadow-tarjeta;
+  }
+  .oferta-ayuda p {
+    @apply mt-1 text-sm text-secundario;
+  }
+  .menu-movil {
+    display: none;
+  }
+  .sidebar-fondo {
+    @apply fixed inset-0 z-40 bg-black/40;
+  }
+  .ayuda-popover {
+    font-family: 'Trebuchet MS', Arial, sans-serif;
+    color: #1d395e;
+  }
+  .ayuda-popover button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .ayuda-popover .driver-popover-close-btn {
+    justify-content: center;
+  }
+  .ayuda-popover .driver-popover-title {
+    color: #1d395e;
+  }
+  .ayuda-popover .driver-popover-next-btn {
+    background: #28622a;
+    color: white;
+    text-shadow: none;
   }
 }
-
+@media (min-width: 768px) {
+  .campo-corto {
+    grid-column: span 4;
+  }
+  .campo-medio {
+    grid-column: span 6;
+  }
+  .campo-ancho {
+    grid-column: span 12;
+  }
+}
+@media (max-width: 1023px) {
+  .sidebar {
+    width: 13rem;
+  }
+  .app-cuerpo {
+    margin-left: 13rem;
+  }
+  .usuario-texto {
+    display: none;
+  }
+  .auth-panel {
+    padding: 2rem;
+  }
+  .auth-marca h1 {
+    font-size: 2.5rem;
+  }
+}
+@media (max-width: 767px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar-abierto {
+    transform: translateX(0);
+  }
+  .app-cuerpo {
+    margin-left: 0;
+  }
+  .menu-movil {
+    display: inline-flex;
+  }
+  .barra-superior {
+    padding: 0.5rem;
+    gap: 0.25rem;
+  }
+  .barra-acciones {
+    gap: 0.1rem;
+  }
+  .buscador-global {
+    flex: 1;
+    width: auto;
+  }
+  .buscador-global > svg {
+    display: none;
+  }
+  .barra-acciones .boton {
+    padding: 0.5rem;
+    font-size: 0;
+    gap: 0;
+  }
+  .usuario-boton {
+    gap: 0.25rem;
+  }
+  .usuario-boton > svg {
+    display: none;
+  }
+  .avatar {
+    width: 2rem;
+    height: 2rem;
+  }
+  .app-contenido {
+    padding: 1.5rem 1rem;
+  }
+  h1,
+  .app-contenido h1 {
+    font-size: 2rem;
+  }
+  .accesos-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .acceso-tarjeta {
+    min-height: 15rem;
+  }
+  .auth-curva {
+    display: none;
+  }
+  .auth-marca {
+    position: relative;
+    width: 100%;
+    height: auto;
+    background: #f4f4f4;
+    padding: 1rem;
+    border: 0;
+    border-bottom: 0.5rem solid #1d395e;
+    border-radius: 0 0 35% 0;
+    flex-direction: row;
+    gap: 1rem;
+    justify-content: start;
+  }
+  .auth-marca img {
+    width: 3.5rem;
+    height: 4rem;
+  }
+  .auth-marca h1 {
+    margin: 0;
+    font-size: 1.75rem;
+  }
+  .auth-marca p {
+    display: none;
+  }
+  .auth-contenedor {
+    margin-left: 0;
+    min-height: auto;
+    padding: 1.5rem 1rem 7rem;
+  }
+  .auth-panel {
+    padding: 1.5rem;
+  }
+  .auth-panel h2 {
+    font-size: 1.8rem;
+  }
+  .auth-ayuda {
+    top: 1.5rem;
+    right: 0.5rem;
+  }
+  .oferta-ayuda {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    max-width: none;
+    padding: 1rem;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

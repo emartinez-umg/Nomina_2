@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 2 completada. Los registros de FASES 0 y 1 se conservan como historial; consultar
-la sección FASE 2 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 3 completada. Los registros de FASES 0–2 se conservan como historial; consultar
+la sección FASE 3 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -277,3 +277,94 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 6. Para el flujo HTTP manual: GET /api/auth/csrf, POST /api/auth/login con cookies/header CSRF,
    POST /api/auth/cambiar-contrasena; después consultar /api/usuarios y /api/auditoria como ADMIN.
 7. Contratos, filtros, errores y helpers para próximas fases: docs/SEGURIDAD.md.
+
+## FASE 3 — Base visual del frontend y autenticación
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- Leídos AGENTS.md y PROGRESO.md y estudiadas las 38 páginas de MOCKUP antes de escribir código.
+  Muestreo refinado de colores, tokens de fuente/radios/sombras/espacios y consumo desde Tailwind.
+  Emblema extraído del PDF; login con panel curvo, sidebar azul, acciones verdes y tarjetas blancas.
+- UI reutilizable: Button con icono obligatorio y mapa único, Card, Modal/ConfirmModal, Tooltip,
+  Badge, Table con callbacks de página/orden en servidor, Skeleton, EmptyState, Toast, Tabs,
+  Breadcrumbs y NotificationBell con contador opcional (sin inventar un valor en el producto).
+- Campos controlados: TextField, NumberField, MoneyField/CurrencyField, DateField, DpiField,
+  NitField, PhoneField, EmailField, SelectField con búsqueda, TextAreaField, FileField y resumen
+  de errores. Etiqueta/obligatorio/hint/tooltip, máscaras, bloqueo y saneo, límites, aria y anchos
+  proporcionales en grilla de 12 columnas. Validación al salir y errores de servidor por campo.
+- Validadores Zod y utilidades de DPI, NIT módulo 11, teléfono, correo, política y fechas coherentes:
+  edad configurable, ingreso/egreso, rangos/traslapes, horarios/feriados, vacaciones, periodos
+  cerrados y eventos. El calendario deshabilita límites y restricciones recibidas por props.
+- Login y cambio obligatorio contra la API de FASE 2; redirecciones ADMIN /admin, RH /rh y
+  EMPLEADO /mis-gestiones. Guards por sesión/rol/cambio obligatorio; manejo de expiración y red.
+- Cliente HTTP tipado con Zod, cookies del mismo origen, CSRF en memoria y rotación/recuperación,
+  timeouts y errores en español. TanStack Query para sesión y mutaciones; no reintenta escrituras.
+  La caché privada se limpia al cambiar identidad/cerrar/expirar; sin polling de sesión.
+- Sidebar por rol, buscador funcional de secciones, campana/panel UI, menú de cuenta real, logout,
+  acceso móvil y ayuda global. Accesos de módulos futuros deshabilitados con explicación.
+- Framework driver.js declarativo por página/rol, oferta en primera visita y repetición manual.
+  Recorridos de login, cambio obligatorio, layout por rol y salud; iconos desde el mapa común.
+- Documentación FRONTEND.md, README y decisiones actualizados. No se cambia la API ni el esquema
+  de aplicación, ni se implementan CRUD/cálculos/reportes de fases posteriores.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier y git diff --check sin errores; builds backend/frontend correctos.
+- 129 pruebas unitarias/integración ligera aprobadas: 67 backend y 62 frontend. Incluyen máscaras,
+  saneo al pegar, NIT con K, años bisiestos/edades/límites/traslapes, calendarios, select por teclado,
+  archivos, moneda Decimal, tabla, tabs, contador accesible, ayuda, CSRF, errores y guards.
+- Frontend construido y probado también en Docker con Node 20. npm ci/auditoría: 0 vulnerabilidades.
+- Chromium real con API Express y Oracle thin en esquema N2UI temporal: login de los tres roles,
+  cambio obligatorio/rotación, recarga autenticada, redirección de EMPLEADO al intentar /admin,
+  vencimiento provocado en Oracle y retorno al login, logout y recorridos de login/layout.
+- Revisión visual de login, layout y portal móvil a 390 px; sin desbordamiento horizontal ni errores
+  de JavaScript. Panel de notificaciones abre/cierra sin simular mensajes ni contadores.
+- Esquema de prueba y procesos temporales eliminados; las credenciales/cuentas reales se conservan.
+
+### Decisiones
+
+- Los tokens refinados sustituyen las aproximaciones de FASE 0; la fuente sigue siendo una
+  aproximación por falta de metadatos del mockup. Se documentan medidas y paleta en FRONTEND.md.
+- Login por usuario, según contrato del backend. No se agregan Google/recordarme/registro ni
+  recuperación pública que la API no soporta. El administrador restablece la contraseña.
+- La primera visita ofrece el tour, sin forzar a completar el recorrido. Solo esa preferencia
+  se guarda en localStorage; sesión y CSRF no se almacenan allí.
+- Se conserva /salud como excepción técnica pública, con componentes/ayuda del sistema.
+- Las tarjetas de inicio son accesos estáticos según rol; su estado pendiente es explícito.
+  Los módulos se conectarán a sus endpoints reales en las fases correspondientes.
+
+### Supuestos
+
+- Marca neutra Nómina hasta que la configuración de empresa esté disponible; no se usan los
+  nombres de empresa/personas/cifras ilustrativos del PDF como datos de aplicación.
+- DPI exige formato de 13 dígitos; NIT verifica módulo 11. No se consulta existencia/identidad
+  en RENAP/SAT. Datos personales de prueba existen únicamente en fixtures y esquemas desechables.
+- DateField recibe restricciones reales por props; los próximos CRUD deben suministrar parámetros,
+  horarios, feriados, rangos existentes y periodos cerrados desde la API. La validación del servidor
+  será obligatoria al implementar esos módulos. No se inventan estos datos en FASE 3.
+- FileField verifica formato declarado/tamaño; su endpoint futuro verificará contenido.
+- Se mantiene HTTPS obligatorio para cookies Secure en producción. HTTP local se prueba con
+  NODE_ENV=development y Vite; no se debilita la seguridad del Compose.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE 3.
+- Para próximas fases según solicitud: conectar los accesos de negocio a sus CRUD, filtros,
+  exportaciones, notificaciones reales, dashboards y recorridos específicos; actualmente deshabilitados.
+- Se mantienen las validaciones operativas de RRHH de FASE 1 y la configuración HTTPS de despliegue
+  registrada en FASE 2 antes del uso real.
+
+### Cómo probar
+
+1. Oracle saludable y Node 20: npm ci; si corresponde, npm run db:setup con .env configurado.
+2. NODE_ENV=development npm run dev; abrir http://localhost:5173/login.
+3. Entrar con ADMIN_USER/ADMIN_PASSWORD de .env y cambiar la contraseña si es el primer acceso.
+   El seed no restablece una contraseña cambiada. Probar ayuda, recarga, menú, búsqueda y logout.
+4. npm run lint, npm test, npm run typecheck, npm run build y npm run format:check.
+5. Docker Node 20: docker build --target build -f frontend/Dockerfile -t nomina2-frontend-tests .
+   y docker run --rm nomina2-frontend-tests npm test -w frontend.
+6. docker compose up --build sirve el frontend de producción; la autenticación requiere HTTPS.
+   npm run verify:infra comprueba Oracle/API/nginx y las rutas/bundles de React.
+7. Contratos y extensión de componentes/campos/tours: docs/FRONTEND.md y docs/SEGURIDAD.md.

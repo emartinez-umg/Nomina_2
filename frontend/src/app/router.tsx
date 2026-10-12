@@ -1,8 +1,36 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { SaludPage } from '../features/salud/pages/SaludPage';
-
-export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/salud" replace /> },
+import { LoginPage } from '../features/auth/pages/LoginPage';
+import { CambioContrasenaPage } from '../features/auth/pages/CambioContrasenaPage';
+import { InicioPage } from '../features/inicio/pages/InicioPage';
+import { AppLayout } from '../components/layout/AppLayout';
+import { Entrada, RequireSession, SessionGate } from './guards';
+import { Outlet } from 'react-router-dom';
+export const rutas = [
   { path: '/salud', element: <SaludPage /> },
-  { path: '*', element: <Navigate to="/salud" replace /> },
-]);
+  {
+    element: (
+      <SessionGate>
+        <Outlet />
+      </SessionGate>
+    ),
+    children: [
+      { path: '/login', element: <LoginPage /> },
+      {
+        element: <RequireSession permitirCambio />,
+        children: [{ path: '/cambiar-contrasena', element: <CambioContrasenaPage /> }],
+      },
+      ...(['ADMIN', 'RH', 'EMPLEADO'] as const).map((rol, i) => ({
+        element: <RequireSession roles={[rol]} />,
+        children: [
+          {
+            element: <AppLayout />,
+            children: [{ path: ['/admin', '/rh', '/mis-gestiones'][i]!, element: <InicioPage /> }],
+          },
+        ],
+      })),
+      { path: '*', element: <Entrada /> },
+    ],
+  },
+];
+export const router = createBrowserRouter(rutas);

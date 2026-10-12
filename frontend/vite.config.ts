@@ -10,6 +10,16 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     envDir: raiz,
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom', 'react-router-dom'],
+            formularios: ['react-hook-form', '@hookform/resolvers/zod', 'zod'],
+          },
+        },
+      },
+    },
     server: {
       port: 5173,
       strictPort: true,

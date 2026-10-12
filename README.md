@@ -1,6 +1,6 @@
 # nomina2
 
-Sistema de nómina: infraestructura, base de datos y seguridad del backend completas (FASES 0, 1 y 2). Monorepo con npm workspaces, Express + TypeScript strict,
+Sistema de nómina: infraestructura, base de datos, seguridad y base visual del frontend completas (FASES 0–3). Monorepo con npm workspaces, Express + TypeScript strict,
 React 18 + Vite + Tailwind y Oracle 21c XE mediante node-oracledb thin.
 Repositorio: [emartinez-umg/Nomina_2](https://github.com/emartinez-umg/Nomina_2).
 
@@ -35,7 +35,7 @@ Los puertos publicados están limitados a la máquina local. No se necesita Inst
 El ADMIN inicial usa `ADMIN_USER`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` de `.env`; la contraseña queda
 hasheada con argon2id y `CAMBIO_OBLIGATORIO=1`. La API ya permite login, cambio obligatorio,
 logout, gestión de usuarios ADMIN y consulta de bitácora. Consultar [seguridad y endpoints](docs/SEGURIDAD.md)
-para el flujo CSRF, permisos, cookies y pruebas. Las pantallas de autenticación pertenecen a otra fase.
+para el flujo CSRF, permisos, cookies y pruebas. El login, el cambio obligatorio y el layout por rol están disponibles; consultar la [guía del frontend](docs/FRONTEND.md). Para probar autenticación por HTTP local: `NODE_ENV=development npm run dev` y abrir [el login](http://localhost:5173/login). Compose conserva cookies Secure y requiere HTTPS para autenticación.
 
 ## Variables de entorno
 

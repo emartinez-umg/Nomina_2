@@ -1,12 +1,14 @@
 import { iconos } from '../../../components/ui/icons';
 import { useSalud } from '../hooks/useSalud';
-import { iniciarAyudaSalud } from '../help/pasos';
+import { ayudaSalud } from '../help/pasos';
+import { HelpButton, HelpOffer, usePageHelp } from '../../../components/help/HelpProvider';
 
-const { salud: Actividad, baseDatos: BaseDatos, ayuda: Ayuda, actualizar: Actualizar } = iconos;
+const { salud: Actividad, baseDatos: BaseDatos, actualizar: Actualizar } = iconos;
 const { correcto: Correcto, error: ErrorIcono } = iconos;
 
 export function SaludPage() {
   const consulta = useSalud();
+  usePageHelp(ayudaSalud);
   return (
     <div className="min-h-screen">
       <header className="border-b border-borde bg-superficie">
@@ -14,13 +16,7 @@ export function SaludPage() {
           <span className="flex items-center gap-3 text-xl font-bold text-marca">
             <Actividad aria-hidden="true" /> nomina2
           </span>
-          <button
-            type="button"
-            onClick={iniciarAyudaSalud}
-            className="flex items-center gap-2 rounded-boton border border-borde px-4 py-2 font-bold text-marca"
-          >
-            <Ayuda size={18} aria-hidden="true" /> Ayuda
-          </button>
+          <HelpButton />
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-5 py-10 sm:py-16">
@@ -100,6 +96,7 @@ export function SaludPage() {
           </div>
         </section>
       </main>
+      <HelpOffer />
     </div>
   );
 }
