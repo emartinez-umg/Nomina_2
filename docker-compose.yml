@@ -1,0 +1,71 @@
+name: nomina2
+
+services:
+  nomina2-db:
+    image: gvenzl/oracle-xe:21-slim
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:?Configura ORACLE_PASSWORD en .env}
+      APP_USER: ${DB_USER:?Configura DB_USER en .env}
+      APP_USER_PASSWORD: ${DB_PASSWORD:?Configura DB_PASSWORD en .env}
+      TZ: ${TZ:-America/Guatemala}
+    ports:
+      - '127.0.0.1:${DB_PORT:-1521}:1521'
+    volumes:
+      - nomina2-oradata:/opt/oracle/oradata
+      - ./db/init:/container-entrypoint-initdb.d:ro
+    shm_size: '1gb'
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh']
+      interval: 10s
+      timeout: 10s
+      start_period: 120s
+      retries: 60
+
+  nomina2-api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_CONNECT_STRING: nomina2-db:1521/XEPDB1
+    ports:
+      - '127.0.0.1:${API_PORT:-3000}:3000'
+    depends_on:
+      nomina2-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/salud').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+
+  nomina2-web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${WEB_PORT:-8080}:80'
+    depends_on:
+      nomina2-api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  nomina2-oradata:

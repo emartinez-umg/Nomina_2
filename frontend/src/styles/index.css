@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+@config '../../tailwind.config.ts';
+
+@layer base {
+  body {
+    @apply m-0 bg-fondo font-sans text-texto antialiased;
+  }
+
+  :focus-visible {
+    @apply outline outline-2 outline-offset-4 outline-marca;
+  }
+
+  button:disabled {
+    @apply cursor-wait opacity-70;
+  }
+}
+
+@layer components {
+  .boton-primario {
+    @apply inline-flex items-center justify-center gap-2 rounded-boton bg-primario px-5 py-3 font-bold text-white transition-colors hover:bg-marca;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
