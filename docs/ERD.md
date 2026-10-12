@@ -1,7 +1,7 @@
 # Modelo Oracle — FASE 1
 
 53 tablas de negocio, más `VERSION_ESQUEMA` y `PRUEBA_INFRAESTRUCTURA` conservadas de FASE 0.
-Las migraciones V001–V013 se agrupan por dominio y se ejecutan después de V000. Los diagramas
+Las migraciones V001–V014 se agrupan por dominio y se ejecutan después de V000. Los diagramas
 incluyen referencias entre dominios; se omiten las flechas de auditoría para facilitar su lectura.
 El SQL de `db/migrations/` es la definición exacta de nulabilidad, valores por defecto y restricciones.
 
@@ -786,3 +786,30 @@ HISTORIAL_SALARIAL y EMPLEADO_HORARIO en una transacción; el salario no se dupl
 CARGAS_MASIVAS/CARGA_MASIVA_FILAS conservan validación y resultados sin contraseñas. Baja lógica
 y cambios de vigencia preservan relaciones y auditoría. Bancos y centros se administran con el CRUD
 de catálogos existente. Contratos operativos en [EMPLEADOS.md](EMPLEADOS.md).
+
+## Extensión de novedades — FASE 6
+
+V014 añade HORAS_EXTRA.JORNADA VARCHAR2(10), con CHECK DIURNA/MIXTA/NOCTURNA e índice.
+La columna admite null exclusivamente para conservar registros previos; nuevas capturas exigen jornada.
+AUSENCIAS incorpora SOPORTE BLOB, SOPORTE_NOMBRE VARCHAR2(150) y SOPORTE_TIPO VARCHAR2(30),
+con CHECK de metadatos. El servicio valida hasta 1 MiB y PDF/PNG/JPEG antes de escribir.
+No se añade una tabla: siguen 53 tablas de negocio y 15 migraciones V000–V014.
+Se indexan rangos por empleado, montos/saldos/cuotas y horas/jornada; db/filtros.json actualizado.
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ DESCUENTOS_EMPLEADO : tiene
+  TIPOS_DESCUENTO ||--o{ DESCUENTOS_EMPLEADO : clasifica
+  DESCUENTOS_EMPLEADO ||--o| PRESTAMOS : origina
+  DESCUENTOS_EMPLEADO ||--o{ DESCUENTOS_CUOTAS : programa
+  DESCUENTOS_CUOTAS ||--o{ DESCUENTOS_APLICACIONES : cobra
+  NOMINA_EMPLEADO ||--o{ DESCUENTOS_APLICACIONES : registra
+  PERIODOS_NOMINA ||--o{ COMISIONES : agrupa
+  PERIODOS_NOMINA ||--o{ HORAS_EXTRA : agrupa
+  EMPLEADOS ||--o{ AUSENCIAS : registra
+  TIPOS_AUSENCIA ||--o{ AUSENCIAS : determina_efecto
+```
+
+Captura y auditoría comparten transacción; los servicios comprueban saldos, traslapes y cierres.
+La primitiva de cobro actualiza aplicaciones, cuota y acuerdo; saldo cero liquida el acuerdo.
+El cálculo/reversión de nómina y los snapshots permanecen para Fase 8. Contrato: NOVEDADES.md.

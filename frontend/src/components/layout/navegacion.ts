@@ -8,6 +8,12 @@ export interface Acceso {
 }
 const compartidos: Acceso[] = [
   {
+    titulo: 'Novedades',
+    icono: 'planilla',
+    ruta: '/novedades',
+    descripcion: 'Descuentos, préstamos, comisiones, horas extra y ausencias.',
+  },
+  {
     titulo: 'Catálogos',
     icono: 'configuracion',
     ruta: '/catalogos',

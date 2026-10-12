@@ -153,7 +153,7 @@ efímero local. Los dobles de Oracle/fetch existen únicamente en pruebas; la ap
 Oracle real.
 
 `db:verify` requiere Node 20, `npm ci`, `.env` y Oracle saludable en Compose. Crea un usuario temporal
-aleatorio `N2TEST_*` dentro de XEPDB1, aplica V000–V013 desde cero, ejecuta seeds dos veces y compara
+aleatorio `N2TEST_*` dentro de XEPDB1, aplica V000–V014 desde cero, ejecuta seeds dos veces y compara
 el contenido completo de las 53 tablas, incluyendo ajustes manuales y credenciales ya cambiadas.
 Comprueba identities, auditoría, compilación de triggers, restricciones, índices de todos los FK y
 filtros, argon2id, feriados, rollback de seeds, neto, vacaciones y propiedad de salario/documentos.
@@ -204,3 +204,10 @@ Guía y contratos: [docs/CATALOGOS.md](docs/CATALOGOS.md).
 RH/ADMIN: abrir `/empleados` para altas, filtros, ficha, cambios salariales, baja y carga masiva.
 Crear primero la organización y centros/horarios en Catálogos. Configurar el mínimo salarial vigente
 según la categoría de la empresa. Operación, CSV, seguridad y endpoints en [EMPLEADOS.md](docs/EMPLEADOS.md).
+
+## Novedades de nómina (Fase 6)
+
+RH/ADMIN: `/novedades` captura descuentos, préstamos/anticipos, comisiones, horas extra y ausencias.
+Incluye cuotas/saldo/amortización, valoración con parámetros vigentes, respaldo privado, filtros/CSV,
+auditoría, ayudas y protección de cierres. V014 agrega jornada y adjuntos sin reemplazar datos.
+Contratos de captura y consumo para Fase 8: [NOVEDADES.md](docs/NOVEDADES.md).

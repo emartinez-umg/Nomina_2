@@ -150,3 +150,22 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
 - Credenciales de una sola entrega, solo memoria del componente y sin caché; reporte durable sin claves.
 - SALARIO_MINIMO_MENSUAL (QUETZALES) lo configura RH según categoría y vigencia. Ausencia produce aviso;
   no se agrega un importe supuesto. Las edades provienen de los parámetros vigentes en Oracle.
+
+## FASE 6 — Novedades para planilla
+
+- Módulo único con cinco recursos, capas estrictas, schemas por recurso, listas blancas y Oracle thin.
+  Préstamos se exponen por el ID del acuerdo de descuento; PRESTAMOS solo agrega capital/desembolso/referencia.
+- Cuotas en centavos enteros y último residuo; sin interés porque no se pidió un esquema de tasas.
+  La primera cuota no es pasada; fechas de vencimiento son fin de quincena. Capturar no realiza cobros.
+- Valoración de horas por salario y parámetros vigentes a la fecha; redondeo compartido half-up al final.
+  Jornada se captura explícitamente. Fase 8 guardará snapshots y calculará el neto/prorrateo.
+- Comisión/horas crean únicamente la quincena ABIERTO ausente. No se adelanta el flujo de planilla.
+- Rango anterior y nuevo protegidos contra cierres; novedades consumidas y cuotas pagadas son inmutables.
+  Mismo orden de locks de administración/catálogos y bloqueo SHARE de periodos, con actor revalidado.
+- Ausencias usan días calendario y traslapes inclusivos contra ausencias y vacaciones vigentes.
+  Respaldo privado en BLOB de la misma fila, firma/tamaño/base64 comprobados y hash en auditoría.
+- Código/efecto de tipos ya utilizados se conservan; crear otro tipo mantiene las novedades históricas.
+- RF-21 reutiliza los CRUD de configuración existentes. La UI reutiliza tokens, iconos y componentes
+  del mockup; filtros, estados y formularios consumen exclusivamente la API real.
+- registrarCobroCuota es una primitiva interna transaccional para Fase 8; genera aplicación y
+  liquida automáticamente en cero. No se expone cobro manual ni se consume por reloj/calendario.

@@ -2,6 +2,9 @@ import { EmpleadosPage } from '../features/empleados/pages/EmpleadosPage';
 import { EmpleadoFormularioPage } from '../features/empleados/pages/EmpleadoFormulario';
 import { EmpleadoDetallePage } from '../features/empleados/pages/EmpleadoDetalle';
 import { CargaMasivaPage } from '../features/empleados/pages/CargaMasiva';
+import { NovedadesPage } from '../features/novedades/pages/NovedadesPage';
+import { NovedadFormularioPage } from '../features/novedades/pages/NovedadFormulario';
+import { NovedadDetallePage } from '../features/novedades/pages/NovedadDetalle';
 import { createBrowserRouter } from 'react-router-dom';
 import { CatalogosPage } from '../features/catalogos/pages/CatalogosPage';
 import { SaludPage } from '../features/salud/pages/SaludPage';
@@ -40,6 +43,11 @@ export const rutas = [
           {
             element: <AppLayout />,
             children: [
+              { path: '/novedades', element: <NovedadesPage /> },
+              { path: '/novedades/:tipo', element: <NovedadesPage /> },
+              { path: '/novedades/:tipo/nuevo', element: <NovedadFormularioPage /> },
+              { path: '/novedades/:tipo/:id', element: <NovedadDetallePage /> },
+              { path: '/novedades/:tipo/:id/editar', element: <NovedadFormularioPage /> },
               { path: '/empleados', element: <EmpleadosPage /> },
               { path: '/empleados/nuevo', element: <EmpleadoFormularioPage /> },
               { path: '/empleados/carga-masiva', element: <CargaMasivaPage /> },

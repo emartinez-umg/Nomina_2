@@ -22,7 +22,7 @@ export function InicioPage() {
     usuario.rol === 'ADMIN'
       ? ['Catálogos', 'Usuarios', 'Bitácora']
       : usuario.rol === 'RH'
-        ? ['Catálogos', 'Empleados', 'Planilla']
+        ? ['Catálogos', 'Empleados', 'Novedades', 'Planilla']
         : null;
   const accesos = navegacion[usuario.rol].filter(
     (a) => a.icono !== 'inicio' && (!principales || principales.includes(a.titulo)),

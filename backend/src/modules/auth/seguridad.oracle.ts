@@ -31,6 +31,7 @@ import type { ActorAuditoria, Rol } from './auth.types.js';
 import { crearEmpleadosService } from '../empleados/empleados.service.js';
 import { columnasCsv, escribirCsv } from '../empleados/empleados.csv.js';
 import { crearCatalogosService } from '../catalogos/catalogos.service.js';
+import { crearNovedadesService, registrarCobroCuota } from '../novedades/novedades.service.js';
 
 const logger = crearLogger('silent');
 let db: BaseDatos;
@@ -61,6 +62,7 @@ const crearApi = (opciones = config) =>
     {
       auth,
       empleados: crearEmpleadosService(db),
+      novedades: crearNovedadesService(db),
       catalogos: crearCatalogosService(db),
       config: opciones,
       usuarios: crearUsuariosService(db),
@@ -1426,6 +1428,512 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         .set('X-CSRF-Token', csrf)
         .send({ modalidad: 'TODO_O_NADA', confirmado: true })
         .expect(200);
+    });
+    describe('Fase 6: novedades con Oracle real', () => {
+      let idEmpleado = 0;
+      let descuento = 0;
+      let prestamo = 0;
+      let ausencia = 0;
+      let serialN = 0;
+      const fecha = '2090-01-02';
+      const motivo = 'Novedad autorizada de prueba';
+      const base = () => ({ idEmpleado, motivo });
+      const dDescuento = () => ({
+        ...base(),
+        idTipo: descuento,
+        modalidad: 'CUOTAS',
+        monto: '100.00',
+        cuotas: 3,
+        fechaInicio: fecha,
+        fechaFin: null,
+      });
+      const dPrestamo = () => ({
+        ...base(),
+        idTipo: prestamo,
+        monto: '100.00',
+        cuotas: 3,
+        fechaInicio: fecha,
+        fechaDesembolso: fecha,
+        referencia: `F6_P_${++serialN}`,
+      });
+      const dComision = () => ({
+        ...base(),
+        monto: '300.25',
+        fecha,
+        referencia: `F6_C_${++serialN}`,
+      });
+      const dHora = () => ({
+        ...base(),
+        fecha,
+        horas: '2',
+        jornada: 'DIURNA',
+        estado: 'APROBADA',
+        confirmado: true,
+      });
+      const dAusencia = () => ({
+        ...base(),
+        idTipo: ausencia,
+        fechaInicio: '2090-03-01',
+        fechaFin: '2090-03-03',
+        estado: 'APROBADA',
+        confirmado: true,
+      });
+      beforeAll(async () => {
+        const { agent, csrf } = await entrarAdmin();
+        idEmpleado = (
+          await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(datos()).expect(201)
+        ).body.data.empleado.id;
+        descuento = Number(
+          await escalar("SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='PARQUEO'"),
+        );
+        prestamo = Number(
+          await escalar("SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='PRESTAMO'"),
+        );
+        ausencia = Number(
+          await escalar(
+            "SELECT ID_TIPO_AUSENCIA FROM TIPOS_AUSENCIA WHERE CODIGO='PERMISO_SIN_GOCE'",
+          ),
+        );
+      });
+      it('protege RH/ADMIN, CSRF y schemas estrictos sin errores internos', async () => {
+        await request(app).get('/api/novedades/descuentos').expect(401);
+        const e = await entrarCuenta();
+        await e.agent.get('/api/novedades/descuentos').expect(403);
+        await e.agent.get('/api/novedades/ausencias/1/adjunto').expect(403);
+        const a = await entrarAdmin();
+        await a.agent.post('/api/novedades/descuentos').send(dDescuento()).expect(403);
+        await a.agent
+          .post('/api/novedades/comisiones')
+          .set('X-CSRF-Token', a.csrf)
+          .send({ ...dComision(), monto: 'abc' })
+          .expect(400);
+        await a.agent.get('/api/novedades/descuentos?ordenarPor=SQL').expect(400);
+      });
+      it('registra fijo, único, cuotas, amortización exacta y filtros/exportación', async () => {
+        const { agent, csrf } = await entrarCuenta('RH');
+        const d = await agent
+          .post('/api/novedades/descuentos')
+          .set('X-CSRF-Token', csrf)
+          .send(dDescuento())
+          .expect(201);
+        expect(d.body.data.saldo).toBe('100');
+        expect(d.body.data.cuotasDetalle.map((c: { monto: string }) => c.monto)).toEqual([
+          '33.33',
+          '33.33',
+          '33.34',
+        ]);
+        const lista = await agent
+          .get(
+            `/api/novedades/descuentos?idEmpleado=${idEmpleado}&modalidad=CUOTAS&saldoMin=100&montoMax=100&cuotasMin=3&desde=2090-01-01&hasta=2090-02-28`,
+          )
+          .expect(200);
+        expect(lista.body.data.registros.some((r: { id: number }) => r.id === d.body.data.id)).toBe(
+          true,
+        );
+        const unico = await agent
+          .post('/api/novedades/descuentos')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...dDescuento(), modalidad: 'UNICO', cuotas: 1 })
+          .expect(201);
+        expect(unico.body.data.cuotasDetalle).toHaveLength(1);
+        const fijo = await agent
+          .post('/api/novedades/descuentos')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...dDescuento(), modalidad: 'FIJO', cuotas: null, fechaFin: '2090-01-31' })
+          .expect(201);
+        expect(fijo.body.data.saldo).toBeNull();
+        expect(fijo.body.data.cuotasDetalle).toHaveLength(0);
+        await agent
+          .patch(`/api/novedades/descuentos/${fijo.body.data.id}`)
+          .set('X-CSRF-Token', csrf)
+          .send({
+            ...dDescuento(),
+            modalidad: 'FIJO',
+            cuotas: null,
+            fechaFin: '2090-01-31',
+            monto: '55',
+          })
+          .expect(200);
+        await agent
+          .post(`/api/novedades/descuentos/${fijo.body.data.id}/anular`)
+          .set('X-CSRF-Token', csrf)
+          .send({ motivo, confirmado: true })
+          .expect(200);
+        const csv = await agent
+          .get(`/api/novedades/descuentos/exportar?idEmpleado=${idEmpleado}`)
+          .expect(200);
+        expect(csv.body.data).toContain('Saldo');
+        expect(
+          await escalar(
+            "SELECT COUNT(*) FROM BITACORA_AUDITORIA WHERE ENTIDAD='DESCUENTOS_EMPLEADO' AND ID_ENTIDAD=:id",
+            { id: fijo.body.data.id },
+          ),
+        ).toBe(3);
+      });
+      it('valida primera cuota, importes, modalidades y referencias del préstamo', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        const past = new Date(Date.parse(hoy) - 86400000).toISOString().slice(0, 10);
+        await agent
+          .post('/api/novedades/prestamos')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...dPrestamo(), fechaInicio: past, fechaDesembolso: past })
+          .expect(422);
+        await agent
+          .post('/api/novedades/descuentos')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...dDescuento(), monto: '0.01', cuotas: 3 })
+          .expect(409);
+        await agent
+          .post('/api/novedades/descuentos')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...dDescuento(), idTipo: prestamo })
+          .expect(422);
+        const d = dPrestamo();
+        const r = await agent
+          .post('/api/novedades/prestamos')
+          .set('X-CSRF-Token', csrf)
+          .send(d)
+          .expect(201);
+        expect(r.body.data.cuotasDetalle).toHaveLength(3);
+        await agent.post('/api/novedades/prestamos').set('X-CSRF-Token', csrf).send(d).expect(409);
+        await agent
+          .post('/api/novedades/prestamos/previsualizar')
+          .set('X-CSRF-Token', csrf)
+          .send(dPrestamo())
+          .expect(200);
+        expect(
+          await escalar('SELECT COUNT(*) FROM PRESTAMOS WHERE ID_DESCUENTO_EMPLEADO=:id', {
+            id: r.body.data.id,
+          }),
+        ).toBe(1);
+        await agent
+          .post(`/api/novedades/prestamos/${r.body.data.id}/anular`)
+          .set('X-CSRF-Token', csrf)
+          .send({ motivo, confirmado: true })
+          .expect(200);
+        expect(
+          await escalar('SELECT ACTIVO FROM PRESTAMOS WHERE ID_DESCUENTO_EMPLEADO=:id', {
+            id: r.body.data.id,
+          }),
+        ).toBe(0);
+      });
+      it('carga comisiones por quincena, filtra y evita duplicar el origen', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        const d = dComision();
+        const r = await agent
+          .post('/api/novedades/comisiones')
+          .set('X-CSRF-Token', csrf)
+          .send(d)
+          .expect(201);
+        expect(r.body.data.fechaInicio).toBe('2090-01-01');
+        expect(r.body.data.fechaFin).toBe('2090-01-15');
+        await agent.post('/api/novedades/comisiones').set('X-CSRF-Token', csrf).send(d).expect(409);
+        const lista = await agent
+          .get(
+            `/api/novedades/comisiones?idEmpleado=${idEmpleado}&idPeriodo=${r.body.data.idPeriodo}&montoMin=300&buscar=Prueba`,
+          )
+          .expect(200);
+        expect(lista.body.data.total).toBeGreaterThan(0);
+        await agent
+          .patch(`/api/novedades/comisiones/${r.body.data.id}`)
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, monto: '301.25' })
+          .expect(200);
+      });
+      it('valora horas con salario/recargo vigentes y exige confirmación al aprobar', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        const d = dHora();
+        await agent
+          .post('/api/novedades/horas-extra')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, confirmado: false })
+          .expect(422);
+        const r = await agent
+          .post('/api/novedades/horas-extra')
+          .set('X-CSRF-Token', csrf)
+          .send(d)
+          .expect(201);
+        expect(r.body.data.calculo).toEqual({ valorHora: '20.83', recargo: '50', monto: '62.50' });
+        await agent
+          .post('/api/novedades/horas-extra')
+          .set('X-CSRF-Token', csrf)
+          .send(d)
+          .expect(409);
+        await agent
+          .get(`/api/novedades/horas-extra?idEmpleado=${idEmpleado}&jornada=DIURNA&horasMin=2`)
+          .expect(200);
+        const p = await agent
+          .post('/api/novedades/horas-extra/previsualizar')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, jornada: 'MIXTA' })
+          .expect(200);
+        expect(p.body.data.calculo.monto).toBe('71.43');
+      });
+      it('rechaza traslapes inclusivos y serializa dos capturas concurrentes', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        const d = dAusencia();
+        const resultados = await Promise.all(
+          [1, 2].map(() =>
+            agent.post('/api/novedades/ausencias').set('X-CSRF-Token', csrf).send(d),
+          ),
+        );
+        expect(resultados.map((r) => r.status).sort()).toEqual([201, 422]);
+        await agent
+          .post('/api/novedades/ausencias')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, fechaInicio: '2090-03-03', fechaFin: '2090-03-04' })
+          .expect(422);
+        const r = await agent
+          .post('/api/novedades/ausencias')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, fechaInicio: '2090-03-04', fechaFin: '2090-03-04', estado: 'PENDIENTE' })
+          .expect(201);
+        await agent
+          .patch(`/api/novedades/ausencias/${r.body.data.id}`)
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, fechaInicio: '2090-03-04', fechaFin: '2090-03-05' })
+          .expect(200);
+        const l = await agent
+          .get(
+            `/api/novedades/ausencias?idEmpleado=${idEmpleado}&efecto=SIN_GOCE&desde=2090-03-01&hasta=2090-03-31`,
+          )
+          .expect(200);
+        expect(l.body.data.total).toBe(2);
+        const cat = await agent.get(`/api/catalogos/tipos-ausencia/${ausencia}`).expect(200);
+        await agent
+          .patch(`/api/catalogos/tipos-ausencia/${ausencia}`)
+          .set('X-CSRF-Token', csrf)
+          .send({
+            codigo: cat.body.data.codigo,
+            nombre: cat.body.data.nombre,
+            descripcion: cat.body.data.descripcion,
+            efecto: 'CON_GOCE',
+          })
+          .expect(409);
+      });
+      it('impide rangos ocupados por vacaciones y admite días contiguos', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        await ejecutar(
+          "INSERT INTO SOLICITUDES (ID_EMPLEADO,ID_TIPO_SOLICITUD) SELECT :id,ID_TIPO_SOLICITUD FROM TIPOS_SOLICITUD WHERE CODIGO='VACACIONES'",
+          { id: idEmpleado },
+        );
+        const idSolicitud = Number(
+          await escalar('SELECT MAX(ID_SOLICITUD) FROM SOLICITUDES WHERE ID_EMPLEADO=:id', {
+            id: idEmpleado,
+          }),
+        );
+        await ejecutar(
+          "INSERT INTO VACACIONES_SOLICITUDES (ID_EMPLEADO,ID_SOLICITUD,FECHA_INICIO,FECHA_FIN,DIAS_SOLICITADOS,SALDO_AL_SOLICITAR) VALUES (:id,:solicitud,DATE '2090-04-01',DATE '2090-04-03',3,10)",
+          { id: idEmpleado, solicitud: idSolicitud },
+        );
+        await agent
+          .post('/api/novedades/ausencias')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...dAusencia(), fechaInicio: '2090-04-02', fechaFin: '2090-04-02' })
+          .expect(422);
+        const r = await agent.get(`/api/novedades/restricciones/${idEmpleado}`).expect(200);
+        expect(r.body.data.rangos).toEqual(
+          expect.arrayContaining([expect.objectContaining({ inicio: '2090-04-01' })]),
+        );
+      });
+      it('guarda un adjunto privado, comprueba contenido y permite quitarlo', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        const adjunto = {
+          nombre: 'respaldo.pdf',
+          tipo: 'application/pdf',
+          base64: Buffer.from('%PDF-1.7\nRespaldo de prueba').toString('base64'),
+        };
+        const d = { ...dAusencia(), fechaInicio: '2090-05-01', fechaFin: '2090-05-01', adjunto };
+        await agent
+          .post('/api/novedades/ausencias')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, adjunto: { ...adjunto, tipo: 'image/png' } })
+          .expect(422);
+        const r = await agent
+          .post('/api/novedades/ausencias')
+          .set('X-CSRF-Token', csrf)
+          .send(d)
+          .expect(201);
+        const id = r.body.data.id;
+        const archivo = await agent.get(`/api/novedades/ausencias/${id}/adjunto`).expect(200);
+        expect(archivo.body.data).toEqual(adjunto);
+        expect(r.body.data).not.toHaveProperty('adjunto');
+        await agent
+          .patch(`/api/novedades/ausencias/${id}`)
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, adjunto: null })
+          .expect(200);
+        await agent.get(`/api/novedades/ausencias/${id}/adjunto`).expect(404);
+      });
+      it('revierte calendario, préstamo y periodo si falla la auditoría', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        await ejecutar(
+          "CREATE OR REPLACE TRIGGER F6_FALLAR_AUD BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='CREAR_NOVEDAD' THEN RAISE_APPLICATION_ERROR(-20046,'Fallo de prueba'); END IF; END;",
+        );
+        const d = dPrestamo();
+        const antes = await escalar('SELECT COUNT(*) FROM DESCUENTOS_CUOTAS');
+        try {
+          await agent
+            .post('/api/novedades/prestamos')
+            .set('X-CSRF-Token', csrf)
+            .send(d)
+            .expect(500);
+          expect(
+            await escalar('SELECT COUNT(*) FROM PRESTAMOS WHERE REFERENCIA=:ref', {
+              ref: d.referencia,
+            }),
+          ).toBe(0);
+          expect(await escalar('SELECT COUNT(*) FROM DESCUENTOS_CUOTAS')).toBe(antes);
+          await agent
+            .post('/api/novedades/comisiones')
+            .set('X-CSRF-Token', csrf)
+            .send({ ...dComision(), fecha: '2093-06-01' })
+            .expect(500);
+          expect(
+            await escalar(
+              "SELECT COUNT(*) FROM PERIODOS_NOMINA WHERE FECHA_INICIO=DATE '2093-06-01'",
+            ),
+          ).toBe(0);
+        } finally {
+          await ejecutar('DROP TRIGGER F6_FALLAR_AUD');
+        }
+      });
+      it('aplica la última cuota y liquida saldo automáticamente en una sola transacción', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        const r = await agent
+          .post('/api/novedades/prestamos')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...dPrestamo(), cuotas: 1 })
+          .expect(201);
+        const idCuota = r.body.data.cuotasDetalle[0].id as number;
+        const periodo = Number(
+          await escalar(
+            "SELECT ID_PERIODO_NOMINA FROM PERIODOS_NOMINA WHERE FECHA_INICIO=DATE '2090-01-01'",
+          ),
+        );
+        await ejecutar(
+          `INSERT INTO NOMINA_EMPLEADO (ID_PERIODO_NOMINA,ID_EMPLEADO,ID_HISTORIAL_SALARIAL,VERSION_CALCULO,DIAS_PAGADOS,SALARIO_BASE,TOTAL_INGRESOS,TOTAL_DESCUENTOS,NETO,COSTO_PATRONAL,DATOS_EMPLEADO) SELECT :periodo,:id,ID_HISTORIAL_SALARIAL,1,15,5000,2500,100,2400,0,'{}' FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:id AND VIGENTE_HASTA IS NULL`,
+          { periodo, id: idEmpleado },
+        );
+        const nomina = Number(
+          await escalar(
+            'SELECT ID_NOMINA_EMPLEADO FROM NOMINA_EMPLEADO WHERE ID_EMPLEADO=:id AND ID_PERIODO_NOMINA=:periodo',
+            { id: idEmpleado, periodo },
+          ),
+        );
+        await expect(
+          enTransaccion(db, (c) => registrarCobroCuota(c, admin, idCuota, nomina, '100.01')),
+        ).rejects.toThrow();
+        await ejecutar(
+          "CREATE OR REPLACE TRIGGER F6_FALLAR_COBRO BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='APLICAR_CUOTA' THEN RAISE_APPLICATION_ERROR(-20047,'Fallo de prueba'); END IF; END;",
+        );
+        try {
+          await expect(
+            enTransaccion(db, (c) => registrarCobroCuota(c, admin, idCuota, nomina, '100')),
+          ).rejects.toThrow();
+          expect(
+            await escalar('SELECT SALDO FROM DESCUENTOS_EMPLEADO WHERE ID_DESCUENTO_EMPLEADO=:id', {
+              id: r.body.data.id,
+            }),
+          ).toBe(100);
+          expect(
+            await escalar(
+              'SELECT MONTO_PAGADO FROM DESCUENTOS_CUOTAS WHERE ID_DESCUENTO_CUOTA=:id',
+              { id: idCuota },
+            ),
+          ).toBe(0);
+        } finally {
+          await ejecutar('DROP TRIGGER F6_FALLAR_COBRO');
+        }
+        expect(
+          await enTransaccion(db, (c) => registrarCobroCuota(c, admin, idCuota, nomina, '100')),
+        ).toEqual({ saldo: '0.00', estado: 'LIQUIDADO' });
+        const saldados = await agent
+          .get(`/api/novedades/prestamos?idEmpleado=${idEmpleado}&saldoMax=0`)
+          .expect(200);
+        expect(
+          saldados.body.data.registros.some((f: { id: number }) => f.id === r.body.data.id),
+        ).toBe(true);
+        await expect(
+          enTransaccion(db, (c) => registrarCobroCuota(c, admin, idCuota, nomina, '100')),
+        ).rejects.toThrow();
+        await agent
+          .patch(`/api/novedades/prestamos/${r.body.data.id}`)
+          .set('X-CSRF-Token', csrf)
+          .send(dPrestamo())
+          .expect(409);
+        expect(
+          await escalar(
+            'SELECT COUNT(*) FROM DESCUENTOS_APLICACIONES WHERE ID_DESCUENTO_CUOTA=:id',
+            { id: idCuota },
+          ),
+        ).toBe(1);
+      });
+      it('bloquea altas, ediciones, movimientos de fecha y anulaciones en periodos cerrados', async () => {
+        const { agent, csrf } = await entrarAdmin();
+        const casos = [
+          ['descuentos', { ...dDescuento(), cuotas: 1 }],
+          ['prestamos', { ...dPrestamo(), cuotas: 1 }],
+          ['comisiones', dComision()],
+          ['horas-extra', { ...dHora(), fecha: '2090-01-03' }],
+          ['ausencias', { ...dAusencia(), fechaInicio: '2090-01-04', fechaFin: '2090-01-04' }],
+        ] as const;
+        const registros = [];
+        for (const [tipo, body] of casos)
+          registros.push({
+            tipo,
+            body,
+            id: (
+              await agent
+                .post(`/api/novedades/${tipo}`)
+                .set('X-CSRF-Token', csrf)
+                .send(body)
+                .expect(201)
+            ).body.data.id,
+          });
+        await ejecutar(
+          "INSERT INTO PERIODOS_NOMINA (FECHA_INICIO,FECHA_FIN,QUINCENA,ESTADO,APROBADO_EN,CERRADO_EN,APROBADO_POR,CERRADO_POR) VALUES (DATE '2092-01-01',DATE '2092-01-15',1,'CERRADO',SYSDATE,SYSDATE,:actor,:actor)",
+          { actor: admin.idUsuario },
+        );
+        for (const { tipo, body, id } of registros) {
+          const nuevo =
+            'fecha' in body
+              ? { ...body, fecha: '2092-01-02' }
+              : {
+                  ...body,
+                  fechaInicio: '2092-01-02',
+                  ...('fechaFin' in body && tipo === 'ausencias' ? { fechaFin: '2092-01-03' } : {}),
+                };
+          await agent
+            .patch(`/api/novedades/${tipo}/${id}`)
+            .set('X-CSRF-Token', csrf)
+            .send(nuevo)
+            .expect(422);
+        }
+        await ejecutar(
+          "UPDATE PERIODOS_NOMINA SET ESTADO='CERRADO',APROBADO_EN=SYSDATE,CERRADO_EN=SYSDATE,APROBADO_POR=:actor,CERRADO_POR=:actor WHERE FECHA_INICIO=DATE '2090-01-01'",
+          { actor: admin.idUsuario },
+        );
+        for (const { tipo, body, id } of registros) {
+          await agent
+            .patch(`/api/novedades/${tipo}/${id}`)
+            .set('X-CSRF-Token', csrf)
+            .send(body)
+            .expect(409);
+          await agent
+            .post(`/api/novedades/${tipo}/${id}/anular`)
+            .set('X-CSRF-Token', csrf)
+            .send({ motivo, confirmado: true })
+            .expect(409);
+          const d = await agent.get(`/api/novedades/${tipo}/${id}`).expect(200);
+          expect(d.body.data.bloqueada).toBe(1);
+          await agent
+            .post(`/api/novedades/${tipo}`)
+            .set('X-CSRF-Token', csrf)
+            .send(body)
+            .expect(422);
+        }
+      });
     });
   });
 });

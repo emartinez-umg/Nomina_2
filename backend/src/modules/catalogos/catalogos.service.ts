@@ -27,6 +27,18 @@ export function crearCatalogosService(db: BaseDatos) {
     id: number,
     antes: FilaCatalogo | null,
   ) {
+    if (antes?.enUso && ['tipos-ausencia', 'tipos-descuento'].includes(cat.slug)) {
+      if (antes.codigo !== d.codigo)
+        conflicto(
+          'codigo',
+          'El tipo tiene novedades registradas. Conserva su código o crea otro tipo.',
+        );
+      if (cat.slug === 'tipos-ausencia' && antes.efecto !== d.efecto)
+        conflicto(
+          'efecto',
+          'El efecto tiene novedades registradas. Crea otro tipo para conservar el historial.',
+        );
+    }
     for (const f of cat.campos.filter((f) => f.referencia)) {
       const valor = d[f.nombre];
       if (valor === null) continue;

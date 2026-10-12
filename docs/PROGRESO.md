@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 5 completada. Los registros de FASES 0–4 se conservan como historial; consultar
-la sección FASE 5 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 6 completada. Los registros de FASES 0–5 se conservan como historial; consultar
+la sección FASE 6 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -570,3 +570,110 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 6. npm run lint; npm test; npm run typecheck; npm run build; npm run format:check.
 7. npm run verify:security (esquema desechable); npm run verify:infra. Contrato y detalles:
    docs/EMPLEADOS.md. La suite Oracle también admite verify:security -- --docker con la imagen de build.
+
+## FASE 6 — Novedades que alimentan la nómina (RF-04, RF-14, RF-15, RF-21)
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- Backend con cinco recursos RH/ADMIN: descuentos, préstamos/anticipos, comisiones, horas extra y
+  ausencias/permisos/incapacidades. Capas routes/controller/service/repository, schemas Zod estrictos,
+  Oracle thin/binds, filtros combinados, paginación/orden en servidor, detalle y CSV completo.
+- Descuentos FIJO, CUOTAS y UNICO, inicio/fin, estado y saldo real. Tipos de parqueo, tienda, embargo
+  y otros desde Catálogos. Préstamos agregan capital, referencia única y desembolso; primera cuota
+  no pasada, amortización quincenal exacta y ajuste de centavos en la última cuota.
+- Primitiva interna registrarCobroCuota para el consumidor de Fase 8: valida cuota/empleado/nómina,
+  vencimiento y saldo, crea aplicación, actualiza pago/saldo y liquida automáticamente en cero.
+  Todo comparte transacción y auditoría con el llamador; sin endpoint de cobro manual.
+- Comisiones manuales por empleado/quincena con referencia contra duplicados. Comisión/horas crean
+  únicamente el periodo ABIERTO faltante, sin adelantar cálculo, aprobación ni cierre de planilla.
+- Horas por empleado/día y jornada DIURNA/MIXTA/NOCTURNA, autorización y estimación con salario,
+  divisor mensual, horas de jornada y recargo vigentes en la fecha del registro. Decimal y redondeo
+  half-up único en shared/utils/dinero.ts; el importe final no usa el valor hora ya redondeado.
+- Ausencias por tipo/efecto, rango inclusivo coherente, máximo 366 días y sin traslape contra otras
+  ausencias vigentes o vacaciones en proceso/aprobadas/tomadas. Respaldo privado PDF/PNG/JPEG hasta
+  1 MiB en BLOB transaccional, firma/base64/tamaño validados y descarga autenticada; hash/metadatos
+  auditados sin contenido. Omitir conserva el respaldo; null lo quita.
+- Protección de rangos anteriores/nuevos frente a cierres, incluidos movimientos de fecha y
+  anulaciones. Registros consumidos, cuotas pagadas, anulados y liquidados se conservan para consulta.
+  Locks compatibles con catálogos/usuarios/periodos y actor revalidado dentro de la transacción.
+- RF-21 reutiliza catálogos y vigencias legales; código/efecto de tipos utilizados no se reescriben.
+  V014 aditiva incorpora jornada, soporte privado e índices de rangos/horas/montos/saldos/cuotas.
+  Se conservan las 53 tablas de negocio y las migraciones anteriores; db/filtros.json actualizado.
+- Frontend `/novedades` con cinco secciones, referencias reales buscables/paginadas, formularios
+  proporcionales, hints, máscaras/saneo, validación al salir/resumen y errores backend por campo.
+  Amortización/cálculo desde API, autorización/anulación confirmadas, evitar doble envío, toasts,
+  filtros/chips/limpiar, exportación, estados de carga/vacío/error, iconos y ayuda declarativa por rol.
+- Tokens/componentes del mockup reutilizados. README, ERD, DECISIONES y docs/NOVEDADES.md actualizados
+  con contratos y criterios de consumo para Fase 8. Compose reconstruido y V014 aplicada conservando
+  volumen, datos y credenciales reales. Ningún fixture se cargó en el esquema de aplicación.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier, git diff --check y builds backend/frontend sin errores.
+- 196 pruebas aprobadas (112 backend y 84 frontend), también ejecutadas con Node 20 en Docker.
+  Incluyen centavos/cuotas/residuos, liquidación y cobros inválidos, años bisiestos/cambio de año,
+  redondeo de horas, traslapes inclusivos/adyacentes, rangos/filtros, firmas de respaldo y captura UI.
+- 53 pruebas Oracle thin/Supertest aprobadas en host y Docker Node 20. Las 11 nuevas cubren las cinco
+  novedades, RBAC/CSRF, schemas, filtros/CSV, referencias duplicadas, primera cuota pasada,
+  estimación parametrizada, traslapes concurrentes y con vacaciones, respaldos privados y cierres.
+  Triggers de fallo verifican rollback de préstamo/cuotas/periodo y de aplicación/pago/saldo/auditoría.
+  El cobro final liquida una cuota real; repetirlo se rechaza y saldoMax=0 consulta las liquidadas.
+- db:verify aprueba V000–V014 desde cero e idempotencia, índices de FK/filtros, CHECK, seeds repetibles
+  y objetos válidos. Todos los esquemas temporales N2TEST/N2SEC se eliminan al concluir.
+- Chrome real con API/Oracle en N2UI desechable: alta de préstamo con amortización, cálculo de horas,
+  captura de permiso con respaldo, referencias, filtros/exportación CSV y ayuda reiniciable.
+  Revisión visual de formulario, detalle/calendario, listado y móvil de 390 px, sin desbordamiento
+  horizontal de página ni errores JavaScript. Procesos y esquema temporales eliminados.
+- Compose saludable (Oracle/API/nginx) con builds Node 20; verify:infra verifica conectividad,
+  rutas React y bundles. Datos del volumen de aplicación conservados.
+
+### Decisiones
+
+- El ID público del préstamo es el acuerdo ID_DESCUENTO_EMPLEADO; PRESTAMOS agrega capital,
+  desembolso y referencia. Todos los descuentos del empleado siguen visibles en su ficha existente.
+- Las cuotas vencen al final de la quincena elegida. El monto se reparte en centavos enteros;
+  la última absorbe el residuo. FIJO no tiene saldo total ni cuotas. Capturar no realiza cobros.
+- La captura de ausencias guarda días calendario. Fase 8 intersectará el rango con el periodo,
+  horario/feriados y efecto para determinar los días pagados/descontados y subsidios.
+- Un periodo cerrado protege toda novedad que lo intersecta; un fijo sin fin protege su vigencia
+  completa. Las aplicaciones/referencias de nómina protegen también su historial aunque se reabra.
+- Los cambios de un tipo ya utilizado requieren crear otro código/efecto para conservar significados.
+  Los parámetros de horas mantienen las vigencias y advertencias de configuración de Fase 4.
+
+### Supuestos
+
+- Préstamos y anticipos sin intereses: no se solicitó tasa ni sistema financiero de intereses.
+  INTERES_TOTAL queda en cero para las nuevas capturas. Límite operativo: 600 cuotas por acuerdo.
+- La primera cuota no pasada se interpreta como fecha de inicio hoy o futura; su vencimiento será
+  el fin de esa quincena. Desembolso está entre el ingreso del empleado y la primera cuota.
+- Fecha de horas seleccionada y jornada declarada describen la labor real; la UI inicia en DIURNA,
+  permite cambiarla y exige una opción válida. Sin salario/parámetros vigentes no permite guardar.
+  Registros de horas anteriores a V014 conservan jornada null; nuevas capturas la exigen.
+- La estimación de horas es informativa y puede cambiar mientras el periodo esté abierto. Fase 8
+  guardará snapshots. Captura/configuración no sustituyen la revisión legal de RRHH ya documentada.
+- Firma binaria/tamaño no equivalen a análisis antimalware ni validación completa del documento.
+  El respaldo se entrega como descarga autenticada y no se publica ni se incrusta como HTML.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE 6.
+- Según próximas fases solicitadas: consumo efectivo de novedades, neto no negativo/prorrateos,
+  snapshots, cierre/reapertura/reversión en Fase 8; vacaciones/solicitud de parqueo y su activación
+  automática por sus módulos. No se adelantaron estos flujos.
+- Se mantienen la revisión legal por RH y HTTPS de producción registrados en fases anteriores.
+
+### Cómo probar
+
+1. `docker compose up --build` aplica V014 y conserva datos. Para HTTP local con Node 20:
+   `NODE_ENV=development npm run dev`; entrar como RH/ADMIN y abrir `/novedades`.
+2. Crear empleado/referencias reales, comprobar tipos y parámetros vigentes en Catálogos.
+   Registrar fijo/cuotas/único, préstamo/anticipo, comisión de quincena, horas y ausencia.
+3. Revisar amortización/cálculo, autorizar horas/ausencias, adjuntar/descargar/quitar respaldo;
+   combinar filtros/orden/páginas, limpiar chips, exportar CSV y reiniciar Ayuda.
+4. Probar primera cuota pasada, referencia repetida, rango invertido/traslapado y datos inválidos.
+   La suite Oracle prueba cierres, consumo y liquidación sin alterar la planilla de aplicación.
+5. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
+6. `npm run verify:security`; `npm run db:verify`; `npm run verify:infra`.
+   Contratos de captura, adjuntos y consumo: docs/NOVEDADES.md.

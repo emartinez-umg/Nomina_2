@@ -22,8 +22,11 @@ import type { crearCatalogosService } from './modules/catalogos/catalogos.servic
 
 import { crearEmpleadosRouter } from './modules/empleados/empleados.routes.js';
 import type { crearEmpleadosService } from './modules/empleados/empleados.service.js';
+import { crearNovedadesRouter } from './modules/novedades/novedades.routes.js';
+import type { crearNovedadesService } from './modules/novedades/novedades.service.js';
 
 interface SeguridadApp {
+  novedades?: ReturnType<typeof crearNovedadesService>;
   empleados?: ReturnType<typeof crearEmpleadosService>;
   catalogos?: ReturnType<typeof crearCatalogosService>;
   auth: AuthService;
@@ -44,6 +47,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
   app.use(helmet());
   app.use(registrarPeticiones(logger));
   app.use('/api/empleados/cargas', express.json({ limit: '2mb' }));
+  app.use('/api/novedades/ausencias', express.json({ limit: '1500kb' }));
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
   app.use('/api/salud', crearSaludRouter(service));
@@ -56,6 +60,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
       exigirCambioCompletado,
     );
     if (seguridad.empleados) app.use('/api/empleados', crearEmpleadosRouter(seguridad.empleados));
+    if (seguridad.novedades) app.use('/api/novedades', crearNovedadesRouter(seguridad.novedades));
     if (seguridad.catalogos) app.use('/api/catalogos', crearCatalogosRouter(seguridad.catalogos));
     app.use('/api/usuarios', crearUsuariosRouter(seguridad.usuarios));
     app.use('/api/auditoria', crearAuditoriaRouter(seguridad.auditoria));
