@@ -42,3 +42,29 @@ describe('configuración de entorno', () => {
     expect(() => validarEntorno({ ...valido, DB_PASSWORD: 'a'.repeat(31) })).toThrow('DB_PASSWORD');
   });
 });
+
+describe('configuración de seguridad', () => {
+  it('inactividad de 30 min, límite de 30 y ningún proxy confiable por defecto', () => {
+    const config = validarEntorno(valido);
+    expect(config.SESSION_IDLE_MINUTES).toBe(30);
+    expect(config.LOGIN_RATE_LIMIT).toBe(30);
+    expect(config.TRUST_PROXY_CIDRS).toBe('');
+  });
+  it.each(['0', '1441', 'texto'])('rechaza inactividad inválida %s', (SESSION_IDLE_MINUTES) => {
+    expect(() => validarEntorno({ ...valido, SESSION_IDLE_MINUTES })).toThrow(
+      'SESSION_IDLE_MINUTES',
+    );
+  });
+  it.each(['true', '*', '0.0.0.0/33', '127.0.0.1/abc', '::1/129'])(
+    'rechaza configuración de proxy inválida %s',
+    (TRUST_PROXY_CIDRS) => {
+      expect(() => validarEntorno({ ...valido, TRUST_PROXY_CIDRS })).toThrow('TRUST_PROXY_CIDRS');
+    },
+  );
+  it('acepta IPs y rangos CIDR explícitos', () => {
+    expect(
+      validarEntorno({ ...valido, TRUST_PROXY_CIDRS: '127.0.0.1, ::1/128, 172.20.0.0/24' })
+        .TRUST_PROXY_CIDRS,
+    ).toContain('::1/128');
+  });
+});

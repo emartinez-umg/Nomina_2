@@ -75,3 +75,23 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   de fases posteriores, con bloqueos/transacciones. La fase 1 no agrega autenticación ni cálculos.
 - Prueba de aceptación reproducible con esquema N2TEST_* aislado: verifica DDL, seeds, índices,
   restricciones y rollback; se elimina al finalizar y conserva el esquema de aplicación.
+
+## FASE 2 — Seguridad del backend (RF-18)
+
+- Se reutilizan los esquemas V001/V003/V012: sesiones persistentes con hashes SHA-256 de secretos
+  aleatorios de 256 bits, Argon2id y cookies httpOnly/Strict; Secure siempre en producción.
+- CSRF también en login mediante doble envío firmado y temporal; para sesiones autenticadas se
+  contrasta el header con su hash en Oracle. GET de recuperación exige las cookies de esa sesión.
+- Cambio obligatorio global antes de los routers de negocio, RBAC explícito y helper de propiedad
+  basado en usuario propietario obtenido desde Oracle; salud sigue pública por healthchecks.
+- Bloqueo persistente de 15 min tras 5 fallos con bloqueo de fila. El error HTTP se produce después
+  de confirmar contador/bitácora para que un rollback no borre intentos fallidos.
+- Operaciones ADMIN y altas internas se serializan por la fila del rol ADMIN: evita eliminar al
+  último administrador y colisiones de sufijos. Los permisos se revalidan dentro de las escrituras.
+- Cambios de credenciales/rol/estado revocan sesiones en la misma transacción que la auditoría.
+  Cambiar contraseña propia genera una sesión nueva; el restablecimiento muestra el secreto una vez.
+- Auditoría reutilizable con la conexión del servicio y depuración recursiva, sin commits propios.
+- Rate limit por IP en memoria de una API; `TRUST_PROXY_CIDRS` explícito, sin confiar por defecto en
+  headers reenviados. Escalado a varias réplicas requiere almacenamiento/clave previa compartidos.
+- Integración Supertest contra un esquema Oracle N2SEC desechable, sin tocar datos de aplicación;
+  inyección real de fallo de auditoría verifica rollback. No se adelantan pantallas ni CRUD de empleados.

@@ -1,6 +1,6 @@
 # nomina2
 
-Sistema de nómina: infraestructura y base de datos completas (FASES 0 y 1). Monorepo con npm workspaces, Express + TypeScript strict,
+Sistema de nómina: infraestructura, base de datos y seguridad del backend completas (FASES 0, 1 y 2). Monorepo con npm workspaces, Express + TypeScript strict,
 React 18 + Vite + Tailwind y Oracle 21c XE mediante node-oracledb thin.
 Repositorio: [emartinez-umg/Nomina_2](https://github.com/emartinez-umg/Nomina_2).
 
@@ -33,9 +33,9 @@ docker compose ps
 
 Los puertos publicados están limitados a la máquina local. No se necesita Instant Client.
 El ADMIN inicial usa `ADMIN_USER`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` de `.env`; la contraseña queda
-hasheada con argon2id y `CAMBIO_OBLIGATORIO=1`. No se muestran credenciales en logs. La autenticación
-y la pantalla de cambio obligatorio se implementarán en una fase posterior; actualmente existe
-la cuenta en Oracle, pero todavía no hay formulario de inicio de sesión.
+hasheada con argon2id y `CAMBIO_OBLIGATORIO=1`. La API ya permite login, cambio obligatorio,
+logout, gestión de usuarios ADMIN y consulta de bitácora. Consultar [seguridad y endpoints](docs/SEGURIDAD.md)
+para el flujo CSRF, permisos, cookies y pruebas. Las pantallas de autenticación pertenecen a otra fase.
 
 ## Variables de entorno
 
@@ -60,6 +60,9 @@ Hay un único `.env` en la raíz. Nunca se versiona y ninguna clave se envía al
 | `LOG_LEVEL`                                       | Nivel de pino: `info`                                                             |
 | `SHUTDOWN_TIMEOUT_MS`                             | Límite del cierre ordenado: 15000 ms                                              |
 | `TZ`                                              | `America/Guatemala`                                                               |
+| `SESSION_IDLE_MINUTES`                            | Inactividad de sesión en Oracle: 30 min                                           |
+| `LOGIN_RATE_LIMIT`, `LOGIN_RATE_WINDOW_MINUTES`   | Límite por IP: 30 peticiones / 15 min                                             |
+| `TRUST_PROXY_CIDRS`                               | Vacío por defecto; IPs/CIDR de proxies confiables, separados por coma             |
 | `VITE_PROXY_TARGET`                               | Destino del proxy Vite en desarrollo: `http://localhost:3000`                     |
 
 Al cambiar `API_PORT` con Vite en desarrollo, ajustar también `VITE_PROXY_TARGET`.
@@ -139,6 +142,7 @@ npm run build
 npm run format:check
 npm run verify:infra
 npm run db:verify
+npm run verify:security
 docker compose exec nomina2-api npm run db:migrate
 ```
 
@@ -174,7 +178,8 @@ docker compose down
 La API cierra HTTP y el pool al recibir SIGTERM/SIGINT. Los errores se registran con pino sin
 mensajes internos de Oracle, cuerpos, cookies ni parámetros de consulta.
 
-- `backend/src/modules/salud`: routes → controller → service → repository.
+- `backend/src/modules/salud`, `auth`, `usuarios`, `auditoria`: routes → controller → service → repository.
+- `backend/src/shared/security`: CSRF, autenticación, RBAC, propiedad y credenciales.
 - `backend/src/shared/db`: pool thin, runner y repositorio de migraciones.
 - `frontend/src`: router, providers, componentes y feature de salud.
 - `frontend/src/styles/tokens`: tokens derivados del mockup.

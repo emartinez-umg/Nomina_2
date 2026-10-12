@@ -50,7 +50,7 @@ describe('API de salud', () => {
 
   it('normaliza rutas desconocidas', async () => {
     const { app } = preparar();
-    const respuesta = await request(app).get('/api/desconocido').expect(404);
+    const respuesta = await request(app).get('/desconocido').expect(404);
     expect(respuesta.body).toMatchObject({
       ok: false,
       data: null,

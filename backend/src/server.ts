@@ -6,6 +6,9 @@ import { crearSaludRepository } from './modules/salud/salud.repository.js';
 import { crearSaludService } from './modules/salud/salud.service.js';
 import { crearBaseDatos } from './shared/db/pool.js';
 import type { BaseDatos } from './shared/db/pool.js';
+import { crearAuthService } from './modules/auth/auth.service.js';
+import { crearUsuariosService } from './modules/usuarios/usuarios.service.js';
+import { crearAuditoriaService } from './modules/auditoria/auditoria.service.js';
 
 const logger = crearLogger(config.LOG_LEVEL);
 let db: BaseDatos | undefined;
@@ -15,7 +18,13 @@ try {
   db = baseDatos;
   const service = crearSaludService(crearSaludRepository(baseDatos), logger);
   await service.consultar();
-  const server = crearApp(service, logger).listen(config.PORT, config.HOST);
+  const auth = await crearAuthService(baseDatos, config);
+  const server = crearApp(service, logger, {
+    auth,
+    usuarios: crearUsuariosService(baseDatos),
+    auditoria: crearAuditoriaService(baseDatos),
+    config,
+  }).listen(config.PORT, config.HOST);
   await once(server, 'listening');
   logger.info({ puerto: config.PORT, modoOracle: 'thin' }, 'API de nomina2 lista');
 

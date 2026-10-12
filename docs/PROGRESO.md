@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 1 completada. El registro de FASE 0 se conserva como historial; consultar la
-sección FASE 1 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 2 completada. Los registros de FASES 0 y 1 se conservan como historial; consultar
+la sección FASE 2 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -178,3 +178,102 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 5. npm run verify:infra y docker compose exec nomina2-api npm run db:seed.
 6. Para instalación local sobre Oracle existente: npm run db:setup; para solo DDL: npm run db:migrate.
 7. Consultar README.md, docs/ERD.md y db/filtros.json para operación y definición del modelo.
+
+## FASE 2 — Núcleo de seguridad del backend (RF-18)
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- Login/logout con sesión persistente en SESIONES, hashes SHA-256 de tokens aleatorios de 256 bits,
+  cookies httpOnly/SameSite=Strict/Path=/api y Secure obligatorio en producción. No se expone el token
+  de sesión en JSON. Inactividad renovable mediante SESSION_IDLE_MINUTES (30 por defecto).
+- CSRF en login (doble envío firmado con vigencia de 10 min) y en todas las escrituras autenticadas
+  (header contrastado con hash de sesión). Endpoint de recuperación CSRF y limpieza de cookies vencidas.
+- Rate limit por IP configurable, bloqueo persistente de 15 min tras 5 fallos y bloqueo de fila
+  para impedir que intentos concurrentes omitan el contador. Verificación Argon2id también si no existe
+  el usuario; errores uniformes en español, headers Retry-After y Cache-Control: no-store.
+- Cambio obligatorio global con 403/CAMBIO_CONTRASENA_OBLIGATORIO. Cambio propio valida política,
+  contraseña actual y no reutilización; revoca todas las sesiones y entrega una sesión/token CSRF nuevos.
+- Middleware RBAC para ADMIN/RH/EMPLEADO y helper de propiedad por ID de usuario del recurso obtenido
+  del repositorio. Identidad propia en /auth/sesion, sin aceptar IDs del cliente.
+- Servicio de auditoría reutilizable con la conexión de la transacción y depuración recursiva de
+  secretos/datos sensibles. Login correcto/fallido/bloqueado, logout, cambio de clave, alta interna,
+  estado, restablecimiento y rol quedan registrados con actor/rol, entidad/id, cambios, motivo e IP.
+- ADMIN: listado de usuarios con filtros combinados, paginación/ordenamiento; activar/desactivar,
+  cambiar rol y restablecer contraseña temporal. Cada cambio revoca sesiones y se audita atómicamente.
+  No se permite desactivar ni degradar al último ADMIN activo.
+- Bitácora solo ADMIN, filtros por usuario actor, entidad, acción y rango inclusivo de fechas;
+  paginación y lista blanca de órdenes. Todas las consultas SQL usan binds.
+- Alta interna preparada para Fase 5: nombre.apellido sin acentos/espacios, sufijos únicos y clave
+  aleatoria de 24 caracteres con cambio obligatorio. RH nunca puede crear ADMIN.
+- TRUST_PROXY_CIDRS validado y vacío por defecto: no se aceptan IPs reenviadas sin proxies confiables.
+- Integración Supertest contra repositories Oracle reales en esquema temporal N2SEC_*, con eliminación
+  al finalizar. Pruebas de propiedad en una ruta exclusiva de la suite; no se crean pantallas ni CRUD futuros.
+- README, .env.example, DECISIONES.md y guía docs/SEGURIDAD.md con endpoints, contratos y operación.
+
+### Validación realizada
+
+- npm run lint, npm run typecheck, npm run format:check y git diff --check: sin errores.
+- npm test: 73 pruebas aprobadas (67 backend, 6 frontend); backend repetido bajo Node 20 en Docker:
+  67 aprobadas. Cubren además política, tokens, CSRF, RBAC, propiedad, depuración y configuración.
+- npm run verify:security -- --docker: 20 pruebas de integración aprobadas con Node 20 y Oracle thin
+  real. Incluyen cinco fallos concurrentes, bloqueo/vencimiento, Secure/httpOnly/Strict, CSRF, rotación,
+  primer login, logout, inactividad, filtros, permisos, administración y generación con sufijos.
+- Un trigger temporal provoca un fallo real de auditoría: se comprueba rollback de contraseña,
+  cambio obligatorio y revocación de sesiones. La sesión anterior continúa válida tras el rollback.
+- Protección contra IP falsificada y recuperación tras expiración verificadas. Esquema temporal
+  eliminado, sin modificar las cuentas de la aplicación.
+- Builds backend/frontend correctos, también en Docker Node 20. npm ci/auditoría durante construcción:
+  0 vulnerabilidades. Las pruebas Oracle se excluyen del build de producción.
+- Compose reconstruido: los tres servicios saludables. npm run verify:infra comprueba Oracle/API/nginx/React.
+  Imagen de producción: CSRF 200, login del ADMIN inicial 200, acceso de negocio bloqueado con
+  403/CAMBIO_CONTRASENA_OBLIGATORIO y logout 200, conservando la contraseña inicial y su cambio obligatorio.
+
+### Decisiones
+
+- No se requiere una migración nueva: V001/V003/V012 cubren esta fase y permanecen intactas.
+- Los routers de negocio se montan después del guard global; cada router declara sus roles.
+  /api/salud permanece público como excepción técnica de healthchecks, sin datos de negocio.
+- Solo identidad, CSRF, cambio de contraseña y logout están disponibles durante el primer inicio.
+- Los fallos de login se confirman con su auditoría antes de devolver el error HTTP, para conservar
+  el contador. Las escrituras revalidan sesión/rol dentro de la misma transacción que la modificación.
+- Bloqueo de administración antes de usuario/sesión serializa altas y cambios críticos. Garantiza
+  sufijos reservados y al menos un ADMIN activo. El servicio llamador controla la transacción del alta.
+- Cookies de navegador y expiración en Oracle: no dependen de un reloj enviado por el cliente.
+  Logout cierra la sesión actual; cambio/restablecimiento/rol/estado revocan todas las anteriores.
+- No se almacenan ni se auditan contraseñas temporales en claro. Se muestran una sola vez en la
+  respuesta de restablecimiento/alta; los clientes deben entregarlas de forma privada.
+
+### Supuestos
+
+- El Compose actual usa una sola API: rate limit en memoria y clave CSRF previa al login por proceso.
+  Reiniciar invalida solo los tokens previos al login; sesiones autenticadas sobreviven el reinicio.
+- En despliegue con varias réplicas será necesario compartir contador por IP y clave CSRF previa.
+- Producción usa HTTPS para cookies Secure. Para HTTP local se utiliza npm run dev en development;
+  esta fase no incorpora certificados ni pantallas de autenticación.
+- Sin TRUST_PROXY_CIDRS, auditoría/rate limit usan IP del socket (nginx al entrar por la web).
+  El despliegue configurará únicamente IPs/CIDR exclusivos de proxies administrados y limitará
+  conexiones directas. No se confía en rangos indiscriminados por defecto.
+- Rango de filtros de bitácora desde 1900, fechas aaaa-mm-dd y zona America/Guatemala. El vínculo
+  de futuras entidades de empleado a su usuario propietario se resolverá desde Oracle.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE 2.
+- Según la siguiente fase solicitada: pantallas de autenticación/usuarios y módulos de negocio que
+  consuman estos guards/servicios. No se adelanta el CRUD de empleados ni el cálculo de nómina.
+- Se mantienen las validaciones operativas de RRHH registradas en FASE 1 antes del uso real.
+
+### Cómo probar
+
+1. Con .env y Oracle saludable: docker compose up --build; la cuenta ADMIN inicial conserva su clave
+   y cambio obligatorio. No es necesario modificar ni reaplicar migraciones.
+2. Con Node 20 y npm ci: npm run lint, npm test, npm run typecheck, npm run build, npm run format:check.
+3. npm run verify:security crea el esquema de integración y lo elimina al finalizar.
+4. Para otro Node en el host: construir nomina2-security-tests con target build y ejecutar
+   npm run verify:security -- --docker; comandos completos en docs/SEGURIDAD.md.
+5. npm run verify:infra comprueba Oracle, API, nginx y bundle React.
+6. Para el flujo HTTP manual: GET /api/auth/csrf, POST /api/auth/login con cookies/header CSRF,
+   POST /api/auth/cambiar-contrasena; después consultar /api/usuarios y /api/auditoria como ADMIN.
+7. Contratos, filtros, errores y helpers para próximas fases: docs/SEGURIDAD.md.

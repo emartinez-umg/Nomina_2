@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isIP } from 'node:net';
 
 const entero = (min: number, max: number, valor: number) =>
   z.coerce.number().int().min(min).max(max).default(valor);
@@ -29,6 +30,28 @@ const esquemaEntorno = z
     DB_CONNECT_TIMEOUT_SECONDS: entero(1, 60, 10),
     DB_CALL_TIMEOUT_MS: entero(100, 60000, 5000),
     SHUTDOWN_TIMEOUT_MS: entero(1000, 60000, 15000),
+    SESSION_IDLE_MINUTES: entero(1, 1440, 30),
+    LOGIN_RATE_LIMIT: entero(5, 1000, 30),
+    LOGIN_RATE_WINDOW_MINUTES: entero(1, 60, 15),
+    TRUST_PROXY_CIDRS: z
+      .string()
+      .trim()
+      .default('')
+      .refine(
+        (valor) =>
+          !valor ||
+          valor.split(',').every((entrada) => {
+            const partes = entrada.trim().split('/');
+            const version = isIP(partes[0] ?? '');
+            return (
+              partes.length <= 2 &&
+              version > 0 &&
+              (partes[1] === undefined ||
+                (/^\d+$/.test(partes[1]) && Number(partes[1]) <= (version === 4 ? 32 : 128)))
+            );
+          }),
+        'Usa únicamente direcciones IP o rangos CIDR de proxies confiables.',
+      ),
   })
   .superRefine((config, ctx) => {
     if (config.DB_POOL_MIN > config.DB_POOL_MAX) {

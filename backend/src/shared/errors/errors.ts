@@ -22,6 +22,12 @@ export class ErrorNoAutorizado extends ErrorNegocio {
   }
 }
 
+export class ErrorProhibido extends ErrorNegocio {
+  constructor(mensaje = 'No tienes permiso para realizar esta acción.', codigo = 'PROHIBIDO') {
+    super(mensaje, 403, codigo);
+  }
+}
+
 export class ErrorNoEncontrado extends ErrorNegocio {
   constructor() {
     super('No se encontró el recurso solicitado.', 404, 'NO_ENCONTRADO');

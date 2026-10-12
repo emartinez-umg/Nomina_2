@@ -1,6 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
 import type { Logger } from 'pino';
-import { ZodError } from 'zod';
+import { ZodError, defaultErrorMap } from 'zod';
 import { ErrorNegocio, ErrorValidacion } from '../errors/errors.js';
 import type { RespuestaApi } from '../utils/respuesta.js';
 
@@ -11,7 +11,15 @@ export function manejarErrores(logger: Logger): ErrorRequestHandler {
       const campos: Record<string, string[]> = {};
       for (const issue of error.issues) {
         const campo = issue.path.join('.') || 'solicitud';
-        (campos[campo] ??= []).push('El valor no tiene el formato permitido.');
+        const mensajePredeterminado = defaultErrorMap(issue, {
+          data: undefined,
+          defaultError: '',
+        }).message;
+        (campos[campo] ??= []).push(
+          issue.message === mensajePredeterminado
+            ? 'El valor no tiene el formato permitido. Revisa el tipo y los límites del campo.'
+            : issue.message,
+        );
       }
       normalizado = new ErrorValidacion(campos);
     } else if (error instanceof Error && 'type' in error) {
