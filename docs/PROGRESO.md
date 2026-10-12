@@ -1,5 +1,8 @@
 # Progreso de nomina2
 
+Estado actual: FASE 1 completada. El registro de FASE 0 se conserva como historial; consultar la
+sección FASE 1 al final para el estado y las instrucciones de continuación.
+
 ## FASE 0 — Infraestructura y esqueleto
 
 Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
@@ -80,3 +83,98 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 4. Con Node 20: `npm ci`, `npm run lint`, `npm test`, `npm run typecheck`, `npm run format:check`.
 5. `npm run verify:infra` y `docker compose exec nomina2-api npm run db:migrate`.
 6. Consultar README.md para desarrollo local y recuperación manual de migraciones fallidas.
+
+## FASE 1 — Diseño e implementación completa de Oracle
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- 53 tablas de negocio en V001–V012, agrupadas por los 12 dominios solicitados. Se conserva V000
+  intacta: el esquema instalado tiene 55 tablas y 13 migraciones APLICADAS.
+- PK identity ALWAYS, FK indexadas (incluidos todos los campos de FK compuestos), CHECK, UNIQUE,
+  auditoría por ID de usuario, eliminación lógica e índices para la lista blanca db/filtros.json.
+- Triggers con fecha/hora explícita de Guatemala para modificaciones y bitácora inmutable.
+- Historial salarial y de horarios, calendario con medios días/localidad, parámetros y conceptos
+  versionados, descuentos/cuotas/aplicaciones/reversos, nómina con snapshots e ISR proyectado,
+  prestaciones desglosadas, kardex, solicitudes/PDF privados, audiencias y filas de carga masiva.
+- Cuatro archivos de seeds aditivos: roles, catálogos solicitados, 20 conceptos con banderas,
+  38 parámetros vigentes desde 01/01/2026, dos tramos ISR, 13 feriados de 2026 y tres plantillas.
+- Runner de seeds TypeScript strict, SQL encapsulado en repositorio, transacción con commit/rollback,
+  credenciales ADMIN_* validadas con Zod y argon2id (64 MiB, tres pasadas, un hilo).
+- ADMIN inicial con cambio obligatorio, sin secretos en logs/bitácora. Reejecución conserva su hash,
+  correo, estado y cambio obligatorio. Una colisión con RH/EMPLEADO no eleva permisos y revierte el lote.
+- npm run db:seed, db:setup y db:verify; Compose aplica migraciones y seeds antes de iniciar la API.
+- ERD Mermaid por dominio, diagrama técnico y diccionario resumido en docs/ERD.md; README y decisiones
+  actualizados. El entorno local ignorado incluye ADMIN_* y una clave generada sin mostrarla.
+
+### Validación realizada
+
+- npm run lint, npm run typecheck, npm run format:check y git diff --check: sin errores.
+- npm test: 47 pruebas aprobadas (41 backend y 6 frontend). Backend repetido en Docker Node 20.20.2:
+  41 aprobadas, incluidas las 10 nuevas de seeds/configuración/idempotencia y rollback.
+- npm run db:verify contra Oracle XE 21.3 real: creación desde esquema vacío V000–V012, segunda
+  ejecución sin pendientes, 53 PK identity, auditoría, CHECK/FK habilitados y validados, todos los
+  índices de FK y filtros, y cero objetos/triggers inválidos.
+- Seeds ejecutados dos veces: contenido completo idéntico en las 53 tablas, incluso tras editar
+  catálogos y plantillas y cambiar CAMBIO_OBLIGATORIO. Hash argon2id verificado contra la clave inicial.
+- Pruebas reales de rechazo: identity manual, duplicados, baja lógica inválida, FK inexistente,
+  quincena inválida/duplicada, bitácora mutable, neto negativo, JSON inválido, saldo de vacaciones
+  insuficiente, puesto de otro departamento y salario/documento de otro empleado.
+- Coexistencia de varias audiencias y boletas: UNIQUE condicionales comprobados. Colisión de ADMIN:
+  rollback íntegro, sin promoción de rol. El esquema temporal N2TEST_* se elimina al finalizar.
+- docker compose up --build -d --wait --wait-timeout 900: backend y frontend construidos con Node 20,
+  tres servicios saludables, instalación automática completa sobre la infraestructura local.
+- Reejecución desde imagen de producción: db:migrate informa 0 pendientes y db:seed termina sin errores.
+- Consulta de aplicación: 55 tablas, 13 migraciones, 38 parámetros, 20 conceptos, 0 objetos inválidos,
+  un ADMIN con cambio obligatorio. npm run verify:infra verifica Oracle/API/nginx/React correctamente.
+- npm install/auditoría y npm ci durante builds: 0 vulnerabilidades reportadas.
+
+### Decisiones
+
+- Se añaden BANCOS, CENTROS_TRABAJO, CONFIGURACION_EMPRESA, TIPOS_DEDUCCION_ISR,
+  DESCUENTOS_APLICACIONES, NOMINA_PARAMETROS, ISR_PROYECCIONES, PRESTACION_DETALLE y
+  CARGA_MASIVA_FILAS para cubrir relaciones, reproducción de cálculos y resultados de importación.
+- El salario base y horario vigentes provienen de sus historiales, sin duplicación en EMPLEADOS.
+- Claves compuestas refuerzan pertenencia a empleado/departamento/periodo/cálculo. PERIODOS_NOMINA
+  solo admite quincenas exactas y fecha inicial única, por lo que no pueden traslaparse.
+- CREADO_POR nulo representa instalación o proceso del sistema. Los servicios futuros establecerán
+  actor, cambios depurados y bitácora en la transacción. La bitácora no permite UPDATE/DELETE.
+- Los seeds solo insertan claves ausentes: no sirven para restablecer claves ni modificar valores
+  operativos. Nuevos parámetros/conceptos/plantillas requieren nueva vigencia/versión.
+- argon2 se fija a 0.44, compatible con Node 20; la rama 0.45 dejó de soportar esa versión y no se usa.
+- db:verify administra exclusivamente un esquema N2TEST aleatorio mediante SQL*Plus del contenedor;
+  las migraciones, seeds y comprobaciones usan el driver thin sin privilegios administrativos.
+
+### Supuestos
+
+- Vigencia inicial de referencia: 01/01/2026. Los valores de AGENTS.md y banderas iniciales requieren
+  validación de RRHH antes de calcular nómina real; esta fase no ejecuta cálculos.
+- El tope inicial de donaciones ISR es parametrizable (5 % de renta bruta), según referencia oficial
+  de Minfin enlazada en ERD.md; no se inventan topes monetarios para seguros o IGSS.
+- Calendario del año solicitado: 2026. El Ejército se descansa el 29/06 y se conmemora el 30/06;
+  24 y 31/12 solo desde las 12:00. La Asunción (15/08) aplica a GUATEMALA_CIUDAD, no a todo el país.
+  Fuentes oficiales y tratamiento de feriados locales/colectivos están en ERD.md.
+- No se inventan empleados, organización, bancos ni datos de empresa. Se cargarán mediante sus CRUD.
+- Parámetros genéricos y sus snapshots usan NUMBER(18,6); importes de nómina/saldos/prestaciones
+  usan NUMBER(12,2). Rangos de vigencia incluyen ambos extremos y un fin nulo representa vigencia abierta.
+- Fechas actuales, no traslapes, calendario laboral, saldo real, topes ISR, estados, RBAC y periodos
+  cerrados requieren servicios transaccionales en fases posteriores; se documentan en ERD.md.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE 1.
+- Para las próximas fases, según solicitud: autenticación/cambio obligatorio, sesiones/CSRF, RBAC,
+  servicios/CRUD y reglas de cálculo. No se han adelantado pantallas ni cálculos de negocio.
+- Antes del uso real: RRHH valida parámetros/banderas/plantillas y completa empresa, organización,
+  bancos, centros de trabajo y sus feriados locales; otros años requieren nuevos seeds de calendario.
+
+### Cómo probar
+
+1. Copiar .env.example a .env si no existe y definir ORACLE_PASSWORD, DB_PASSWORD y ADMIN_*.
+2. docker compose up --build (crea el esquema y seeds automáticamente; no requiere Instant Client).
+3. Con Node 20 y npm ci: npm run lint, npm test, npm run typecheck y npm run format:check.
+4. npm run db:verify con Oracle saludable: creación aislada desde cero, idempotencia e integridad.
+5. npm run verify:infra y docker compose exec nomina2-api npm run db:seed.
+6. Para instalación local sobre Oracle existente: npm run db:setup; para solo DDL: npm run db:migrate.
+7. Consultar README.md, docs/ERD.md y db/filtros.json para operación y definición del modelo.

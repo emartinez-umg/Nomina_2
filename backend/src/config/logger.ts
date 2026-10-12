@@ -4,7 +4,15 @@ export function crearLogger(nivel = 'info') {
   return pino({
     level: nivel,
     base: { servicio: 'nomina2-api' },
-    redact: ['password', 'DB_PASSWORD', 'ORACLE_PASSWORD', 'token', 'authorization', 'cookie'],
+    redact: [
+      'password',
+      'DB_PASSWORD',
+      'ORACLE_PASSWORD',
+      'ADMIN_PASSWORD',
+      'token',
+      'authorization',
+      'cookie',
+    ],
     // Los errores de Oracle pueden incluir SQL o datos sensibles en el mensaje.
     serializers: {
       err: (error: unknown) => {

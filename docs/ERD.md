@@ -1,30 +1,766 @@
-# Esquema técnico — FASE 0
+# Modelo Oracle — FASE 1
 
-Solo hay infraestructura. El modelo de nómina se definirá en una fase posterior.
-Ambas tablas pertenecen al usuario dedicado de aplicación en XEPDB1 y no tienen relación entre sí.
+53 tablas de negocio, más `VERSION_ESQUEMA` y `PRUEBA_INFRAESTRUCTURA` conservadas de FASE 0.
+Las migraciones V001–V012 se agrupan por dominio y se ejecutan después de V000. Los diagramas
+incluyen referencias entre dominios; se omiten las flechas de auditoría para facilitar su lectura.
+El SQL de `db/migrations/` es la definición exacta de nulabilidad, valores por defecto y restricciones.
+
+## Convenciones y diccionario común
+
+| Columna/tipo                                       | Significado                                                                                                       |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ID_<ENTIDAD> NUMBER GENERATED ALWAYS AS IDENTITY` | Clave primaria asignada exclusivamente por Oracle.                                                                |
+| `CREADO_POR NUMBER`                                | FK a USUARIOS; nulo representa instalación o proceso del sistema, nunca un usuario ficticio.                      |
+| `FECHA_CREACION DATE`                              | Fecha/hora de Guatemala asignada por Oracle.                                                                      |
+| `MODIFICADO_POR NUMBER`                            | FK al último usuario que cambió la fila; la futura capa de servicio la establece.                                 |
+| `FECHA_MODIFICACION DATE`                          | Un trigger la actualiza en cada UPDATE; no puede preceder a la creación.                                          |
+| `ACTIVO NUMBER(1)`                                 | 1 vigente, 0 baja lógica; conserva claves únicas e historial.                                                     |
+| `NUMBER(12,2)`                                     | Dinero en quetzales; los cálculos futuros usarán decimal.js y redondeo half-up.                                   |
+| `NUMBER(18,6)`                                     | Parámetro genérico o copia de parámetro: precisión común para porcentajes, fracciones y valores de configuración. |
+| `DATE`                                             | Fecha o fecha/hora local sin zona: America/Guatemala. Fechas civiles se envían a medianoche.                      |
+| `RAW(32)`                                          | Hash SHA-256; no contiene el token ni el archivo en claro.                                                        |
+| `CLOB ... IS JSON`                                 | Documento JSON comprobado por Oracle, para snapshots, variables y cambios auditados.                              |
+
+Todos los FK tienen índices B-tree con **todas sus columnas al inicio**, incluidos FK compuestos,
+creador y editor. PK/UNIQUE también proporcionan índices cuando cubren el acceso. `db/filtros.json`
+contiene la lista blanca inicial de filtros por tabla; la prueba de BD verifica cada índice.
+En la futura API, búsquedas de texto serán exactas, por rango o por prefijo compatible con estos
+índices; búsquedas por subcadena/normalización requieren revisar el plan y añadir un índice apropiado.
+No se indexan CLOB, contraseñas ni cuentas bancarias para búsquedas. ACTIVO y FECHA_CREACION están
+indexados en cada tabla de negocio. Nuevos filtros exigirán una migración de índice.
+
+BITACORA_AUDITORIA es inmutable: conserva columnas comunes por uniformidad, pero ACTIVO siempre
+vale 1 y no admite UPDATE/DELETE. Las correcciones son nuevas entradas. VERSION_ESQUEMA es
+metadata técnica permanente con fechas TIMESTAMP WITH TIME ZONE y sin baja lógica. V000 conserva
+sus columnas técnicas originales y checksum; no se reescribe una migración aplicada.
+
+## Infraestructura conservada
 
 ```mermaid
 erDiagram
     VERSION_ESQUEMA {
-        NUMBER ID_VERSION_ESQUEMA PK "Identity"
-        NUMBER VERSION UK "0 para V000"
+        NUMBER ID_VERSION_ESQUEMA PK
+        NUMBER VERSION UK
         VARCHAR2 ARCHIVO
-        CHAR CHECKSUM "SHA-256"
-        VARCHAR2 ESTADO "APLICANDO, APLICADA, FALLIDA"
-        TIMESTAMP FECHA_CREACION
-        TIMESTAMP FECHA_APLICACION
+        CHAR CHECKSUM
+        VARCHAR2 ESTADO
+        TIMESTAMP_TZ FECHA_CREACION
+        TIMESTAMP_TZ FECHA_APLICACION
     }
     PRUEBA_INFRAESTRUCTURA {
-        NUMBER ID_PRUEBA_INFRAESTRUCTURA PK "Identity"
+        NUMBER ID_PRUEBA_INFRAESTRUCTURA PK
         VARCHAR2 DESCRIPCION UK
         VARCHAR2 CREADO_POR
         DATE FECHA_CREACION
         VARCHAR2 MODIFICADO_POR
         DATE FECHA_MODIFICACION
-        NUMBER ACTIVO "0 o 1"
+        NUMBER ACTIVO
     }
 ```
 
-`VERSION_ESQUEMA` es metadata técnica administrada por el runner. Sus fechas incluyen zona horaria
-y no usa eliminación lógica: el historial es permanente. La tabla de prueba sigue las convenciones
-de auditoría del proyecto, con `CREADO_POR` como usuario Oracle durante esta fase sin autenticación.
+`VERSION_ESQUEMA`: versión numérica única, archivo, SHA-256 y estado APLICANDO/APLICADA/FALLIDA.
+`PRUEBA_INFRAESTRUCTURA`: un registro técnico único por descripción; auditoría original con nombre
+Oracle en VARCHAR2 y baja lógica. No contiene datos de empleados ni se usa en los CRUD de negocio.
+
+## 1. Seguridad
+
+Migración: [V001__seguridad.sql](../db/migrations/V001__seguridad.sql).
+
+```mermaid
+erDiagram
+    ROLES {
+        NUMBER ID_ROL PK
+        VARCHAR2 NOMBRE
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    USUARIOS {
+        NUMBER ID_USUARIO PK
+        NUMBER ID_ROL FK
+        DATE BLOQUEADO_HASTA
+        DATE ULTIMO_ACCESO
+    }
+    SESIONES {
+        NUMBER ID_SESION PK
+        NUMBER ID_USUARIO FK
+        DATE ULTIMA_ACTIVIDAD
+        DATE EXPIRA_EN
+    }
+    ROLES ||--o{ USUARIOS : "ID_ROL"
+    USUARIOS ||--o{ SESIONES : "ID_USUARIO"
+```
+
+| Tabla y PK                  | Propósito                                                             | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ROLES** / `ID_ROL`        | Roles de acceso: ADMIN, RH y EMPLEADO.                                | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?                                                                                                                                                                           |
+| **USUARIOS** / `ID_USUARIO` | Identidad, credencial argon2id, bloqueo y cambio inicial obligatorio. | `ID_ROL`: NUMBER; `USUARIO`: VARCHAR2(80); `CORREO`: VARCHAR2(254); `CONTRASENA_HASH`: VARCHAR2(255); `CAMBIO_OBLIGATORIO`: NUMBER(1); `INTENTOS_FALLIDOS`: NUMBER(2); `BLOQUEADO_HASTA`: DATE?; `ULTIMO_ACCESO`: DATE?; `CONTRASENA_CAMBIADA_EN`: DATE? |
+| **SESIONES** / `ID_SESION`  | Solo hashes SHA-256 de sesión y CSRF; actividad y revocación.         | `ID_USUARIO`: NUMBER; `TOKEN_HASH`: RAW(32); `CSRF_HASH`: RAW(32); `ULTIMA_ACTIVIDAD`: DATE; `EXPIRA_EN`: DATE; `REVOCADA_EN`: DATE?; `IP`: VARCHAR2(45)?; `AGENTE_USUARIO`: VARCHAR2(500)?                                                              |
+
+## 2. Organización
+
+Migración: [V002__organizacion.sql](../db/migrations/V002__organizacion.sql).
+
+```mermaid
+erDiagram
+    DEPARTAMENTOS {
+        NUMBER ID_DEPARTAMENTO PK
+        VARCHAR2 NOMBRE
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    PUESTOS {
+        NUMBER ID_PUESTO PK
+        VARCHAR2 NOMBRE
+        NUMBER ID_DEPARTAMENTO FK
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    JEFATURAS {
+        NUMBER ID_JEFATURA PK
+        VARCHAR2 NOMBRE
+        NUMBER ID_DEPARTAMENTO FK
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+        NUMBER ID_EMPLEADO_RESPONSABLE FK
+    }
+    TIPOS_CONTRATO {
+        NUMBER ID_TIPO_CONTRATO PK
+        VARCHAR2 NOMBRE
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    BANCOS {
+        NUMBER ID_BANCO PK
+        VARCHAR2 NOMBRE
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    CENTROS_TRABAJO {
+        NUMBER ID_CENTRO_TRABAJO PK
+        VARCHAR2 NOMBRE
+        VARCHAR2 LOCALIDAD
+        NUMBER ACTIVO
+    }
+    CONFIGURACION_EMPRESA {
+        NUMBER ID_CONFIGURACION_EMPRESA PK
+        VARCHAR2 RAZON_SOCIAL
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    DEPARTAMENTOS ||--o{ PUESTOS : "ID_DEPARTAMENTO"
+    DEPARTAMENTOS ||--o{ JEFATURAS : "ID_DEPARTAMENTO"
+    EMPLEADOS ||--o{ JEFATURAS : "ID_EMPLEADO_RESPONSABLE"
+```
+
+| Tabla y PK                                             | Propósito                                                                | Campos de dominio (tipo; `?` admite NULL)                                                                                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **DEPARTAMENTOS** / `ID_DEPARTAMENTO`                  | Unidades organizativas reales, sin departamentos ficticios.              | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?                                                                                      |
+| **PUESTOS** / `ID_PUESTO`                              | Puestos pertenecientes a un departamento.                                | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `ID_DEPARTAMENTO`: NUMBER                                                           |
+| **JEFATURAS** / `ID_JEFATURA`                          | Jefatura por departamento; responsable opcional después de empleados.    | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `ID_DEPARTAMENTO`: NUMBER; `ID_EMPLEADO_RESPONSABLE`: NUMBER?                       |
+| **TIPOS_CONTRATO** / `ID_TIPO_CONTRATO`                | Modalidades contractuales.                                               | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `REQUIERE_FIN`: NUMBER(1)                                                           |
+| **BANCOS** / `ID_BANCO`                                | Catálogo de bancos; se carga con datos de la empresa, sin seed ficticio. | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?                                                                                      |
+| **CENTROS_TRABAJO** / `ID_CENTRO_TRABAJO`              | Sede y localidad para aplicar feriados locales.                          | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `LOCALIDAD`: VARCHAR2(120); `DIRECCION`: VARCHAR2(500)?                             |
+| **CONFIGURACION_EMPRESA** / `ID_CONFIGURACION_EMPRESA` | Datos institucionales para documentos; una fila activa.                  | `RAZON_SOCIAL`: VARCHAR2(200); `NIT`: VARCHAR2(20); `DIRECCION`: VARCHAR2(500); `REPRESENTANTE`: VARCHAR2(200)?; `CORREO`: VARCHAR2(254)?; `TELEFONO`: VARCHAR2(8)? |
+
+## 3. Empleados
+
+Migración: [V003__empleados.sql](../db/migrations/V003__empleados.sql).
+
+```mermaid
+erDiagram
+    EMPLEADOS {
+        NUMBER ID_EMPLEADO PK
+        NUMBER ID_USUARIO FK
+        VARCHAR2 NOMBRES
+        VARCHAR2 APELLIDOS
+        DATE FECHA_NACIMIENTO
+        NUMBER ID_BANCO FK
+        NUMBER ID_PUESTO FK
+        NUMBER ID_DEPARTAMENTO FK
+        NUMBER ID_JEFATURA FK
+        NUMBER ID_TIPO_CONTRATO FK
+        NUMBER ID_CENTRO_TRABAJO FK
+    }
+    EMPLEADO_CONTACTOS_EMERGENCIA {
+        NUMBER ID_CONTACTO_EMERGENCIA PK
+        NUMBER ID_EMPLEADO FK
+        VARCHAR2 NOMBRE
+        VARCHAR2 PARENTESCO
+    }
+    HISTORIAL_SALARIAL {
+        NUMBER ID_HISTORIAL_SALARIAL PK
+        NUMBER ID_EMPLEADO FK
+        DATE VIGENTE_DESDE
+        DATE VIGENTE_HASTA
+    }
+    USUARIOS ||--o{ EMPLEADOS : "ID_USUARIO"
+    BANCOS ||--o{ EMPLEADOS : "ID_BANCO"
+    DEPARTAMENTOS ||--o{ EMPLEADOS : "ID_DEPARTAMENTO"
+    PUESTOS ||--o{ EMPLEADOS : "ID_PUESTO, ID_DEPARTAMENTO"
+    JEFATURAS ||--o{ EMPLEADOS : "ID_JEFATURA, ID_DEPARTAMENTO"
+    TIPOS_CONTRATO ||--o{ EMPLEADOS : "ID_TIPO_CONTRATO"
+    CENTROS_TRABAJO ||--o{ EMPLEADOS : "ID_CENTRO_TRABAJO"
+    EMPLEADOS ||--o{ EMPLEADO_CONTACTOS_EMERGENCIA : "ID_EMPLEADO"
+    EMPLEADOS ||--o{ HISTORIAL_SALARIAL : "ID_EMPLEADO"
+```
+
+| Tabla y PK                                                   | Propósito                                                               | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **EMPLEADOS** / `ID_EMPLEADO`                                | Expediente y pertenencia organizativa; salario y horario por historial. | `ID_USUARIO`: NUMBER?; `CODIGO`: VARCHAR2(40); `NOMBRES`: VARCHAR2(100); `APELLIDOS`: VARCHAR2(100); `DPI`: VARCHAR2(13); `NIT`: VARCHAR2(20); `AFILIACION_IGSS`: VARCHAR2(20)?; `FECHA_NACIMIENTO`: DATE; `SEXO`: VARCHAR2(1); `ESTADO_CIVIL`: VARCHAR2(20); `DIRECCION`: VARCHAR2(500); `TELEFONO`: VARCHAR2(8); `CORREO`: VARCHAR2(254); `ID_BANCO`: NUMBER?; `CUENTA_BANCARIA`: VARCHAR2(34)?; `TIPO_CUENTA`: VARCHAR2(15)?; `ID_PUESTO`: NUMBER; `ID_DEPARTAMENTO`: NUMBER; `ID_JEFATURA`: NUMBER?; `ID_TIPO_CONTRATO`: NUMBER; `ID_CENTRO_TRABAJO`: NUMBER; `FECHA_INGRESO`: DATE; `FECHA_FIN_CONTRATO`: DATE?; `FECHA_EGRESO`: DATE?; `MOTIVO_EGRESO`: VARCHAR2(500)?; `ESTADO`: VARCHAR2(15) |
+| **EMPLEADO_CONTACTOS_EMERGENCIA** / `ID_CONTACTO_EMERGENCIA` | Varios contactos por empleado; prioridad única.                         | `ID_EMPLEADO`: NUMBER; `NOMBRE`: VARCHAR2(200); `PARENTESCO`: VARCHAR2(60); `TELEFONO`: VARCHAR2(8); `PRIORIDAD`: NUMBER(2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **HISTORIAL_SALARIAL** / `ID_HISTORIAL_SALARIAL`             | Salario mensual vigente; no se duplica en empleados.                    | `ID_EMPLEADO`: NUMBER; `SALARIO_BASE`: NUMBER(12,2); `VIGENTE_DESDE`: DATE; `VIGENTE_HASTA`: DATE?; `MOTIVO`: VARCHAR2(500)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
+## 4. Horarios y calendario
+
+Migración: [V004__horarios_calendario.sql](../db/migrations/V004__horarios_calendario.sql).
+
+```mermaid
+erDiagram
+    HORARIOS {
+        NUMBER ID_HORARIO PK
+        VARCHAR2 NOMBRE
+        VARCHAR2 JORNADA
+        NUMBER ACTIVO
+    }
+    HORARIO_DIAS {
+        NUMBER ID_HORARIO_DIA PK
+        NUMBER ID_HORARIO FK
+        NUMBER DIA_SEMANA
+        NUMBER LABORABLE
+    }
+    EMPLEADO_HORARIO {
+        NUMBER ID_EMPLEADO_HORARIO PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_HORARIO FK
+        DATE VIGENTE_DESDE
+    }
+    FERIADOS {
+        NUMBER ID_FERIADO PK
+        DATE FECHA
+        DATE FECHA_CONMEMORACION
+        VARCHAR2 AMBITO
+    }
+    HORARIOS ||--o{ HORARIO_DIAS : "ID_HORARIO"
+    EMPLEADOS ||--o{ EMPLEADO_HORARIO : "ID_EMPLEADO"
+    HORARIOS ||--o{ EMPLEADO_HORARIO : "ID_HORARIO"
+```
+
+| Tabla y PK                                   | Propósito                                                             | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                         |
+| -------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **HORARIOS** / `ID_HORARIO`                  | Patrón semanal; horas legales por jornada en parámetros.              | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `JORNADA`: VARCHAR2(10)                                                                                                                           |
+| **HORARIO_DIAS** / `ID_HORARIO_DIA`          | ISO lunes=1, domingo=7; minutos desde medianoche, con cruce nocturno. | `ID_HORARIO`: NUMBER; `DIA_SEMANA`: NUMBER(1); `LABORABLE`: NUMBER(1); `MINUTO_ENTRADA`: NUMBER(4)?; `MINUTO_SALIDA`: NUMBER(4)?; `CRUZA_MEDIANOCHE`: NUMBER(1); `MINUTOS_DESCANSO`: NUMBER(4)                                    |
+| **EMPLEADO_HORARIO** / `ID_EMPLEADO_HORARIO` | Asignación de horario con vigencia.                                   | `ID_EMPLEADO`: NUMBER; `ID_HORARIO`: NUMBER; `VIGENTE_DESDE`: DATE; `VIGENTE_HASTA`: DATE?; `MOTIVO`: VARCHAR2(500)                                                                                                               |
+| **FERIADOS** / `ID_FERIADO`                  | Fecha efectiva, fecha nominal, ámbito y franja para medios días.      | `CODIGO`: VARCHAR2(60); `NOMBRE`: VARCHAR2(120); `FECHA`: DATE; `FECHA_CONMEMORACION`: DATE; `AMBITO`: VARCHAR2(10); `LOCALIDAD`: VARCHAR2(120); `MINUTO_INICIO`: NUMBER(4); `MINUTO_FIN`: NUMBER(4); `FUNDAMENTO`: VARCHAR2(500) |
+
+## 5. Parámetros legales
+
+Migración: [V005__parametros_legales.sql](../db/migrations/V005__parametros_legales.sql).
+
+```mermaid
+erDiagram
+    PARAMETROS_LEGALES {
+        NUMBER ID_PARAMETRO_LEGAL PK
+        VARCHAR2 CODIGO
+        VARCHAR2 NOMBRE
+        VARCHAR2 UNIDAD
+    }
+    TRAMOS_ISR {
+        NUMBER ID_TRAMO_ISR PK
+        DATE VIGENTE_DESDE
+        DATE VIGENTE_HASTA
+        NUMBER LIMITE_INFERIOR
+    }
+    TIPOS_DEDUCCION_ISR {
+        NUMBER ID_TIPO_DEDUCCION_ISR PK
+        VARCHAR2 NOMBRE
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    ISR_DEDUCCIONES_EMPLEADO {
+        NUMBER ID_DEDUCCION_ISR PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_TIPO_DEDUCCION_ISR FK
+        NUMBER ANIO
+    }
+    CONCEPTOS_NOMINA {
+        NUMBER ID_CONCEPTO_NOMINA PK
+        VARCHAR2 CODIGO
+        VARCHAR2 NOMBRE
+        VARCHAR2 NATURALEZA
+    }
+    TIPOS_AUSENCIA {
+        NUMBER ID_TIPO_AUSENCIA PK
+        VARCHAR2 NOMBRE
+        VARCHAR2 EFECTO
+        NUMBER ACTIVO
+    }
+    EMPLEADOS ||--o{ ISR_DEDUCCIONES_EMPLEADO : "ID_EMPLEADO"
+    TIPOS_DEDUCCION_ISR ||--o{ ISR_DEDUCCIONES_EMPLEADO : "ID_TIPO_DEDUCCION_ISR"
+```
+
+| Tabla y PK                                        | Propósito                                                                     | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                       |
+| ------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PARAMETROS_LEGALES** / `ID_PARAMETRO_LEGAL`     | Valores numéricos con vigencia, unidad y fundamento; tasas como porcentaje.   | `CODIGO`: VARCHAR2(60); `NOMBRE`: VARCHAR2(150); `VALOR`: NUMBER(18,6); `UNIDAD`: VARCHAR2(20); `VIGENTE_DESDE`: DATE; `VIGENTE_HASTA`: DATE?; `FUNDAMENTO`: VARCHAR2(500); `MOTIVO`: VARCHAR2(500)             |
+| **TRAMOS_ISR** / `ID_TRAMO_ISR`                   | Escala marginal con cuota fija y vigencia; último límite superior nulo.       | `VIGENTE_DESDE`: DATE; `VIGENTE_HASTA`: DATE?; `LIMITE_INFERIOR`: NUMBER(12,2); `LIMITE_SUPERIOR`: NUMBER(12,2)?; `TASA_PORCENTAJE`: NUMBER(7,4); `CUOTA_FIJA`: NUMBER(12,2); `MOTIVO`: VARCHAR2(500)           |
+| **TIPOS_DEDUCCION_ISR** / `ID_TIPO_DEDUCCION_ISR` | Deducciones acreditadas; tope se resuelve con parámetro vigente.              | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `CODIGO_PARAMETRO_TOPE`: VARCHAR2(60)?                                                                                          |
+| **ISR_DEDUCCIONES_EMPLEADO** / `ID_DEDUCCION_ISR` | Soportes por empleado, año fiscal y tipo; IGSS de planilla se acumula aparte. | `ID_EMPLEADO`: NUMBER; `ID_TIPO_DEDUCCION_ISR`: NUMBER; `ANIO`: NUMBER(4); `MONTO`: NUMBER(12,2); `REFERENCIA`: VARCHAR2(100); `FECHA_COMPROBANTE`: DATE; `RUTA_SOPORTE`: VARCHAR2(500)?                        |
+| **CONCEPTOS_NOMINA** / `ID_CONCEPTO_NOMINA`       | Conceptos versionados: banderas vigentes y código estable.                    | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `NATURALEZA`: VARCHAR2(10); `AFECTA_IGSS`: NUMBER(1); `AFECTA_ISR`: NUMBER(1); `AFECTA_PRESTACIONES`: NUMBER(1); `VIGENTE_DESDE`: DATE; `VIGENTE_HASTA`: DATE? |
+| **TIPOS_AUSENCIA** / `ID_TIPO_AUSENCIA`           | Efecto en salario configurable por tipo.                                      | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `EFECTO`: VARCHAR2(15)                                                                                                          |
+
+## 6. Descuentos y préstamos
+
+Migración: [V006__descuentos_prestamos.sql](../db/migrations/V006__descuentos_prestamos.sql).
+
+```mermaid
+erDiagram
+    TIPOS_DESCUENTO {
+        NUMBER ID_TIPO_DESCUENTO PK
+        VARCHAR2 NOMBRE
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    DESCUENTOS_EMPLEADO {
+        NUMBER ID_DESCUENTO_EMPLEADO PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_TIPO_DESCUENTO FK
+        VARCHAR2 MODALIDAD
+        NUMBER ID_SOLICITUD FK
+    }
+    PRESTAMOS {
+        NUMBER ID_PRESTAMO PK
+        NUMBER ID_DESCUENTO_EMPLEADO FK
+        NUMBER ID_EMPLEADO FK
+        DATE FECHA_DESEMBOLSO
+        NUMBER ACTIVO
+    }
+    DESCUENTOS_CUOTAS {
+        NUMBER ID_DESCUENTO_CUOTA PK
+        NUMBER ID_DESCUENTO_EMPLEADO FK
+        NUMBER ID_EMPLEADO FK
+        DATE FECHA_VENCIMIENTO
+        VARCHAR2 ESTADO
+        NUMBER ID_PERIODO_NOMINA FK
+    }
+    EMPLEADOS ||--o{ DESCUENTOS_EMPLEADO : "ID_EMPLEADO"
+    TIPOS_DESCUENTO ||--o{ DESCUENTOS_EMPLEADO : "ID_TIPO_DESCUENTO"
+    SOLICITUDES ||--o{ DESCUENTOS_EMPLEADO : "ID_SOLICITUD, ID_EMPLEADO"
+    DESCUENTOS_EMPLEADO ||--o{ PRESTAMOS : "ID_DESCUENTO_EMPLEADO, ID_EMPLEADO"
+    EMPLEADOS ||--o{ PRESTAMOS : "ID_EMPLEADO"
+    DESCUENTOS_EMPLEADO ||--o{ DESCUENTOS_CUOTAS : "ID_DESCUENTO_EMPLEADO, ID_EMPLEADO"
+    EMPLEADOS ||--o{ DESCUENTOS_CUOTAS : "ID_EMPLEADO"
+    PERIODOS_NOMINA ||--o{ DESCUENTOS_CUOTAS : "ID_PERIODO_NOMINA"
+```
+
+| Tabla y PK                                        | Propósito                                                                 | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TIPOS_DESCUENTO** / `ID_TIPO_DESCUENTO`         | Préstamo, anticipo, embargo, parqueo, consumo en tienda y otros.          | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?                                                                                                                                                                                                                                       |
+| **DESCUENTOS_EMPLEADO** / `ID_DESCUENTO_EMPLEADO` | Acuerdo de descuento; cuotas, fijo o único con saldo controlado.          | `ID_EMPLEADO`: NUMBER; `ID_TIPO_DESCUENTO`: NUMBER; `MODALIDAD`: VARCHAR2(10); `MONTO_QUINCENA`: NUMBER(12,2); `MONTO_TOTAL`: NUMBER(12,2)?; `SALDO`: NUMBER(12,2)?; `NUMERO_CUOTAS`: NUMBER(5)?; `FECHA_INICIO`: DATE; `FECHA_FIN`: DATE?; `ESTADO`: VARCHAR2(15); `MOTIVO`: VARCHAR2(500); `ID_SOLICITUD`: NUMBER? |
+| **PRESTAMOS** / `ID_PRESTAMO`                     | Origen de un descuento en cuotas; importe total incluye interés acordado. | `ID_DESCUENTO_EMPLEADO`: NUMBER; `ID_EMPLEADO`: NUMBER; `CAPITAL`: NUMBER(12,2); `INTERES_TOTAL`: NUMBER(12,2); `FECHA_DESEMBOLSO`: DATE; `REFERENCIA`: VARCHAR2(100)                                                                                                                                                |
+| **DESCUENTOS_CUOTAS** / `ID_DESCUENTO_CUOTA`      | Calendario y saldo por cuota; periodo y nómina vinculados en V007.        | `ID_DESCUENTO_EMPLEADO`: NUMBER; `ID_EMPLEADO`: NUMBER; `NUMERO_CUOTA`: NUMBER(5); `FECHA_VENCIMIENTO`: DATE; `MONTO`: NUMBER(12,2); `MONTO_PAGADO`: NUMBER(12,2); `ESTADO`: VARCHAR2(12); `FECHA_PAGO`: DATE?; `ID_PERIODO_NOMINA`: NUMBER?                                                                         |
+
+## 7. Nómina
+
+Migración: [V007__nomina.sql](../db/migrations/V007__nomina.sql).
+
+```mermaid
+erDiagram
+    PERIODOS_NOMINA {
+        NUMBER ID_PERIODO_NOMINA PK
+        DATE FECHA_FIN
+        NUMBER QUINCENA
+        VARCHAR2 ESTADO
+        NUMBER APROBADO_POR FK
+        NUMBER CERRADO_POR FK
+    }
+    COMISIONES {
+        NUMBER ID_COMISION PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_PERIODO_NOMINA FK
+        NUMBER MONTO
+    }
+    HORAS_EXTRA {
+        NUMBER ID_HORA_EXTRA PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_PERIODO_NOMINA FK
+        DATE FECHA
+        NUMBER APROBADO_POR FK
+    }
+    AUSENCIAS {
+        NUMBER ID_AUSENCIA PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_TIPO_AUSENCIA FK
+        DATE FECHA_INICIO
+        NUMBER APROBADO_POR FK
+    }
+    NOMINA_EMPLEADO {
+        NUMBER ID_NOMINA_EMPLEADO PK
+        NUMBER ID_PERIODO_NOMINA FK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_HISTORIAL_SALARIAL FK
+        NUMBER VERSION_CALCULO
+    }
+    DESCUENTOS_APLICACIONES {
+        NUMBER ID_DESCUENTO_APLICACION PK
+        NUMBER ID_NOMINA_EMPLEADO FK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_PERIODO_NOMINA FK
+        NUMBER ID_DESCUENTO_EMPLEADO FK
+        NUMBER ID_DESCUENTO_CUOTA FK
+        VARCHAR2 ESTADO
+    }
+    NOMINA_DETALLE {
+        NUMBER ID_NOMINA_DETALLE PK
+        NUMBER ID_NOMINA_EMPLEADO FK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_PERIODO_NOMINA FK
+        NUMBER ID_CONCEPTO_NOMINA FK
+        NUMBER ID_COMISION FK
+        NUMBER ID_HORA_EXTRA FK
+        NUMBER ID_AUSENCIA FK
+        NUMBER ID_DESCUENTO_APLICACION FK
+    }
+    NOMINA_PARAMETROS {
+        NUMBER ID_NOMINA_PARAMETRO PK
+        NUMBER ID_NOMINA_EMPLEADO FK
+        NUMBER ID_PARAMETRO_LEGAL FK
+        NUMBER ACTIVO
+    }
+    ISR_PROYECCIONES {
+        NUMBER ID_ISR_PROYECCION PK
+        NUMBER ID_NOMINA_EMPLEADO FK
+        NUMBER ANIO
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    USUARIOS ||--o{ PERIODOS_NOMINA : "APROBADO_POR"
+    USUARIOS ||--o{ PERIODOS_NOMINA : "CERRADO_POR"
+    EMPLEADOS ||--o{ COMISIONES : "ID_EMPLEADO"
+    PERIODOS_NOMINA ||--o{ COMISIONES : "ID_PERIODO_NOMINA"
+    EMPLEADOS ||--o{ HORAS_EXTRA : "ID_EMPLEADO"
+    PERIODOS_NOMINA ||--o{ HORAS_EXTRA : "ID_PERIODO_NOMINA"
+    USUARIOS ||--o{ HORAS_EXTRA : "APROBADO_POR"
+    EMPLEADOS ||--o{ AUSENCIAS : "ID_EMPLEADO"
+    TIPOS_AUSENCIA ||--o{ AUSENCIAS : "ID_TIPO_AUSENCIA"
+    USUARIOS ||--o{ AUSENCIAS : "APROBADO_POR"
+    PERIODOS_NOMINA ||--o{ NOMINA_EMPLEADO : "ID_PERIODO_NOMINA"
+    EMPLEADOS ||--o{ NOMINA_EMPLEADO : "ID_EMPLEADO"
+    HISTORIAL_SALARIAL ||--o{ NOMINA_EMPLEADO : "ID_HISTORIAL_SALARIAL"
+    HISTORIAL_SALARIAL ||--o{ NOMINA_EMPLEADO : "ID_HISTORIAL_SALARIAL, ID_EMPLEADO"
+    NOMINA_EMPLEADO ||--o{ DESCUENTOS_APLICACIONES : "ID_NOMINA_EMPLEADO, ID_EMPLEADO, ID_PERIODO_NOMINA"
+    DESCUENTOS_EMPLEADO ||--o{ DESCUENTOS_APLICACIONES : "ID_DESCUENTO_EMPLEADO, ID_EMPLEADO"
+    DESCUENTOS_CUOTAS ||--o{ DESCUENTOS_APLICACIONES : "ID_DESCUENTO_CUOTA, ID_EMPLEADO"
+    PERIODOS_NOMINA ||--o{ DESCUENTOS_APLICACIONES : "ID_PERIODO_NOMINA"
+    EMPLEADOS ||--o{ DESCUENTOS_APLICACIONES : "ID_EMPLEADO"
+    DESCUENTOS_CUOTAS ||--o{ DESCUENTOS_APLICACIONES : "ID_DESCUENTO_CUOTA, ID_DESCUENTO_EMPLEADO, ID_EMPLEADO"
+    NOMINA_EMPLEADO ||--o{ NOMINA_DETALLE : "ID_NOMINA_EMPLEADO, ID_EMPLEADO, ID_PERIODO_NOMINA"
+    EMPLEADOS ||--o{ NOMINA_DETALLE : "ID_EMPLEADO"
+    PERIODOS_NOMINA ||--o{ NOMINA_DETALLE : "ID_PERIODO_NOMINA"
+    CONCEPTOS_NOMINA ||--o{ NOMINA_DETALLE : "ID_CONCEPTO_NOMINA"
+    COMISIONES ||--o{ NOMINA_DETALLE : "ID_COMISION, ID_EMPLEADO, ID_PERIODO_NOMINA"
+    HORAS_EXTRA ||--o{ NOMINA_DETALLE : "ID_HORA_EXTRA, ID_EMPLEADO, ID_PERIODO_NOMINA"
+    AUSENCIAS ||--o{ NOMINA_DETALLE : "ID_AUSENCIA, ID_EMPLEADO"
+    DESCUENTOS_APLICACIONES ||--o{ NOMINA_DETALLE : "ID_DESCUENTO_APLICACION, ID_NOMINA_EMPLEADO, ID_EMPLEADO, ID_PERIODO_NOMINA"
+    NOMINA_EMPLEADO ||--o{ NOMINA_PARAMETROS : "ID_NOMINA_EMPLEADO"
+    PARAMETROS_LEGALES ||--o{ NOMINA_PARAMETROS : "ID_PARAMETRO_LEGAL"
+    NOMINA_EMPLEADO ||--o{ ISR_PROYECCIONES : "ID_NOMINA_EMPLEADO"
+```
+
+| Tabla y PK                                              | Propósito                                                                       | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PERIODOS_NOMINA** / `ID_PERIODO_NOMINA`               | Quincenas exactas, no superponibles por fecha inicial única y límites rígidos.  | `FECHA_INICIO`: DATE; `FECHA_FIN`: DATE; `QUINCENA`: NUMBER(1); `ESTADO`: VARCHAR2(12); `VERSION_CALCULO`: NUMBER(5); `CALCULADO_EN`: DATE?; `REVISADO_EN`: DATE?; `APROBADO_EN`: DATE?; `CERRADO_EN`: DATE?; `APROBADO_POR`: NUMBER?; `CERRADO_POR`: NUMBER?; `MOTIVO_REAPERTURA`: VARCHAR2(500)?                                                                                                                                                                                                              |
+| **COMISIONES** / `ID_COMISION`                          | Comisiones manuales por empleado y quincena, con referencia idempotente.        | `ID_EMPLEADO`: NUMBER; `ID_PERIODO_NOMINA`: NUMBER; `MONTO`: NUMBER(12,2); `REFERENCIA`: VARCHAR2(100); `DESCRIPCION`: VARCHAR2(500)                                                                                                                                                                                                                                                                                                                                                                            |
+| **HORAS_EXTRA** / `ID_HORA_EXTRA`                       | Tiempo extra aprobado; factor y valor hora se congelan al calcular nómina.      | `ID_EMPLEADO`: NUMBER; `ID_PERIODO_NOMINA`: NUMBER; `FECHA`: DATE; `HORAS`: NUMBER(6,2); `ESTADO`: VARCHAR2(12); `APROBADO_POR`: NUMBER?; `MOTIVO`: VARCHAR2(500)                                                                                                                                                                                                                                                                                                                                               |
+| **AUSENCIAS** / `ID_AUSENCIA`                           | Ausencias, permisos e incapacidades por rango; pueden cruzar periodos.          | `ID_EMPLEADO`: NUMBER; `ID_TIPO_AUSENCIA`: NUMBER; `FECHA_INICIO`: DATE; `FECHA_FIN`: DATE; `DIAS`: NUMBER(7,2); `ESTADO`: VARCHAR2(12); `MOTIVO`: VARCHAR2(500); `RUTA_SOPORTE`: VARCHAR2(500)?; `APROBADO_POR`: NUMBER?                                                                                                                                                                                                                                                                                       |
+| **NOMINA_EMPLEADO** / `ID_NOMINA_EMPLEADO`              | Resultado versionado por empleado/periodo; snapshot del expediente y totales.   | `ID_PERIODO_NOMINA`: NUMBER; `ID_EMPLEADO`: NUMBER; `ID_HISTORIAL_SALARIAL`: NUMBER; `VERSION_CALCULO`: NUMBER(5); `DIAS_PAGADOS`: NUMBER(5,2); `SALARIO_BASE`: NUMBER(12,2); `TOTAL_INGRESOS`: NUMBER(12,2); `TOTAL_DESCUENTOS`: NUMBER(12,2); `NETO`: NUMBER(12,2); `COSTO_PATRONAL`: NUMBER(12,2); `DATOS_EMPLEADO`: CLOB; `FECHA_PAGO`: DATE?; `REFERENCIA_PAGO`: VARCHAR2(100)?                                                                                                                            |
+| **DESCUENTOS_APLICACIONES** / `ID_DESCUENTO_APLICACION` | Aplicación/reversión por cálculo; evita perder historial al reabrir.            | `ID_NOMINA_EMPLEADO`: NUMBER; `ID_EMPLEADO`: NUMBER; `ID_PERIODO_NOMINA`: NUMBER; `ID_DESCUENTO_EMPLEADO`: NUMBER; `ID_DESCUENTO_CUOTA`: NUMBER?; `MONTO`: NUMBER(12,2); `SALDO_ANTERIOR`: NUMBER(12,2)?; `SALDO_NUEVO`: NUMBER(12,2)?; `ESTADO`: VARCHAR2(10)                                                                                                                                                                                                                                                  |
+| **NOMINA_DETALLE** / `ID_NOMINA_DETALLE`                | Líneas con base, tasa, banderas y origen; snapshot protege periodos anteriores. | `ID_NOMINA_EMPLEADO`: NUMBER; `ID_EMPLEADO`: NUMBER; `ID_PERIODO_NOMINA`: NUMBER; `ID_CONCEPTO_NOMINA`: NUMBER; `ORDEN`: NUMBER(5); `DESCRIPCION`: VARCHAR2(200); `NATURALEZA`: VARCHAR2(10); `BASE_CALCULO`: NUMBER(12,2); `CANTIDAD`: NUMBER(12,4); `TASA_PORCENTAJE`: NUMBER(9,4)?; `MONTO`: NUMBER(12,2); `AFECTA_IGSS`: NUMBER(1); `AFECTA_ISR`: NUMBER(1); `AFECTA_PRESTACIONES`: NUMBER(1); `ID_COMISION`: NUMBER?; `ID_HORA_EXTRA`: NUMBER?; `ID_AUSENCIA`: NUMBER?; `ID_DESCUENTO_APLICACION`: NUMBER? |
+| **NOMINA_PARAMETROS** / `ID_NOMINA_PARAMETRO`           | Parámetros y valores exactos utilizados en cada resultado.                      | `ID_NOMINA_EMPLEADO`: NUMBER; `ID_PARAMETRO_LEGAL`: NUMBER; `VALOR_APLICADO`: NUMBER(18,6)                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **ISR_PROYECCIONES** / `ID_ISR_PROYECCION`              | Snapshot por cálculo del ISR anual, acumulado y periodos restantes.             | `ID_NOMINA_EMPLEADO`: NUMBER; `ANIO`: NUMBER(4); `RENTA_ANUAL`: NUMBER(12,2); `DEDUCCION_PERSONAL`: NUMBER(12,2); `DEDUCCIONES_ACREDITADAS`: NUMBER(12,2); `IGSS_PROYECTADO`: NUMBER(12,2); `RENTA_IMPONIBLE`: NUMBER(12,2); `ISR_ANUAL`: NUMBER(12,2); `RETENIDO_ACUMULADO`: NUMBER(12,2); `PERIODOS_RESTANTES`: NUMBER(2); `RETENCION_PERIODO`: NUMBER(12,2); `DETALLE_CALCULO`: CLOB                                                                                                                         |
+
+## 8. Prestaciones
+
+Migración: [V008__prestaciones.sql](../db/migrations/V008__prestaciones.sql).
+
+```mermaid
+erDiagram
+    PRESTACIONES {
+        NUMBER ID_PRESTACION PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_PERIODO_NOMINA FK
+        VARCHAR2 TIPO
+    }
+    PRESTACION_DETALLE {
+        NUMBER ID_PRESTACION_DETALLE PK
+        NUMBER ID_PRESTACION FK
+        VARCHAR2 CONCEPTO
+        NUMBER ACTIVO
+    }
+    EMPLEADOS ||--o{ PRESTACIONES : "ID_EMPLEADO"
+    PERIODOS_NOMINA ||--o{ PRESTACIONES : "ID_PERIODO_NOMINA"
+    PRESTACIONES ||--o{ PRESTACION_DETALLE : "ID_PRESTACION"
+```
+
+| Tabla y PK                                       | Propósito                                                      | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PRESTACIONES** / `ID_PRESTACION`               | Liquidaciones de aguinaldo, Bono 14 e indemnización/finiquito. | `ID_EMPLEADO`: NUMBER; `ID_PERIODO_NOMINA`: NUMBER?; `TIPO`: VARCHAR2(15); `FECHA_INICIO_BASE`: DATE; `FECHA_FIN_BASE`: DATE; `FECHA_CALCULO`: DATE; `SALARIO_PROMEDIO`: NUMBER(12,2); `TIEMPO_ANIOS`: NUMBER(10,6); `MONTO_TOTAL`: NUMBER(12,2); `ESTADO`: VARCHAR2(12); `FECHA_PAGO`: DATE?; `REFERENCIA_PAGO`: VARCHAR2(100)?; `MOTIVO`: VARCHAR2(500) |
+| **PRESTACION_DETALLE** / `ID_PRESTACION_DETALLE` | Componentes de finiquito, exención, días y bases congeladas.   | `ID_PRESTACION`: NUMBER; `CONCEPTO`: VARCHAR2(40); `BASE_CALCULO`: NUMBER(12,2); `DIAS`: NUMBER(9,4); `MONTO`: NUMBER(12,2); `MONTO_EXENTO_ISR`: NUMBER(12,2); `DETALLE_CALCULO`: CLOB                                                                                                                                                                    |
+
+## 9. Vacaciones
+
+Migración: [V009__vacaciones.sql](../db/migrations/V009__vacaciones.sql).
+
+```mermaid
+erDiagram
+    VACACIONES_SOLICITUDES {
+        NUMBER ID_VACACIONES_SOLICITUD PK
+        NUMBER ID_EMPLEADO FK
+        DATE FECHA_INICIO
+        DATE FECHA_FIN
+        NUMBER RESUELTO_POR FK
+        NUMBER ID_SOLICITUD FK
+    }
+    VACACIONES_MOVIMIENTOS {
+        NUMBER ID_VACACIONES_MOVIMIENTO PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_VACACIONES_SOLICITUD FK
+        VARCHAR2 TIPO
+        DATE FECHA
+    }
+    EMPLEADOS ||--o{ VACACIONES_SOLICITUDES : "ID_EMPLEADO"
+    USUARIOS ||--o{ VACACIONES_SOLICITUDES : "RESUELTO_POR"
+    SOLICITUDES ||--o{ VACACIONES_SOLICITUDES : "ID_SOLICITUD, ID_EMPLEADO"
+    EMPLEADOS ||--o{ VACACIONES_MOVIMIENTOS : "ID_EMPLEADO"
+    VACACIONES_SOLICITUDES ||--o{ VACACIONES_MOVIMIENTOS : "ID_VACACIONES_SOLICITUD, ID_EMPLEADO"
+```
+
+| Tabla y PK                                              | Propósito                                                                      | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **VACACIONES_SOLICITUDES** / `ID_VACACIONES_SOLICITUD`  | Rango y días laborales al solicitar y resolver; vínculo con solicitud en V010. | `ID_EMPLEADO`: NUMBER; `FECHA_INICIO`: DATE; `FECHA_FIN`: DATE; `DIAS_SOLICITADOS`: NUMBER(7,2); `SALDO_AL_SOLICITAR`: NUMBER(7,2); `SALDO_AL_RESOLVER`: NUMBER(7,2)?; `ESTADO`: VARCHAR2(12); `RESUELTO_POR`: NUMBER?; `RESUELTO_EN`: DATE?; `MOTIVO_RECHAZO`: VARCHAR2(500)?; `ID_SOLICITUD`: NUMBER |
+| **VACACIONES_MOVIMIENTOS** / `ID_VACACIONES_MOVIMIENTO` | Kardex con débito/reserva al aprobar; reversión explícita y ajustes motivados. | `ID_EMPLEADO`: NUMBER; `ID_VACACIONES_SOLICITUD`: NUMBER?; `TIPO`: VARCHAR2(15); `FECHA`: DATE; `DIAS`: NUMBER(7,2); `CLAVE_ORIGEN`: VARCHAR2(100); `MOTIVO`: VARCHAR2(500)                                                                                                                            |
+
+## 10. Solicitudes y documentos
+
+Migración: [V010__solicitudes_documentos.sql](../db/migrations/V010__solicitudes_documentos.sql).
+
+```mermaid
+erDiagram
+    TIPOS_SOLICITUD {
+        NUMBER ID_TIPO_SOLICITUD PK
+        VARCHAR2 NOMBRE
+        DATE FECHA_CREACION
+        NUMBER ACTIVO
+    }
+    SOLICITUDES {
+        NUMBER ID_SOLICITUD PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_TIPO_SOLICITUD FK
+        VARCHAR2 ESTADO
+        NUMBER RESUELTO_POR FK
+    }
+    SOLICITUD_HISTORIAL {
+        NUMBER ID_SOLICITUD_HISTORIAL PK
+        NUMBER ID_SOLICITUD FK
+        NUMBER ID_USUARIO FK
+        DATE FECHA
+    }
+    PLANTILLAS_DOCUMENTO {
+        NUMBER ID_PLANTILLA_DOCUMENTO PK
+        NUMBER ID_TIPO_SOLICITUD FK
+        VARCHAR2 NOMBRE
+        DATE VIGENTE_DESDE
+    }
+    DOCUMENTOS_GENERADOS {
+        NUMBER ID_DOCUMENTO_GENERADO PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ID_SOLICITUD FK
+        NUMBER ID_NOMINA_EMPLEADO FK
+        NUMBER ID_PERIODO_NOMINA FK
+        NUMBER ID_PLANTILLA_DOCUMENTO FK
+    }
+    EMPLEADOS ||--o{ SOLICITUDES : "ID_EMPLEADO"
+    TIPOS_SOLICITUD ||--o{ SOLICITUDES : "ID_TIPO_SOLICITUD"
+    USUARIOS ||--o{ SOLICITUDES : "RESUELTO_POR"
+    SOLICITUDES ||--o{ SOLICITUD_HISTORIAL : "ID_SOLICITUD"
+    USUARIOS ||--o{ SOLICITUD_HISTORIAL : "ID_USUARIO"
+    TIPOS_SOLICITUD ||--o{ PLANTILLAS_DOCUMENTO : "ID_TIPO_SOLICITUD"
+    EMPLEADOS ||--o{ DOCUMENTOS_GENERADOS : "ID_EMPLEADO"
+    SOLICITUDES ||--o{ DOCUMENTOS_GENERADOS : "ID_SOLICITUD, ID_EMPLEADO"
+    NOMINA_EMPLEADO ||--o{ DOCUMENTOS_GENERADOS : "ID_NOMINA_EMPLEADO, ID_EMPLEADO, ID_PERIODO_NOMINA"
+    PERIODOS_NOMINA ||--o{ DOCUMENTOS_GENERADOS : "ID_PERIODO_NOMINA"
+    PLANTILLAS_DOCUMENTO ||--o{ DOCUMENTOS_GENERADOS : "ID_PLANTILLA_DOCUMENTO"
+```
+
+| Tabla y PK                                          | Propósito                                                                     | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TIPOS_SOLICITUD** / `ID_TIPO_SOLICITUD`           | Trámites del portal y requerimiento de documento/PDF.                         | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `GENERA_PDF`: NUMBER(1); `ES_DIRECTA`: NUMBER(1)                                                                                                                                                                                                                                                               |
+| **SOLICITUDES** / `ID_SOLICITUD`                    | Bandeja común, datos críticos propuestos y resolución motivada.               | `ID_EMPLEADO`: NUMBER; `ID_TIPO_SOLICITUD`: NUMBER; `ESTADO`: VARCHAR2(12); `DATOS_SOLICITADOS`: CLOB?; `OBSERVACIONES`: VARCHAR2(1000)?; `RESUELTO_POR`: NUMBER?; `RESUELTO_EN`: DATE?; `MOTIVO_RECHAZO`: VARCHAR2(500)?; `ENTREGADA_EN`: DATE?                                                                                                                                               |
+| **SOLICITUD_HISTORIAL** / `ID_SOLICITUD_HISTORIAL`  | Transiciones de la solicitud con actor, fecha y motivo.                       | `ID_SOLICITUD`: NUMBER; `ESTADO_ANTERIOR`: VARCHAR2(12)?; `ESTADO_NUEVO`: VARCHAR2(12); `ID_USUARIO`: NUMBER; `FECHA`: DATE; `MOTIVO`: VARCHAR2(1000)?                                                                                                                                                                                                                                         |
+| **PLANTILLAS_DOCUMENTO** / `ID_PLANTILLA_DOCUMENTO` | Texto editable versionado por trámite; variables permitidas en JSON.          | `ID_TIPO_SOLICITUD`: NUMBER; `CODIGO`: VARCHAR2(40); `VERSION`: NUMBER(5); `NOMBRE`: VARCHAR2(150); `CONTENIDO`: CLOB; `VARIABLES_PERMITIDAS`: CLOB; `VIGENTE_DESDE`: DATE; `VIGENTE_HASTA`: DATE?                                                                                                                                                                                             |
+| **DOCUMENTOS_GENERADOS** / `ID_DOCUMENTO_GENERADO`  | PDF privado por solicitud o boleta; snapshot de plantilla y hash del archivo. | `ID_EMPLEADO`: NUMBER; `ID_SOLICITUD`: NUMBER?; `ID_NOMINA_EMPLEADO`: NUMBER?; `ID_PERIODO_NOMINA`: NUMBER?; `ID_PLANTILLA_DOCUMENTO`: NUMBER?; `VERSION`: NUMBER(5); `NOMBRE_ARCHIVO`: VARCHAR2(200); `RUTA_PRIVADA`: VARCHAR2(500); `SHA256`: RAW(32); `TAMANIO_BYTES`: NUMBER(12); `CONTENIDO_PLANTILLA`: CLOB?; `VARIABLES_APLICADAS`: CLOB; `ESTADO`: VARCHAR2(12); `ENTREGADO_EN`: DATE? |
+
+## 11. Comunicaciones
+
+Migración: [V011__comunicaciones.sql](../db/migrations/V011__comunicaciones.sql).
+
+```mermaid
+erDiagram
+    ANUNCIOS {
+        NUMBER ID_ANUNCIO PK
+        VARCHAR2 TITULO
+        DATE VIGENTE_DESDE
+        DATE VIGENTE_HASTA
+    }
+    EVENTOS {
+        NUMBER ID_EVENTO PK
+        VARCHAR2 TITULO
+        DATE FECHA_INICIO
+        DATE FECHA_FIN
+    }
+    ANUNCIO_DESTINATARIOS {
+        NUMBER ID_ANUNCIO_DESTINATARIO PK
+        NUMBER ID_ANUNCIO FK
+        NUMBER ID_DEPARTAMENTO FK
+        NUMBER ID_PUESTO FK
+        NUMBER ID_JEFATURA FK
+    }
+    EVENTO_DESTINATARIOS {
+        NUMBER ID_EVENTO_DESTINATARIO PK
+        NUMBER ID_EVENTO FK
+        NUMBER ID_DEPARTAMENTO FK
+        NUMBER ID_PUESTO FK
+        NUMBER ID_JEFATURA FK
+    }
+    NOTIFICACIONES {
+        NUMBER ID_NOTIFICACION PK
+        NUMBER ID_USUARIO FK
+        VARCHAR2 TIPO
+        NUMBER ID_SOLICITUD FK
+        NUMBER ID_DOCUMENTO_GENERADO FK
+        NUMBER ID_ANUNCIO FK
+        NUMBER ID_EVENTO FK
+        DATE LEIDA_EN
+    }
+    ANUNCIOS ||--o{ ANUNCIO_DESTINATARIOS : "ID_ANUNCIO"
+    DEPARTAMENTOS ||--o{ ANUNCIO_DESTINATARIOS : "ID_DEPARTAMENTO"
+    PUESTOS ||--o{ ANUNCIO_DESTINATARIOS : "ID_PUESTO"
+    JEFATURAS ||--o{ ANUNCIO_DESTINATARIOS : "ID_JEFATURA"
+    EVENTOS ||--o{ EVENTO_DESTINATARIOS : "ID_EVENTO"
+    DEPARTAMENTOS ||--o{ EVENTO_DESTINATARIOS : "ID_DEPARTAMENTO"
+    PUESTOS ||--o{ EVENTO_DESTINATARIOS : "ID_PUESTO"
+    JEFATURAS ||--o{ EVENTO_DESTINATARIOS : "ID_JEFATURA"
+    USUARIOS ||--o{ NOTIFICACIONES : "ID_USUARIO"
+    SOLICITUDES ||--o{ NOTIFICACIONES : "ID_SOLICITUD"
+    DOCUMENTOS_GENERADOS ||--o{ NOTIFICACIONES : "ID_DOCUMENTO_GENERADO"
+    ANUNCIOS ||--o{ NOTIFICACIONES : "ID_ANUNCIO"
+    EVENTOS ||--o{ NOTIFICACIONES : "ID_EVENTO"
+```
+
+| Tabla y PK                                            | Propósito                                                             | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                |
+| ----------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ANUNCIOS** / `ID_ANUNCIO`                           | Publicaciones con vigencia y destinatarios todos o grupos.            | `TITULO`: VARCHAR2(200); `CONTENIDO`: CLOB; `VIGENTE_DESDE`: DATE; `VIGENTE_HASTA`: DATE; `PARA_TODOS`: NUMBER(1)                                                                                                                                        |
+| **EVENTOS** / `ID_EVENTO`                             | Agenda con inicio y fin local y audiencia segmentable.                | `TITULO`: VARCHAR2(200); `DESCRIPCION`: CLOB?; `FECHA_INICIO`: DATE; `FECHA_FIN`: DATE; `LUGAR`: VARCHAR2(250); `PARA_TODOS`: NUMBER(1)                                                                                                                  |
+| **ANUNCIO_DESTINATARIOS** / `ID_ANUNCIO_DESTINATARIO` | Cada fila representa un grupo; varios grupos se unen por OR.          | `ID_ANUNCIO`: NUMBER; `ID_DEPARTAMENTO`: NUMBER?; `ID_PUESTO`: NUMBER?; `ID_JEFATURA`: NUMBER?                                                                                                                                                           |
+| **EVENTO_DESTINATARIOS** / `ID_EVENTO_DESTINATARIO`   | Cada fila representa un grupo; varios grupos se unen por OR.          | `ID_EVENTO`: NUMBER; `ID_DEPARTAMENTO`: NUMBER?; `ID_PUESTO`: NUMBER?; `ID_JEFATURA`: NUMBER?                                                                                                                                                            |
+| **NOTIFICACIONES** / `ID_NOTIFICACION`                | Campana por usuario y evento, lectura y vínculo al recurso protegido. | `ID_USUARIO`: NUMBER; `TIPO`: VARCHAR2(20); `TITULO`: VARCHAR2(200); `MENSAJE`: VARCHAR2(1000); `CLAVE_EVENTO`: VARCHAR2(120); `ID_SOLICITUD`: NUMBER?; `ID_DOCUMENTO_GENERADO`: NUMBER?; `ID_ANUNCIO`: NUMBER?; `ID_EVENTO`: NUMBER?; `LEIDA_EN`: DATE? |
+
+## 12. Auditoría
+
+Migración: [V012__auditoria.sql](../db/migrations/V012__auditoria.sql).
+
+```mermaid
+erDiagram
+    CARGAS_MASIVAS {
+        NUMBER ID_CARGA_MASIVA PK
+        NUMBER ID_USUARIO FK
+        VARCHAR2 NOMBRE_ARCHIVO
+        VARCHAR2 ESTADO
+    }
+    CARGA_MASIVA_FILAS {
+        NUMBER ID_CARGA_MASIVA_FILA PK
+        NUMBER ID_CARGA_MASIVA FK
+        NUMBER ID_EMPLEADO FK
+        VARCHAR2 ESTADO
+    }
+    BITACORA_AUDITORIA {
+        NUMBER ID_BITACORA_AUDITORIA PK
+        NUMBER ID_USUARIO FK
+        NUMBER ID_ROL FK
+        VARCHAR2 ROL_CODIGO
+    }
+    USUARIOS ||--o{ CARGAS_MASIVAS : "ID_USUARIO"
+    CARGAS_MASIVAS ||--o{ CARGA_MASIVA_FILAS : "ID_CARGA_MASIVA"
+    EMPLEADOS ||--o{ CARGA_MASIVA_FILAS : "ID_EMPLEADO"
+    USUARIOS ||--o{ BITACORA_AUDITORIA : "ID_USUARIO"
+    ROLES ||--o{ BITACORA_AUDITORIA : "ID_ROL"
+```
+
+| Tabla y PK                                       | Propósito                                                                 | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                                                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **CARGAS_MASIVAS** / `ID_CARGA_MASIVA`           | Lote de importación y resultados; nunca guarda contraseñas temporales.    | `ID_USUARIO`: NUMBER; `NOMBRE_ARCHIVO`: VARCHAR2(200); `SHA256`: RAW(32); `MODALIDAD`: VARCHAR2(15); `ESTADO`: VARCHAR2(12); `TOTAL_FILAS`: NUMBER(8); `FILAS_VALIDAS`: NUMBER(8); `FILAS_IMPORTADAS`: NUMBER(8); `CONFIRMADA_EN`: DATE?; `RUTA_REPORTE`: VARCHAR2(500)? |
+| **CARGA_MASIVA_FILAS** / `ID_CARGA_MASIVA_FILA`  | Validación por fila y empleado creado; datos propuestos sin credenciales. | `ID_CARGA_MASIVA`: NUMBER; `NUMERO_FILA`: NUMBER(8); `DATOS`: CLOB; `ERRORES`: CLOB; `ID_EMPLEADO`: NUMBER?; `ESTADO`: VARCHAR2(12)                                                                                                                                      |
+| **BITACORA_AUDITORIA** / `ID_BITACORA_AUDITORIA` | Registro inmutable del actor, rol histórico, acción y cambios depurados.  | `ID_USUARIO`: NUMBER?; `ID_ROL`: NUMBER?; `ROL_CODIGO`: VARCHAR2(10)?; `ACCION`: VARCHAR2(60); `ENTIDAD`: VARCHAR2(60); `ID_ENTIDAD`: NUMBER?; `VALORES_ANTERIORES`: CLOB?; `VALORES_NUEVOS`: CLOB?; `MOTIVO`: VARCHAR2(1000)?; `IP`: VARCHAR2(45)?; `FECHA`: DATE       |
+
+## Integridad y decisiones del modelo
+
+- Se añaden BANCOS, CENTROS_TRABAJO y CONFIGURACION_EMPRESA para no guardar catálogos libres ni
+  datos empresariales ficticios. La localidad del centro permite aplicar el feriado local correcto.
+- EMPLEADOS referencia un usuario opcional 1:1. Puesto y jefatura deben pertenecer a su departamento
+  mediante FK compuestos. El responsable de una jefatura se incorpora después de crear empleados.
+- HISTORIAL_SALARIAL y EMPLEADO_HORARIO son la fuente única del salario base y horario vigentes;
+  no se duplican en EMPLEADOS. Sus rangos incluyen ambos extremos. `VIGENTE_HASTA IS NULL` significa
+  vigencia abierta; al cambiar se termina la fila anterior el día previo al siguiente inicio.
+- PERIODOS_NOMINA solo acepta 1–15 o 16–último día del mes. FECHA_INICIO es única: dos quincenas no
+  pueden superponerse. Febrero y años bisiestos se resuelven con LAST_DAY. El estado guarda las fechas
+  y actores de aprobación/cierre; MOTIVO_REAPERTURA permite documentar la acción futura de ADMIN.
+- NOMINA_EMPLEADO conserva versiones de cálculo, expediente JSON, salario y totales; el neto negativo
+  y la inconsistencia ingresos − descuentos se rechazan con CHECK. NOMINA_DETALLE conserva banderas,
+  base, tasa y origen. NOMINA_PARAMETROS e ISR_PROYECCIONES permiten reproducir valores históricos.
+- FK compuestos vinculan salario, comisiones, horas, descuentos, cuotas, vacaciones y documentos al
+  mismo empleado y, cuando aplica, periodo/cálculo. DESCUENTOS_APLICACIONES conserva cobros y reversos;
+  un recálculo no debe borrar aplicaciones anteriores ni descontar dos veces el mismo saldo.
+- PRESTACION_DETALLE descompone el finiquito en indemnización, vacaciones y prestaciones proporcionales
+  y guarda montos exentos. Aguinaldo/Bono 14 conservan AFECTA_ISR=1 para evaluar el posible excedente;
+  la exención se determina por límite parametrizado, no se grava todo el monto automáticamente.
+- VACACIONES_SOLICITUDES complementa una SOLICITUDES 1:1. Al aprobar exige snapshot de saldo suficiente.
+  El kardex usa días positivos al acumular/revertir y negativos al reservar/disfrutar. CLAVE_ORIGEN evita
+  duplicar una acumulación mensual o un débito. El saldo real es SUM(DIAS) de movimientos activos;
+  los servicios deben bloquear EMPLEADOS antes de validar saldo e insertar el débito en la misma transacción.
+- SOLICITUD_HISTORIAL permite creación → EN_PROCESO → APROBADA/RECHAZADA → ENTREGADA (solo aprobadas).
+  El motivo de rechazo es obligatorio. Parqueo liga una solicitud a un único descuento. Boletas se
+  descargan directamente: DOCUMENTOS_GENERADOS referencia alternativamente solicitud o nómina.
+- Las plantillas se versionan y cada PDF conserva el texto y variables aplicados. Solo se almacena
+  una ruta privada y su SHA-256; la futura API debe comprobar propiedad para cada descarga.
+- Audiencias: PARA_TODOS=1 o filas por departamento, puesto o jefatura, combinadas con OR.
+  Cada fila segmentada contiene exactamente un grupo. Índices UNIQUE condicionales permiten varios
+  grupos y documentos de distintos orígenes sin colisiones por NULL en Oracle.
+- CARGA_MASIVA_FILAS registra validación y empleado importado; el lote conserva modalidad, conteos y
+  reporte. Las contraseñas temporales no se persisten en resultados ni JSON ni bitácora.
+
+### Validaciones que requieren los servicios de fases posteriores
+
+El esquema impone nulabilidad, formatos estructurales, rangos locales, integridad referencial,
+quincenas exactas, neto no negativo y bitácora inmutable. Los CHECK de Oracle no pueden consultar
+otras filas ni usar la fecha actual como condición permanente. Quedan deliberadamente en servicios
+con Zod y transacciones: dígitos verificadores DPI/NIT, edades parametrizadas, fechas futuras,
+no traslapes de vigencias/ausencias/vacaciones, días laborales y saldo real, topes de deducción ISR,
+congruencia del tipo de solicitud con plantilla/descuento, transiciones de estado, destinatarios,
+RBAC y la prohibición de modificar periodos cerrados. Estas funcionalidades no se implementan en FASE 1.
+Las mutaciones relacionadas con un periodo bloquearán primero su fila y comprobarán ESTADO;
+reapertura exclusivamente ADMIN, con motivo y bitácora en la misma transacción.
+
+### Seeds y fuentes del calendario
+
+S001 carga roles y catálogos; S002 parámetros y escala ISR; S003 el calendario 2026; S004 tres plantillas.
+Cada MERGE inserta solamente claves ausentes. No reactiva bajas ni reescribe ajustes de RRHH.
+Los valores de AGENTS.md tienen vigencia inicial **01/01/2026**, de referencia; deben validarse por
+el equipo antes de calcular una nómina real. La deducción por donaciones parte de un tope
+parametrizable del 5 % de renta bruta; ver la explicación oficial de
+[Minfin sobre el régimen de asalariados](https://www.minfin.gob.gt/images/archivos/estadisticas/estudios_fiscales/RegimenAsalariados.pdf).
+
+El calendario contiene 12 asuetos nacionales (incluidos dos medios días desde las 12:00) y el
+15 de agosto solo para `LOCALIDAD=GUATEMALA_CIUDAD`. El Día del Ejército conserva FECHA_CONMEMORACION
+30/06/2026 y FECHA de descanso 29/06/2026. Fuentes: [calendario 2026 de AGN](https://agn.gt/asuetos-y-feriados-en-guatemala-para-el-2026/),
+[confirmación del traslado por el Congreso](https://www.congreso.gob.gt/noticias_congreso/16405/2026/4) y
+[artículo 127 del Código de Trabajo, MINTRAB](https://librosalarios.mintrabajo.gob.gt/complemento/codigo_de_trabajo_de_guatemala_sept2011.pdf).
+Otros feriados patronales, beneficios por colectivo y calendarios de años posteriores se cargan
+con su localidad/aplicabilidad real; no se extrapolan como asuetos nacionales generales.

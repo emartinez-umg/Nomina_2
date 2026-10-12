@@ -17,6 +17,7 @@ RUN npm ci --omit=dev --workspace backend --include-workspace-root && npm cache 
 COPY --from=build /app/backend/dist backend/dist
 COPY backend/scripts backend/scripts
 COPY db/migrations db/migrations
+COPY db/seeds db/seeds
 USER node
 EXPOSE 3000
-CMD ["sh", "-c", "node backend/dist/shared/db/migrate-cli.js && exec node backend/dist/server.js"]
+CMD ["sh", "-c", "node backend/dist/shared/db/migrate-cli.js && node backend/dist/shared/db/seed-cli.js && exec node backend/dist/server.js"]

@@ -7,14 +7,16 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
-    "start:docker": "node dist/shared/db/migrate-cli.js && node dist/server.js",
+    "start:docker": "node dist/shared/db/migrate-cli.js && node dist/shared/db/seed-cli.js && node dist/server.js",
     "db:migrate": "node scripts/db-migrate.mjs",
+    "db:seed": "node scripts/db-seed.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "test": "vitest run"
   },
   "dependencies": {
+    "argon2": "^0.44.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "helmet": "^8.1.0",

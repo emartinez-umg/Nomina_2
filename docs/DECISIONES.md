@@ -48,3 +48,30 @@ La página de salud no aparece en el PDF y se deriva de su paleta y controles.
 El PDF exporta el nombre de fuente como `unknown`; no se puede asegurar una familia exacta.
 Paleta y medidas son aproximaciones visuales documentadas, ajustadas para texto legible.
 Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailwind los consume.
+
+## FASE 1 — Base de datos completa
+
+- 53 tablas de negocio en V001–V012; V000 se conserva sin cambiar su checksum. La documentación
+  de FASE 0 anterior es histórica y se complementa con estas decisiones.
+- Auditoría común mediante IDs FK a USUARIOS; NULL representa instalación/proceso del sistema.
+  Fecha de creación y triggers de modificación usan explícitamente America/Guatemala.
+- BITACORA_AUDITORIA es inmutable; las correcciones crean nuevos eventos. Los servicios posteriores
+  escribirán cambios depurados dentro de la misma transacción de negocio.
+- Salario y horario provienen de historiales con vigencia; no se duplican en EMPLEADOS. La nómina
+  versiona cálculos y conserva banderas, parámetros, datos del empleado y proyección ISR.
+- Se añaden bancos, centros de trabajo, configuración de empresa, deducciones ISR, aplicaciones de
+  descuento, detalle de prestación y filas de importación para cubrir los flujos sin campos libres.
+- FKs compuestos impiden mezclar departamento/puesto, empleados, salarios, periodos y documentos.
+  UNIQUE condicionales evitan colisiones indeseadas de claves compuestas con NULL en Oracle.
+- La lista blanca inicial de filtros vive en db/filtros.json; db:verify inspecciona índices reales
+  de cada campo y de la totalidad de columnas de cada FK.
+- Seeds aditivos con MERGE, una transacción y binds para credenciales; no sobrescriben ediciones ni
+  restablecen contraseñas. El usuario ADMIN existente con otro rol causa rollback sin elevación.
+- argon2 se fija a la rama 0.44 para Node 20. La rama 0.45
+  [dejó de soportar Node 20](https://github.com/ranisalt/node-argon2/releases/tag/v0.45.0).
+- El calendario 2026 guarda descanso efectivo 29/06 y conmemoración 30/06, dos medios días desde
+  las 12:00 y el feriado capitalino separado por localidad. Las fuentes oficiales están en ERD.md.
+- Validaciones que consultan otras filas, fechas actuales y permisos se implementarán en servicios
+  de fases posteriores, con bloqueos/transacciones. La fase 1 no agrega autenticación ni cálculos.
+- Prueba de aceptación reproducible con esquema N2TEST_* aislado: verifica DDL, seeds, índices,
+  restricciones y rollback; se elimina al finalizar y conserva el esquema de aplicación.
