@@ -8,6 +8,12 @@ export interface Acceso {
 }
 const compartidos: Acceso[] = [
   {
+    titulo: 'Catálogos',
+    icono: 'configuracion',
+    ruta: '/catalogos',
+    descripcion: 'Organización, horarios, feriados y parametrización legal.',
+  },
+  {
     titulo: 'Empleados',
     icono: 'empleados',
     descripcion: 'Gestiona los datos del personal y su organización.',

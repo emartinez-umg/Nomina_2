@@ -1,0 +1,286 @@
+import { useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { Catalogo, Fila } from '../api/catalogos';
+import { guardar } from '../api/catalogos';
+import { valoresIniciales, schemaFormulario, cuerpo } from '../api/validacion';
+import { CampoEditor } from './CampoEditor';
+import { HorarioEditor } from './HorarioEditor';
+import { Modal } from '../../../components/ui/Modal';
+import { Button } from '../../../components/ui/Button';
+import { FormErrorSummary, TextAreaField } from '../../../components/forms';
+import { useToast } from '../../../components/ui/Toast';
+import { HelpButton, HelpOffer } from '../../../components/help/HelpProvider';
+import { mapearErrores } from '../../../lib/http';
+import { fechaVisible } from '../../../lib/validadores';
+import { formatoMoneda } from '../../../components/forms/MoneyField';
+import type { Campo } from '../api/catalogos';
+import { iconos } from '../../../components/ui/icons';
+export function siguienteDia(iso: string) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+export function valorVisible(v: unknown) {
+  return v == null || v === ''
+    ? 'Sin valor'
+    : typeof v === 'boolean'
+      ? v
+        ? 'Sí'
+        : 'No'
+      : typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+        ? fechaVisible(v)
+        : Array.isArray(v)
+          ? JSON.stringify(v)
+          : String(v);
+}
+export function valorCampo(campo: Campo, valor: unknown) {
+  return valor != null && valor !== '' && campo.tipo === 'dinero'
+    ? `Q ${formatoMoneda(String(valor))}`
+    : valorVisible(valor);
+}
+export function CatalogoFormulario({
+  cat,
+  actual,
+  cierre,
+  onCerrar,
+}: {
+  cat: Catalogo;
+  actual?: Fila | undefined;
+  cierre: string | null;
+  onCerrar: () => void;
+}) {
+  const cliente = useQueryClient();
+  const toast = useToast();
+  const [revision, setRevision] = useState<Record<string, string> | null>(null);
+  const [motivo, setMotivo] = useState('');
+  const [motivoError, setMotivoError] = useState<string>();
+  const resolver = useMemo(() => zodResolver(schemaFormulario(cat, cierre)), [cat, cierre]);
+  const {
+    control,
+    handleSubmit,
+    setError,
+    formState: { errors },
+  } = useForm<Record<string, string>>({
+    resolver,
+    mode: 'onBlur',
+    defaultValues: valoresIniciales(cat, actual),
+  });
+  const mutation = useMutation({
+    mutationFn: (datos: Record<string, string>) =>
+      guardar(
+        cat.slug,
+        {
+          ...cuerpo(cat, datos),
+          ...(cat.legal ? { motivo: motivo.trim(), confirmado: true } : {}),
+        },
+        actual?.id,
+      ),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: ['catalogos'] });
+      toast('Registro guardado y auditado.');
+      onCerrar();
+    },
+    onError: (e) => {
+      mapearErrores(e, setError, [...cat.campos.map((f) => f.nombre), 'dias']);
+      setRevision(null);
+    },
+  });
+  const cerrar = () => {
+    if (!mutation.isPending) onCerrar();
+  };
+  return (
+    <>
+      <Modal abierto titulo={`${actual ? 'Editar' : 'Crear'} · ${cat.titulo}`} onCerrar={cerrar}>
+        <form
+          noValidate
+          className="catalogo-formulario"
+          data-tour="catalogo-formulario"
+          onSubmit={handleSubmit((d) => {
+            if (!mutation.isPending) {
+              if (cat.legal) setRevision(d);
+              else mutation.mutate(d);
+            }
+          })}
+        >
+          <div className="my-4 flex justify-between gap-3">
+            <p className="text-sm text-secundario">Los campos con * son obligatorios.</p>
+            <HelpButton />
+          </div>
+          {cat.legal && (
+            <p className="alerta">
+              Los cambios conservan su historial.{' '}
+              {cierre
+                ? `Último periodo cerrado: ${fechaVisible(cierre)}. Usa una vigencia posterior.`
+                : 'Aún no hay periodos cerrados.'}
+            </p>
+          )}
+          {actual?.enUso && cat.slug === 'horarios' && (
+            <p className="alerta">
+              El patrón está asignado. Para cambiar días o jornada crea un nuevo horario.
+            </p>
+          )}
+          <HelpOffer />
+          <div className="form-grid">
+            {cat.campos.map((f) => (
+              <div
+                className={
+                  f.tipo === 'area'
+                    ? 'col-span-12'
+                    : ['codigo', 'fecha', 'entero', 'dinero', 'decimal', 'booleano'].includes(
+                          f.tipo,
+                        )
+                      ? 'col-span-12 md:col-span-4'
+                      : 'col-span-12 md:col-span-6'
+                }
+                key={f.nombre}
+                data-tour={`campo-${f.nombre}`}
+              >
+                <Controller
+                  control={control}
+                  name={f.nombre}
+                  render={({ field }) => (
+                    <CampoEditor
+                      campo={f}
+                      actual={actual}
+                      name={field.name}
+                      label={f.etiqueta}
+                      hint={f.hint}
+                      placeholder={f.hint.split('.')[0] ?? ''}
+                      value={field.value ?? ''}
+                      onValueChange={field.onChange}
+                      onBlur={field.onBlur}
+                      inputRef={field.ref}
+                      required={!!f.requerido}
+                      error={errors[f.nombre]?.message}
+                      disabled={
+                        mutation.isPending ||
+                        !!(
+                          actual &&
+                          cat.legal &&
+                          ['codigo', 'unidad', 'limiteInferior'].includes(f.nombre)
+                        ) ||
+                        !!(actual?.enUso && cat.slug === 'horarios' && f.nombre === 'jornada')
+                      }
+                      minFecha={
+                        f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
+                      }
+                    />
+                  )}
+                />
+              </div>
+            ))}
+            {cat.slug === 'horarios' && (
+              <Controller
+                control={control}
+                name="dias"
+                render={({ field }) => (
+                  <HorarioEditor
+                    value={field.value ?? '[]'}
+                    onChange={field.onChange}
+                    disabled={mutation.isPending || !!actual?.enUso}
+                    error={errors.dias?.message}
+                  />
+                )}
+              />
+            )}
+          </div>
+          <div className="mt-5">
+            <FormErrorSummary
+              mensajes={Object.values(errors).map((e) => e?.message)}
+              mensajeServidor={mutation.error?.message}
+            />
+          </div>
+          <div className="mt-5 flex justify-end gap-3" data-tour="catalogo-guardar">
+            <Button
+              icono="cancelar"
+              variante="secundario"
+              disabled={mutation.isPending}
+              onClick={cerrar}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" icono="guardar" cargando={mutation.isPending}>
+              {cat.legal ? 'Revisar cambio' : 'Guardar'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+      <Modal
+        abierto={!!revision}
+        titulo="ADVERTENCIA · Cambio de parametrización legal"
+        onCerrar={() => {
+          if (!mutation.isPending) setRevision(null);
+        }}
+      >
+        <div className="catalogo-advertencia">
+          <p className="alerta mt-4">
+            <iconos.error className="inline" size={18} aria-hidden="true" /> Este cambio modifica
+            las reglas de nómina desde la vigencia indicada. Revisa los valores y explica el motivo
+            antes de confirmar.
+          </p>
+          <div className="table-scroll">
+            <table>
+              <caption className="sr-only">Comparación anterior y nuevo</caption>
+              <thead>
+                <tr>
+                  <th>Campo</th>
+                  <th>Anterior</th>
+                  <th>Nuevo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cat.campos.map((f) => (
+                  <tr key={f.nombre}>
+                    <th scope="row">{f.etiqueta}</th>
+                    <td>{valorCampo(f, actual?.[f.nombre])}</td>
+                    <td>{valorCampo(f, revision?.[f.nombre])}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4">
+            <TextAreaField
+              name="motivo"
+              label="Motivo del cambio"
+              hint="Indica la norma, aprobación o corrección que justifica el cambio (5–500 caracteres)."
+              value={motivo}
+              onValueChange={setMotivo}
+              maxLength={500}
+              required
+              error={motivoError}
+              disabled={mutation.isPending}
+            />
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <Button
+              icono="cancelar"
+              variante="secundario"
+              disabled={mutation.isPending}
+              onClick={() => setRevision(null)}
+            >
+              Volver a editar
+            </Button>
+            <Button
+              icono="aprobar"
+              variante="peligro"
+              cargando={mutation.isPending}
+              onClick={() => {
+                if (motivo.trim().length < 5) {
+                  setMotivoError('Explica el motivo con al menos 5 caracteres.');
+                  return;
+                }
+                setMotivoError(undefined);
+                if (revision && !mutation.isPending) mutation.mutate(revision);
+              }}
+            >
+              Confirmar cambio legal
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+}

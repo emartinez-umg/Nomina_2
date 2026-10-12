@@ -5,8 +5,12 @@ import { limpiarTexto } from '../../lib/validadores';
 import { iconos } from '../ui/icons';
 export function SelectField({
   opciones,
+  onBuscar,
   ...props
-}: CampoProps & { opciones: { value: string; label: string }[] }) {
+}: CampoProps & {
+  opciones: { value: string; label: string }[];
+  onBuscar?: (buscar: string) => void;
+}) {
   const id = useId();
   const [buscar, setBuscar] = useState('');
   const [abierto, setAbierto] = useState(false);
@@ -77,6 +81,7 @@ export function SelectField({
             }}
             onChange={(e) => {
               setBuscar(limpiarTexto(e.target.value));
+              onBuscar?.(limpiarTexto(e.target.value));
               setIndice(0);
               setAbierto(true);
             }}

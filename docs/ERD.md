@@ -1,7 +1,7 @@
 # Modelo Oracle — FASE 1
 
 53 tablas de negocio, más `VERSION_ESQUEMA` y `PRUEBA_INFRAESTRUCTURA` conservadas de FASE 0.
-Las migraciones V001–V012 se agrupan por dominio y se ejecutan después de V000. Los diagramas
+Las migraciones V001–V013 se agrupan por dominio y se ejecutan después de V000. Los diagramas
 incluyen referencias entre dominios; se omiten las flechas de auditoría para facilitar su lectura.
 El SQL de `db/migrations/` es la definición exacta de nulabilidad, valores por defecto y restricciones.
 
@@ -110,6 +110,8 @@ erDiagram
     }
     PUESTOS {
         NUMBER ID_PUESTO PK
+        NUMBER SALARIO_MINIMO
+        NUMBER SALARIO_MAXIMO
         VARCHAR2 NOMBRE
         NUMBER ID_DEPARTAMENTO FK
         DATE FECHA_CREACION
@@ -764,3 +766,15 @@ El calendario contiene 12 asuetos nacionales (incluidos dos medios días desde l
 [artículo 127 del Código de Trabajo, MINTRAB](https://librosalarios.mintrabajo.gob.gt/complemento/codigo_de_trabajo_de_guatemala_sept2011.pdf).
 Otros feriados patronales, beneficios por colectivo y calendarios de años posteriores se cargan
 con su localidad/aplicabilidad real; no se extrapolan como asuetos nacionales generales.
+
+## Extensión de catálogos — FASE 4
+
+V013 añade a PUESTOS `SALARIO_MINIMO` y `SALARIO_MAXIMO`, ambos NUMBER(12,2) opcionales,
+con CHECK: ambos nulos o 0 ≤ mínimo ≤ máximo. Son referencias y no sustituyen HISTORIAL_SALARIAL.
+Añade índices de esos límites, requisito de fin de contrato, valor legal, tasa/cuota ISR, franjas
+de feriado y distribución diaria. La lista verificada de filtros está en `db/filtros.json`.
+No se añaden tablas: siguen siendo 53 de negocio y 14 migraciones V000–V013.
+
+La API de catálogos protege referencias activas, responsable del mismo departamento, horarios
+asignados, franjas de feriados y versiones legales ante traslapes/cierres. Las escrituras y su
+auditoría comparten transacción. Contratos y reglas: [CATALOGOS.md](CATALOGOS.md).

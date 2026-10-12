@@ -567,3 +567,56 @@
     scroll-behavior: auto !important;
   }
 }
+
+@layer components {
+  .catalogos-inicio {
+    @apply grid gap-5 sm:grid-cols-2 xl:grid-cols-3;
+  }
+  .catalogo-menu {
+    @apply flex flex-wrap gap-2;
+  }
+  .catalogo-menu a {
+    @apply inline-flex items-center gap-2 rounded-control border border-borde bg-superficie px-3 py-2 text-sm;
+  }
+  .catalogo-menu a[aria-current='page'] {
+    @apply bg-primario text-white;
+  }
+  .modal:has(.catalogo-formulario),
+  .modal:has(.catalogo-advertencia),
+  .modal:has(.catalogo-detalle) {
+    width: min(94vw, 64rem);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .horario-dia {
+    @apply my-3 rounded-control border border-borde p-4;
+  }
+  .calendario-anual {
+    @apply grid gap-5 md:grid-cols-2 xl:grid-cols-3;
+  }
+  .mes-feriados {
+    @apply min-w-0 rounded-tarjeta bg-superficie p-4 shadow-tarjeta;
+  }
+  .mes-feriados .rdp-root {
+    --rdp-day-width: 2rem;
+    --rdp-day-height: 2rem;
+    font-size: 0.875rem;
+  }
+  .dia-feriado {
+    @apply rounded-full bg-suave font-bold text-primario;
+  }
+  .feriado-resumen {
+    @apply mt-3 border-t border-borde pt-3 text-xs;
+  }
+}
+
+@layer components {
+  body:has(dialog[open]) .app-cuerpo > .oferta-ayuda {
+    display: none;
+  }
+  .catalogo-formulario .oferta-ayuda {
+    position: static;
+    max-width: none;
+    margin-bottom: 1.5rem;
+  }
+}

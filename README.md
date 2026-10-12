@@ -153,7 +153,7 @@ efímero local. Los dobles de Oracle/fetch existen únicamente en pruebas; la ap
 Oracle real.
 
 `db:verify` requiere Node 20, `npm ci`, `.env` y Oracle saludable en Compose. Crea un usuario temporal
-aleatorio `N2TEST_*` dentro de XEPDB1, aplica V000–V012 desde cero, ejecuta seeds dos veces y compara
+aleatorio `N2TEST_*` dentro de XEPDB1, aplica V000–V013 desde cero, ejecuta seeds dos veces y compara
 el contenido completo de las 53 tablas, incluyendo ajustes manuales y credenciales ya cambiadas.
 Comprueba identities, auditoría, compilación de triggers, restricciones, índices de todos los FK y
 filtros, argon2id, feriados, rollback de seeds, neto, vacaciones y propiedad de salario/documentos.
@@ -187,3 +187,14 @@ mensajes internos de Oracle, cuerpos, cookies ni parámetros de consulta.
 - `docs`: progreso, decisiones, ERD por dominio/diccionario y referencia compacta del mockup.
 
 Consultar [docs/PROGRESO.md](docs/PROGRESO.md) para resultados de esta fase y siguientes pasos.
+
+## FASE 4: catálogos y parametrización
+
+RH y ADMIN disponen de `/catalogos`: organización, horarios semanales variables, calendario anual,
+tipos de ausencia/descuento/contrato, parámetros legales y tramos ISR. Incluye CRUD, filtros/páginas
+en servidor, CSV, ayuda y auditoría transaccional. Las modificaciones legales muestran advertencia
+con comparación, exigen motivo y conservan vigencias sin afectar periodos cerrados.
+
+V013 añade rangos salariales referenciales de puestos e índices; `npm run db:setup` o Compose
+aplica la migración. Para la interfaz local: `NODE_ENV=development npm run dev`.
+Guía y contratos: [docs/CATALOGOS.md](docs/CATALOGOS.md).

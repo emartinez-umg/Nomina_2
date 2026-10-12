@@ -69,6 +69,14 @@ export function HelpProvider({ children }: PropsWithChildren) {
       popoverClass: 'ayuda-popover',
       allowClose: true,
       onPopoverRender: (popover, { driver: recorrido }) => {
+        // El recorrido debe pertenecer a la capa superior del diálogo para recibir foco y clics.
+        const dialogos = document.querySelectorAll('dialog[open]');
+        const dialogo = dialogos.item(dialogos.length - 1);
+        if (dialogo) {
+          dialogo.appendChild(popover.wrapper);
+          const overlay = document.querySelector('.driver-overlay');
+          if (overlay) dialogo.appendChild(overlay);
+        }
         const agregar = (boton: HTMLButtonElement, nombre: string) => {
           const svg = plantillaIconos.current?.querySelector(`[data-icono="${nombre}"] svg`);
           if (svg) boton.prepend(svg.cloneNode(true));

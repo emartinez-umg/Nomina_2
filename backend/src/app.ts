@@ -17,7 +17,11 @@ import { autenticar } from './shared/security/autenticar.js';
 import { exigirCambioCompletado, permitirRoles } from './shared/security/rbac.js';
 import { ErrorNoAutorizado } from './shared/errors/errors.js';
 
+import { crearCatalogosRouter } from './modules/catalogos/catalogos.routes.js';
+import type { crearCatalogosService } from './modules/catalogos/catalogos.service.js';
+
 interface SeguridadApp {
+  catalogos?: ReturnType<typeof crearCatalogosService>;
   auth: AuthService;
   usuarios: ReturnType<typeof crearUsuariosService>;
   auditoria: ReturnType<typeof crearAuditoriaService>;
@@ -46,6 +50,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
       permitirRoles('ADMIN', 'RH', 'EMPLEADO'),
       exigirCambioCompletado,
     );
+    if (seguridad.catalogos) app.use('/api/catalogos', crearCatalogosRouter(seguridad.catalogos));
     app.use('/api/usuarios', crearUsuariosRouter(seguridad.usuarios));
     app.use('/api/auditoria', crearAuditoriaRouter(seguridad.auditoria));
   } else {

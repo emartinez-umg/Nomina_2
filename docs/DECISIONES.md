@@ -115,3 +115,25 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   en autenticación; errores del backend solo se asignan a campos expresamente permitidos.
 - El recorrido se ofrece en primera visita y se puede reiniciar. Únicamente esa preferencia
   se guarda en localStorage, separada por página y rol.
+
+## FASE 4 — Catálogos y parametrización
+
+- Se reutilizan tokens/componentes de fase 3 y el lenguaje visual de las páginas 7–8 del mockup.
+  Un módulo declarativo permite formularios y filtros por sus campos, conservando capas
+  routes/controller/service/repository y validación Zod estricta en cada endpoint.
+- Oracle conserva rangos monetarios NUMBER(12,2); API usa texto decimal, validación Decimal y
+  TO_NUMBER/TO_CHAR con NLS explícito. No se implementa cálculo de nómina de futuras fases.
+- Bajas lógicas por defecto; física solo ADMIN con motivo/confirmación. Cualquier FK impide eliminar
+  y la alternativa es desactivar. Las referencias inactivas no sirven para nuevas asignaciones.
+- Las vigencias legales tienen extremos inclusivos. Versionar termina la anterior el día previo,
+  sin extender una vigencia ya terminada. No se reescriben versiones utilizadas/cerradas;
+  una corrección del mismo inicio requiere que ningún cierre ni snapshot resulte afectado.
+- Las nuevas vigencias deben superar el último cierre, además de no traslapar versiones; es una
+  validación conservadora que protege cambios iniciados antes de un periodo cerrado.
+- Las escrituras de catálogos se serializan con la fila de administración, siguiendo el orden de
+  locks de usuarios. Las legales bloquean PERIODOS_NOMINA durante la comprobación. Auditoría
+  y cambios, incluido fin de versión anterior, se confirman/revierten juntos.
+- La jornada pertenece al patrón semanal y cada día tiene su propia distribución.
+  Días/jornada de un horario asignado se mantienen; un nuevo patrón permite cambios futuros.
+- El jefe responsable puede quedar pendiente hasta cargar empleados reales en fase 5. Al
+  asignarlo debe estar activo y pertenecer al departamento de la jefatura.

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSession } from '../../../app/session';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -8,6 +8,7 @@ import { navegacion, nombreRol } from '../../../components/layout/navegacion';
 import { usePageHelp } from '../../../components/help/HelpProvider';
 import { ayudaInicio } from '../help/pasos';
 export function InicioPage() {
+  const navigate = useNavigate();
   const { usuario } = useSession();
   usePageHelp(ayudaInicio, usuario?.rol);
   if (!usuario) return null;
@@ -19,12 +20,12 @@ export function InicioPage() {
         : 'Administración';
   const principales =
     usuario.rol === 'ADMIN'
-      ? ['Usuarios', 'Bitácora']
+      ? ['Catálogos', 'Usuarios', 'Bitácora']
       : usuario.rol === 'RH'
-        ? ['Empleados', 'Planilla']
+        ? ['Catálogos', 'Empleados', 'Planilla']
         : null;
   const accesos = navegacion[usuario.rol].filter(
-    (a) => !a.ruta && (!principales || principales.includes(a.titulo)),
+    (a) => a.icono !== 'inicio' && (!principales || principales.includes(a.titulo)),
   );
   return (
     <>
@@ -46,10 +47,13 @@ export function InicioPage() {
               <p>{a.descripcion}</p>
               <Button
                 icono="siguiente"
-                disabled
+                disabled={!a.ruta}
+                onClick={() => {
+                  if (a.ruta) navigate(a.ruta);
+                }}
                 motivoDeshabilitado="Este módulo se habilitará en una próxima fase."
               >
-                Próximamente
+                {a.ruta ? 'Abrir' : 'Próximamente'}
               </Button>
             </Card>
           );

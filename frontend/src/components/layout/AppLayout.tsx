@@ -75,7 +75,7 @@ export function AppLayout() {
                   {a.ruta ? (
                     <NavLink
                       to={a.ruta}
-                      end
+                      end={a.ruta !== '/catalogos'}
                       onClick={() => setMenu(false)}
                       className={({ isActive }) => `nav-item ${isActive ? 'nav-activo' : ''}`}
                     >

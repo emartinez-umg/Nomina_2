@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 3 completada. Los registros de FASES 0–2 se conservan como historial; consultar
-la sección FASE 3 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 4 completada. Los registros de FASES 0–3 se conservan como historial; consultar
+la sección FASE 4 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -368,3 +368,103 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 6. docker compose up --build sirve el frontend de producción; la autenticación requiere HTTPS.
    npm run verify:infra comprueba Oracle/API/nginx y las rutas/bundles de React.
 7. Contratos y extensión de componentes/campos/tours: docs/FRONTEND.md y docs/SEGURIDAD.md.
+
+## FASE 4 — Catálogos y parametrización (backend + frontend)
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- CRUD para RH/ADMIN de departamentos, puestos, jefaturas, horarios, feriados, tipos de ausencia,
+  tipos de descuento, tipos de contrato, parámetros legales y tramos ISR. EMPLEADO queda excluido
+  por guards del frontend y RBAC del backend; CSRF y cambio obligatorio siguen vigentes.
+- Módulo declarativo con capas routes/controller/service/repository, schemas Zod estrictos,
+  parámetros enlazados, listado paginado, orden por lista blanca y filtros combinados por todos
+  los campos editables relevantes; rangos numéricos/fechas, año y distribución diaria de horarios.
+- V013 aditiva: rangos salariales opcionales NUMBER(12,2) de puestos y CHECK de ambos límites;
+  índices de nuevos campos/rangos/textos. ERD y db/filtros.json actualizados; V000–V012 intactas.
+- Jefatura por departamento con responsable real, activo y del mismo departamento. Referencias
+  buscables/paginadas desde Oracle. El responsable puede asignarse después de cargar empleados.
+- Horarios con siete días independientes: laborable/descanso, entrada/salida, cruce de medianoche,
+  descanso y horas efectivas. Soportan distribución distinta de lunes a viernes. No se modifica
+  el patrón/jornada de un horario ya asignado: se conserva el historial y se crea otro patrón.
+- Calendario anual real de feriados, con año, ámbito nacional/local, localidad, franjas de medio día,
+  conmemoración/fundamento y validación de traslapes. Tipos incluyen parqueo/consumo en tienda
+  y efectos de ausencia; no se implementa el descuento ni cálculo de fases futuras.
+- Parámetros/tramos con edición y nueva vigencia; modal ADVERTENCIA con anterior/nuevo y motivo
+  obligatorio. Servidor exige confirmación, valida porcentajes/unidades/calendario, traslapes y
+  último cierre. Nueva versión termina la anterior el día previo, sin extender un fin existente.
+- Protección de versiones históricas/referenciadas y de cualquier efecto retroactivo sobre cierres.
+  Bloqueos serializan escrituras y protegen la comprobación de periodos; permisos se revalidan en
+  la misma transacción que datos/auditoría. Un fallo revierte incluso el cierre de la versión anterior.
+- Eliminación lógica por defecto, física solo ADMIN con motivo/confirmación. Cualquier FK impide
+  eliminar; UI bloquea la acción y ofrece desactivar, conservando las relaciones existentes.
+- Interfaz `/catalogos` y páginas por catálogo con tokens del mockup, formularios proporcionales,
+  hints, saneo, errores al salir/resumen/servidor, iconos, estados de carga/error/vacío, toasts,
+  detalle, filtros colapsables y removibles, paginación/orden en servidor y CSV de toda la consulta.
+- Recorridos declarativos específicos de cada catálogo/listado/formulario y rol. Ayuda también
+  opera dentro del diálogo nativo, conservando su capa de foco y ofreciendo la primera visita.
+- Documentación CATALOGOS.md, README, ERD y DECISIONES actualizada. Compose reconstruido con V013;
+  sin alterar las credenciales reales ni cargar empleados/organización ficticios en la aplicación.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier y git diff --check sin errores; builds backend/frontend correctos.
+- 142 pruebas unitarias/integración ligera aprobadas: 74 backend y 68 frontend. Validan dinero,
+  rangos, formatos, horarios, calendario, límites ISR, confirmación/motivo y exportación multipágina,
+  además de las pruebas previas. También aprobadas bajo Node 20 en Docker (seeds montados en solo lectura).
+- 31 pruebas Oracle thin/Supertest aprobadas mediante verify:security: CRUD, filtros/rangos/orden,
+  RBAC/CSRF, responsable del mismo departamento, horarios asignados, baja en uso, versiones/cierres,
+  dos cambios concurrentes (uno 200 y otro 409) y rollback real provocado por trigger de auditoría.
+  Se comprueba rollback tanto de alta como de cierre de vigencia e inserción de nueva versión.
+- db:verify aprueba V000–V013 desde cero e idempotencia, 53 tablas de negocio, restricciones,
+  índices de FK/filtros, seeds repetibles y objetos válidos. Esquemas N2TEST/N2SEC eliminados.
+- Chrome real con Express/Oracle en esquema N2UI desechable: login, alta de departamento/puesto,
+  referencias, filtros monetarios con formato, CSV, horario con lunes/viernes diferentes,
+  advertencia/nueva vigencia, calendario anual y recorrido interactivo dentro del formulario.
+  Revisión visual de tablas/formularios/advertencia/calendario y móvil a 390 px, sin desbordamiento
+  horizontal de página ni errores JavaScript. Esquema y procesos temporales eliminados.
+- Imágenes de build Node 20 correctas, instalación npm ci sin vulnerabilidades; Compose deja
+  Oracle/API/nginx saludables y conserva los datos existentes.
+
+### Decisiones
+
+- Las definiciones internas de catálogo determinan campos/filtros/órdenes. La API publica solo
+  metadatos de UI; nunca SQL. La validación frontend guía y el backend vuelve a validar todo.
+- Montos/tasas viajan como texto decimal y se validan con Decimal; Oracle usa NLS explícito.
+  El rango salarial es referencial y no sustituye HISTORIAL_SALARIAL.
+- Misma fecha de inicio legal permite corregir únicamente una versión no utilizada ni cerrada;
+  una fecha posterior crea versión. Se conservan código/unidad y límite inferior del tramo.
+- Referencias históricas, incluidas inactivas, cuentan como uso al eliminar. Desactivar impide
+  nuevas asignaciones y preserva las existentes; la historia legal cerrada exige nueva vigencia.
+- La jornada sigue a nivel del patrón semanal; cada día contiene entrada/salida/descanso propios.
+  El criterio de horas diarias se muestra derivado de esos datos, evitando duplicar valores.
+
+### Supuestos
+
+- El jefe responsable puede quedar vacío mientras no existan empleados reales; se validará al
+  asignarlo en este CRUD después de la fase 5. No se inventan personas para completar jefaturas.
+- Vigencias nuevas posteriores al último cierre es una regla conservadora: protege también
+  cambios iniciados antes de un cierre y permite mantener intacto cualquier periodo cerrado.
+- La UI de calendario usa el año actual en America/Guatemala y permite cambiarlo; no genera
+  automáticamente feriados de otros años. Los seeds de 2026 permanecen como referencia inicial.
+- La edición de tablas legales no sustituye la validación operativa de RRHH indicada en fase 1.
+  Los servicios de cálculo/asignación de futuras fases volverán a validar integridad y vigencias.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE 4.
+- Próximas fases únicamente según solicitud: empleados/asignaciones, cálculo, solicitudes y demás
+  módulos; no se adelantaron. Se mantienen la revisión de referencias legales por RH y HTTPS de producción.
+
+### Cómo probar
+
+1. Con .env configurado: docker compose up --build aplica V013 y conserva usuarios/credenciales.
+2. Para HTTP local: NODE_ENV=development npm run dev; entrar como RH o ADMIN y abrir `/catalogos`.
+3. Crear departamento/puesto/jefatura, combinar filtros/orden/páginas y exportar; crear horario
+   con distribuciones distintas, revisar calendario anual y administrar tipos.
+4. Editar valor legal con nueva fecha, revisar anterior/nuevo, exigir motivo y confirmar; consultar
+   versiones. ADMIN consulta auditoría en `/api/auditoria?entidad=PARAMETROS_LEGALES`.
+5. Probar bloqueo de eliminación en uso y alternativa Desactivar. Reiniciar ayuda en listado/formulario.
+6. npm run lint; npm test; npm run typecheck; npm run build; npm run format:check.
+7. npm run verify:security; npm run db:verify; npm run verify:infra. Guía completa: docs/CATALOGOS.md.

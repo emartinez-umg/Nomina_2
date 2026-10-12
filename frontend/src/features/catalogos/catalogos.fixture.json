@@ -1,0 +1,194 @@
+[
+  {
+    "slug": "departamentos",
+    "titulo": "Departamentos",
+    "legal": false,
+    "campos": [
+      {
+        "nombre": "codigo",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "descripcion",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "puestos",
+    "titulo": "Puestos",
+    "legal": false,
+    "campos": [
+      {
+        "nombre": "codigo",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "idDepartamento",
+        "etiqueta": "Departamento",
+        "tipo": "referencia",
+        "hint": "Selecciona un departamento activo. Crea primero el departamento si no aparece.",
+        "requerido": true,
+        "referencia": "departamentos"
+      },
+      {
+        "nombre": "salarioMinimo",
+        "etiqueta": "Salario mínimo referencial",
+        "tipo": "dinero",
+        "hint": "Monto en quetzales, sin signo negativo y con hasta dos decimales.",
+        "requerido": false,
+        "decimales": 2
+      },
+      {
+        "nombre": "salarioMaximo",
+        "etiqueta": "Salario máximo referencial",
+        "tipo": "dinero",
+        "hint": "Monto en quetzales, sin signo negativo y con hasta dos decimales.",
+        "requerido": false,
+        "decimales": 2
+      },
+      {
+        "nombre": "descripcion",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "horarios",
+    "titulo": "Horarios laborales",
+    "legal": false,
+    "campos": [
+      {
+        "nombre": "codigo",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "jornada",
+        "etiqueta": "Tipo de jornada",
+        "tipo": "opcion",
+        "hint": "Jornada del patrón semanal; configura cada día por separado.",
+        "requerido": true,
+        "opciones": ["DIURNA", "MIXTA", "NOCTURNA"]
+      },
+      {
+        "nombre": "descripcion",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "parametros-legales",
+    "titulo": "Parámetros legales",
+    "legal": true,
+    "campos": [
+      {
+        "nombre": "codigo",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.",
+        "requerido": true,
+        "max": 60
+      },
+      {
+        "nombre": "nombre",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "requerido": true,
+        "max": 150
+      },
+      {
+        "nombre": "valor",
+        "etiqueta": "Valor",
+        "tipo": "decimal",
+        "hint": "Porcentajes en escala 0–100, montos o cantidades según la unidad. Hasta seis decimales.",
+        "requerido": true,
+        "decimales": 6
+      },
+      {
+        "nombre": "unidad",
+        "etiqueta": "Unidad",
+        "tipo": "opcion",
+        "hint": "La unidad debe conservarse entre versiones del mismo código.",
+        "requerido": true,
+        "opciones": [
+          "PORCENTAJE",
+          "QUETZALES",
+          "DIAS",
+          "HORAS",
+          "MESES",
+          "PERIODOS",
+          "MINUTOS",
+          "ANIOS",
+          "CANTIDAD"
+        ]
+      },
+      {
+        "nombre": "vigenteDesde",
+        "etiqueta": "Vigente desde",
+        "tipo": "fecha",
+        "hint": "Primer día de aplicación. Una nueva versión debe comenzar después del último periodo cerrado.",
+        "requerido": true
+      },
+      {
+        "nombre": "vigenteHasta",
+        "etiqueta": "Vigente hasta",
+        "tipo": "fecha",
+        "hint": "Último día inclusive. Déjalo vacío para una vigencia abierta."
+      },
+      {
+        "nombre": "fundamento",
+        "etiqueta": "Fundamento",
+        "tipo": "area",
+        "hint": "Indica la norma o autorización que respalda el valor.",
+        "requerido": true,
+        "max": 500
+      }
+    ]
+  }
+]

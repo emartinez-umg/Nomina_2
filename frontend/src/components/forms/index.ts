@@ -9,3 +9,5 @@ export { EmailField } from './EmailField';
 export { SelectField } from './SelectField';
 export { TextAreaField } from './TextAreaField';
 export { FileField } from './FileField';
+
+export { FormErrorSummary } from './FormErrorSummary';

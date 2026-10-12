@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
+import { CatalogosPage } from '../features/catalogos/pages/CatalogosPage';
 import { SaludPage } from '../features/salud/pages/SaludPage';
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { CambioContrasenaPage } from '../features/auth/pages/CambioContrasenaPage';
@@ -29,6 +30,18 @@ export const rutas = [
           },
         ],
       })),
+      {
+        element: <RequireSession roles={['ADMIN', 'RH']} />,
+        children: [
+          {
+            element: <AppLayout />,
+            children: [
+              { path: '/catalogos', element: <CatalogosPage /> },
+              { path: '/catalogos/:catalogo', element: <CatalogosPage /> },
+            ],
+          },
+        ],
+      },
       { path: '*', element: <Entrada /> },
     ],
   },
