@@ -71,6 +71,20 @@ export function Notificaciones({ abierto, onClick }: { abierto: boolean; onClick
                         Ver vacaciones
                       </Button>
                     )}
+                    {n.clave.startsWith('SOLICITUD:') && (
+                      <Button
+                        icono="ver"
+                        variante="texto"
+                        onClick={() => {
+                          nav(
+                            `${usuario?.rol === 'EMPLEADO' ? '/mis-gestiones/solicitudes' : '/solicitudes'}?solicitud=${n.clave.split(':')[1]}`,
+                          );
+                          onClick();
+                        }}
+                      >
+                        Ver solicitud{n.clave.endsWith(':ENTREGADA') ? ' y documento' : ''}
+                      </Button>
+                    )}
                     {!n.leida && (
                       <Button
                         icono="correcto"

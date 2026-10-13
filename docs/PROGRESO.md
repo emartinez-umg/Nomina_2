@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 9 completada. Los registros de FASES 0–8 se conservan como historial; consultar
-la sección FASE 9 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 10 completada. Los registros de FASES 0–9 se conservan como historial; consultar
+la sección FASE 10 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -1024,3 +1024,118 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 6. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`;
    `npm run db:verify`; `npm run verify:security`; `npm run verify:prestaciones`; `npm run verify:infra`.
    Oracle con Node 20: construir `nomina2-security-tests` y agregar `-- --docker` al verificador.
+
+## FASE 10 — Portal de gestiones y bandeja de RRHH
+
+Estado: completada el 13/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- Motor de solicitudes con routes/controller/service/repository, Zod estricto, Oracle thin, binds,
+  CSRF, propiedad derivada de sesión y revalidación del actor en cada transacción. Constancia laboral,
+  certificado IGSS, constancia INTECAP, gafete, parqueo y actualización de datos críticos.
+- Flujo EN_PROCESO → APROBADA/RECHAZADA; APROBADA → ENTREGADA. Rechazo motivado, historial con
+  actor/fecha, confirmaciones, protección contra doble resolución y pendientes duplicadas por tipo.
+  Rechazada es terminal; se puede crear otra solicitud corregida. Vacaciones mantiene su servicio.
+- Campana compartida y API `/notificaciones`, contador propio, últimos 30 avisos y marcado idempotente
+  propio. Nueva solicitud notifica a RH/ADMIN; cada cambio al empleado, con acceso al documento al
+  entregar. Conserva los avisos de vacaciones y sus endpoints anteriores.
+- Bandeja `/solicitudes` RH/ADMIN con búsqueda, tipo/estado/empleado/fechas combinados, chips,
+  limpiar, orden/páginas Oracle, detalle/historial y CSV de toda la consulta hasta 10,000 registros.
+  Listados/exportaciones excluyen DPI, NIT y datos críticos propuestos.
+- Plantillas RH editables con variables insertables, texto validado, motivo y control de versión.
+  Inserta una nueva versión efectiva hoy; no sobrescribe las anteriores ni los PDF aprobados.
+- Aprobar documentos genera PDFKit con datos reales de empresa/empleado/salario y plantilla vigente.
+  Conserva archivo privado, texto/variables, FK de versión, bytes y SHA-256. Datos faltantes bloquean.
+  Vista previa PDF.js con páginas, ampliación, texto accesible y descarga; entrega exige revisión y
+  hash vigente, publica los mismos bytes y notifica al empleado. Descarga autenticada verifica hash.
+- Parqueo aprobado utiliza `registrarParqueo` de Fase 6: crea un único acuerdo FIJO/VIGENTE vinculado
+  a la solicitud, con tarifa/fecha reales de RH y comprobación de relación laboral/cierres/duplicados.
+  Las fuentes de Fase 8 lo consumen; conserva el bloqueo de nómina por neto negativo.
+- `/mis-gestiones/datos`: contacto del expediente y contacto principal de emergencia editables y
+  auditados directamente. Nombres/apellidos/DPI/NIT/estado civil mediante propuesta original/nueva;
+  aprobación revalida el original y unicidad antes de aplicar. Rechazo no altera el expediente.
+- Portal `/mis-gestiones` con ocho tarjetas, boletas/vacaciones existentes, solicitudes propias,
+  estados, historial y PDF entregado. Tarjetas de historial móviles, campos proporcionales,
+  máscaras iniciales/saneo, errores por campo, skeletons/error/vacío, toasts e iconos.
+- Ayuda declarativa por rol y recorrido independiente de Mis datos. Disponible dentro de los
+  diálogos; el proveedor limita los pasos al diálogo activo. Estilos/tokens existentes del mockup.
+- V018 aditiva: BLOB de PDF, unicidad de documento vigente y un índice de bandeja; siguen 54 tablas.
+  V000–V017 y seeds intactos. README, ERD, DECISIONES y SOLICITUDES.md documentan contratos/operación.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier y git diff --check correctos. Builds de backend/frontend y
+  producción Compose con Node 20 correctos. PDF.js 5.5.207 fijado por compatibilidad y auditado;
+  npm ci/audit reportan cero vulnerabilidades. Visor cargado diferido por ruta/uso.
+- 304 pruebas unitarias aprobadas (196 backend, 108 frontend), también bajo Node 20 en Docker.
+  Las 21 nuevas cubren transiciones válidas/inválidas, rechazo/confirmación, schemas estrictos,
+  variables faltantes/malformadas, PDF multipágina, permisos UI, preview antes de entrega,
+  gafete sin PDF, tarifa/doble envío, máscaras y normalización de DPI/teléfonos antes del envío.
+- 98 pruebas Oracle thin/Supertest aprobadas: 72 de regresión, 10 prestaciones y 16 de Fase 10.
+  Las 16 nuevas también pasan con Node 20: sesiones/cookies/CSRF reales, propiedad/listados/PDF,
+  solicitud→avisos→aprobación concurrente única→PDF→entrega→descarga propia, los tres documentos,
+  plantillas/versiones/snapshot inmutable, rechazo terminal, gafete, parqueo en fuentes reales de
+  nómina, contacto y datos críticos/expediente modificado, contador/lectura propia y filtros/CSV.
+- Triggers de fallo de auditoría prueban rollback real de aprobación/PDF/historial/avisos, entrega,
+  descuento de parqueo y actualización crítica. Los efectos se revierten juntos y no se publican
+  documentos de una entrega fallida. Esquemas N2SEC eliminados al finalizar.
+- db:verify aprueba V000–V018 desde cero, idempotencia, constraints/identities/índices/objetos y
+  seeds repetibles. Esquema N2TEST eliminado; tablas/datos de aplicación conservados.
+- Navegador integrado con Oracle/API desechables y login real de EMPLEADO/RH: solicitud enviada,
+  campana RH con aviso, aprobación, PDF renderizado dentro de la página, entrega y aviso al empleado
+  con acceso al mismo documento. Portal/Mis datos a 390 px sin desbordamiento horizontal y sin
+  errores JavaScript finales. Arnés, sesiones/cuentas, procesos y esquema temporal retirados.
+- PDF Oracle renderizado e inspeccionado; extracción verifica persona, salario Q5,000, fecha,
+  datos de empresa y numeración. El iframe nativo no se veía en el navegador integrado: reemplazado
+  por visor propio. nginx sirve `.mjs` como JavaScript bajo nosniff; verify:infra comprueba ese asset.
+- Compose final Oracle/API/nginx saludable y V018 aplicada sobre el volumen existente. Reejecución
+  de migraciones informa cero pendientes; verify:infra aprueba API/Oracle/SPA/assets/worker PDF.
+
+### Decisiones
+
+- Aprobar genera un documento privado; entregar publica exactamente el archivo revisado, sin
+  regenerar con datos posteriores. Archivo BLOB, estados, historial, auditoría y avisos comparten
+  la transacción; no quedan archivos huérfanos ni entregas parciales.
+- La bandeja genérica gestiona seis tipos nuevos. Boletas y vacaciones abren los módulos existentes;
+  no se alteran sus reglas ni se adelantan anuncios/eventos o dashboards de próximas fases.
+- Contacto modifica el expediente; el correo de acceso de USUARIOS se administra por separado.
+  El snapshot original evita sobrescribir correcciones de RH mientras la propuesta espera revisión.
+- Los documentos empresariales no realizan trámites externos ni incorporan firma electrónica.
+  RH revisa el texto y la vista previa antes de entregar; cada plantilla conserva su historia.
+
+### Supuestos
+
+- Parqueo se cobra como FIJO por quincena según las reglas actuales de Fase 6/8. RH indica la tarifa
+  y su inicio y confirma que comunicó el importe al empleado; no existe una tarifa asumida/sembrada.
+  Cancelación o modificación posterior usa Novedades y sus protecciones de cierres.
+- Gafete, parqueo y actualización de datos tienen entrega manual confirmada, sin PDF. Aprobar datos
+  críticos los aplica inmediatamente; entregar registra la comunicación/completitud de esa gestión.
+- Las plantillas efectivas hoy se eligen por su mayor versión; edición y aprobación se serializan.
+  Solo una solicitud en proceso por empleado/tipo genérico; solicitudes resueltas conservan historia.
+- Se usa un contacto principal de emergencia, coherente con Fase 5. No se cambian cuenta bancaria,
+  salario o roles desde el portal. Límites: plantilla 20,000 caracteres, CSV 10,000 solicitudes.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de Fase 10.
+- RH debe completar datos reales de empresa/representante/afiliación y validar plantillas y tarifas
+  antes de emitir/cobrar en operación. Continúan revisión legal y HTTPS de producción de fases previas.
+- Próximas fases únicamente según solicitud; no se implementaron anuncios, eventos ni dashboards.
+
+### Cómo probar
+
+1. `docker compose up --build` aplica V018 sin reemplazar volumen/credenciales. Para HTTP local con
+   Node 20: `NODE_ENV=development npm run dev`. Completar empresa, empleados y plantillas reales.
+2. Empleado abre `/mis-gestiones`, solicita constancia; RH abre `/solicitudes` o el aviso de campana,
+   aprueba, revisa/amplía el PDF y **Enviar y entregar documento**. Empleado abre su aviso y descarga.
+3. Probar IGSS/INTECAP, rechazo motivado y gafete sin PDF. Editar una plantilla y comprobar que un
+   documento ya aprobado conserva su archivo. Combinar filtros/chips/CSV/orden/páginas y Ayuda.
+4. Solicitar parqueo; RH indica tarifa/inicio y aprueba. Ver fijo en Novedades y su incorporación
+   en nómina; probar duplicado o fecha cerrada. Entrega se confirma después de completar la gestión.
+5. En Mis datos guardar contacto y proponer cambio crítico. RH revisa original/nuevo y resuelve;
+   probar rechazo y expediente modificado mientras está pendiente. Revisar bitácora y notificaciones.
+6. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:security`; `npm run verify:prestaciones`;
+   `npm run verify:solicitudes`; `npm run verify:infra`. Node 20/Oracle: construir imagen
+   `nomina2-security-tests` y ejecutar `npm run verify:solicitudes -- --docker`.

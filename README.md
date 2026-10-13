@@ -250,3 +250,16 @@ o `npm run db:migrate`; conserva el volumen y los registros previos. No requiere
 con la imagen `nomina2-security-tests` de Node 20. Se suma a `npm test`, lint, typecheck, build,
 `npm run verify:security`, `npm run db:verify` y `npm run verify:infra`.
 Fórmulas, límites, API y revisión legal/operativa: [docs/PRESTACIONES.md](docs/PRESTACIONES.md).
+
+### FASE 10: portal de gestiones y bandeja de RRHH
+
+Empleado: `/mis-gestiones` ofrece trámites, historial y documentos entregados;
+`/mis-gestiones/datos` separa contacto directo de propuestas de datos críticos.
+RH/ADMIN: `/solicitudes` tiene bandeja filtrable, resolución motivada, plantillas versionadas,
+PDF con vista previa y entrega. La campana notifica solicitudes y cambios de estado.
+Aprobar parqueo crea el descuento fijo consumido por nómina; RH indica tarifa e inicio reales.
+
+V018 se aplica con `docker compose up --build` o `npm run db:migrate`; conserva datos/credenciales.
+No agrega variables ni sobrescribe plantillas existentes. Completar empresa/representante y revisar
+plantillas antes de emitir. Pruebas: `npm run verify:solicitudes` (también `-- --docker` con imagen
+Node 20 `nomina2-security-tests`). Contratos, permisos y operación: [docs/SOLICITUDES.md](docs/SOLICITUDES.md).

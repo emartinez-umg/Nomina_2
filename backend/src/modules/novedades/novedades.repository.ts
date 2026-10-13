@@ -411,6 +411,23 @@ export async function hoy(c: Connection) {
     )
   ).rows![0]!.HOY;
 }
+export async function parqueoVigente(c: Connection, id: number, inicio: string) {
+  return (
+    await c.execute(
+      `SELECT D.ID_DESCUENTO_EMPLEADO FROM DESCUENTOS_EMPLEADO D JOIN TIPOS_DESCUENTO T ON T.ID_TIPO_DESCUENTO=D.ID_TIPO_DESCUENTO WHERE D.ID_EMPLEADO=:id AND T.CODIGO='PARQUEO' AND D.ACTIVO=1 AND D.ESTADO='VIGENTE' AND (D.FECHA_FIN IS NULL OR D.FECHA_FIN>=TO_DATE(:inicio,'YYYY-MM-DD'))`,
+      { id, inicio },
+    )
+  ).rows?.length;
+}
+export async function tipoParqueo(c: Connection) {
+  return (
+    await c.execute<{ ID: number }>(
+      "SELECT ID_TIPO_DESCUENTO ID FROM TIPOS_DESCUENTO WHERE CODIGO='PARQUEO' AND ACTIVO=1",
+      {},
+      { outFormat: oracledb.OUT_FORMAT_OBJECT },
+    )
+  ).rows?.[0]?.ID;
+}
 export async function restricciones(c: Connection, id: number, excluir: number) {
   const rangos =
     (

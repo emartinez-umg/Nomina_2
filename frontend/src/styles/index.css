@@ -674,3 +674,24 @@
 .vacaciones-seleccion .rdp-month_grid tbody tr {
   background: transparent;
 }
+
+@layer components {
+  .gestiones-grid {
+    @apply grid grid-cols-2 gap-4 xl:grid-cols-4;
+  }
+  .gestiones-tarjeta {
+    @apply flex min-w-0 flex-col items-start gap-3 p-4;
+  }
+  .gestiones-tarjeta h2 {
+    @apply text-base;
+  }
+  .gestiones-tarjeta .boton {
+    @apply mt-auto;
+  }
+  .modal:has([data-tour='solicitud-detalle']),
+  .modal:has([data-tour='plantillas-editor']) {
+    width: min(94vw, 64rem);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}

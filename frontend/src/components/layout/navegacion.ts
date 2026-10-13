@@ -39,6 +39,7 @@ const compartidos: Acceso[] = [
   },
   {
     titulo: 'Solicitudes',
+    ruta: '/solicitudes',
     icono: 'documento',
     descripcion: 'Revisa las gestiones y documentos solicitados.',
   },
@@ -98,6 +99,7 @@ export const navegacion: Record<Rol, Acceso[]> = {
     },
     {
       titulo: 'Mis solicitudes',
+      ruta: '/mis-gestiones/solicitudes',
       icono: 'documento',
       descripcion: 'Solicita constancias, certificados, gafete y parqueo.',
     },
@@ -107,7 +109,12 @@ export const navegacion: Record<Rol, Acceso[]> = {
       icono: 'calendario',
       descripcion: 'Consulta tu saldo y solicita vacaciones.',
     },
-    { titulo: 'Mis datos', icono: 'usuario', descripcion: 'Actualiza tus datos de contacto.' },
+    {
+      titulo: 'Mis datos',
+      ruta: '/mis-gestiones/datos',
+      icono: 'usuario',
+      descripcion: 'Actualiza tus datos de contacto.',
+    },
   ],
 };
 export const nombreRol: Record<Rol, string> = {

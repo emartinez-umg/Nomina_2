@@ -1,4 +1,5 @@
 import { crearPrestacionesService } from './modules/prestaciones/prestaciones.service.js';
+import { crearSolicitudesService } from './modules/solicitudes/solicitudes.service.js';
 import { crearNominaService } from './modules/nomina/nomina.service.js';
 import { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 import { once } from 'node:events';
@@ -31,6 +32,7 @@ try {
     auth,
     nomina: crearNominaService(baseDatos),
     prestaciones: crearPrestacionesService(baseDatos),
+    solicitudes: crearSolicitudesService(baseDatos),
     empleados: crearEmpleadosService(baseDatos),
     novedades: crearNovedadesService(baseDatos),
     vacaciones: crearVacacionesService(baseDatos),

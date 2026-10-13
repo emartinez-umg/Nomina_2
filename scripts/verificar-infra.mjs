@@ -24,3 +24,15 @@ const bundle = await fetch(`${web}${asset}`);
 assert.equal(bundle.status, 200);
 assert.match(bundle.headers.get('content-type') || '', /javascript/);
 console.log('OK: nginx sirve React, assets y rutas de React Router');
+
+const codigo = await bundle.text();
+const moduloSolicitudes = /assets\/SolicitudesPage-[\w-]+\.js/.exec(codigo)?.[0];
+assert.ok(moduloSolicitudes, 'No se encontró el módulo de solicitudes');
+const solicitudes = await fetch(`${web}/${moduloSolicitudes}`);
+assert.equal(solicitudes.status, 200);
+const worker = /\/assets\/pdf\.worker\.min-[\w-]+\.mjs/.exec(await solicitudes.text())?.[0];
+assert.ok(worker, 'No se encontró el worker del visor PDF');
+const visor = await fetch(`${web}${worker}`);
+assert.equal(visor.status, 200);
+assert.match(visor.headers.get('content-type') || '', /javascript/);
+console.log('OK: visor PDF y worker ES disponibles con MIME JavaScript');

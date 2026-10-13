@@ -60,6 +60,8 @@ export function HelpProvider({ children }: PropsWithChildren) {
     if (!definicion) return;
     descartar();
     activo.current?.destroy();
+    const abiertos = document.querySelectorAll('dialog[open]');
+    const alcance = abiertos.item(abiertos.length - 1) ?? document;
     activo.current = driver({
       showProgress: true,
       progressText: 'Paso {{current}} de {{total}}',
@@ -92,7 +94,7 @@ export function HelpProvider({ children }: PropsWithChildren) {
         .filter(
           (p) =>
             (!p.roles || (definicion.rol && p.roles.includes(definicion.rol))) &&
-            document.querySelector(`[data-tour="${p.elemento}"]`),
+            alcance.querySelector(`[data-tour="${p.elemento}"]`),
         )
         .map((p) => ({
           element: `[data-tour="${p.elemento}"]`,

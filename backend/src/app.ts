@@ -1,4 +1,9 @@
 import { crearPrestacionesRouter } from './modules/prestaciones/prestaciones.routes.js';
+import {
+  crearSolicitudesRouter,
+  crearNotificacionesRouter,
+} from './modules/solicitudes/solicitudes.routes.js';
+import type { crearSolicitudesService } from './modules/solicitudes/solicitudes.service.js';
 import type { crearPrestacionesService } from './modules/prestaciones/prestaciones.service.js';
 import { crearNominaRouter } from './modules/nomina/nomina.routes.js';
 import type { crearNominaService } from './modules/nomina/nomina.service.js';
@@ -33,6 +38,7 @@ import { crearVacacionesRouter } from './modules/vacaciones/vacaciones.routes.js
 import type { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 
 interface SeguridadApp {
+  solicitudes?: ReturnType<typeof crearSolicitudesService>;
   prestaciones?: ReturnType<typeof crearPrestacionesService>;
   nomina?: ReturnType<typeof crearNominaService>;
   vacaciones?: ReturnType<typeof crearVacacionesService>;
@@ -72,6 +78,10 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
     );
     if (seguridad.prestaciones)
       app.use('/api/prestaciones', crearPrestacionesRouter(seguridad.prestaciones));
+    if (seguridad.solicitudes) {
+      app.use('/api/solicitudes', crearSolicitudesRouter(seguridad.solicitudes));
+      app.use('/api/notificaciones', crearNotificacionesRouter(seguridad.solicitudes));
+    }
     if (seguridad.nomina) app.use('/api/nomina', crearNominaRouter(seguridad.nomina));
     if (seguridad.vacaciones)
       app.use('/api/vacaciones', crearVacacionesRouter(seguridad.vacaciones));

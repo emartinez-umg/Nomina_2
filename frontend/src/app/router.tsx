@@ -1,4 +1,17 @@
 import { lazy, Suspense } from 'react';
+const Solicitudes = lazy(() =>
+  import('../features/solicitudes/pages/SolicitudesPage').then((m) => ({
+    default: m.SolicitudesPage,
+  })),
+);
+const MisDatos = lazy(() =>
+  import('../features/solicitudes/pages/MisDatosPage').then((m) => ({ default: m.MisDatosPage })),
+);
+const solicitudesPage = (
+  <Suspense fallback={<Skeleton lineas={6} />}>
+    <Solicitudes />
+  </Suspense>
+);
 const PrestacionesPage = lazy(() =>
   import('../features/prestaciones/pages/PrestacionesPage').then((m) => ({
     default: m.PrestacionesPage,
@@ -52,11 +65,23 @@ export const rutas = [
           {
             element: <AppLayout />,
             children: [
-              { path: ['/admin', '/rh', '/mis-gestiones'][i]!, element: <InicioPage /> },
+              {
+                path: ['/admin', '/rh', '/mis-gestiones'][i]!,
+                element: rol === 'EMPLEADO' ? solicitudesPage : <InicioPage />,
+              },
               ...(rol === 'EMPLEADO'
                 ? [
                     { path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> },
                     { path: '/mis-gestiones/boletas', element: <NominaPage /> },
+                    { path: '/mis-gestiones/solicitudes', element: solicitudesPage },
+                    {
+                      path: '/mis-gestiones/datos',
+                      element: (
+                        <Suspense fallback={<Skeleton lineas={6} />}>
+                          <MisDatos />
+                        </Suspense>
+                      ),
+                    },
                   ]
                 : []),
             ],
@@ -79,6 +104,7 @@ export const rutas = [
                 ),
               },
               { path: '/vacaciones', element: <VacacionesPage /> },
+              { path: '/solicitudes', element: solicitudesPage },
               { path: '/novedades', element: <NovedadesPage /> },
               { path: '/novedades/:tipo', element: <NovedadesPage /> },
               { path: '/novedades/:tipo/nuevo', element: <NovedadFormularioPage /> },

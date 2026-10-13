@@ -231,3 +231,21 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   temporal cero para evitar que PDFKit cree una página vacía al numerar fuera del área de texto.
 - V017 es aditiva y reemplaza la unicidad de ciclo por un índice condicional que conserva anulados.
   Los pagos conservan exenciones por componente y nómina consume solo la base gravada congelada.
+
+## FASE 10 — Solicitudes, documentos y autogestión
+
+- Reutilizar tablas de FASE 1 y la campana de FASE 7; API genérica `/notificaciones` compatible con
+  avisos de vacaciones. Las vacaciones mantienen su motor y la bandeja genérica excluye ese tipo.
+- Aprobar un documento crea su archivo/snapshots privados; entregar publica esos mismos bytes.
+  BLOB Oracle permite rollback real junto con estados, historial y avisos, sin archivos huérfanos.
+- Plantillas insertan nuevas versiones efectivas hoy; la selección toma la mayor versión vigente.
+  Rechazada es terminal. La entrega solo sale de APROBADA y requiere confirmar el PDF vigente.
+- Parqueo usa una primitiva interna de Fase 6 y el acuerdo FIJO consumido por Fase 8. Tarifa real
+  confirmada por RH; no se asume monto. Alta, resolución, auditoría y avisos son atómicos.
+- Contacto del expediente es autogestionable; correo de acceso sigue administrándose por separado.
+  Los datos críticos requieren solicitud y comprobación del snapshot original para no sobrescribir
+  correcciones de RH hechas mientras la solicitud estaba pendiente.
+- PDF.js 5.5.207 fijado conserva Node 20.19, está fuera del rango afectado por
+  [GHSA-hq66-cqwq-w95j](https://github.com/advisories/GHSA-hq66-cqwq-w95j) y `npm audit` no reporta avisos.
+  Renderiza dentro del portal porque el navegador integrado no muestra PDFs nativos en iframe.
+  Solo usa bytes generados por el servidor; no carga recursos externos ni ejecuta expresiones.

@@ -24,11 +24,64 @@ import {
   quincena,
 } from './novedades.reglas.js';
 import * as repo from './novedades.repository.js';
+import { dinero as validarMonto, fecha as validarFecha } from '../empleados/empleados.schemas.js';
 const rechazar = (campo: string, mensaje: string): never => {
   throw new ErrorNegocio('Revisa los campos indicados antes de continuar.', 422, 'VALIDACION', {
     [campo]: [mensaje],
   });
 };
+// El llamador controla la transacción; parqueo usa el mismo acuerdo FIJO que consume nómina.
+export async function registrarParqueo(
+  c: Connection,
+  actor: ActorAuditoria,
+  idEmpleado: number,
+  idSolicitud: number,
+  monto: string,
+  fechaInicio: string,
+) {
+  if (!['ADMIN', 'RH'].includes(actor.rol)) throw new ErrorProhibido();
+  await bloquearCatalogos(c, true);
+  monto = validarMonto.parse(monto);
+  validarFecha.parse(fechaInicio);
+  const e = await repo.empleado(c, idEmpleado),
+    tipo = await repo.tipoParqueo(c);
+  if (!tipo) throw new ErrorConflicto('Activa el tipo PARQUEO en Catálogos antes de aprobar.');
+  if (!e || e.estado !== 'ACTIVO' || fechaInicio < e.inicio || (e.fin && fechaInicio > e.fin))
+    throw new ErrorConflicto('El parqueo requiere una relación laboral activa.');
+  if (fechaInicio < (await repo.hoy(c)) || (await repo.cerrados(c, fechaInicio, '9999-12-31')))
+    throw new ErrorConflicto(
+      'El inicio del descuento debe ser hoy o futuro y posterior a los periodos cerrados.',
+    );
+  if (await repo.parqueoVigente(c, idEmpleado, fechaInicio))
+    throw new ErrorConflicto(
+      'El empleado ya tiene parqueo vigente. Revisa el descuento existente.',
+    );
+  const id = await repo.guardar(
+    c,
+    'descuentos',
+    {
+      ID_EMPLEADO: { valor: idEmpleado },
+      ID_TIPO_DESCUENTO: { valor: tipo },
+      ID_SOLICITUD: { valor: idSolicitud },
+      MODALIDAD: { valor: 'FIJO' },
+      MONTO_QUINCENA: { valor: monto, tipo: 'numero' },
+      FECHA_INICIO: { valor: fechaInicio, tipo: 'fecha' },
+      MOTIVO: { valor: `Parqueo aprobado en solicitud ${idSolicitud}` },
+    },
+    actor.idUsuario,
+  );
+  await audit(
+    c,
+    actor,
+    'descuentos',
+    id,
+    'APROBAR_PARQUEO',
+    null,
+    { idEmpleado, idSolicitud, monto, fechaInicio },
+    'Alta automática al aprobar parqueo',
+  );
+  return id;
+}
 const audit = (
   c: Connection,
   actor: ActorAuditoria,

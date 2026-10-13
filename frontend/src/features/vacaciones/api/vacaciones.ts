@@ -105,9 +105,9 @@ export const notificacionesSchema = z.object({
   ),
 });
 export const notificaciones = (signal?: AbortSignal) =>
-  solicitar('/vacaciones/notificaciones', notificacionesSchema, { signal });
+  solicitar('/notificaciones', notificacionesSchema, { signal });
 export const leer = (id: number) =>
-  solicitar(`/vacaciones/notificaciones/${id}/leida`, z.object({ leida: z.boolean() }), {
+  solicitar(`/notificaciones/${id}/leida`, z.object({ leida: z.boolean() }), {
     method: 'POST',
     body: {},
   });
