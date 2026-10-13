@@ -225,3 +225,16 @@ con vigencia. Para ingresos anteriores a sus vigencias, configurar la historia o
 apertura antes de ajustes/disfrutes. Contratos, decisiones y consumo del finiquito en Fase 9:
 [docs/VACACIONES.md](docs/VACACIONES.md).
 Contratos de captura y consumo para Fase 8: [NOVEDADES.md](docs/NOVEDADES.md).
+
+## FASE 8 — Nómina y boletas
+
+`docker compose up --build` aplica V016 y el seed S005, conservando el volumen y credenciales.
+RH/ADMIN abre `/planilla`: crear quincena → calcular → revisar → aprobar → cerrar. Resolver alertas
+y recalcular antes de aprobar. ADMIN puede reabrir con motivo; se revierten cuotas conservando
+el historial. La implantación a mitad de año requiere apertura fiscal real de los empleados.
+El empleado consulta `/mis-gestiones/boletas`, con tarjetas móviles y PDF propio.
+Historial y exportación XLSX/PDF/boletas masivas; IGSS exige ambas quincenas cerradas y configuración
+patronal real desde el editor de Planilla. Contratos, fórmulas y supuestos: [docs/NOMINA.md](docs/NOMINA.md).
+
+Verificación: `npm run lint`, `npm test`, `npm run typecheck`, `npm run build`,
+`npm run format:check`, `npm run db:verify`, `npm run verify:security` y `npm run verify:infra`.

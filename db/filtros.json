@@ -336,5 +336,6 @@
     "FECHA",
     "ACTIVO",
     "FECHA_CREACION"
-  ]
+  ],
+  "ISR_APERTURAS": ["ANIO", "FECHA_CORTE", "ACTIVO", "FECHA_CREACION"]
 }

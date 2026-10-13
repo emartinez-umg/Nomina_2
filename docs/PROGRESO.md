@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 7 completada. Los registros de FASES 0–6 se conservan como historial; consultar
-la sección FASE 7 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 8 completada. Los registros de FASES 0–7 se conservan como historial; consultar
+la sección FASE 8 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -784,3 +784,129 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 5. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
 6. `npm run verify:security`; `npm run db:verify`; `npm run verify:infra`.
    Contrato de API y primitiva de Fase 9: docs/VACACIONES.md.
+
+## FASE 8 — Motor de nómina (RF-08, RF-09, RF-16, RF-19)
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- Backend routes/controller/service/repository, Zod estricto, Oracle thin/binds, Decimal y redondeo
+  half-up único. Salarios/conceptos/banderas/parámetros con vigencia por fecha/segmento, sin tasas
+  ni montos de respaldo en código. Salario completo/parcial, cambios intermedios, bonificación,
+  horas por jornada, comisiones y ausencias según horario/feriados/efecto real.
+- ISR con reales acumulados, proyección futura efectiva, IGSS real/proyectado, deducción personal,
+  comprobantes agrupados/topes, tramos continuos y retención restante. Recálculo final y devolución
+  de exceso como ingreso no afecto. Consume aguinaldo/Bono 14 ya pagados según límites configurados.
+- Apertura fiscal certificada por empleado/año para implantación con historia anterior; no inventa
+  ingresos pagados desde el contrato. Captura RH de deducciones acreditadas y consulta de comprobantes.
+- Periodos quincenales exactos/no solapados y flujo calcular → revisar → aprobar → cerrar. Control
+  de versión, huella SHA-256 de fuentes y revalidación antes de transiciones; alertas por empleado
+  bloquean aprobación/cierre, incluidos neto negativo y novedades pendientes. Devolver a revisión
+  exige motivo para corregir un aprobado cuyas fuentes cambiaron.
+- Cierre transaccional aplica cuotas/fijos una sola vez, enlaza NOMINA_DETALLE y liquida saldos.
+  Incluye cuotas vencidas anteriores pendientes, con tope de saldo conjunto y última cuota exacta.
+  Reapertura solo ADMIN con motivo: revierte aplicaciones/cuotas/saldo, conserva versiones y obliga
+  a recalcular. Cierres posteriores impiden alterar historia anterior; respeta cierre cronológico.
+- Resultados versionados y detalle por concepto con fuentes/base/cantidad/tasa/banderas; snapshots
+  completos de entrada/resultado/empresa/versión del motor. NOMINA_PARAMETROS e ISR_PROYECCIONES
+  conservan vigencias, deducciones y escala utilizada. Lecturas/exportaciones Oracle READ ONLY
+  mantienen totales/filas/versiones consistentes. Auditoría depurada con binds CLOB explícitos.
+- Planilla e historial reales con búsqueda/filtros combinados, chips/limpiar, totales globales,
+  alertas, orden/página en servidor, detalle, recálculo y confirmaciones. Exportación XLSX real
+  (dinero numérico exacto, textos sin fórmulas), PDF consolidado y boletas masivas paginadas.
+- Portal `/mis-gestiones/boletas`: propietario derivado de Oracle, solo versiones actuales cerradas;
+  tarjetas móviles con neto/detalle/PDF y tabla desktop. RH/ADMIN consulta boletas y vista previa.
+- IGSS mensual exportable 2.2.0, datos patronales/centros/tipos/asignaciones parametrizados en BD,
+  editor guiado con referencias reales, códigos/nombres exactos, TC/TP, suspensiones/licencias y
+  consolidación de dos quincenas cerradas. TP conserva horas efectivas de horario y extra aprobadas.
+- V016 aditiva: hash/alertas de periodo, FORMATO_IGSS, índices funcionales de filtros y tabla
+  ISR_APERTURAS (54 tablas de negocio). S005 incorpora ISR_DEVOLUCION sin sobrescribir parámetros.
+  Migraciones anteriores intactas. UI/tokens/iconos/campos/tours del mockup reutilizados, sin mocks.
+- README, ERD, DECISIONES, seeds y docs/NOMINA.md actualizados con contratos, reglas y fuentes.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier, git diff --check y builds correctos; producción construida con
+  Node 20. Nueva pantalla cargada por ruta para evitar cargarla durante el login y otros módulos.
+- 259 pruebas unitarias aprobadas (164 backend, 95 frontend), también en Docker Node 20. Las 40 nuevas del backend cubren
+  salario bajo/alto, ingreso/egreso parcial, febrero/31 días, cambios de vigencia/salario, ausencias,
+  horas de tres jornadas, comisión/banderas, descuentos/última cuota/cuotas vencidas/neto negativo,
+  ISR/deducciones/topes/exenciones/diciembre/reintegro, reproducción de snapshot y flujo/formatos.
+  Siete nuevas UI verifican transiciones, alertas, bloqueo cerrado/ADMIN, doble envío y tarjeta móvil.
+- 72 pruebas Oracle thin/Supertest aprobadas en host y Docker Node 20: flujo real, snapshots/boletas,
+  recálculo/versiones, CSRF/RBAC/propiedad,
+  cierre concurrente único, rollback provocado de auditoría que revierte también cobro/saldo/estado,
+  reapertura/reversión y recierre, fuente modificada, neto negativo, liquidación final, cuotas vencidas,
+  deducciones/apertura única/PK auditada y exportaciones XLSX/PDF/IGSS. Esquemas N2SEC eliminados.
+- db:verify aprueba V000–V016 desde cero, idempotencia, CHECK/FK/identity/índices/objetos válidos y
+  seeds repetibles. Esquemas N2TEST eliminados; datos y credenciales de aplicación conservados.
+- Navegador integrado con API/Oracle en N2UI desechable: creó quincena, calculó, revisó, aprobó y
+  cerró; verificó detalle, formularios fiscales/IGSS y boleta propia. Portal móvil de 390 px sin
+  desbordamiento de página y con tarjetas/descarga accesible. Errores transitorios de HMR durante
+  edición corregidos; verificación final sin nuevos errores JavaScript.
+- PDF real de Oracle renderizado e inspeccionado; extracción verifica ingresos, descuentos y neto
+  exactos contra la API y numeración. PDF consolidado revisado visualmente. Descarga de archivo
+  comprobada por HTTP; el navegador integrado no expuso el evento de descarga de su URL Blob.
+  El arnés usó sesiones Oracle de fixtures por la limitación de cookies del navegador integrado;
+  sesión/cookies/CSRF reales se prueban con Supertest. Arnés/procesos/esquema eliminados.
+- Compose actualizado y saludable (Oracle/API/nginx), V016/S005 aplicados sobre el volumen existente;
+  verify:infra aprueba Oracle, API, assets y rutas React. Reejecución de migraciones sin pendientes.
+
+### Decisiones
+
+- Calcular guarda versiones sin cobrar; cerrar aplica y publica boletas, reabrir revierte y conserva.
+  La revisión debe corresponder a la misma huella y versión aprobada. No hay pago bancario automático.
+- Quincena completa = mitad mensual; parcial = días calendario dentro de contratación/egreso con
+  tope quincenal. Ausencias se muestran como descuentos y reducen las bases afectas; la bonificación
+  se prorratea directamente. COSTO_PATRONAL representa aportes informativos, etiquetados en la UI.
+- Topes ISR se aplican a la suma acreditada de cada tipo, evitando multiplicar el límite por recibo.
+  Proyección restante considera salarios/bonificación con vigencias programadas; variables se
+  incorporan cuando se registran en la quincena calculada. La última quincena usa reales y reintegra
+  exceso de ISR con concepto separado sin generar nueva renta ni contribuciones.
+- Aperturas/comprobantes son historia fiscal auditada; no sustituyen nóminas cerradas. Para empezar
+  a mitad de año se exige continuidad o apertura real, aun si esto bloquea un cálculo incompleto.
+- Reporte IGSS conserva estructura oficial 2.2.0 y parametriza datos/mapeos patronales; nunca divide
+  automáticamente apellidos compuestos. La exportación no presenta declaraciones externas.
+
+### Supuestos
+
+- Se mantienen jornada mensual y periodicidad estructural 2/24; los parámetros se leen/validan desde
+  BD. Los días pagados completos son SALARIO_DIAS_MES / QUINCENAS_MES, incluso en febrero.
+- Ausencias/vacaciones se manejan en días laborales completos y feriados completos, coherente con
+  FASES 6–7; un subsidio IGSS no se registra como desembolso empresarial ficticio. TC reporta días
+  pagados nominales; TP usa horas del horario efectivo conservado, excluye ausencias sin goce y
+  feriados e incluye extra autorizada. RH valida clasificaciones y códigos patronales reales.
+- La renta inicial certificada es gravada, sin rentas exentas; IGSS acreditado manualmente no duplica
+  cuotas ya acumuladas desde planillas. No se estiman comisiones/horas futuras sin registro real.
+- El ajuste/reintegro final se materializa en la última quincena fiscal según sección 10; el informe
+  y las obligaciones de liquidación externa ante SAT se validan/gestionan por RH. Se documentan
+  referencias oficiales SAT/Minfin e IGSS en NOMINA.md; no se declara certificación legal.
+- Exportaciones limitadas a 10,000 resultados por consulta; configuración IGSS admite hasta 5,000
+  asignaciones y cuerpo de hasta 4 MiB. Apertura única por empleado/año; las correcciones de historia
+  certificada deben resolverse antes de aprobar/cerrar, conservando trazabilidad.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE 8.
+- Permanecen la validación legal/operativa de vigencias y códigos por RH y HTTPS de producción
+  registrados en fases anteriores. Siguientes fases únicamente según solicitud: prestaciones y
+  finiquito en FASE 9 y flujos de solicitudes/parqueo/documentos cuando se indiquen.
+
+### Cómo probar
+
+1. `docker compose up --build` aplica V016/S005 sin reemplazar volumen ni credenciales. Para HTTP
+   local con Node 20: `NODE_ENV=development npm run dev`.
+2. RH/ADMIN abre `/planilla`, crea/abre una quincena; completa salarios, novedades y vigencias reales.
+   Si hay historia anterior, registra apertura fiscal al cierre de la quincena anterior y comprobantes.
+3. Calcular → revisar detalle/alertas → recalcular si corresponde → marcar revisada → aprobar → cerrar.
+   Corregir netos negativos/novedades pendientes; probar cambio de fuente y pantalla desactualizada.
+4. Descargar Excel/PDF/boletas masivas; filtrar historial por mes/año. Empleado abre
+   `/mis-gestiones/boletas`, consulta sus propias boletas cerradas y descarga PDF, también en móvil.
+5. Cerrar ambas quincenas de un mes, configurar IGSS con datos patronales/centros/tipos/empleados
+   inscritos y exportar TXT. Probar falta de afiliación/códigos y un mes incompleto (se bloquean).
+6. ADMIN reabre último cierre con motivo: comprobar cuota/saldo restaurados y versión conservada;
+   recalcular/revisar/aprobar/cerrar. RH no puede reabrir. Probar ayuda reiniciable en Planilla/portal.
+7. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:security`; `npm run verify:infra`.
+   Oracle con Node 20: construir `nomina2-security-tests` y `npm run verify:security -- --docker`.

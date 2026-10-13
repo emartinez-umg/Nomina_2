@@ -1,3 +1,4 @@
+import { crearNominaService } from './modules/nomina/nomina.service.js';
 import { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 import { once } from 'node:events';
 import { crearApp } from './app.js';
@@ -27,6 +28,7 @@ try {
   const auth = await crearAuthService(baseDatos, config);
   const server = crearApp(service, logger, {
     auth,
+    nomina: crearNominaService(baseDatos),
     empleados: crearEmpleadosService(baseDatos),
     novedades: crearNovedadesService(baseDatos),
     vacaciones: crearVacacionesService(baseDatos),

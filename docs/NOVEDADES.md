@@ -129,3 +129,11 @@ existentes; no se deben regenerar cuotas ni editar acuerdos ya consumidos.
 5. `npm run lint`, `npm test`, `npm run typecheck`, `npm run build`, `npm run format:check`.
 6. `npm run verify:security` prueba cuotas/saldos/traslapes/cierres/rollback en N2SEC desechable.
    `npm run db:verify` verifica V000–V014, índices y seeds desde cero; `npm run verify:infra` prueba Compose.
+
+## Actualización de consumo en FASE 8
+
+El motor ya implementa el contrato de cierre/reapertura descrito en [NOMINA.md](NOMINA.md).
+Las cuotas elegibles incluyen vencimientos **hasta** el fin del periodo, también vencidas que sigan
+pendientes. Se conserva el vencimiento original y se registra la quincena del cobro efectivo.
+FIJO se aplica una vez por cierre; CUOTAS/UNICO respetan saldo conjunto y se liquidan en cero.
+Reabrir revierte aplicaciones/cuotas/saldo dentro de la transacción auditada y conserva versiones.

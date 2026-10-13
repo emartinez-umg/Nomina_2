@@ -1,3 +1,15 @@
+import { lazy, Suspense } from 'react';
+import { Skeleton } from '../components/ui/Skeleton';
+const Nomina = lazy(() =>
+  import('../features/nomina/pages/NominaPage').then((m) => ({ default: m.NominaPage })),
+);
+function NominaPage() {
+  return (
+    <Suspense fallback={<Skeleton lineas={6} />}>
+      <Nomina />
+    </Suspense>
+  );
+}
 import { VacacionesPage } from '../features/vacaciones/pages/VacacionesPage';
 import { EmpleadosPage } from '../features/empleados/pages/EmpleadosPage';
 import { EmpleadoFormularioPage } from '../features/empleados/pages/EmpleadoFormulario';
@@ -37,7 +49,10 @@ export const rutas = [
             children: [
               { path: ['/admin', '/rh', '/mis-gestiones'][i]!, element: <InicioPage /> },
               ...(rol === 'EMPLEADO'
-                ? [{ path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> }]
+                ? [
+                    { path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> },
+                    { path: '/mis-gestiones/boletas', element: <NominaPage /> },
+                  ]
                 : []),
             ],
           },
@@ -49,6 +64,7 @@ export const rutas = [
           {
             element: <AppLayout />,
             children: [
+              { path: '/planilla', element: <NominaPage /> },
               { path: '/vacaciones', element: <VacacionesPage /> },
               { path: '/novedades', element: <NovedadesPage /> },
               { path: '/novedades/:tipo', element: <NovedadesPage /> },

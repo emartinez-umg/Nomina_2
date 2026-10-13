@@ -191,3 +191,28 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   valoración con movimientos o reservas posteriores al corte para evitar liquidaciones incorrectas.
 - V015 es aditiva y mantiene las 53 tablas. UI derivada del mockup con componentes/tokens existentes,
   calendario react-day-picker, semáforo accesible, filtros/CSV y ayuda por rol; sin datos simulados.
+
+## FASE 8 — Motor quincenal y cierre
+
+- Se reutiliza V007 y se añade V016 para huella de fuentes, alertas, configuración IGSS y apertura
+  fiscal; las migraciones anteriores permanecen inmutables. La apertura evita inventar acumulados
+  al implantar el sistema a mitad del ejercicio. S005 incorpora devolución del ISR en exceso.
+- Se guardan todas las versiones; calcular no cobra. Cerrar aplica cuotas/fijos y audita en una sola
+  transacción. Reabrir revierte aplicaciones y exige nuevo cálculo. Locks compatibles con las fases
+  anteriores, actor revalidado y control de versión impiden cobros dobles y aprobaciones obsoletas.
+- Se compara SHA-256 de la fuente antes de revisar/aprobar/cerrar. Devolver a revisión permite
+  corregir un aprobado cuyas fuentes cambiaron. Cierres posteriores bloquean reaperturas anteriores.
+- Los parámetros, salarios y banderas se evalúan por fecha/segmento y también durante proyección
+  futura. Líneas redondeadas, snapshots de entrada/resultado y versión del motor permiten reproducción.
+- La quincena completa equivale a media mensualidad incluso en febrero/meses de 31 días; parciales
+  usan días calendario con tope quincenal. Ausencias descuentan días laborales/feriados efectivos.
+- El ISR usa reales acumulados + proyección de salario/bonificación restante, topes agrupados por
+  tipo y escala continua. El periodo final ajusta retención y reintegra el exceso como ingreso exento.
+- XLSX se escribe como OOXML con fflate y celdas monetarias numéricas sin conversión flotante; PDFKit
+  produce documentos paginados. Exportaciones usan lectura Oracle consistente. La bitácora usa
+  binds CLOB explícitos para configuraciones grandes.
+- El formato IGSS 2.2.0 conserva estructura oficial y parametriza datos patronales/centros/tipos y
+  asignaciones. Exige mes completo cerrado y datos reales; nunca inventa afiliación o apellidos.
+  Las boletas del empleado están limitadas por propiedad y cierre, con tarjetas móviles.
+- Prestaciones/finiquitos se consumirán según FASE 9: esta fase solo incorpora sus pagos ya
+  registrados al tratamiento exento del ISR; no adelanta su cálculo o interfaz.

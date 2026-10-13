@@ -1,7 +1,7 @@
 # Modelo Oracle — FASE 1
 
-53 tablas de negocio, más `VERSION_ESQUEMA` y `PRUEBA_INFRAESTRUCTURA` conservadas de FASE 0.
-Las migraciones V001–V015 se agrupan por dominio y se ejecutan después de V000. Los diagramas
+54 tablas de negocio, más `VERSION_ESQUEMA` y `PRUEBA_INFRAESTRUCTURA` conservadas de FASE 0.
+Las migraciones V001–V016 se agrupan por dominio y se ejecutan después de V000. Los diagramas
 incluyen referencias entre dominios; se omiten las flechas de auditoría para facilitar su lectura.
 El SQL de `db/migrations/` es la definición exacta de nulabilidad, valores por defecto y restricciones.
 
@@ -829,3 +829,35 @@ La solicitud de vacaciones crea su vínculo obligatorio con SOLICITUDES e histor
 Aprobación/rechazo actualizan ambas tablas, historial, auditoría y notificaciones en la misma
 transacción; aprobar añade un único DISFRUTE negativo. La apertura sustituye el saldo histórico
 hasta su corte sin borrar movimientos. Detalles de cálculo e integración: VACACIONES.md.
+
+## FASE 8 — Control del motor y apertura fiscal
+
+V016 agrega HASH_FUENTES/ALERTAS JSON a PERIODOS_NOMINA y FORMATO_IGSS JSON a
+CONFIGURACION_EMPRESA. Mantiene NOMINA_EMPLEADO/DETALLE/PARAMETROS/ISR_PROYECCIONES y
+DESCUENTOS_APLICACIONES de V007, con versiones y aplicaciones reversibles. Índices funcionales
+JSON para departamento/alerta conservados en el cálculo. S005 agrega ISR_DEVOLUCION sin
+sobrescribir conceptos o parámetros operativos. Contrato/fórmulas: [NOMINA.md](NOMINA.md).
+
+```mermaid
+erDiagram
+    EMPLEADOS ||--o{ ISR_APERTURAS : "historia fiscal certificada"
+    ISR_APERTURAS {
+        NUMBER ID_ISR_APERTURA PK
+        NUMBER ID_EMPLEADO FK
+        NUMBER ANIO UK
+        DATE FECHA_CORTE
+        NUMBER RENTA
+        NUMBER IGSS
+        NUMBER ISR
+        VARCHAR2 MOTIVO
+    }
+    PERIODOS_NOMINA ||--o{ NOMINA_EMPLEADO : "versiones conservadas"
+    NOMINA_EMPLEADO ||--o{ NOMINA_DETALLE : "conceptos y fuentes"
+    NOMINA_EMPLEADO ||--o{ NOMINA_PARAMETROS : "vigencias utilizadas"
+    NOMINA_EMPLEADO ||--|| ISR_PROYECCIONES : "liquidación anual"
+    NOMINA_DETALLE }o--o| DESCUENTOS_APLICACIONES : "cobro al cierre"
+```
+
+ISR_APERTURAS: identity ALWAYS, único (empleado,año), corte al final de una quincena del año,
+montos NUMBER(12,2) no negativos, auditoría/ACTIVO/CHECK, FKs a empleado/creador/editor indexadas.
+Se valida continuidad/no duplicación con cierres desde el servicio; no sustituye nóminas cerradas.

@@ -27,6 +27,7 @@ const compartidos: Acceso[] = [
   },
   {
     titulo: 'Planilla',
+    ruta: '/planilla',
     icono: 'planilla',
     descripcion: 'Calcula, revisa y cierra los periodos de nómina.',
   },
@@ -85,6 +86,7 @@ export const navegacion: Record<Rol, Acceso[]> = {
     },
     {
       titulo: 'Boletas de pago',
+      ruta: '/mis-gestiones/boletas',
       icono: 'planilla',
       descripcion: 'Consulta y descarga tus boletas.',
     },

@@ -1,3 +1,5 @@
+import { crearNominaRouter } from './modules/nomina/nomina.routes.js';
+import type { crearNominaService } from './modules/nomina/nomina.service.js';
 import express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -29,6 +31,7 @@ import { crearVacacionesRouter } from './modules/vacaciones/vacaciones.routes.js
 import type { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 
 interface SeguridadApp {
+  nomina?: ReturnType<typeof crearNominaService>;
   vacaciones?: ReturnType<typeof crearVacacionesService>;
   novedades?: ReturnType<typeof crearNovedadesService>;
   empleados?: ReturnType<typeof crearEmpleadosService>;
@@ -50,6 +53,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
   }
   app.use(helmet());
   app.use(registrarPeticiones(logger));
+  app.use('/api/nomina/igss/formato', express.json({ limit: '4mb' }));
   app.use('/api/empleados/cargas', express.json({ limit: '2mb' }));
   app.use('/api/novedades/ausencias', express.json({ limit: '1500kb' }));
   app.use(express.json({ limit: '100kb' }));
@@ -63,6 +67,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
       permitirRoles('ADMIN', 'RH', 'EMPLEADO'),
       exigirCambioCompletado,
     );
+    if (seguridad.nomina) app.use('/api/nomina', crearNominaRouter(seguridad.nomina));
     if (seguridad.vacaciones)
       app.use('/api/vacaciones', crearVacacionesRouter(seguridad.vacaciones));
     if (seguridad.empleados) app.use('/api/empleados', crearEmpleadosRouter(seguridad.empleados));

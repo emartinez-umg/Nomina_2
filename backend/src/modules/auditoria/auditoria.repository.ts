@@ -26,8 +26,14 @@ export async function insertarAuditoria(c: Connection, registro: RegistroAuditor
       accion: registro.accion,
       entidad: registro.entidad,
       id: registro.idEntidad,
-      antes: registro.antes === undefined ? null : JSON.stringify(registro.antes),
-      despues: registro.despues === undefined ? null : JSON.stringify(registro.despues),
+      antes: {
+        val: registro.antes === undefined ? null : JSON.stringify(registro.antes),
+        type: oracledb.CLOB,
+      },
+      despues: {
+        val: registro.despues === undefined ? null : JSON.stringify(registro.despues),
+        type: oracledb.CLOB,
+      },
       motivo: registro.motivo ?? null,
       ip: registro.actor?.ip ?? registro.ip ?? null,
     },

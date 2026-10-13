@@ -1,3 +1,5 @@
+import { crearNominaService } from '../nomina/nomina.service.js';
+import { entradaPrueba } from '../nomina/nomina.fixture.js';
 import { crearVacacionesService } from '../vacaciones/vacaciones.service.js';
 import express from 'express';
 import type { Express } from 'express';
@@ -62,6 +64,7 @@ const crearApi = (opciones = config) =>
     logger,
     {
       auth,
+      nomina: crearNominaService(db),
       empleados: crearEmpleadosService(db),
       novedades: crearNovedadesService(db),
       vacaciones: crearVacacionesService(db),
@@ -2255,6 +2258,480 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
             .expect(422);
         }
       });
+    });
+  });
+  describe('Fase 8: motor, cierre y boletas Oracle reales', () => {
+    let empleadoId = 0,
+      otroId = 0,
+      centroId = 0,
+      periodoId = 0,
+      nominaId = 0,
+      descuentoId = 0;
+    let cuentaF8: { idUsuario: number; usuario: string; contrasenaTemporal: string };
+    const post = async (ruta: string, body: object, status = 200) => {
+      const { agent, csrf } = await entrarAdmin();
+      return agent
+        .post('/api/nomina' + ruta)
+        .set('X-CSRF-Token', csrf)
+        .send(body)
+        .expect(status);
+    };
+    const actuar = async (accion: string, version = 1, status = 200, motivo = '') =>
+      post(`/periodos/${periodoId}/${accion}`, { version, confirmado: true, motivo }, status);
+    beforeAll(async () => {
+      // Fixtures exclusivos del esquema N2SEC desechable: otras fases quedan fuera de esta quincena.
+      await ejecutar('UPDATE EMPLEADOS SET ACTIVO=0');
+      await ejecutar(
+        "UPDATE PARAMETROS_LEGALES SET VIGENTE_HASTA=DATE '2098-12-31' WHERE VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>DATE '2098-12-31'",
+      );
+      const fixture = entradaPrueba();
+      for (const p of fixture.parametros)
+        await ejecutar(
+          "INSERT INTO PARAMETROS_LEGALES (CODIGO,NOMBRE,VALOR,UNIDAD,VIGENTE_DESDE,FUNDAMENTO,MOTIVO) VALUES (:codigo,:codigo,TO_NUMBER(:valor,'999999D999999','NLS_NUMERIC_CHARACTERS=''.,'''),:unidad,DATE '2099-01-01','Referencia de prueba','Fixture Oracle F8')",
+          { codigo: p.codigo, valor: p.valor, unidad: p.unidad },
+        );
+      await ejecutar(
+        "UPDATE TRAMOS_ISR SET VIGENTE_HASTA=DATE '2098-12-31' WHERE VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>DATE '2098-12-31'",
+      );
+      await ejecutar(
+        "INSERT INTO TRAMOS_ISR (VIGENTE_DESDE,LIMITE_INFERIOR,LIMITE_SUPERIOR,TASA_PORCENTAJE,CUOTA_FIJA,MOTIVO) VALUES (DATE '2099-01-01',0,300000,5,0,'Fixture F8')",
+      );
+      await ejecutar(
+        "INSERT INTO TRAMOS_ISR (VIGENTE_DESDE,LIMITE_INFERIOR,LIMITE_SUPERIOR,TASA_PORCENTAJE,CUOTA_FIJA,MOTIVO) VALUES (DATE '2099-01-01',300000,NULL,7,15000,'Fixture F8')",
+      );
+      await ejecutar(
+        "INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('F8_DEP','Departamento de prueba F8')",
+      );
+      const dep = Number(
+        await escalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='F8_DEP'"),
+      );
+      await ejecutar(
+        "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('F8_PUESTO','Puesto F8',:dep)",
+        { dep },
+      );
+      const puesto = Number(
+        await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='F8_PUESTO'"),
+      );
+      await ejecutar(
+        "INSERT INTO CENTROS_TRABAJO (CODIGO,NOMBRE,LOCALIDAD,DIRECCION) VALUES ('F8_CENTRO','Centro F8','PRUEBA','Dirección F8')",
+      );
+      centroId = Number(
+        await escalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='F8_CENTRO'"),
+      );
+      const contrato = Number(await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO'));
+      cuentaF8 = await crearCuenta('EMPLEADO');
+      for (const [codigo, usuario, nit] of [
+        ['F8_EMP', cuentaF8.idUsuario, '1234599-1'],
+        ['F8_OTRO', null, '1234598-3'],
+      ] as const) {
+        await ejecutar(
+          "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,'Persona','Prueba',:dpi,:nit,:igss,DATE '1995-01-01','O','SOLTERO','Dirección F8','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2099-01-01')",
+          {
+            codigo,
+            usuario,
+            dpi: codigo === 'F8_EMP' ? '8765432101234' : '8765432101235',
+            nit,
+            igss: codigo === 'F8_EMP' ? '444444441' : '444444442',
+            correo: codigo.toLowerCase() + '@example.test',
+            puesto,
+            dep,
+            contrato,
+            centro: centroId,
+          },
+        );
+      }
+      empleadoId = Number(await escalar("SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO='F8_EMP'"));
+      otroId = Number(await escalar("SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO='F8_OTRO'"));
+      for (const id of [empleadoId, otroId])
+        await ejecutar(
+          "INSERT INTO HISTORIAL_SALARIAL (ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES (:id,3000,DATE '2099-01-01','Fixture F8')",
+          { id },
+        );
+      const tipo = Number(
+        await escalar("SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='PRESTAMO'"),
+      );
+      const { agent, csrf } = await entrarAdmin();
+      const prestamo = await agent
+        .post('/api/novedades/prestamos')
+        .set('X-CSRF-Token', csrf)
+        .send({
+          idEmpleado: empleadoId,
+          idTipo: tipo,
+          fechaInicio: '2099-01-01',
+          fechaDesembolso: '2099-01-01',
+          monto: '100.01',
+          cuotas: 2,
+          referencia: 'F8_PRESTAMO',
+          motivo: 'Préstamo real de la prueba',
+          confirmado: true,
+        })
+        .expect(201);
+      descuentoId = prestamo.body.data.id;
+    });
+    it('RBAC, CSRF y periodo exacto sin duplicados', async () => {
+      const { agent } = await entrarCuenta('EMPLEADO');
+      await agent.get('/api/nomina/periodos').expect(403);
+      const adminF8 = await entrarAdmin();
+      await adminF8.agent.post('/api/nomina/periodos').send({ fecha: '2099-01-02' }).expect(403);
+      const r = await post('/periodos', { fecha: '2099-01-02' }, 201);
+      periodoId = r.body.data.id;
+      await post('/periodos', { fecha: '2099-01-14' }, 409);
+      const p = await adminF8.agent.get(`/api/nomina/periodos/${periodoId}`).expect(200);
+      expect(p.body.data).toMatchObject({
+        inicio: '2099-01-01',
+        fin: '2099-01-15',
+        estado: 'ABIERTO',
+      });
+    });
+    it('calcula y conserva líneas, parámetros, ISR y boleta con importes exactos', async () => {
+      const r = await actuar('calcular', 0);
+      expect(r.body.data.alertas).toEqual([]);
+      const { agent } = await entrarAdmin();
+      const tabla = await agent
+        .get(`/api/nomina/periodos/${periodoId}/planilla`)
+        .query({ idEmpleado: empleadoId })
+        .expect(200);
+      expect(tabla.body.data.total).toBe(1);
+      expect(tabla.body.data.registros[0].neto).toBe('1502.55');
+      nominaId = tabla.body.data.registros[0].id;
+      const d = await agent.get(`/api/nomina/boletas/${nominaId}`).expect(200);
+      expect(d.body.data.resultado.neto).toBe('1502.55');
+      expect(
+        Number(
+          await escalar('SELECT COUNT(*) FROM NOMINA_DETALLE WHERE ID_NOMINA_EMPLEADO=:id', {
+            id: nominaId,
+          }),
+        ),
+      ).toBeGreaterThan(6);
+      expect(
+        Number(
+          await escalar('SELECT COUNT(*) FROM NOMINA_PARAMETROS WHERE ID_NOMINA_EMPLEADO=:id', {
+            id: nominaId,
+          }),
+        ),
+      ).toBeGreaterThan(5);
+      const pdf = await agent.get(`/api/nomina/boletas/${nominaId}/pdf`).expect(200);
+      expect(Buffer.from(pdf.body.data.base64, 'base64').subarray(0, 5).toString()).toBe('%PDF-');
+      const emp = await entrar(cuentaF8.usuario, cuentaF8.contrasenaTemporal);
+      await emp.agent.get(`/api/nomina/boletas/${nominaId}`).expect(403);
+    });
+    it('recalcular conserva versiones y exige revisar antes de aprobar', async () => {
+      await actuar('aprobar', 1, 409);
+      await actuar('revisar');
+      await actuar('calcular');
+      expect(
+        Number(
+          await escalar(
+            'SELECT COUNT(DISTINCT VERSION_CALCULO) FROM NOMINA_EMPLEADO WHERE ID_PERIODO_NOMINA=:id',
+            { id: periodoId },
+          ),
+        ),
+      ).toBe(2);
+      await actuar('aprobar', 2, 409);
+      await actuar('revisar', 1, 409);
+      await actuar('revisar', 2);
+      await actuar('aprobar', 2);
+    });
+    it('rollback del cierre incluye cobros, saldo, estado y auditoría', async () => {
+      await ejecutar(
+        "CREATE OR REPLACE TRIGGER F8_FALLO_CIERRE BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='CERRAR_PERIODO' THEN RAISE_APPLICATION_ERROR(-20058,'Fallo de cierre de prueba'); END IF; END;",
+      );
+      try {
+        await actuar('cerrar', 2, 500);
+        expect(
+          await escalar('SELECT ESTADO FROM PERIODOS_NOMINA WHERE ID_PERIODO_NOMINA=:id', {
+            id: periodoId,
+          }),
+        ).toBe('APROBADO');
+        expect(
+          Number(
+            await escalar('SELECT SALDO FROM DESCUENTOS_EMPLEADO WHERE ID_DESCUENTO_EMPLEADO=:id', {
+              id: descuentoId,
+            }),
+          ),
+        ).toBe(100.01);
+        expect(
+          Number(
+            await escalar(
+              "SELECT COUNT(*) FROM DESCUENTOS_APLICACIONES WHERE ID_PERIODO_NOMINA=:id AND ESTADO='APLICADA'",
+              { id: periodoId },
+            ),
+          ),
+        ).toBe(0);
+      } finally {
+        await ejecutar('DROP TRIGGER F8_FALLO_CIERRE');
+      }
+    });
+    it('dos cierres concurrentes solo cobran una vez y publican boletas propias', async () => {
+      const a = await entrarAdmin(),
+        b = await entrarAdmin();
+      const rs = await Promise.all(
+        [a, b].map(({ agent, csrf }) =>
+          agent
+            .post(`/api/nomina/periodos/${periodoId}/cerrar`)
+            .set('X-CSRF-Token', csrf)
+            .send({ version: 2, confirmado: true }),
+        ),
+      );
+      expect(rs.map((r) => r.status).sort()).toEqual([200, 409]);
+      expect(
+        Number(
+          await escalar('SELECT SALDO FROM DESCUENTOS_EMPLEADO WHERE ID_DESCUENTO_EMPLEADO=:id', {
+            id: descuentoId,
+          }),
+        ),
+      ).toBe(50.01);
+      await actuar('calcular', 2, 409);
+      const emp = await entrar(cuentaF8.usuario, cuentaF8.contrasenaTemporal);
+      const propio = await emp.agent
+        .get('/api/nomina/boletas')
+        .query({ idEmpleado: otroId })
+        .expect(200);
+      expect(propio.body.data.total).toBe(0);
+      const filas = await emp.agent.get('/api/nomina/boletas').expect(200);
+      expect(filas.body.data.total).toBe(1);
+      nominaId = filas.body.data.registros[0].id;
+      await emp.agent.get(`/api/nomina/boletas/${nominaId}/pdf`).expect(200);
+      const otroNomina = Number(
+        await escalar('SELECT MAX(ID_NOMINA_EMPLEADO) FROM NOMINA_EMPLEADO WHERE ID_EMPLEADO=:id', {
+          id: otroId,
+        }),
+      );
+      await emp.agent.get(`/api/nomina/boletas/${otroNomina}/pdf`).expect(403);
+    });
+    it('reapertura exige ADMIN/motivo, revierte cuotas y conserva versiones', async () => {
+      const rh = await entrarCuenta('RH');
+      await rh.agent
+        .post(`/api/nomina/periodos/${periodoId}/reabrir`)
+        .set('X-CSRF-Token', rh.csrf)
+        .send({ version: 2, confirmado: true, motivo: 'Corrección de planilla' })
+        .expect(403);
+      await actuar('reabrir', 2, 409);
+      await actuar('reabrir', 2, 200, 'Corrección auditada de planilla');
+      expect(
+        Number(
+          await escalar('SELECT SALDO FROM DESCUENTOS_EMPLEADO WHERE ID_DESCUENTO_EMPLEADO=:id', {
+            id: descuentoId,
+          }),
+        ),
+      ).toBe(100.01);
+      expect(
+        Number(
+          await escalar(
+            "SELECT COUNT(*) FROM DESCUENTOS_APLICACIONES WHERE ID_PERIODO_NOMINA=:id AND ESTADO='REVERTIDA'",
+            { id: periodoId },
+          ),
+        ),
+      ).toBe(1);
+      await actuar('calcular', 2);
+      await actuar('revisar', 3);
+      await actuar('aprobar', 3);
+      await actuar('cerrar', 3);
+      expect(
+        Number(
+          await escalar('SELECT SALDO FROM DESCUENTOS_EMPLEADO WHERE ID_DESCUENTO_EMPLEADO=:id', {
+            id: descuentoId,
+          }),
+        ),
+      ).toBe(50.01);
+    });
+    it('cambio de fuente invalida revisión y neto negativo bloquea aprobación', async () => {
+      const r = await post('/periodos', { fecha: '2099-01-20' }, 201);
+      periodoId = r.body.data.id;
+      await actuar('calcular', 0);
+      await ejecutar(
+        "INSERT INTO COMISIONES (ID_EMPLEADO,ID_PERIODO_NOMINA,MONTO,REFERENCIA,DESCRIPCION) VALUES (:id,:periodo,100,'F8_COMISION','Comisión de prueba')",
+        { id: empleadoId, periodo: periodoId },
+      );
+      await actuar('revisar', 1, 409);
+      await actuar('calcular', 1);
+      await ejecutar(
+        "INSERT INTO DESCUENTOS_EMPLEADO (ID_EMPLEADO,ID_TIPO_DESCUENTO,MODALIDAD,MONTO_QUINCENA,FECHA_INICIO,MOTIVO) VALUES (:id,(SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='EMBARGO'),'FIJO',9999,DATE '2099-01-16','Neto negativo prueba')",
+        { id: empleadoId },
+      );
+      const neg = await actuar('calcular', 2);
+      expect(neg.body.data.alertas.join(' ')).toContain('negativo');
+      await actuar('revisar', 3, 409);
+      await ejecutar(
+        "UPDATE DESCUENTOS_EMPLEADO SET ACTIVO=0,ESTADO='CANCELADO' WHERE MOTIVO='Neto negativo prueba'",
+      );
+      await actuar('calcular', 3);
+      await actuar('revisar', 4);
+      await actuar('aprobar', 4);
+      await actuar('cerrar', 4);
+      expect(
+        Number(
+          await escalar('SELECT SALDO FROM DESCUENTOS_EMPLEADO WHERE ID_DESCUENTO_EMPLEADO=:id', {
+            id: descuentoId,
+          }),
+        ),
+      ).toBe(0);
+      expect(
+        await escalar('SELECT ESTADO FROM DESCUENTOS_EMPLEADO WHERE ID_DESCUENTO_EMPLEADO=:id', {
+          id: descuentoId,
+        }),
+      ).toBe('LIQUIDADO');
+    });
+    it('exporta filtros completos, Excel/PDF/boletas e IGSS mensual parametrizado', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      for (const f of ['excel', 'pdf', 'boletas']) {
+        const r = await agent
+          .get(`/api/nomina/exportar/${f}`)
+          .query({ anio: 2099, mes: 1, limite: 1 })
+          .expect(200);
+        expect(Buffer.from(r.body.data.base64, 'base64').length).toBeGreaterThan(500);
+      }
+      const formato = {
+        version: '2.2.0',
+        patrono: '12345',
+        pruebas: '1',
+        nombre: 'Empresa de prueba F8',
+        nit: '1234567-9',
+        direccion: 'Dirección F8',
+        correo: 'igss@example.test',
+        centros: [
+          {
+            id: centroId,
+            codigo: '1',
+            nombre: 'Centro F8',
+            direccion: 'Dirección F8',
+            zona: '1',
+            telefono: '',
+            fax: '',
+            contacto: '',
+            correo: '',
+            departamento: '1',
+            municipio: '1',
+            actividad: '451001',
+          },
+        ],
+        tipos: [
+          {
+            codigo: '1',
+            nombre: 'Mensual',
+            afiliado: 'C',
+            periodo: 'M',
+            departamento: '1',
+            actividad: '451001',
+            clase: 'N',
+            tiempo: 'TC',
+          },
+        ],
+        empleados: [empleadoId, otroId].map((id) => ({
+          id,
+          tipo: '1',
+          ocupacion: '4190',
+          condicion: 'P',
+          salario: '1',
+          primerNombre: 'Persona',
+          otrosNombres: '',
+          primerApellido: 'Prueba',
+          segundoApellido: '',
+          apellidoCasada: '',
+        })),
+      };
+      await agent
+        .post('/api/nomina/igss/formato')
+        .set('X-CSRF-Token', csrf)
+        .send({ formato, motivo: 'Configuración certificada de prueba', confirmado: true })
+        .expect(200);
+      const igss = await agent
+        .get('/api/nomina/igss/exportar')
+        .query({ anio: 2099, mes: 1 })
+        .expect(200);
+      const contenido = Buffer.from(igss.body.data.base64, 'base64').toString();
+      expect(contenido).toContain('[Centros]');
+      expect(contenido).toContain('|3100.00|');
+      expect(contenido).toContain('[Fin Planilla]');
+      await agent.get('/api/nomina/igss/exportar').query({ anio: 2099, mes: 2 }).expect(409);
+    });
+    it('cobra cuotas vencidas al siguiente cierre y bloquea reabrir periodos con cierres posteriores', async () => {
+      await ejecutar(
+        "INSERT INTO DESCUENTOS_EMPLEADO (ID_EMPLEADO,ID_TIPO_DESCUENTO,MODALIDAD,MONTO_QUINCENA,MONTO_TOTAL,SALDO,NUMERO_CUOTAS,FECHA_INICIO,FECHA_FIN,MOTIVO) VALUES (:id,(SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='OTROS'),'UNICO',10,10,10,1,DATE '2099-01-20',DATE '2099-01-31','Cuota anterior al inicio del sistema')",
+        { id: empleadoId },
+      );
+      const desc = Number(
+        await escalar(
+          'SELECT MAX(ID_DESCUENTO_EMPLEADO) FROM DESCUENTOS_EMPLEADO WHERE ID_EMPLEADO=:id',
+          { id: empleadoId },
+        ),
+      );
+      await ejecutar(
+        "INSERT INTO DESCUENTOS_CUOTAS (ID_DESCUENTO_EMPLEADO,ID_EMPLEADO,NUMERO_CUOTA,FECHA_VENCIMIENTO,MONTO) VALUES (:acuerdo,:id,1,DATE '2099-01-31',10)",
+        { acuerdo: desc, id: empleadoId },
+      );
+      const anterior = periodoId;
+      const r = await post('/periodos', { fecha: '2099-02-01' }, 201);
+      periodoId = r.body.data.id;
+      await actuar('calcular', 0);
+      await actuar('revisar');
+      await actuar('aprobar');
+      await actuar('cerrar');
+      expect(
+        Number(
+          await escalar('SELECT SALDO FROM DESCUENTOS_EMPLEADO WHERE ID_DESCUENTO_EMPLEADO=:id', {
+            id: desc,
+          }),
+        ),
+      ).toBe(0);
+      await post(
+        `/periodos/${anterior}/reabrir`,
+        { version: 4, confirmado: true, motivo: 'Corrección de periodo anterior' },
+        409,
+      );
+    });
+    it('registra deducciones acreditadas/apertura única, audita su PK y no cambia boletas cerradas', async () => {
+      const tipo = Number(
+        await escalar(
+          "SELECT ID_TIPO_DEDUCCION_ISR FROM TIPOS_DEDUCCION_ISR WHERE CODIGO='DONACION'",
+        ),
+      );
+      const body = {
+        idEmpleado: empleadoId,
+        idTipo: tipo,
+        anio: 2099,
+        fecha: '2099-01-20',
+        monto: '100',
+        referencia: 'F8_DONACION',
+        motivo: 'Comprobante acreditado de prueba',
+        confirmado: true,
+      };
+      await post('/isr/deducciones', body, 201);
+      await post('/isr/deducciones', body, 409);
+      const { agent } = await entrarAdmin();
+      const f = await agent
+        .get(`/api/nomina/isr/empleados/${empleadoId}`)
+        .query({ anio: 2099 })
+        .expect(200);
+      expect(f.body.data.deducciones).toHaveLength(1);
+      const pk = Number(
+        await escalar(
+          "SELECT ID_DEDUCCION_ISR FROM ISR_DEDUCCIONES_EMPLEADO WHERE REFERENCIA='F8_DONACION'",
+        ),
+      );
+      expect(
+        Number(
+          await escalar(
+            "SELECT ID_ENTIDAD FROM BITACORA_AUDITORIA WHERE ACCION='REGISTRAR_DEDUCCION_ISR' AND ENTIDAD='ISR_DEDUCCIONES_EMPLEADO' ORDER BY ID_BITACORA_AUDITORIA DESC FETCH FIRST 1 ROW ONLY",
+          ),
+        ),
+      ).toBe(pk);
+      const apertura = {
+        idEmpleado: empleadoId,
+        anio: 2100,
+        fecha: '2100-01-15',
+        monto: '1000',
+        igss: '48.30',
+        isr: '0',
+        motivo: 'Apertura fiscal certificada de prueba',
+        confirmado: true,
+      };
+      await post('/isr/aperturas', apertura, 201);
+      await post('/isr/aperturas', apertura, 409);
+      await post('/isr/aperturas', { ...apertura, anio: 2099, fecha: '2099-01-15' }, 409);
+      await post('/isr/deducciones', { ...body, idEmpleado: 99999999, referencia: 'OTRO' }, 404);
+      const boleto = await agent.get(`/api/nomina/boletas/${nominaId}`).expect(200);
+      expect(boleto.body.data.resultado.neto).toBe('1502.55');
     });
   });
 });

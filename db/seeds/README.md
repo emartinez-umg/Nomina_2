@@ -7,6 +7,7 @@ Compose ejecuta ambos automáticamente antes de iniciar la API.
 - S002: parámetros con vigencia 01/01/2026 y tramos ISR de referencia.
 - S003: feriados 2026; 12 nacionales y Virgen de la Asunción solo en GUATEMALA_CIUDAD.
 - S004: plantillas base de constancia laboral, gestión ante IGSS y constancia INTECAP.
+- S005: concepto ISR_DEVOLUCION no afecto, utilizado al liquidar retenciones anuales en exceso.
 
 Archivos confiables, ordenados por prefijo Snnn; cada sentencia termina con `/` aislado.
 MERGE únicamente inserta claves ausentes. No modificar estos archivos para cambiar datos operativos:
