@@ -263,3 +263,14 @@ V018 se aplica con `docker compose up --build` o `npm run db:migrate`; conserva 
 No agrega variables ni sobrescribe plantillas existentes. Completar empresa/representante y revisar
 plantillas antes de emitir. Pruebas: `npm run verify:solicitudes` (también `-- --docker` con imagen
 Node 20 `nomina2-security-tests`). Contratos, permisos y operación: [docs/SOLICITUDES.md](docs/SOLICITUDES.md).
+
+### Fase 11: comunicación y tableros
+
+Los accesos iniciales `/rh`, `/mis-gestiones` y `/admin` muestran tableros con datos de Oracle.
+RH/ADMIN gestiona anuncios y calendario en `/comunicacion/anuncios` y `/comunicacion/eventos`;
+las audiencias admiten todos, departamentos, puestos y jefaturas. El empleado consulta publicaciones
+propias desde el portal y la campana. ADMIN consulta `/admin/bitacora` con filtros/detalle/CSV.
+`docker compose up --build` aplica V019 sin reemplazar volumen ni credenciales. Ver reglas, API,
+fuentes de indicadores y recorridos en [COMUNICACION_TABLEROS.md](docs/COMUNICACION_TABLEROS.md).
+`npm run verify:comunicacion` prueba esta fase con Oracle temporal; admite `-- --docker` con
+la imagen `nomina2-security-tests` actualizada.

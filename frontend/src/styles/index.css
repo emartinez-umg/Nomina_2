@@ -695,3 +695,163 @@
     overflow-y: auto;
   }
 }
+
+/* FASE 11: tarjetas y agenda derivadas de las páginas 6, 29 y 37 del mockup. */
+.indicadores-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.indicador {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  min-width: 0;
+}
+.indicador > svg {
+  @apply text-primario;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+}
+.indicador strong {
+  display: block;
+  font-size: 1.45rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.indicador small {
+  display: block;
+  @apply text-secundario;
+}
+.tablero-dos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+.tablero-dos > *,
+.agenda-grid > * {
+  min-width: 0;
+}
+.portal-indicadores {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.grafica-tablero {
+  width: 100%;
+  height: 280px;
+  margin: 1.5rem 0;
+  min-width: 0;
+}
+.accesos-rapidos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+.alerta-tablero {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  @apply bg-informacion;
+  @apply rounded-control;
+}
+.alerta-tablero > svg {
+  flex-shrink: 0;
+}
+.comunicacion-resumen {
+  @apply border-b border-borde;
+  padding: 1rem 0;
+}
+.comunicacion-resumen h3 {
+  font-weight: bold;
+}
+.texto-publicacion {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.agenda-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
+  gap: 2rem;
+}
+.fecha-hora-campo {
+  grid-column: span 6;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.fecha-hora-campo .campo {
+  grid-column: auto;
+}
+.auditoria-json {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+  @apply bg-fondo;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  border-radius: 0.5rem;
+  max-height: 25rem;
+  overflow: auto;
+}
+@media (max-width: 1100px) {
+  .indicadores-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .agenda-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .tablero-dos,
+  .portal-indicadores {
+    grid-template-columns: 1fr;
+  }
+  .indicadores-grid {
+    gap: 0.65rem;
+  }
+  .indicador {
+    padding: 0.8rem;
+    gap: 0.5rem;
+  }
+  .indicador strong {
+    font-size: 1.15rem;
+  }
+  .indicador > svg {
+    width: 1.2rem;
+  }
+  .fecha-hora-campo {
+    grid-column: 1/-1;
+  }
+}
+
+.agenda-grid .rdp-root,
+.calendario .rdp-root {
+  --rdp-accent-color: #28622a;
+  --rdp-accent-background-color: #e8f0e8;
+  --rdp-day-width: 2.25rem;
+  --rdp-day-height: 2.25rem;
+  --rdp-day_button-width: 2.15rem;
+  --rdp-day_button-height: 2.15rem;
+}
+.agenda-grid .rdp-month_grid,
+.calendario .rdp-month_grid {
+  width: auto;
+}
+.agenda-grid .rdp-month_grid th,
+.agenda-grid .rdp-month_grid td,
+.calendario .rdp-month_grid th,
+.calendario .rdp-month_grid td {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: center;
+}
+.agenda-grid .rdp-month_grid tbody tr,
+.calendario .rdp-month_grid tbody tr {
+  background: transparent;
+}

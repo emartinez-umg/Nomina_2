@@ -896,3 +896,28 @@ solicitud con cada destinatario y clave de evento única. DESCUENTOS_EMPLEADO.ID
 parqueo FIJO creado al aprobar; su UNIQUE evita repetir el efecto. La propuesta de identidad guarda
 original/nuevo en DATOS_SOLICITADOS, mientras el contacto modifica EMPLEADOS y el contacto principal.
 Contrato y transacciones: [SOLICITUDES.md](SOLICITUDES.md). V000–V017 permanecen intactas.
+
+## Fase 11 — Comunicación y agregación
+
+V019 añade `ANUNCIOS.VERSION` y `EVENTOS.VERSION` (NUMBER(10), positivo, inicialmente 1) para
+ediciones optimistas. Se conservan las 54 tablas de negocio y las relaciones de comunicación de V011.
+Una versión reemplaza relaciones de audiencia; su estado previo completo se conserva en auditoría.
+NOTIFICACIONES usa claves ANUNCIO:id:version / EVENTO:id:version y sus FK existentes; editar o retirar
+una publicación desactiva avisos de versiones anteriores en la misma transacción.
+
+```mermaid
+erDiagram
+  ANUNCIOS ||--o{ ANUNCIO_DESTINATARIOS : audiencia
+  EVENTOS ||--o{ EVENTO_DESTINATARIOS : audiencia
+  ANUNCIOS ||--o{ NOTIFICACIONES : versiones
+  EVENTOS ||--o{ NOTIFICACIONES : versiones
+  USUARIOS ||--o{ NOTIFICACIONES : recibe
+  EMPLEADOS }o--|| DEPARTAMENTOS : pertenece
+  EMPLEADOS }o--|| PUESTOS : ocupa
+  EMPLEADOS }o--o| JEFATURAS : pertenece
+```
+
+Índices V019: vigencias activas de anuncios, agenda activa, nómina por periodo/versión/activo,
+empleados activos/estado/ingreso/departamento, notificaciones por usuario/activo/lectura/fecha,
+bitácora por fecha/ID y sesiones por activo/revocación/expiración. Las agregaciones leen las mismas
+tablas con snapshot READ ONLY; no se almacenan contadores ni datos de dashboard duplicados.

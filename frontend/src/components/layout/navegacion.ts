@@ -51,6 +51,7 @@ const compartidos: Acceso[] = [
   },
   {
     titulo: 'Anuncios y eventos',
+    ruta: '/comunicacion/anuncios',
     icono: 'notificaciones',
     descripcion: 'Comunica noticias y actividades al personal.',
   },
@@ -71,6 +72,7 @@ export const navegacion: Record<Rol, Acceso[]> = {
     },
     {
       titulo: 'Bitácora',
+      ruta: '/admin/bitacora',
       icono: 'documento',
       descripcion: 'Consulta las acciones auditadas del sistema.',
     },
@@ -85,6 +87,18 @@ export const navegacion: Record<Rol, Acceso[]> = {
     ...compartidos,
   ],
   EMPLEADO: [
+    {
+      titulo: 'Anuncios',
+      icono: 'notificaciones',
+      ruta: '/mis-gestiones/anuncios',
+      descripcion: 'Noticias dirigidas a ti.',
+    },
+    {
+      titulo: 'Eventos',
+      icono: 'calendario',
+      ruta: '/mis-gestiones/eventos',
+      descripcion: 'Tu agenda de actividades.',
+    },
     {
       titulo: 'Mis gestiones',
       icono: 'inicio',

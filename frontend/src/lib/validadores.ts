@@ -1,3 +1,4 @@
+import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 export const soloDigitos = (v: string, max: number) => v.replace(/\D/g, '').slice(0, max);
 export const limpiarTexto = (v: string) =>
@@ -184,3 +185,6 @@ export function errorDe(schema: z.ZodTypeAny, v: unknown): string | undefined {
   const r = schema.safeParse(v);
   return r.success ? undefined : r.error.issues[0]?.message;
 }
+
+export const moneda = (valor: string) =>
+  `Q ${new Decimal(valor).toFixed(2, Decimal.ROUND_HALF_UP).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;

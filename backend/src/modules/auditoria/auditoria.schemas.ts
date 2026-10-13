@@ -17,6 +17,9 @@ export const auditoriaQuerySchema = z
   .object({
     ...paginacionSchema,
     usuario: idSchema.optional(),
+    rol: z.enum(['ADMIN', 'RH', 'EMPLEADO']).optional(),
+    idEntidad: idSchema.optional(),
+    ip: z.string().trim().max(45).optional(),
     entidad: z.string().trim().min(1).max(60).optional(),
     accion: z.string().trim().min(1).max(60).optional(),
     desde: fecha.optional(),

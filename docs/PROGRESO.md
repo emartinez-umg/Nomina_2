@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 10 completada. Los registros de FASES 0–9 se conservan como historial; consultar
-la sección FASE 10 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 11 completada. Los registros de FASES 0–10 se conservan como historial; consultar
+la sección FASE 11 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -1139,3 +1139,118 @@ Estado: completada el 13/10/2026. Siguiente trabajo: esperar instrucciones para 
    `npm run db:verify`; `npm run verify:security`; `npm run verify:prestaciones`;
    `npm run verify:solicitudes`; `npm run verify:infra`. Node 20/Oracle: construir imagen
    `nomina2-security-tests` y ejecutar `npm run verify:solicitudes -- --docker`.
+
+## FASE 11 — Comunicación y tableros
+
+Estado: completada el 13/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- Módulo de comunicación con routes/controller/service/repository, Zod estricto, RBAC, CSRF y actor
+  revalidado. CRUD RH/ADMIN de anuncios con vigencia y eventos con fecha/hora/lugar, baja lógica
+  motivada/confirmada y VERSION para evitar sobrescrituras concurrentes.
+- Audiencias todos o varios departamentos/puestos/jefaturas activos, unidas por OR y sin duplicados.
+  Visibilidad del empleado resuelta por su sesión y pertenencia actual en Oracle; listado y detalle
+  comprueban vigencia/audiencia, incluso con IDs o filtros manipulados. Nunca se acepta un ID propio
+  del cliente. Anuncios incluyen ambos días; eventos deben comenzar en el futuro según reloj Oracle
+  de Guatemala, fin >= inicio. Eventos iniciados conservan historia y no se editan.
+- Publicación/edición, relaciones, avisos y auditoría en una sola transacción. Un aviso por destinatario
+  y versión; edición retira avisos anteriores y notifica la nueva versión. Cambio de audiencia y baja
+  retiran avisos/acceso anterior. La campana abre anuncios/eventos protegidos y mantiene lectura propia.
+- `/comunicacion/anuncios` y `/comunicacion/eventos` con filtros/chips/limpiar, orden/páginas Oracle,
+  CSV completo, detalle, formularios proporcionales RHF/Zod y grupos buscables/paginados con nombres.
+  Calendario mensual react-day-picker carga el mes completo, muestra eventos de varios días y permite
+  crear desde una fecha. Empleados tienen vistas propias `/mis-gestiones/anuncios` y `/eventos`.
+- `/rh`: empleados activos, bruto/neto/aportes patronales de quincena actual, pendientes/vacaciones,
+  altas/bajas efectivas del mes, distribución por departamento y evolución de últimos seis periodos
+  con Recharts, alertas de periodos/contratos, cumpleaños/aniversarios y accesos rápidos.
+- `/mis-gestiones`: ocho tarjetas funcionales, saldo propio reutilizando Fase 7, última boleta cerrada
+  propia y resúmenes de anuncios vigentes/eventos próximos. La tarjeta elegida abre directamente su
+  solicitud; saldo sin vigencias o falta de cálculo se explica sin inventar cifras.
+- `/admin`: usuarios activos/registrados por rol, diez sesiones recientes, diez acciones recientes,
+  estado real de Oracle, versión de esquema, migraciones incompletas y objetos inválidos. Sesiones
+  activas excluyen revocadas/vencidas y usuarios/roles inactivos; no se exponen hashes ni tokens.
+- `/admin/bitacora`: filtros por actor/rol/entidad/recurso/acción/IP/fechas, orden/páginas en Oracle,
+  detalle anterior/nuevo depurado y CSV de metadatos/motivos. Solo ADMIN puede consultar/exportar.
+- Agregaciones agrupadas, EXISTS, snapshots READ ONLY y versión vigente evitan consultas por empleado
+  y doble conteo de recalculados. Dinero agregado en Oracle y texto decimal; solo escala de dibujo usa
+  Number. Gráficas cargadas diferidas, acceso con teclado y alternativa textual de cifras exactas.
+- V019 aditiva: VERSION en anuncios/eventos e índices compuestos de vigencias, agenda, nómina,
+  empleados, notificaciones propias, sesiones y bitácora. Siguen 54 tablas; V000–V018 intactas.
+- Ayuda declarativa por rol en los tres tableros, comunicaciones/calendario/formulario y bitácora,
+  reiniciable también en diálogos. Estados de carga/error/vacío, iconos y toasts existentes.
+- README, ERD, DECISIONES y COMUNICACION_TABLEROS.md actualizados; nuevo verify:comunicacion.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier, git diff --check y builds correctos. Producción API/frontend
+  construida con Node 20; Compose saludable y V019 aplicada conservando volumen y credenciales.
+- 316 pruebas unitarias aprobadas (202 backend, 114 frontend), también bajo Node 20. Las doce nuevas
+  cubren fechas imposibles/horas, futuro/minutos, vigencia inclusiva, audiencias/grupos/duplicados,
+  lista blanca e identidad, saneo de hora, cifras en cero/faltas de configuración y texto sin HTML.
+- 114 pruebas Oracle thin/Supertest aprobadas: 98 de regresión (seguridad, prestaciones, solicitudes)
+  y 16 de Fase 11. Estas dieciséis también aprobadas en Docker Node 20: RBAC/CSRF, propiedad,
+  audiencias independientes y OR/deduplicación, programación/vencimiento, calendario multiday,
+  edición concurrente/versiones, retiro de audiencia, filtros/paginación/CSV, indicadores propios,
+  agregación de una sola versión/boleta cerrada, estado ADMIN y bitácora restringida.
+- Triggers de fallo verifican rollback de alta/edición/eliminación con relaciones, versiones y avisos.
+  Oracle comprueba aniversarios 28/29 de febrero en años bisiestos/no bisiestos, sin desplazamiento
+  indebido de un cumpleaños de 28/02 al último día de febrero de otro año.
+- db:verify aprueba V000–V019 desde cero, idempotencia, índices/CHECK/FK/identity/objetos y seeds
+  repetibles. verify:infra aprueba Oracle/API/nginx, rutas SPA, bundles y worker PDF. Cero cambios
+  de credenciales o fixtures en el esquema de aplicación; esquemas temporales eliminados.
+- Navegador integrado con API/Oracle desechables: tableros RH/ADMIN/EMPLEADO, creación de evento
+  desde calendario, notificaciones, acceso directo a solicitud, filtros/detalle de bitácora y ayuda
+  dentro del diálogo. Revisión visual de tarjetas, gráficas, calendario y estilos del mockup.
+- Portal y calendario a 390 px, ancho de documento 390 px, sin desbordamiento. Se corrigió el efecto
+  del estilo global de tablas sobre react-day-picker, también en los selectores de fecha. Sin errores
+  JavaScript finales. El arnés conserva únicamente cookie de sesión de fixture por la limitación del
+  navegador integrado; autenticación/cookies/CSRF reales se prueban separadamente con Supertest.
+  Arnés, cuentas, procesos, credenciales temporales y esquema de revisión retirados.
+
+### Decisiones
+
+- El PDF tiene 38 pantallas del ERP, sin tableros específicos de nómina. Los tres diseños se derivan
+  de páginas 6/29/37 con los tokens existentes: sidebar azul, tarjetas blancas, acciones verdes y
+  fondo gris. No se usan nombres/cifras ilustrativas como datos de aplicación.
+- Audiencias se consultan por pertenencia actual. Editar emite nueva versión y retira avisos previos;
+  la historia completa queda en auditoría. No se reactivan publicaciones eliminadas.
+- Tableros leen snapshots y no materializan kardex ni recalculan planillas. Aportes patronales
+  mantiene su significado informativo de Fase 8. No existe sustitución por otra quincena si falta la
+  actual. Solicitudes pendientes incluye vacaciones y el indicador separado permite priorizarlas.
+
+### Supuestos
+
+- Anuncios programados notifican inmediatamente al guardar, explican que se consultan durante su
+  vigencia y aparecen en el portal al comenzar. No se añadió scheduler ni correo/SMS externo.
+- Empleados ven eventos próximos/en curso; RH conserva consulta de pasados/eliminados. Audiencia
+  todos representa empleados activos con ingreso efectivo; para avisar exige usuario EMPLEADO activo.
+- Celebraciones de hoy/próximos 30 días y alertas: hasta 50; comunicaciones resumidas: cinco con
+  enlace al listado; sesiones/bitácora reciente: diez. Agenda: hasta 2,000 eventos por mes, con error
+  explícito y alternativa del listado al superar el límite. CSV: hasta 10,000 acciones/publicaciones.
+- Altas/bajas del mes usan fechas efectivas hasta hoy; contratos vencidos siguen alertando mientras
+  el empleado esté activo. Los periodos no cerrados se muestran como provisionales en la evolución.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de Fase 11.
+- Continúan la revisión legal/operativa de parámetros y HTTPS de producción de fases anteriores.
+  Próximas fases únicamente según solicitud.
+
+### Cómo probar
+
+1. `docker compose up --build` aplica V019 sin reemplazar volumen/credenciales. Para HTTP local:
+   `NODE_ENV=development npm run dev` con Node 20 y los usuarios reales de cada rol.
+2. RH abre `/rh`, revisa indicadores/gráficas/alertas/accesos. Publica en `/comunicacion/anuncios`
+   para todos y para departamento/puesto/jefatura; prueba vigencias, filtros/chips/CSV y cambios de
+   audiencia. Comprueba avisos y acceso del empleado, también con enlace de una audiencia retirada.
+3. En `/comunicacion/eventos` elige fecha, crea con hora/lugar y grupos. Prueba hora pasada, fin
+   anterior, edición concurrente y eliminación motivada. Cambia de mes/día en calendario.
+4. Empleado abre `/mis-gestiones`: revisa saldo/boleta/comunicaciones, abre una tarjeta de solicitud
+   y revisa su campana. Abre anuncios/eventos propios; comprobar móvil y Ayuda.
+5. ADMIN abre `/admin` y `/admin/bitacora`; combina filtros de actor/rol/entidad/acción/IP/fechas,
+   orden/páginas/CSV, compara cambios y repite Ayuda en el detalle. RH/EMPLEADO deben recibir 403.
+6. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:security`; `npm run verify:prestaciones`;
+   `npm run verify:solicitudes`; `npm run verify:comunicacion`; `npm run verify:infra`.
+   Integración Node 20: actualizar `nomina2-security-tests` y agregar `-- --docker`.

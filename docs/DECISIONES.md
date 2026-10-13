@@ -249,3 +249,18 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   [GHSA-hq66-cqwq-w95j](https://github.com/advisories/GHSA-hq66-cqwq-w95j) y `npm audit` no reporta avisos.
   Renderiza dentro del portal porque el navegador integrado no muestra PDFs nativos en iframe.
   Solo usa bytes generados por el servidor; no carga recursos externos ni ejecuta expresiones.
+
+## Fase 11 — Comunicación y tableros
+
+- Los dashboards de nómina se derivan del lenguaje visual de MOCKUP (páginas 6/29/37); el PDF no
+  contiene esas tres pantallas específicas. Se reutilizan tokens, componentes y recorridos por rol.
+- Audiencias por pertenencia actual y unión OR. Publicar/editar notifica inmediatamente, incluidos
+  anuncios programados cuya visibilidad comienza en su vigencia. Sin scheduler ni mensajería externa.
+- VERSION y transacción única protegen edición/audiencias/avisos/auditoría. Edición retira avisos
+  anteriores; eliminación lógica exige motivo y confirmación. No se reactivan publicaciones retiradas.
+- Dashboard no materializa vacaciones ni recalcula nóminas: lee fuentes reales en snapshot Oracle,
+  conserva importes decimales y muestra faltas de configuración/cálculo. Aportes patronales mantiene
+  el significado informativo de Fase 8. Recharts solo convierte la escala de dibujo a Number.
+- Calendario consulta el mes completo, separado del listado paginado; tope explícito de 2,000 eventos.
+  Celebraciones/alertas: 50; resúmenes de comunicaciones: cinco y enlace al listado completo;
+  sesiones/bitácora reciente: diez; exportaciones: 10,000. Sin datos falsos en pantallas.

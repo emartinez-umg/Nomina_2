@@ -85,6 +85,20 @@ export function Notificaciones({ abierto, onClick }: { abierto: boolean; onClick
                         Ver solicitud{n.clave.endsWith(':ENTREGADA') ? ' y documento' : ''}
                       </Button>
                     )}
+                    {(n.clave.startsWith('ANUNCIO:') || n.clave.startsWith('EVENTO:')) && (
+                      <Button
+                        icono="ver"
+                        variante="texto"
+                        onClick={() => {
+                          nav(
+                            `${usuario?.rol === 'EMPLEADO' ? '/mis-gestiones' : '/comunicacion'}/${n.clave.startsWith('ANUNCIO:') ? 'anuncios' : 'eventos'}?ver=${n.clave.split(':')[1]}`,
+                          );
+                          onClick();
+                        }}
+                      >
+                        Ver publicación
+                      </Button>
+                    )}
                     {!n.leida && (
                       <Button
                         icono="correcto"

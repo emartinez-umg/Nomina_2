@@ -26,6 +26,7 @@
     "db:verify": "node --env-file=.env scripts/verificar-db.mjs",
     "verify:security": "node --env-file=.env scripts/verificar-seguridad.mjs",
     "verify:prestaciones": "node --env-file=.env scripts/verificar-seguridad.mjs --prestaciones",
+    "verify:comunicacion": "node --env-file=.env scripts/verificar-seguridad.mjs --comunicacion",
     "verify:solicitudes": "node --env-file=.env scripts/verificar-seguridad.mjs --solicitudes"
   },
   "devDependencies": {

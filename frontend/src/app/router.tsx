@@ -41,7 +41,29 @@ import { CatalogosPage } from '../features/catalogos/pages/CatalogosPage';
 import { SaludPage } from '../features/salud/pages/SaludPage';
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { CambioContrasenaPage } from '../features/auth/pages/CambioContrasenaPage';
-import { InicioPage } from '../features/inicio/pages/InicioPage';
+const Inicio = lazy(() =>
+  import('../features/inicio/pages/InicioPage').then((m) => ({ default: m.InicioPage })),
+);
+function InicioPage() {
+  return (
+    <Suspense fallback={<Skeleton lineas={8} />}>
+      <Inicio />
+    </Suspense>
+  );
+}
+const Comunicacion = lazy(() =>
+  import('../features/comunicacion/pages/ComunicacionPage').then((m) => ({
+    default: m.ComunicacionPage,
+  })),
+);
+const comunicacionPage = (
+  <Suspense fallback={<Skeleton lineas={6} />}>
+    <Comunicacion />
+  </Suspense>
+);
+const Auditoria = lazy(() =>
+  import('../features/auditoria/pages/AuditoriaPage').then((m) => ({ default: m.AuditoriaPage })),
+);
 import { AppLayout } from '../components/layout/AppLayout';
 import { Entrada, RequireSession, SessionGate } from './guards';
 import { Outlet } from 'react-router-dom';
@@ -67,10 +89,24 @@ export const rutas = [
             children: [
               {
                 path: ['/admin', '/rh', '/mis-gestiones'][i]!,
-                element: rol === 'EMPLEADO' ? solicitudesPage : <InicioPage />,
+                element: <InicioPage />,
               },
+              ...(rol === 'ADMIN'
+                ? [
+                    {
+                      path: '/admin/bitacora',
+                      element: (
+                        <Suspense fallback={<Skeleton />}>
+                          <Auditoria />
+                        </Suspense>
+                      ),
+                    },
+                  ]
+                : []),
               ...(rol === 'EMPLEADO'
                 ? [
+                    { path: '/mis-gestiones/anuncios', element: comunicacionPage },
+                    { path: '/mis-gestiones/eventos', element: comunicacionPage },
                     { path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> },
                     { path: '/mis-gestiones/boletas', element: <NominaPage /> },
                     { path: '/mis-gestiones/solicitudes', element: solicitudesPage },
@@ -94,6 +130,7 @@ export const rutas = [
           {
             element: <AppLayout />,
             children: [
+              { path: '/comunicacion/:tipo', element: comunicacionPage },
               { path: '/planilla', element: <NominaPage /> },
               {
                 path: '/prestaciones',

@@ -49,7 +49,10 @@ export function SolicitudesPage() {
   const empleado = usuario?.rol === 'EMPLEADO',
     nav = useNavigate();
   const [params, setParams] = useSearchParams();
-  const [nueva, setNueva] = useState<string>(),
+  const [nueva, setNueva] = useState<string | undefined>(() => {
+      const tipo = params.get('nueva');
+      return tipo && api.nombresTipo[tipo] && tipo !== 'ACTUALIZACION_DATOS' ? tipo : undefined;
+    }),
     [plantillas, setPlantillas] = useState(false),
     [filtros, setFiltros] = useState(false);
   const id = Number(params.get('solicitud')) || null;

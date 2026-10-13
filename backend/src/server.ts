@@ -1,3 +1,5 @@
+import { crearComunicacionService } from './modules/comunicacion/comunicacion.service.js';
+import { crearTablerosService } from './modules/tableros/tableros.service.js';
 import { crearPrestacionesService } from './modules/prestaciones/prestaciones.service.js';
 import { crearSolicitudesService } from './modules/solicitudes/solicitudes.service.js';
 import { crearNominaService } from './modules/nomina/nomina.service.js';
@@ -30,6 +32,8 @@ try {
   const auth = await crearAuthService(baseDatos, config);
   const server = crearApp(service, logger, {
     auth,
+    comunicacion: crearComunicacionService(baseDatos),
+    tableros: crearTablerosService(baseDatos),
     nomina: crearNominaService(baseDatos),
     prestaciones: crearPrestacionesService(baseDatos),
     solicitudes: crearSolicitudesService(baseDatos),

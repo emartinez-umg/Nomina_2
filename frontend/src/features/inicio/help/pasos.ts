@@ -1,63 +1,103 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaInicio: DefinicionAyuda = {
-  id: 'inicio',
+  id: 'tableros-fase11',
   pasos: [
     {
-      elemento: 'sidebar',
-      titulo: 'Navegación del sistema',
+      elemento: 'indicadores',
+      titulo: 'Indicadores de Recursos Humanos',
+      roles: ['RH'],
       descripcion:
-        'Este menú muestra los accesos de tu rol. El elemento verde indica la página actual. Los accesos deshabilitados explican cuándo estarán disponibles. En pantallas pequeñas, abre el menú con el botón de la barra superior.',
+        'Los empleados activos tienen ingreso efectivo hasta hoy. Altas y bajas cuentan fechas efectivas del mes actual. Bruto, neto y aportes patronales pertenecen a la quincena de hoy y a su versión de cálculo actual. Sin calcular indica que falta crear o calcular esa quincena; no representa un pago en cero. Solicitudes incluye vacaciones, que también aparecen por separado.',
     },
     {
-      elemento: 'buscador',
-      titulo: 'Encuentra una sección',
+      elemento: 'graficas',
+      titulo: 'Distribución y evolución',
+      roles: ['RH'],
       descripcion:
-        'Escribe el nombre de una sección para filtrar los accesos del menú. El buscador no consulta datos de empleados ni información privada. Puedes limpiarlo para volver a ver todas las opciones.',
+        'La distribución agrupa empleados activos por departamento. La evolución muestra los últimos seis periodos existentes y su versión vigente: recalcular no suma dos veces. Un periodo abierto es provisional. Usa Tab y las flechas para recorrer las gráficas; abre Ver datos para consultar cifras exactas y estados.',
+    },
+    {
+      elemento: 'alertas',
+      titulo: 'Acciones que requieren atención',
+      roles: ['RH'],
+      descripcion:
+        'Revisa los periodos iniciados que siguen sin cerrar y los contratos vencidos o que vencen dentro de 30 días. Revisar abre el módulo correspondiente. Se muestran hasta 50 alertas, empezando por las fechas más antiguas. No se cierra una nómina automáticamente desde este tablero.',
+    },
+    {
+      elemento: 'celebraciones',
+      titulo: 'Cumpleaños y aniversarios',
+      roles: ['RH'],
+      descripcion:
+        'La lista muestra hasta 50 celebraciones de empleados activos para hoy y los próximos 30 días, ordenadas por fecha. Los aniversarios cuentan años cumplidos, no el ingreso del año actual. Los aniversarios de febrero se ajustan al calendario del año.',
+    },
+    {
+      elemento: 'indicadores',
+      titulo: 'Tu saldo y última boleta',
+      roles: ['EMPLEADO'],
+      descripcion:
+        'El saldo suma meses cumplidos con la tasa vigente y resta vacaciones previas y aprobadas. No anticipa meses futuros. Si falta historia o configuración, verás Por revisar y la indicación de RRHH. La última boleta corresponde exclusivamente a tu nómina cerrada más reciente; abre Boletas de pago para consultar o descargar su PDF.',
+    },
+    {
+      elemento: 'accesos',
+      titulo: 'Tus ocho gestiones',
+      roles: ['EMPLEADO'],
+      descripcion:
+        'Boletas y Vacaciones abren su historial. Las tarjetas de constancias, IGSS, INTECAP, gafete y parqueo abren la solicitud correspondiente para revisarla antes de enviarla. Actualizar mis datos abre contacto y solicitudes de datos críticos. Cada operación valida en el servidor que el expediente te pertenezca.',
+    },
+    {
+      elemento: 'anuncios',
+      titulo: 'Anuncios dirigidos a ti',
+      roles: ['EMPLEADO'],
+      descripcion:
+        'Aparecen los cinco anuncios vigentes más recientes para todos o para tu departamento, puesto o jefatura actual. La vigencia incluye ambos días. Leer publicación abre el texto completo; Ver todos consulta el resto con filtros. Los anuncios futuros aparecen cuando comienza su vigencia.',
+    },
+    {
+      elemento: 'eventos',
+      titulo: 'Tu agenda',
+      roles: ['EMPLEADO'],
+      descripcion:
+        'Aquí aparecen los cinco eventos más próximos, incluidos los que siguen en curso. Revisa fecha, hora local de Guatemala y lugar. Ver todos abre el calendario y la lista completa de actividades dirigidas a ti; seleccionar un día permite consultar sus eventos.',
+    },
+    {
+      elemento: 'indicadores',
+      titulo: 'Usuarios y sesiones',
+      roles: ['ADMIN'],
+      descripcion:
+        'Las tarjetas agrupan usuarios activos por rol y distinguen registrados e inactivos. El total de sesiones activas excluye vencidas y revocadas, y cuentas o roles inactivos. No se muestran credenciales ni tokens.',
+    },
+    {
+      elemento: 'sistema',
+      titulo: 'Estado real de la plataforma',
+      roles: ['ADMIN'],
+      descripcion:
+        'El servidor consulta Oracle, la última migración aplicada y objetos inválidos. Operativo significa que esas comprobaciones están correctas; si la API o Oracle no responde verás un error de carga. Consultar conectividad abre el diagnóstico de salud.',
+    },
+    {
+      elemento: 'sesiones',
+      titulo: 'Actividad reciente',
+      roles: ['ADMIN'],
+      descripcion:
+        'Las diez sesiones más recientes se ordenan por última actividad. Finalizada agrupa sesiones vencidas o revocadas. Los datos se actualizan al recargar o al presionar Actualizar; no revelan hashes de sesión ni CSRF.',
+    },
+    {
+      elemento: 'bitacora',
+      titulo: 'Trazabilidad administrativa',
+      roles: ['ADMIN'],
+      descripcion:
+        'Revisa las diez últimas acciones de la bitácora. Consultar bitácora permite combinar actor, rol, entidad, recurso, acción, IP y fechas, ver cambios y exportar CSV. Solo ADMIN tiene acceso a la auditoría global.',
+    },
+    {
+      elemento: 'accesos',
+      titulo: 'Accesos rápidos',
+      roles: ['RH'],
+      descripcion:
+        'Abre empleados, planilla, solicitudes, vacaciones o comunicaciones. Crear un anuncio o evento guarda la publicación, audita la acción y notifica a los destinatarios en una sola transacción.',
     },
     {
       elemento: 'notificaciones',
-      titulo: 'Notificaciones',
+      titulo: 'Campana y actualizaciones',
       descripcion:
-        'La campana abre el panel de notificaciones. Esta fase prepara su interfaz; las solicitudes y avisos reales aparecerán cuando se conecte el módulo correspondiente. No se muestra un contador de prueba.',
-    },
-    {
-      elemento: 'usuario-menu',
-      titulo: 'Tu sesión',
-      descripcion:
-        'Este menú muestra el usuario y rol confirmados por el servidor. Puedes cerrar tu sesión desde aquí. Por seguridad, evita dejar tu sesión abierta en equipos compartidos.',
-    },
-    {
-      elemento: 'contenido',
-      titulo: 'Administración',
-      descripcion:
-        'Aquí se ubicarán los accesos a usuarios, bitácora y estado del sistema. Tu rol permite administrar la plataforma. Las acciones de administración se auditan en el servidor.',
-      roles: ['ADMIN'],
-    },
-    {
-      elemento: 'contenido',
-      titulo: 'Gestión de Recursos Humanos',
-      descripcion:
-        'Desde aquí accederás a empleados, planilla, solicitudes y vacaciones. Cada módulo validará las reglas de negocio y mostrará sus datos reales cuando sea implementado.',
-      roles: ['RH'],
-    },
-    {
-      elemento: 'contenido',
-      titulo: 'Mis gestiones',
-      descripcion:
-        'Este es tu portal personal. Aquí podrás consultar tus boletas, solicitar documentos, gestionar vacaciones y actualizar tus datos. Solo tendrás acceso a tu propia información.',
-      roles: ['EMPLEADO'],
-    },
-    {
-      elemento: 'ayuda-global',
-      titulo: 'Ayuda siempre disponible',
-      descripcion:
-        'Presiona Ayuda para repetir el recorrido de la página actual. Cada sección tendrá explicaciones propias. Los iconos de información junto a los campos describen el formato de cada dato.',
-    },
-    {
-      elemento: 'cerrar-sesion',
-      titulo: 'Cerrar sesión con seguridad',
-      descripcion:
-        'Al cerrar sesión se revoca el acceso de este navegador en el servidor y se limpia la información de la sesión en pantalla. Si la sesión vence por inactividad, el sistema te llevará al login.',
+        'La campana consulta tus avisos reales. Puedes abrir su recurso y marcarlos como leídos. Actualizar vuelve a consultar el tablero completo; la hora mostrada corresponde a Guatemala. Ayuda permite repetir este recorrido en cualquier momento.',
     },
   ],
 };

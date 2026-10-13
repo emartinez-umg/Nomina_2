@@ -42,6 +42,9 @@ export async function insertarAuditoria(c: Connection, registro: RegistroAuditor
 export async function listarAuditoria(c: Connection, q: AuditoriaQuery) {
   const filtros = {
     usuario: q.usuario ?? null,
+    rol: q.rol ?? null,
+    idEntidad: q.idEntidad ?? null,
+    ip: q.ip ?? null,
     entidad: q.entidad ?? null,
     accion: q.accion ?? null,
     desde: q.desde ?? null,
@@ -50,7 +53,7 @@ export async function listarAuditoria(c: Connection, q: AuditoriaQuery) {
   const total = await c.execute<{ TOTAL: number }>(
     `SELECT COUNT(*) TOTAL FROM BITACORA_AUDITORIA
     WHERE (:usuario IS NULL OR ID_USUARIO = :usuario) AND (:entidad IS NULL OR ENTIDAD = :entidad)
-    AND (:accion IS NULL OR ACCION = :accion) AND (:desde IS NULL OR FECHA >= TO_DATE(:desde, 'YYYY-MM-DD'))
+    AND (:rol IS NULL OR ROL_CODIGO=:rol) AND (:idEntidad IS NULL OR ID_ENTIDAD=:idEntidad) AND (:ip IS NULL OR IP=:ip) AND (:accion IS NULL OR ACCION = :accion) AND (:desde IS NULL OR FECHA >= TO_DATE(:desde, 'YYYY-MM-DD'))
     AND (:hasta IS NULL OR FECHA < TO_DATE(:hasta, 'YYYY-MM-DD') + 1)`,
     filtros,
     { outFormat: oracledb.OUT_FORMAT_OBJECT },
@@ -61,7 +64,7 @@ export async function listarAuditoria(c: Connection, q: AuditoriaQuery) {
     VALORES_ANTERIORES "antes", VALORES_NUEVOS "despues", MOTIVO "motivo", IP "ip",
     TO_CHAR(FECHA, 'YYYY-MM-DD"T"HH24:MI:SS') || '-06:00' "fecha" FROM BITACORA_AUDITORIA
     WHERE (:usuario IS NULL OR ID_USUARIO = :usuario) AND (:entidad IS NULL OR ENTIDAD = :entidad)
-    AND (:accion IS NULL OR ACCION = :accion) AND (:desde IS NULL OR FECHA >= TO_DATE(:desde, 'YYYY-MM-DD'))
+    AND (:rol IS NULL OR ROL_CODIGO=:rol) AND (:idEntidad IS NULL OR ID_ENTIDAD=:idEntidad) AND (:ip IS NULL OR IP=:ip) AND (:accion IS NULL OR ACCION = :accion) AND (:desde IS NULL OR FECHA >= TO_DATE(:desde, 'YYYY-MM-DD'))
     AND (:hasta IS NULL OR FECHA < TO_DATE(:hasta, 'YYYY-MM-DD') + 1)
     ORDER BY CASE WHEN :orden = 'fecha' AND :direccion = 'asc' THEN FECHA END ASC,
       CASE WHEN :orden = 'fecha' AND :direccion = 'desc' THEN FECHA END DESC,
@@ -80,12 +83,24 @@ export async function listarAuditoria(c: Connection, q: AuditoriaQuery) {
       fetchInfo: { antes: { type: oracledb.STRING }, despues: { type: oracledb.STRING } },
     },
   );
-  const registros = ((filas.rows as { antes: string | null; despues: string | null }[]) ?? []).map(
-    (fila) => ({
-      ...fila,
-      antes: fila.antes ? (JSON.parse(fila.antes) as unknown) : null,
-      despues: fila.despues ? (JSON.parse(fila.despues) as unknown) : null,
-    }),
-  );
+  const registros = (
+    (filas.rows as {
+      id: number;
+      idUsuario: number | null;
+      rol: string | null;
+      accion: string;
+      entidad: string;
+      idEntidad: number | null;
+      motivo: string | null;
+      ip: string | null;
+      fecha: string;
+      antes: string | null;
+      despues: string | null;
+    }[]) ?? []
+  ).map((fila) => ({
+    ...fila,
+    antes: fila.antes ? (JSON.parse(fila.antes) as unknown) : null,
+    despues: fila.despues ? (JSON.parse(fila.despues) as unknown) : null,
+  }));
   return { registros, total: total.rows?.[0]?.TOTAL ?? 0, pagina: q.pagina, limite: q.limite };
 }
