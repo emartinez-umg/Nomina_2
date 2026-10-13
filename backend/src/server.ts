@@ -1,3 +1,4 @@
+import { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 import { once } from 'node:events';
 import { crearApp } from './app.js';
 import { config } from './config/env.js';
@@ -28,6 +29,7 @@ try {
     auth,
     empleados: crearEmpleadosService(baseDatos),
     novedades: crearNovedadesService(baseDatos),
+    vacaciones: crearVacacionesService(baseDatos),
     catalogos: crearCatalogosService(baseDatos),
     usuarios: crearUsuariosService(baseDatos),
     auditoria: crearAuditoriaService(baseDatos),

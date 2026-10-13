@@ -1,3 +1,4 @@
+import { VacacionesPage } from '../features/vacaciones/pages/VacacionesPage';
 import { EmpleadosPage } from '../features/empleados/pages/EmpleadosPage';
 import { EmpleadoFormularioPage } from '../features/empleados/pages/EmpleadoFormulario';
 import { EmpleadoDetallePage } from '../features/empleados/pages/EmpleadoDetalle';
@@ -33,7 +34,12 @@ export const rutas = [
         children: [
           {
             element: <AppLayout />,
-            children: [{ path: ['/admin', '/rh', '/mis-gestiones'][i]!, element: <InicioPage /> }],
+            children: [
+              { path: ['/admin', '/rh', '/mis-gestiones'][i]!, element: <InicioPage /> },
+              ...(rol === 'EMPLEADO'
+                ? [{ path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> }]
+                : []),
+            ],
           },
         ],
       })),
@@ -43,6 +49,7 @@ export const rutas = [
           {
             element: <AppLayout />,
             children: [
+              { path: '/vacaciones', element: <VacacionesPage /> },
               { path: '/novedades', element: <NovedadesPage /> },
               { path: '/novedades/:tipo', element: <NovedadesPage /> },
               { path: '/novedades/:tipo/nuevo', element: <NovedadFormularioPage /> },

@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 6 completada. Los registros de FASES 0–5 se conservan como historial; consultar
-la sección FASE 6 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 7 completada. Los registros de FASES 0–6 se conservan como historial; consultar
+la sección FASE 7 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -677,3 +677,110 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 5. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
 6. `npm run verify:security`; `npm run db:verify`; `npm run verify:infra`.
    Contratos de captura, adjuntos y consumo: docs/NOVEDADES.md.
+
+## FASE 7 — Vacaciones
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- Módulo backend routes/controller/service/repository, Zod estricto, Oracle thin/binds y propiedad
+  derivada de la sesión. Saldo con tasa mensual vigente en BD, kardex idempotente por aniversario,
+  snapshots históricos y descuento de vacaciones anteriores/aprobadas, usando Decimal.
+- Carga RH/ADMIN de días previos tomados con referencia/motivo/confirmación, o saldo disponible
+  certificado hoy para empleados existentes. V015 permite apertura única, incluso en cero;
+  conserva las 53 tablas y todas las migraciones anteriores sin cambios.
+- Días laborales fecha por fecha según horario/asignación vigente, incluidos descansos entre
+  semana y trabajo domingo; excluye feriados nacionales y locales efectivos. Detecta huecos de
+  horario, fechas pasadas, límites de relación laboral y traslapes con vacaciones/ausencias/cierres.
+- Portal `/mis-gestiones/vacaciones`: saldo/kardex real, calendario react-day-picker con fechas
+  inválidas atenuadas/deshabilitadas, revisión de días/saldo, envío confirmado e historial de estados.
+  Rango con saldo insuficiente o bloqueos impide enviar y explica cómo corregirlo.
+- Panel `/vacaciones` RH/ADMIN: bandeja paginada/ordenada, búsqueda/filtros combinados, chips/limpiar
+  y CSV completo. Comparación actual verde/roja; aprobar deshabilitado con tooltip cuando no alcanza.
+  El backend vuelve a validar y rechaza independientemente del cliente; rechazo requiere motivo.
+- Aprobación registra un único débito/reserva y actualiza saldo, solicitud de vacaciones, solicitud
+  general e historial, notificación al empleado y auditoría en la misma transacción. Nueva solicitud
+  avisa a RH/ADMIN. Campana real con contador, últimos avisos y marcado propio como leído.
+- Locks compatibles con catálogos/usuarios/periodos y actor revalidado dentro de la transacción:
+  evita aprobaciones duplicadas, sobreconsumo y traslapes concurrentes. Rollback incluye el kardex.
+- `prepararVacacionesFiniquito` y endpoint informativo exponen días pendientes, salario/divisor
+  vigentes y monto exacto para Fase 9, sin adelantar pago/liquidación. Bloquea corte incoherente,
+  movimientos o solicitudes/reservas posteriores que deban resolverse antes del finiquito.
+- UI derivada del mockup con tokens/componentes existentes, calendario con colores del sistema,
+  campos proporcionales, saneo/referencias, hints, errores por campo, carga/vacío/error, toasts,
+  iconos, accesibilidad y recorrido declarativo/reiniciable por rol. Sin datos simulados en pantallas.
+- README, ERD, DECISIONES y docs/VACACIONES.md documentan fórmulas, API, supuestos y contrato Fase 9.
+  Compose reconstruido con Node 20, V015 aplicada e idempotencia confirmada; volumen real conservado.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier, git diff --check y builds backend/frontend sin errores.
+- 212 pruebas unitarias aprobadas (124 backend y 88 frontend), también en Docker Node 20.
+  Las nuevas cubren acumulación, meses cumplidos/bisiestos/vigencias/snapshots/apertura, calendarios
+  diferentes con descanso entre semana, traslapes, saldo insuficiente/igualdad, valoración exacta,
+  fechas/schemas, semáforo verde/rojo, botón bloqueado y saneo de referencias.
+- 62 pruebas Oracle thin/Supertest aprobadas en host y Docker Node 20. Las nueve de vacaciones
+  cubren propiedad/RBAC/CSRF, acumulación persistida/idempotente y apertura histórica/cero,
+  horarios/feriados nacionales/locales, solicitud→verde, previas→rojo/rechazo motivado,
+  aprobación concurrente única, notificaciones propias y rollback de saldo/estados/historial/avisos.
+- db:verify aprueba V000–V015 desde cero, idempotencia, índices/CHECK/seeds/objetos válidos.
+  Esquemas N2TEST/N2SEC eliminados al concluir. Reejecución en Compose: cero migraciones pendientes.
+- Navegador integrado con API/Oracle reales en esquema N2UI desechable: solicitó cinco días para
+  empleado con descanso martes/miércoles; RRHH vio verde, aprobó y el saldo pasó de 11.25 a 6.25.
+  Segunda solicitud de cuatro días y carga de tres previos dejó 3.25: semáforo rojo y aprobar
+  deshabilitado con explicación. Ayuda reiniciable y móvil 390 px sin desbordamiento ni errores JS.
+  El arnés temporal inyectó únicamente sesiones de fixtures para evitar la limitación de cookies
+  del navegador integrado; cookies/CSRF reales se probaron aparte con Supertest. Arnés, procesos,
+  credenciales y esquema N2UI eliminados; nunca se cargaron fixtures en el esquema de aplicación.
+- Compose saludable (Oracle/API/nginx); verify:infra aprueba conectividad y rutas/bundles React.
+
+### Decisiones
+
+- Los meses se cumplen en el aniversario de contratación (día ajustado al fin del mes si falta).
+  La vigencia se evalúa en cada aniversario; materializar conserva la tasa y clave MES:fecha.
+  El saldo no anticipa acumulación futura y deja de acumular al egreso.
+- Pendientes no reservan saldo. Aprobar revalida el saldo actual y debita hoy inmediatamente;
+  el movimiento DISFRUTE funciona como reserva y no se vuelve a descontar al llegar el rango.
+  Por eso una pendiente puede pasar de verde a rojo al aprobar otra o cargar vacaciones previas.
+- La apertura certifica disponible hoy, sustituye el saldo previo sin borrar el kardex y solo se
+  permite antes de ajustes/disfrutes. TOMADAS es un débito motivado y no duplica historia certificada.
+- Solicitudes generales e historial se mantienen sincronizados por el FK obligatorio de V010;
+  no se implementan los demás tipos de solicitud ni entrega de documentos en esta fase.
+- Valoración del finiquito comparte conexión/transacción con Fase 9 y usa salario/divisor vigentes
+  al corte. No admite reservas posteriores sin resolver ni efectúa pagos desde un GET.
+
+### Supuestos
+
+- No hay prorrateo diario de mes incompleto; se acumulan meses cumplidos. El requisito no define
+  fracciones de mes. El saldo inicial conserva los aniversarios originales de contratación.
+- Sin tasa histórica configurada se exige completar vigencias o certificar apertura hoy;
+  no se extrapola la referencia de 2026 hacia años anteriores.
+- La unidad de vacaciones es día laboral completo: se excluye toda fecha feriada, incluidos los
+  medios días del catálogo. Inicio/fin deben ser laborales; descansos interiores son permitidos.
+- Rango máximo operativo 366 días y navegación del portal hasta hoy + 365. Los descansos no
+  consumen saldo, pero un traslape interior con otro registro igualmente invalida el rango.
+- La valoración de vacaciones pendientes usa salario al corte / SALARIO_DIAS_MES, coherente con
+  valor día de sección 10. Pago efectivo y resolución/reversión de reservas pertenecen a Fase 9.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE 7.
+- Próximas fases solo según solicitud: consumo por nómina y pago/liquidación del finiquito en Fase 9.
+  Transiciones adicionales de cancelación/reversión/disfrute no se adelantaron.
+- Permanecen la revisión legal de parámetros por RH y HTTPS de producción de fases anteriores.
+
+### Cómo probar
+
+1. `docker compose up --build` aplica V015 sin reemplazar el volumen. Para HTTP local con Node 20:
+   `NODE_ENV=development npm run dev`. Configurar empleado/horario, feriados y tasa vigente reales.
+2. RRHH/ADMIN abre `/vacaciones`, selecciona empleado y consulta kardex; para historia anterior
+   carga TOMADAS o saldo inicial certificado, con referencia/motivo y confirmación.
+3. Empleado abre `/mis-gestiones/vacaciones`, revisa saldo, elige extremos laborales libres y envía.
+   Probar rango con descanso entre semana/feriado y rango que exceda saldo o cruce una ausencia.
+4. RRHH filtra la bandeja, comprueba verde y aprueba; empleado verifica descuento, historial y aviso.
+   Crear otra pendiente y cargar previas que reduzcan el saldo: queda roja y no permite aprobar.
+   Rechazar exige motivo y notifica sin otro débito. Probar CSV, filtros, kardex y Ayuda.
+5. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
+6. `npm run verify:security`; `npm run db:verify`; `npm run verify:infra`.
+   Contrato de API y primitiva de Fase 9: docs/VACACIONES.md.

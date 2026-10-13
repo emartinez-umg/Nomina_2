@@ -169,3 +169,25 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   del mockup; filtros, estados y formularios consumen exclusivamente la API real.
 - registrarCobroCuota es una primitiva interna transaccional para Fase 8; genera aplicación y
   liquida automáticamente en cero. No se expone cobro manual ni se consume por reloj/calendario.
+
+## FASE 7 — Vacaciones
+
+- Acumulación por aniversarios mensuales cumplidos del ingreso, ajustando el día al fin del mes
+  cuando corresponda. La tasa vigente proviene de PARAMETROS_LEGALES; los movimientos materializados
+  conservan su snapshot y clave idempotente. No se estima saldo futuro al solicitar.
+- Historia previa por débito TOMADAS con referencia/motivo o apertura disponible certificada hoy.
+  La apertura se permite una sola vez antes de ajustes/disfrutes; conserva los aniversarios del ingreso.
+  Sin tasa histórica ni apertura se bloquea con un mensaje de configuración, sin inventar valores.
+- Calendario inclusivo por asignación vigente del empleado y feriados nacionales/locales efectivos.
+  Inicio/fin deben ser laborales; descansos/feriados interiores no consumen días. Todo traslape con
+  ausencias, vacaciones vigentes o cierres bloquea, incluidos los días interiores del rango.
+- Pendientes no reservan saldo. Aprobar lo revalida y registra DISFRUTE con fecha de aprobación,
+  reservando inmediatamente y una sola vez. Locks compatibles con fases anteriores serializan
+  aprobaciones, cambios de horario/feriados, cargas previas y ausencias; actor revalidado en transacción.
+- SOLICITUDES/SOLICITUD_HISTORIAL conservan el flujo asociado a vacaciones. Notificaciones internas,
+  actualización de estados, kardex y auditoría comparten commit/rollback. La campana consulta la API.
+- prepararVacacionesFiniquito valora días pendientes × salario vigente / SALARIO_DIAS_MES, con Decimal
+  y redondeo único. Fase 9 comparte conexión/transacción y realizará pago/consumo; se bloquea la
+  valoración con movimientos o reservas posteriores al corte para evitar liquidaciones incorrectas.
+- V015 es aditiva y mantiene las 53 tablas. UI derivada del mockup con componentes/tokens existentes,
+  calendario react-day-picker, semáforo accesible, filtros/CSV y ayuda por rol; sin datos simulados.

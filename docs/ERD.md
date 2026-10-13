@@ -1,7 +1,7 @@
 # Modelo Oracle — FASE 1
 
 53 tablas de negocio, más `VERSION_ESQUEMA` y `PRUEBA_INFRAESTRUCTURA` conservadas de FASE 0.
-Las migraciones V001–V014 se agrupan por dominio y se ejecutan después de V000. Los diagramas
+Las migraciones V001–V015 se agrupan por dominio y se ejecutan después de V000. Los diagramas
 incluyen referencias entre dominios; se omiten las flechas de auditoría para facilitar su lectura.
 El SQL de `db/migrations/` es la definición exacta de nulabilidad, valores por defecto y restricciones.
 
@@ -509,7 +509,8 @@ erDiagram
 
 ## 9. Vacaciones
 
-Migración: [V009__vacaciones.sql](../db/migrations/V009__vacaciones.sql).
+Migraciones: [V009__vacaciones.sql](../db/migrations/V009__vacaciones.sql) y
+[V015__vacaciones_saldo_inicial.sql](../db/migrations/V015__vacaciones_saldo_inicial.sql).
 
 ```mermaid
 erDiagram
@@ -527,6 +528,8 @@ erDiagram
         NUMBER ID_VACACIONES_SOLICITUD FK
         VARCHAR2 TIPO
         DATE FECHA
+        NUMBER DIAS
+        VARCHAR2 CLAVE_ORIGEN
     }
     EMPLEADOS ||--o{ VACACIONES_SOLICITUDES : "ID_EMPLEADO"
     USUARIOS ||--o{ VACACIONES_SOLICITUDES : "RESUELTO_POR"
@@ -813,3 +816,16 @@ erDiagram
 Captura y auditoría comparten transacción; los servicios comprueban saldos, traslapes y cierres.
 La primitiva de cobro actualiza aplicaciones, cuota y acuerdo; saldo cero liquida el acuerdo.
 El cálculo/reversión de nómina y los snapshots permanecen para Fase 8. Contrato: NOVEDADES.md.
+
+## Extensión de vacaciones — FASE 7
+
+V015 conserva las 53 tablas y añade `SALDO_INICIAL` a los tipos del kardex. Su CHECK permite
+cero exclusivamente en la apertura y exige apertura no negativa. Un índice único condicional
+impide más de una apertura por empleado. `CLAVE_ORIGEN` conserva la unicidad por empleado:
+`MES:aaaa-mm-dd`, `SOLICITUD:id`, `TOMADAS:referencia` y `SALDO_INICIAL:referencia`.
+Hay 16 migraciones V000–V015; no se reescribió ninguna migración anterior.
+
+La solicitud de vacaciones crea su vínculo obligatorio con SOLICITUDES e historial desde el alta.
+Aprobación/rechazo actualizan ambas tablas, historial, auditoría y notificaciones en la misma
+transacción; aprobar añade un único DISFRUTE negativo. La apertura sustituye el saldo histórico
+hasta su corte sin borrar movimientos. Detalles de cálculo e integración: VACACIONES.md.

@@ -37,6 +37,7 @@ const compartidos: Acceso[] = [
   },
   {
     titulo: 'Vacaciones',
+    ruta: '/vacaciones',
     icono: 'calendario',
     descripcion: 'Consulta y autoriza los descansos del personal.',
   },
@@ -94,6 +95,7 @@ export const navegacion: Record<Rol, Acceso[]> = {
     },
     {
       titulo: 'Mis vacaciones',
+      ruta: '/mis-gestiones/vacaciones',
       icono: 'calendario',
       descripcion: 'Consulta tu saldo y solicita vacaciones.',
     },

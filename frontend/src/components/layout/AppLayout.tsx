@@ -4,9 +4,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { cerrarSesion } from '../../features/auth/api/auth';
 import { Button } from '../ui/Button';
-import { NotificationBell } from '../ui/NotificationBell';
+import { Notificaciones } from '../../features/vacaciones/pages/Notificaciones';
 import { Tooltip } from '../ui/Tooltip';
-import { EmptyState } from '../ui/EmptyState';
 import { useToast } from '../ui/Toast';
 import { iconos } from '../ui/icons';
 import { HelpButton, HelpOffer } from '../help/HelpProvider';
@@ -155,23 +154,10 @@ export function AppLayout() {
           </div>
           <div className="barra-acciones">
             <div className="panel-ancla" data-tour="notificaciones">
-              <NotificationBell
+              <Notificaciones
                 abierto={panel === 'notificaciones'}
                 onClick={() => setPanel((v) => (v === 'notificaciones' ? null : 'notificaciones'))}
               />
-              {panel === 'notificaciones' && (
-                <section
-                  className="panel-flotante"
-                  id="panel-notificaciones"
-                  aria-label="Notificaciones"
-                >
-                  <EmptyState
-                    icono="notificaciones"
-                    titulo="Notificaciones"
-                    descripcion="Las notificaciones estarán disponibles al integrar las solicitudes y los avisos del sistema."
-                  />
-                </section>
-              )}
             </div>
             <div data-tour="ayuda-global">
               <HelpButton />

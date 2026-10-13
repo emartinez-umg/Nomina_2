@@ -9,7 +9,7 @@ export function TextField({
   autoComplete,
   ...props
 }: CampoProps & {
-  tipo?: 'texto' | 'nombre' | 'usuario' | 'contrasena';
+  tipo?: 'texto' | 'nombre' | 'usuario' | 'contrasena' | 'referencia';
   maxLength?: number;
   autoComplete?: string;
 }) {
@@ -20,20 +20,24 @@ export function TextField({
       maxLength={maxLength}
       autoComplete={autoComplete ?? 'off'}
       sanitizar={
-        tipo === 'nombre'
-          ? limpiarNombre
-          : tipo === 'usuario'
-            ? limpiarUsuario
-            : tipo === 'contrasena'
-              ? (v) => v
-              : limpiarTexto
+        tipo === 'referencia'
+          ? (v) => v.replace(/[^A-Za-z0-9_-]/g, '')
+          : tipo === 'nombre'
+            ? limpiarNombre
+            : tipo === 'usuario'
+              ? limpiarUsuario
+              : tipo === 'contrasena'
+                ? (v) => v
+                : limpiarTexto
       }
       pattern={
-        tipo === 'usuario'
-          ? '[a-z][a-z0-9.]{2,79}'
-          : tipo === 'nombre'
-            ? "[\\p{L}\\p{M} '\\-]+"
-            : '.*'
+        tipo === 'referencia'
+          ? '[A-Za-z0-9_-]+'
+          : tipo === 'usuario'
+            ? '[a-z][a-z0-9.]{2,79}'
+            : tipo === 'nombre'
+              ? "[\\p{L}\\p{M} '\\-]+"
+              : '.*'
       }
       type={tipo === 'contrasena' && !visible ? 'password' : 'text'}
       sufijo={

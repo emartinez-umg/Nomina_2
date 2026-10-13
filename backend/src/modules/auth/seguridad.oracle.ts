@@ -1,3 +1,4 @@
+import { crearVacacionesService } from '../vacaciones/vacaciones.service.js';
 import express from 'express';
 import type { Express } from 'express';
 import type { BindParameters } from 'oracledb';
@@ -63,6 +64,7 @@ const crearApi = (opciones = config) =>
       auth,
       empleados: crearEmpleadosService(db),
       novedades: crearNovedadesService(db),
+      vacaciones: crearVacacionesService(db),
       catalogos: crearCatalogosService(db),
       config: opciones,
       usuarios: crearUsuariosService(db),
@@ -1428,6 +1430,325 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         .set('X-CSRF-Token', csrf)
         .send({ modalidad: 'TODO_O_NADA', confirmado: true })
         .expect(200);
+    });
+    describe('Fase 7: flujo de vacaciones con Oracle real', () => {
+      let idEmpleado = 0;
+      let cuenta: { idUsuario: number; usuario: string; contrasenaTemporal: string };
+      let solicitud = 0;
+      const tramo = { inicio: '2095-01-03', fin: '2095-01-04' };
+      const apertura = (dias = '5') => ({
+        tipo: 'SALDO_INICIAL',
+        dias,
+        referencia: 'F7_APERTURA',
+        motivo: 'Saldo certificado del expediente previo',
+        confirmado: true,
+      });
+      const empleado = () => entrar(cuenta.usuario, cuenta.contrasenaTemporal);
+      beforeAll(async () => {
+        const { agent, csrf } = await entrarAdmin();
+        const r = await agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...datos(), generarUsuario: true })
+          .expect(201);
+        idEmpleado = r.body.data.empleado.id;
+        cuenta = r.body.data.credenciales;
+        await ejecutar('UPDATE USUARIOS SET CAMBIO_OBLIGATORIO=0 WHERE ID_USUARIO=:id', {
+          id: cuenta.idUsuario,
+        });
+        // Fechas de este escenario: lunes 3 y martes 4 de enero de 2095.
+      });
+      it('protege propiedad, roles, CSRF e identificadores enviados por el cliente', async () => {
+        await request(app).get('/api/vacaciones/mi-saldo').expect(401);
+        const e = await empleado(),
+          otro = await entrarCuenta();
+        await otro.agent.get('/api/vacaciones/mi-saldo').expect(409);
+        await e.agent.get(`/api/vacaciones/empleados/${idEmpleado}/saldo`).expect(403);
+        await e.agent.post('/api/vacaciones/solicitudes').send(tramo).expect(403);
+        await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send({ ...tramo, idEmpleado })
+          .expect(400);
+        await e.agent
+          .post('/api/vacaciones/solicitudes/1/resolver')
+          .set('X-CSRF-Token', e.csrf)
+          .send({ estado: 'APROBADA', confirmado: true })
+          .expect(403);
+      });
+      it('carga apertura una sola vez, incluyendo cero, y conserva kardex real', async () => {
+        const a = await entrarCuenta('RH');
+        const r = await a.agent
+          .post(`/api/vacaciones/empleados/${idEmpleado}/cargar`)
+          .set('X-CSRF-Token', a.csrf)
+          .send(apertura())
+          .expect(201);
+        expect(r.body.data.disponible).toBe('5.00');
+        expect(r.body.data.kardex[0].tipo).toBe('SALDO_INICIAL');
+        await a.agent
+          .post(`/api/vacaciones/empleados/${idEmpleado}/cargar`)
+          .set('X-CSRF-Token', a.csrf)
+          .send(apertura())
+          .expect(409);
+        const e = await empleado();
+        expect(
+          (await e.agent.get('/api/vacaciones/mi-saldo').expect(200)).body.data.disponible,
+        ).toBe('5.00');
+      });
+      it('calendario excluye descanso, feriado nacional y local; permite trabajo entre semana', async () => {
+        const a = await entrarAdmin();
+        for (const [codigo, fecha, ambito, localidad] of [
+          ['F7_NACIONAL', '2095-01-05', 'NACIONAL', '*'],
+          ['F7_LOCAL', '2095-01-06', 'LOCAL', 'GUATEMALA_CIUDAD'],
+        ])
+          await ejecutar(
+            "INSERT INTO FERIADOS (CODIGO,NOMBRE,FECHA,FECHA_CONMEMORACION,AMBITO,LOCALIDAD,FUNDAMENTO) VALUES (:codigo,'Feriado prueba',TO_DATE(:fecha,'YYYY-MM-DD'),TO_DATE(:fecha,'YYYY-MM-DD'),:ambito,:localidad,'Prueba aislada')",
+            { codigo: codigo!, fecha: fecha!, ambito: ambito!, localidad: localidad! },
+          );
+        const e = await empleado(),
+          r = await e.agent
+            .get('/api/vacaciones/mi-calendario?inicio=2095-01-03&fin=2095-01-09')
+            .expect(200);
+        expect(r.body.data.dias.filter((d: { laborable: boolean }) => d.laborable)).toHaveLength(3);
+        await e.agent
+          .post('/api/vacaciones/previsualizar')
+          .set('X-CSRF-Token', e.csrf)
+          .send({ inicio: '2095-01-03', fin: '2095-01-09' })
+          .expect(200)
+          .then((r) => expect(r.body.data.dias).toBe('3.00'));
+        await a.agent.get('/api/vacaciones/solicitudes?ordenarPor=SQL').expect(400);
+      });
+      it('empleado solicita, RH ve verde y recibe aviso sin descontar antes de aprobar', async () => {
+        const e = await empleado();
+        const r = await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send(tramo)
+          .expect(201);
+        solicitud = r.body.data.id;
+        const a = await entrarCuenta('RH');
+        const listado = await a.agent
+          .get(
+            `/api/vacaciones/solicitudes?idEmpleado=${idEmpleado}&estado=EN_PROCESO&desde=2095-01-01&hasta=2095-01-31&limite=1`,
+          )
+          .expect(200);
+        expect(listado.body.data.registros[0]).toMatchObject({
+          alcanza: true,
+          puedeAprobar: true,
+          disponible: '5.00',
+          dias: '2.00',
+        });
+        expect((await e.agent.get('/api/vacaciones/mi-saldo')).body.data.disponible).toBe('5.00');
+        expect(
+          await escalar('SELECT COUNT(*) FROM NOTIFICACIONES WHERE CLAVE_EVENTO=:clave', {
+            clave: `VACACIONES:${solicitud}:EN_PROCESO`,
+          }),
+        ).toBeGreaterThan(0);
+        const ajena = await entrarCuenta();
+        expect(
+          (
+            await ajena.agent
+              .get(`/api/vacaciones/solicitudes?idEmpleado=${idEmpleado}`)
+              .expect(409)
+          ).body.ok,
+        ).toBe(false);
+        const csv = await a.agent
+          .get(`/api/vacaciones/exportar?idEmpleado=${idEmpleado}`)
+          .expect(200);
+        expect(csv.body.data).toContain('EN_PROCESO');
+      });
+      it('bloquea traslapes, fechas pasadas y saldo insuficiente', async () => {
+        const e = await empleado();
+        await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send(tramo)
+          .expect(422);
+        await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send({ inicio: '2020-01-01', fin: '2020-01-02' })
+          .expect(422);
+        await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send({ inicio: '2095-02-07', fin: '2095-02-18' })
+          .expect(422);
+      });
+      it('RH ve rojo tras cargar previas, backend rechaza aprobar y exige motivo al rechazar', async () => {
+        const a = await entrarCuenta('RH');
+        const carga = {
+          tipo: 'TOMADAS',
+          dias: '4',
+          referencia: 'F7_PREVIAS',
+          motivo: 'Registro de días disfrutados antes del sistema',
+          confirmado: true,
+        };
+        await a.agent
+          .post(`/api/vacaciones/empleados/${idEmpleado}/cargar`)
+          .set('X-CSRF-Token', a.csrf)
+          .send(carga)
+          .expect(201);
+        await a.agent
+          .post(`/api/vacaciones/empleados/${idEmpleado}/cargar`)
+          .set('X-CSRF-Token', a.csrf)
+          .send(carga)
+          .expect(409);
+        const r = await a.agent
+          .get(`/api/vacaciones/solicitudes?idEmpleado=${idEmpleado}`)
+          .expect(200);
+        expect(r.body.data.registros[0]).toMatchObject({
+          alcanza: false,
+          puedeAprobar: false,
+          disponible: '1.00',
+        });
+        await a.agent
+          .post(`/api/vacaciones/solicitudes/${solicitud}/resolver`)
+          .set('X-CSRF-Token', a.csrf)
+          .send({ estado: 'APROBADA', confirmado: true })
+          .expect(409);
+        await a.agent
+          .post(`/api/vacaciones/solicitudes/${solicitud}/resolver`)
+          .set('X-CSRF-Token', a.csrf)
+          .send({ estado: 'RECHAZADA', motivo: '', confirmado: true })
+          .expect(400);
+        await a.agent
+          .post(`/api/vacaciones/solicitudes/${solicitud}/resolver`)
+          .set('X-CSRF-Token', a.csrf)
+          .send({
+            estado: 'RECHAZADA',
+            motivo: 'El saldo ya no alcanza; reduce el rango.',
+            confirmado: true,
+          })
+          .expect(200);
+        const e = await empleado();
+        expect(
+          (await e.agent.get('/api/vacaciones/solicitudes')).body.data.registros[0].estado,
+        ).toBe('RECHAZADA');
+      });
+      it('aprobaciones concurrentes descuentan una sola vez y notifican al dueño', async () => {
+        const e = await empleado(),
+          a = await entrarAdmin();
+        const r = await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send({ inicio: tramo.inicio, fin: tramo.inicio })
+          .expect(201);
+        const id = r.body.data.id;
+        const resultados = await Promise.all(
+          Array.from({ length: 2 }, () =>
+            a.agent
+              .post(`/api/vacaciones/solicitudes/${id}/resolver`)
+              .set('X-CSRF-Token', a.csrf)
+              .send({ estado: 'APROBADA', confirmado: true }),
+          ),
+        );
+        expect(resultados.map((r) => r.status).sort()).toEqual([200, 409]);
+        const s = await e.agent.get('/api/vacaciones/mi-saldo').expect(200);
+        expect(s.body.data.disponible).toBe('0.00');
+        expect(
+          await escalar('SELECT COUNT(*) FROM VACACIONES_MOVIMIENTOS WHERE CLAVE_ORIGEN=:clave', {
+            clave: `SOLICITUD:${id}`,
+          }),
+        ).toBe(1);
+        const avisos = await e.agent.get('/api/vacaciones/notificaciones').expect(200);
+        expect(avisos.body.data.pendientes).toBe(2);
+        const nid = avisos.body.data.registros[0].id;
+        const otro = await entrarCuenta();
+        await otro.agent
+          .post(`/api/vacaciones/notificaciones/${nid}/leida`)
+          .set('X-CSRF-Token', otro.csrf)
+          .send({})
+          .expect(200);
+        expect((await e.agent.get('/api/vacaciones/notificaciones')).body.data.pendientes).toBe(2);
+        await e.agent
+          .post(`/api/vacaciones/notificaciones/${nid}/leida`)
+          .set('X-CSRF-Token', e.csrf)
+          .send({})
+          .expect(200);
+        expect((await e.agent.get('/api/vacaciones/notificaciones')).body.data.pendientes).toBe(1);
+        await a.agent
+          .get(`/api/vacaciones/empleados/${idEmpleado}/finiquito?corte=${hoy}`)
+          .expect(409);
+      });
+      it('materializa aniversarios una sola vez y permite apertura cero sin tasas históricas inventadas', async () => {
+        const a = await entrarAdmin();
+        const reciente = await a.agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', a.csrf)
+          .send({ ...datos(), fechaIngreso: '2026-01-12' })
+          .expect(201);
+        const id = reciente.body.data.empleado.id;
+        const primero = await a.agent.get(`/api/vacaciones/empleados/${id}/saldo`).expect(200);
+        expect(primero.body.data.disponible).toBe('11.25');
+        const segundo = await a.agent.get(`/api/vacaciones/empleados/${id}/saldo`).expect(200);
+        expect(segundo.body.data.kardex).toHaveLength(9);
+        const antiguo = await a.agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', a.csrf)
+          .send({ ...datos(), fechaIngreso: '2020-01-12' })
+          .expect(201);
+        const antiguoId = antiguo.body.data.empleado.id;
+        await a.agent.get(`/api/vacaciones/empleados/${antiguoId}/saldo`).expect(409);
+        const cero = await a.agent
+          .post(`/api/vacaciones/empleados/${antiguoId}/cargar`)
+          .set('X-CSRF-Token', a.csrf)
+          .send(apertura('0'))
+          .expect(201);
+        expect(cero.body.data.disponible).toBe('0.00');
+      });
+      it('revierte saldo, solicitud y notificación si falla la auditoría de aprobación', async () => {
+        const a = await entrarAdmin();
+        const nuevo = await a.agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', a.csrf)
+          .send({ ...datos(), generarUsuario: true })
+          .expect(201);
+        const id = nuevo.body.data.empleado.id,
+          cred = nuevo.body.data.credenciales;
+        await ejecutar('UPDATE USUARIOS SET CAMBIO_OBLIGATORIO=0 WHERE ID_USUARIO=:id', {
+          id: cred.idUsuario,
+        });
+        await a.agent
+          .post(`/api/vacaciones/empleados/${id}/cargar`)
+          .set('X-CSRF-Token', a.csrf)
+          .send(apertura('3'))
+          .expect(201);
+        const valoracion = await a.agent
+          .get(`/api/vacaciones/empleados/${id}/finiquito?corte=${hoy}`)
+          .expect(200);
+        expect(valoracion.body.data.monto).toBe('500.00');
+        const e = await entrar(cred.usuario, cred.contrasenaTemporal);
+        const r = await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send(tramo)
+          .expect(201);
+        await ejecutar(
+          "CREATE OR REPLACE TRIGGER F7_FALLAR_AUD BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='VACACIONES_APROBADA' THEN RAISE_APPLICATION_ERROR(-20047,'Fallo de prueba'); END IF; END;",
+        );
+        try {
+          await a.agent
+            .post(`/api/vacaciones/solicitudes/${r.body.data.id}/resolver`)
+            .set('X-CSRF-Token', a.csrf)
+            .send({ estado: 'APROBADA', confirmado: true })
+            .expect(500);
+          expect((await e.agent.get('/api/vacaciones/mi-saldo')).body.data.disponible).toBe('3.00');
+          expect(
+            await escalar(
+              'SELECT ESTADO FROM VACACIONES_SOLICITUDES WHERE ID_VACACIONES_SOLICITUD=:id',
+              { id: r.body.data.id },
+            ),
+          ).toBe('EN_PROCESO');
+          expect(
+            await escalar('SELECT COUNT(*) FROM NOTIFICACIONES WHERE CLAVE_EVENTO=:clave', {
+              clave: `VACACIONES:${r.body.data.id}:APROBADA`,
+            }),
+          ).toBe(0);
+        } finally {
+          await ejecutar('DROP TRIGGER F7_FALLAR_AUD');
+        }
+      });
     });
     describe('Fase 6: novedades con Oracle real', () => {
       let idEmpleado = 0;

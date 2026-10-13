@@ -153,7 +153,7 @@ efímero local. Los dobles de Oracle/fetch existen únicamente en pruebas; la ap
 Oracle real.
 
 `db:verify` requiere Node 20, `npm ci`, `.env` y Oracle saludable en Compose. Crea un usuario temporal
-aleatorio `N2TEST_*` dentro de XEPDB1, aplica V000–V014 desde cero, ejecuta seeds dos veces y compara
+aleatorio `N2TEST_*` dentro de XEPDB1, aplica V000–V015 desde cero, ejecuta seeds dos veces y compara
 el contenido completo de las 53 tablas, incluyendo ajustes manuales y credenciales ya cambiadas.
 Comprueba identities, auditoría, compilación de triggers, restricciones, índices de todos los FK y
 filtros, argon2id, feriados, rollback de seeds, neto, vacaciones y propiedad de salario/documentos.
@@ -210,4 +210,18 @@ según la categoría de la empresa. Operación, CSV, seguridad y endpoints en [E
 RH/ADMIN: `/novedades` captura descuentos, préstamos/anticipos, comisiones, horas extra y ausencias.
 Incluye cuotas/saldo/amortización, valoración con parámetros vigentes, respaldo privado, filtros/CSV,
 auditoría, ayudas y protección de cierres. V014 agrega jornada y adjuntos sin reemplazar datos.
+
+## Vacaciones — FASE 7
+
+El empleado abre `/mis-gestiones/vacaciones` para consultar saldo/kardex, seleccionar un rango
+laboral en el calendario y seguir sus solicitudes. RRHH/ADMIN abre `/vacaciones`: bandeja con
+filtros, comparación verde/roja, aprobación/rechazo motivado y carga de historia anterior.
+Cada aprobación descuenta una sola vez y notifica al empleado. La API revalida saldo, horario,
+feriados, traslapes y cierres dentro de la transacción.
+
+V015 permite una apertura certificada al día de hoy, incluso en cero; también se pueden cargar
+días previos tomados como débito. El parámetro `VACACIONES_ACUMULACION_MENSUAL` proviene de Oracle
+con vigencia. Para ingresos anteriores a sus vigencias, configurar la historia o certificar la
+apertura antes de ajustes/disfrutes. Contratos, decisiones y consumo del finiquito en Fase 9:
+[docs/VACACIONES.md](docs/VACACIONES.md).
 Contratos de captura y consumo para Fase 8: [NOVEDADES.md](docs/NOVEDADES.md).

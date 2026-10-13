@@ -25,7 +25,11 @@ import type { crearEmpleadosService } from './modules/empleados/empleados.servic
 import { crearNovedadesRouter } from './modules/novedades/novedades.routes.js';
 import type { crearNovedadesService } from './modules/novedades/novedades.service.js';
 
+import { crearVacacionesRouter } from './modules/vacaciones/vacaciones.routes.js';
+import type { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
+
 interface SeguridadApp {
+  vacaciones?: ReturnType<typeof crearVacacionesService>;
   novedades?: ReturnType<typeof crearNovedadesService>;
   empleados?: ReturnType<typeof crearEmpleadosService>;
   catalogos?: ReturnType<typeof crearCatalogosService>;
@@ -59,6 +63,8 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
       permitirRoles('ADMIN', 'RH', 'EMPLEADO'),
       exigirCambioCompletado,
     );
+    if (seguridad.vacaciones)
+      app.use('/api/vacaciones', crearVacacionesRouter(seguridad.vacaciones));
     if (seguridad.empleados) app.use('/api/empleados', crearEmpleadosRouter(seguridad.empleados));
     if (seguridad.novedades) app.use('/api/novedades', crearNovedadesRouter(seguridad.novedades));
     if (seguridad.catalogos) app.use('/api/catalogos', crearCatalogosRouter(seguridad.catalogos));
