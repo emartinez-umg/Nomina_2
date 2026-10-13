@@ -28,11 +28,29 @@ No necesitas SQL manual, Instant Client ni instalar Node en el host para utiliza
 - Oracle del host: `localhost:1521/XEPDB1`, `DB_USER`/`DB_PASSWORD` del único `.env` raíz.
 
 HTTPS local utiliza un certificado autofirmado generado al instalar y conservado en `nomina2-tls`.
-Acepta el certificado de **tu localhost** o incorpora su certificado público al almacén de confianza:
+El aviso «La conexión no es privada» aparece hasta que tu equipo confíe en ese certificado.
+En **macOS**, con Node 20 y npm ci ejecutado, desde la carpeta del proyecto:
+
+```bash
+docker compose up --build -d --wait nomina2-web
+npm run tls:trust
+```
+
+Autoriza el cambio si macOS lo solicita y vuelve a abrir la pestaña
+[https://localhost:8443/login](https://localhost:8443/login). El comando verifica identidad, firma y
+vigencia, y registra **solo ese certificado de servidor para SSL** en el llavero del usuario, sin sudo. Conserva la clave
+privada en Docker y no desactiva la validación TLS. Se repite si regeneras el certificado TLS
+u otro equipo necesita acceder. El certificado solo identifica localhost/127.0.0.1 y tiene
+CA:FALSE, sin capacidad de actuar como autoridad certificadora.
+
+Sin Node, o en otros sistemas, exporta e importa el certificado público de tu instalación en su
+almacén de confianza:
 `mkdir -p tmp && docker compose cp nomina2-web:/etc/nginx/tls/localhost.crt tmp/localhost.crt`.
-La clave privada permanece en el volumen, nunca en Git. En producción instala un certificado válido
-para tu dominio o termina TLS en un proxy administrado; renueva el certificado antes de su vencimiento.
-Las cookies conservan `Secure`, `httpOnly` y `SameSite=Strict`. Los puertos publicados son de loopback.
+En macOS puedes abrir ese .crt en Acceso a Llaveros, añadirlo al llavero Inicio de sesión y
+seleccionar Confiar siempre únicamente para SSL. No importes la clave privada.
+En producción instala un certificado válido para tu dominio o termina
+TLS en un proxy administrado; renueva el certificado antes de su vencimiento. Las cookies conservan
+`Secure`, `httpOnly` y `SameSite=Strict`. Los puertos publicados son de loopback.
 
 ## Primer uso y usuarios iniciales
 

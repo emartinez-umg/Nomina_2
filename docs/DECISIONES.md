@@ -310,3 +310,11 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
 Se reserva `direccion` de query para el orden asc/desc; dirección postal usa `direccionTexto` en
 catálogos. La captura conserva su nombre de dominio `direccion`. La separación corrige listados
 vacíos al ordenar centros/empresa y evita ampliar la lista blanca del sentido de ordenamiento.
+
+### Confianza HTTPS local en macOS
+
+El certificado local es autofirmado de servidor, con CA:FALSE y serverAuth. npm run tls:trust verifica
+la firma, fechas y SAN exacto antes de registrarlo únicamente para SSL en el llavero del usuario.
+No instala una autoridad certificadora ni modifica la validación TLS de los navegadores. Una entrada
+macOS con Policy String no sirve en Chromium: su [implementación de confianza](https://chromium.googlesource.com/chromium/src/+/main/net/cert/internal/trust_store_mac.cc)
+la omite. La restricción está en la identidad y naturaleza del certificado de servidor exacto.

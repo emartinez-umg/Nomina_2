@@ -1344,3 +1344,24 @@ Estado: completada el 13/10/2026. Sin pendientes técnicos del criterio de acept
    migraciones, cuatro suites Oracle, E2E, infraestructura y aceptación limpia en secuencia.
 4. Comandos individuales y requisitos de espacio/RAM en README. Suites Oracle también admiten
    -- --docker con imagen nomina2-security-tests. Reportes/capturas locales quedan ignorados.
+
+### Corrección posterior al cierre — confianza HTTPS local
+
+- Reportado bloqueo del navegador por certificado autofirmado. Servicios saludables; certificado
+  con SAN localhost/127.0.0.1 y vigencia correcta, pero sin confianza en el llavero del equipo.
+- Añadido npm run tls:trust para macOS: obtiene únicamente el certificado público de nomina2-web,
+  verifica firma/identidad/vigencia y solicita registro del certificado de servidor en el llavero
+  del usuario, únicamente para SSL. Sin sudo, sin modificar las cookies Secure ni desactivar validación del navegador.
+- Certificado local con basicConstraints CA:FALSE, keyUsage de servidor y extendedKeyUsage
+  serverAuth. Migra el certificado antiguo sin cambiar la clave privada ni tocar Oracle.
+- Chromium omite entradas macOS con Policy String; se confía en el certificado de servidor exacto,
+  cuyo SAN solo incluye localhost/127.0.0.1. Nunca se instala una CA genérica.
+- README explica el paso de confianza, la autorización que puede pedir macOS y la reapertura de
+  la pestaña. Otros equipos deben confiar en su propia instalación; producción usa certificado público.
+- Confianza verificada con security verify-cert y curl nativo sin omitir validación TLS (HTTP 200).
+  Login abierto en navegador integrado sin advertencia de certificado. Retirada la entrada anterior
+  del llavero mediante huella exacta; se conserva únicamente el nuevo certificado de servidor.
+- Lint, TypeScript, formato y las 324 unitarias aprobados. Emisión nueva, idempotencia y migración
+  del certificado CA antiguo comprobadas en contenedor efímero; clave privada conservada.
+- Supuesto: confianza local por equipo/usuario; si el navegador conserva el error anterior, cerrar
+  y volver a abrir la pestaña. Pendiente operativo de producción: certificado público con renovación.
