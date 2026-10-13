@@ -8,6 +8,12 @@ export interface Acceso {
 }
 const compartidos: Acceso[] = [
   {
+    titulo: 'Prestaciones',
+    icono: 'planilla',
+    ruta: '/prestaciones',
+    descripcion: 'Bono 14, aguinaldo, finiquitos y constancias de salario.',
+  },
+  {
     titulo: 'Novedades',
     icono: 'planilla',
     ruta: '/novedades',

@@ -238,3 +238,15 @@ patronal real desde el editor de Planilla. Contratos, fórmulas y supuestos: [do
 
 Verificación: `npm run lint`, `npm test`, `npm run typecheck`, `npm run build`,
 `npm run format:check`, `npm run db:verify`, `npm run verify:security` y `npm run verify:infra`.
+
+### FASE 9: prestaciones de ley
+
+RH/ADMIN dispone de `/prestaciones`: vista previa masiva de Bono 14/aguinaldo, aprobación,
+pago registrado, simulación/confirmación de finiquito y constancias RF-17 en PDF. La acción
+**Liquidar y dar de baja** de Empleados abre este flujo. V017 se aplica con `docker compose up --build`
+o `npm run db:migrate`; conserva el volumen y los registros previos. No requiere nuevas variables.
+
+`npm run verify:prestaciones` verifica HTTP/Oracle con un esquema desechable; acepta `-- --docker`
+con la imagen `nomina2-security-tests` de Node 20. Se suma a `npm test`, lint, typecheck, build,
+`npm run verify:security`, `npm run db:verify` y `npm run verify:infra`.
+Fórmulas, límites, API y revisión legal/operativa: [docs/PRESTACIONES.md](docs/PRESTACIONES.md).

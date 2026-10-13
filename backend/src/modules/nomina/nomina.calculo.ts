@@ -361,9 +361,12 @@ export function calcularNomina(e: Entrada): Resultado {
     AGUINALDO: 'ISR_EXENCION_AGUINALDO_MESES',
     BONO_14: 'ISR_EXENCION_BONO14_MESES',
   };
+  // Fase 9 conserva el límite aplicado; una nueva vigencia salarial no cambia la exención histórica.
+  for (const v of e.prestaciones.filter((v) => v.exento != null))
+    renta = renta.plus(Decimal.max(0, new Decimal(v.monto).minus(v.exento!)));
   for (const tipo of Object.keys(exentos)) {
     const total = e.prestaciones
-      .filter((v) => v.tipo === tipo)
+      .filter((v) => v.tipo === tipo && v.exento == null)
       .reduce((s, v) => s.plus(v.monto), new Decimal(0));
     if (total.gt(0))
       renta = renta.plus(

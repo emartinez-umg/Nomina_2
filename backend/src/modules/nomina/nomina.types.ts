@@ -74,7 +74,7 @@ export interface Entrada {
   descuentos: Descuento[];
   deducciones: { id: number; tipo: string; monto: string; tope: string | null }[];
   acumulado: { renta: string; igss: string; isr: string };
-  prestaciones: { id: number; tipo: string; monto: string }[];
+  prestaciones: { id: number; tipo: string; monto: string; exento?: string }[];
 }
 export interface Linea {
   concepto: Concepto;

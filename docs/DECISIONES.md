@@ -216,3 +216,18 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   Las boletas del empleado están limitadas por propiedad y cierre, con tarjetas móviles.
 - Prestaciones/finiquitos se consumirán según FASE 9: esta fase solo incorpora sus pagos ya
   registrados al tratamiento exento del ISR; no adelanta su cálculo o interfaz.
+
+## FASE 9 — Prestaciones y finiquito
+
+- Devengado y pagado tienen fuentes distintas: los promedios pueden usar salarios/novedades
+  reales de quincenas no cerradas; las constancias solo acreditan pagos registrados. Se reutiliza
+  el motor y las cantidades nominales de FASE 8 para no cambiar reglas de prorrateo entre módulos.
+- Vista masiva y simulación devuelven huella; guardar/aprobar/pagar revalidan fuentes de anuales.
+  El finiquito confirmado conserva snapshot y baja, y su pago no vuelve a valorar un saldo ya debitado.
+  La auditoría y todos los efectos forman una transacción; no hay transferencia bancaria automática.
+- La fórmula de indemnización sigue el RF-12 solicitado. La revisión de integración legal de
+  alícuotas y el tratamiento operativo de obligaciones históricas se documentan en PRESTACIONES.md.
+- RF-17 usa fecha de pago y documentos PDFKit paginados. El pie se escribe con margen inferior
+  temporal cero para evitar que PDFKit cree una página vacía al numerar fuera del área de texto.
+- V017 es aditiva y reemplaza la unicidad de ciclo por un índice condicional que conserva anulados.
+  Los pagos conservan exenciones por componente y nómina consume solo la base gravada congelada.

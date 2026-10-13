@@ -1,3 +1,4 @@
+import { crearPrestacionesService } from './modules/prestaciones/prestaciones.service.js';
 import { crearNominaService } from './modules/nomina/nomina.service.js';
 import { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 import { once } from 'node:events';
@@ -29,6 +30,7 @@ try {
   const server = crearApp(service, logger, {
     auth,
     nomina: crearNominaService(baseDatos),
+    prestaciones: crearPrestacionesService(baseDatos),
     empleados: crearEmpleadosService(baseDatos),
     novedades: crearNovedadesService(baseDatos),
     vacaciones: crearVacacionesService(baseDatos),

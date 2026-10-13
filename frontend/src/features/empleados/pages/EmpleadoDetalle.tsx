@@ -116,9 +116,9 @@ export function EmpleadoDetallePage() {
                 ? 'El empleado ya está egresado.'
                 : 'Registrar egreso y desactivar acceso'
             }
-            onClick={() => setAccion('baja')}
+            onClick={() => nav(`/prestaciones?empleado=${id}`)}
           >
-            Dar de baja
+            Liquidar y dar de baja
           </Button>
         </span>
       </div>

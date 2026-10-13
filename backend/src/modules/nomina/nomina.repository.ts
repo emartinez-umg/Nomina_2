@@ -86,7 +86,7 @@ export async function anteriores(c: Connection, p: Periodo) {
     ).length > 0
   );
 }
-export async function fuentes(c: Connection, p: Periodo): Promise<Entrada[]> {
+export async function fuentes(c: Connection, p: Periodo, idFiltro?: number): Promise<Entrada[]> {
   const parametros = await filas<Parametro>(
     c,
     `SELECT ID_PARAMETRO_LEGAL "id",CODIGO "codigo",${str('VALOR')} "valor",UNIDAD "unidad",${vigencia} FROM PARAMETROS_LEGALES WHERE ACTIVO=1 ORDER BY CODIGO,VIGENTE_DESDE`,
@@ -101,8 +101,8 @@ export async function fuentes(c: Connection, p: Periodo): Promise<Entrada[]> {
   );
   const empleados = await filas<Empleado>(
     c,
-    `SELECT E.ID_EMPLEADO "id",E.ID_USUARIO "usuario",E.CODIGO "codigo",E.NOMBRES "nombres",E.APELLIDOS "apellidos",TO_CHAR(E.FECHA_INGRESO,'YYYY-MM-DD') "ingreso",TO_CHAR(E.FECHA_EGRESO,'YYYY-MM-DD') "egreso",E.ID_DEPARTAMENTO "idDepartamento",D.NOMBRE "departamento",P.NOMBRE "puesto",E.ID_CENTRO_TRABAJO "centro",C.LOCALIDAD "localidad",E.NIT "nit",E.AFILIACION_IGSS "afiliacion" FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO JOIN CENTROS_TRABAJO C ON C.ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO WHERE E.FECHA_INGRESO<=${fecha('fin')} AND ((E.ACTIVO=1 AND E.FECHA_EGRESO IS NULL) OR E.FECHA_EGRESO>=${fecha('inicio')}) ORDER BY E.ID_EMPLEADO`,
-    { inicio: p.inicio, fin: p.fin },
+    `SELECT E.ID_EMPLEADO "id",E.ID_USUARIO "usuario",E.CODIGO "codigo",E.NOMBRES "nombres",E.APELLIDOS "apellidos",TO_CHAR(E.FECHA_INGRESO,'YYYY-MM-DD') "ingreso",TO_CHAR(E.FECHA_EGRESO,'YYYY-MM-DD') "egreso",E.ID_DEPARTAMENTO "idDepartamento",D.NOMBRE "departamento",P.NOMBRE "puesto",E.ID_CENTRO_TRABAJO "centro",C.LOCALIDAD "localidad",E.NIT "nit",E.AFILIACION_IGSS "afiliacion" FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO JOIN CENTROS_TRABAJO C ON C.ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO WHERE E.FECHA_INGRESO<=${fecha('fin')} AND ((E.ACTIVO=1 AND E.FECHA_EGRESO IS NULL) OR E.FECHA_EGRESO>=${fecha('inicio')}) AND (:idFiltro IS NULL OR E.ID_EMPLEADO=:idFiltro) ORDER BY E.ID_EMPLEADO`,
+    { inicio: p.inicio, fin: p.fin, idFiltro: idFiltro ?? null },
   );
   const entradas: Entrada[] = [];
   for (const empleado of empleados) {
@@ -160,7 +160,7 @@ export async function fuentes(c: Connection, p: Periodo): Promise<Entrada[]> {
     // La continuidad se verifica en el servicio por empleado; nunca se inventa historia salarial pagada.
     const prestaciones = await filas<Entrada['prestaciones'][number]>(
       c,
-      `SELECT ID_PRESTACION "id",TIPO "tipo",${str('MONTO_TOTAL')} "monto" FROM PRESTACIONES WHERE ID_EMPLEADO=:id AND ACTIVO=1 AND ESTADO='PAGADA' AND EXTRACT(YEAR FROM FECHA_PAGO)=:anio AND FECHA_PAGO<=${fecha('fin')} ORDER BY ID_PRESTACION`,
+      `SELECT P.ID_PRESTACION "id",NVL(D.CONCEPTO,P.TIPO) "tipo",${str('NVL(D.MONTO,P.MONTO_TOTAL)')} "monto",${str('D.MONTO_EXENTO_ISR')} "exento" FROM PRESTACIONES P LEFT JOIN PRESTACION_DETALLE D ON D.ID_PRESTACION=P.ID_PRESTACION AND D.ACTIVO=1 WHERE P.ID_EMPLEADO=:id AND P.ACTIVO=1 AND P.ESTADO='PAGADA' AND EXTRACT(YEAR FROM P.FECHA_PAGO)=:anio AND P.FECHA_PAGO<=${fecha('fin')} ORDER BY P.ID_PRESTACION,D.ID_PRESTACION_DETALLE`,
       { id, anio, fin: p.fin },
     );
     entradas.push({

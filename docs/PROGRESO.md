@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 8 completada. Los registros de FASES 0–7 se conservan como historial; consultar
-la sección FASE 8 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 9 completada. Los registros de FASES 0–8 se conservan como historial; consultar
+la sección FASE 9 al final para el estado y las instrucciones de continuación.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -910,3 +910,117 @@ Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para 
 7. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`;
    `npm run db:verify`; `npm run verify:security`; `npm run verify:infra`.
    Oracle con Node 20: construir `nomina2-security-tests` y `npm run verify:security -- --docker`.
+
+## FASE 9 — Prestaciones de ley (RF-12, RF-17)
+
+Estado: completada el 12/10/2026. Siguiente trabajo: esperar instrucciones para la próxima fase.
+
+### Hecho
+
+- Módulo prestaciones con routes/controller/service/repository, Zod estricto, RBAC RH/ADMIN,
+  CSRF, Oracle thin, binds y Decimal. Bono 14 julio–junio y aguinaldo diciembre–noviembre:
+  promedio devengado, aumentos y comisiones reales, proporcionalidad sin doble prorrateo.
+- Vista masiva por empleado/departamento con errores por persona y fecha límite de pago.
+  Guardado transaccional, aprobación revalidada y pago registrado con fecha/referencia/motivo.
+  Huellas SHA-256 detectan fuentes modificadas; duplicados y transiciones concurrentes se bloquean.
+- Promedios usan snapshots de nóminas cerradas o devengados del mismo motor con salarios/novedades
+  registrados. Meses equivalentes por cantidades/divisores de FASE 8, incluidas quincenas parciales.
+  Faltas de vigencia y autorizaciones pendientes bloquean; no se inventan pagos ni historia.
+- Indemnización con promedio de últimos seis meses (o tiempo menor), años/fracción, causa de egreso,
+  vacaciones de la primitiva FASE 7 y aguinaldo/Bono 14 proporcionales. Simulación y confirmación
+  con huella; baja, débito del kardex, desactivación de usuario, sesiones y auditoría atómicos.
+- Control de reservas/movimientos posteriores y nóminas aprobadas/cerradas que excedan el egreso.
+  Exige regularizar pagos de ciclos anteriores; una prestación ya pagada del ciclo actual se resta
+  para evitar desembolsarla otra vez. Liquidación confirmada conserva la baja y su snapshot.
+- Exención ISR por tipo con límite vigente, consumo anual, comprobación al pagar y monto exento
+  congelado por componente. FASE 8 incorpora solo gravados, incluidas vacaciones de finiquito;
+  indemnización exenta. Pago de finiquito antes del cierre y dentro de la quincena final.
+- Constancias RF-17 por fechas de pago: nóminas cerradas/versiones actuales y prestaciones pagadas,
+  empresa/empleado reales, historial y totales. PDF de prestación/finiquito con estado, componentes,
+  base, promedio, exenciones, motivo, referencia y numeración; emisión/descarga auditadas con SHA-256.
+- `/prestaciones` con filtros combinados/chips/limpiar, paginación/orden Oracle y CSV completo,
+  iconos, campos proporcionales, restricciones de fechas, estados de carga/error/vacío, toasts,
+  confirmaciones y ayuda por rol reiniciable incluso dentro del detalle. Sin mocks en pantallas.
+- Empleados abre simulación desde **Liquidar y dar de baja**. V017 conserva snapshots/aprobación
+  y sustituye unicidad de ciclo por índice condicional para conservar anulados; índice de liquidación
+  única, aprobador/FK y filtros indexados. Siguen 54 tablas; V000–V016 intactas.
+- Reapertura de nómina protege cierres referenciados por prestaciones vigentes. README, ERD,
+  DECISIONES y PRESTACIONES.md explican contratos, reglas, fuentes oficiales y supuestos.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier, git diff --check y builds correctos; imágenes de producción
+  backend/frontend construidas con Node 20. Compose saludable con V017 sobre el volumen existente.
+- 283 pruebas unitarias aprobadas (183 backend, 100 frontend), también bajo Node 20. Las nuevas
+  cubren ciclos, menos de un año/un día, aumentos, variables, vigencias, bisiestos, ventanas,
+  fracciones de quincena, renuncia, límites exentos consumidos/redondeados, desbordamiento monetario,
+  incorporación fiscal de snapshots y prevención de transiciones/envíos dobles en UI.
+- 82 pruebas Oracle thin/Supertest aprobadas: 72 de regresión y diez de FASE 9. Estas diez cubren
+  RBAC/CSRF, fuentes modificadas, cálculo con aumento/comisión, aprobación concurrente única,
+  pago idempotente, CSV/filtros, constancias/PDF, ciclos anteriores pendientes, Bono 14 ya pagado,
+  liquidación/baja y rollback real provocado por trigger de auditoría (empleado, usuario, kardex,
+  prestación y estados). La suite FASE 9 también aprobada bajo Node 20 mediante `--docker`.
+- db:verify aprueba V000–V017 desde cero, idempotencia, índices de filtros/FK, CHECK, identities,
+  objetos válidos y seeds repetibles. Esquemas N2TEST/N2SEC eliminados por los verificadores.
+- Navegador integrado con API y Oracle desechables: vista masiva, guardado, aprobación, pago con
+  referencia, bloqueo de acciones del pagado, simulación con cuatro componentes y ayuda dentro
+  del detalle. Formulario/listado a 390 px sin desbordamiento de página; sin errores JS finales.
+  El arnés solo inyectó una sesión Oracle de fixture por la limitación de cookies del navegador;
+  autenticación, permisos y CSRF reales se verifican por separado con Supertest.
+- PDF de Bono 14, constancia y finiquito obtenidos de Oracle, renderizados e inspeccionados;
+  extracción confirma Q2,150, promedio de indemnización Q5,000 y numeración correcta. Prueba de
+  constancia extensa (120 ingresos, nueve páginas): total Q180,000 y numeración en todas las páginas,
+  cabeceras y alineación revisadas. Corregido salto de página extra al imprimir el pie.
+- verify:infra aprueba Oracle/API/nginx, assets y rutas SPA. Datos/credenciales de aplicación
+  conservados; fixtures solo en esquemas temporales, arnés y procesos de revisión retirados.
+
+### Decisiones
+
+- Devengado para calcular prestaciones y pago para emitir constancias son fuentes distintas.
+  Los snapshots cerrados conservan sus banderas; las quincenas abiertas usan registros reales.
+  Comisión final registrada = ya devengada; una cerrada se atribuye al fin de su quincena.
+- Guardar un lote no paga. Aprobar y pagar anuales revalidan fuentes; se puede anular antes del pago
+  y recalcular conservando historia. Un finiquito confirmado conserva su baja y no puede anularse;
+  su pago usa el snapshot y no debita vacaciones nuevamente.
+- Motivo obligatorio, confirmación, estado/huella y locks compartidos protegen las escrituras.
+  No hay transferencia bancaria automática ni retenciones duplicadas fuera del motor de nómina.
+- Constancias por fecha de pago, hasta cinco años, ingresos brutos; excluyen indemnización y
+  periodos abiertos. Sin empresa o pagos reales no se genera una constancia vacía.
+
+### Supuestos
+
+- Indemnización sigue la fórmula explícita solicitada: promedio × tiempo. No se añade integración
+  automática de alícuotas de aguinaldo/Bono 14 a la base. RH debe validar el régimen aplicable,
+  banderas y parámetros antes de uso real; contraste y fuentes oficiales en PRESTACIONES.md.
+- Se conserva la convención nominal de FASE 8 y la valoración de vacaciones de FASE 7. Mes completo
+  de nómina equivale a uno; parcial usa cantidades/divisor. Años y fracción usan aniversarios reales.
+- RRHH debe completar historia salarial y vigencias reales, capturar comisiones definitivas y
+  registrar obligaciones pagadas de ciclos anteriores antes de liquidar. No se extrapolan tasas
+  de 2026 hacia años anteriores ni se declara pagado un devengado reconstruido.
+- Pago único por prestación, año fiscal actual y fecha posterior al último cierre. Fraccionamientos,
+  correcciones de pagos históricos, firma electrónica y declaraciones externas no se automatizan.
+- Límites operativos: 500 empleados por lote, CSV de hasta 10,000 registros y constancias de cinco
+  años. La causa declarada por RH determina indemnización; el software no decide la causa legal.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de FASE 9.
+- Continúan revisión legal/operativa por RH (incluida integración de la base de indemnización) y
+  HTTPS de producción de fases previas. Siguientes fases únicamente según solicitud.
+
+### Cómo probar
+
+1. `docker compose up --build` aplica V017 sin reemplazar volumen ni credenciales; para HTTP local
+   con Node 20: `NODE_ENV=development npm run dev`.
+2. RH/ADMIN abre `/prestaciones`, elige Bono 14/aguinaldo y año de cierre; filtra empleado/departamento,
+   genera vista previa, corrige errores, guarda con motivo, abre detalle y aprueba.
+3. Registra pago real con fecha/referencia/motivo; descarga PDF. Prueba fuente modificada entre
+   vista previa/aprobación, reintento de pago, anulación sin pago y filtros/chips/CSV/orden/páginas.
+4. En un empleado activo, **Liquidar y dar de baja** abre simulación. Revisa causa, corte, promedio,
+   vacaciones y proporcionales; regulariza ciclos anteriores/reservas pendientes. Confirma y verifica
+   baja/acceso/kardex; registra pago dentro de la quincena final antes de cerrarla en Planilla.
+5. En Constancias selecciona empleado y rango de fechas de pago. Revisa PDF/total y prueba rango
+   sin ingresos, fechas futuras o falta de datos de empresa. Reinicia Ayuda también en detalle.
+6. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:security`; `npm run verify:prestaciones`; `npm run verify:infra`.
+   Oracle con Node 20: construir `nomina2-security-tests` y agregar `-- --docker` al verificador.

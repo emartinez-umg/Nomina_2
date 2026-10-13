@@ -1,4 +1,9 @@
 import { lazy, Suspense } from 'react';
+const PrestacionesPage = lazy(() =>
+  import('../features/prestaciones/pages/PrestacionesPage').then((m) => ({
+    default: m.PrestacionesPage,
+  })),
+);
 import { Skeleton } from '../components/ui/Skeleton';
 const Nomina = lazy(() =>
   import('../features/nomina/pages/NominaPage').then((m) => ({ default: m.NominaPage })),
@@ -65,6 +70,14 @@ export const rutas = [
             element: <AppLayout />,
             children: [
               { path: '/planilla', element: <NominaPage /> },
+              {
+                path: '/prestaciones',
+                element: (
+                  <Suspense fallback={<Skeleton lineas={6} />}>
+                    <PrestacionesPage />
+                  </Suspense>
+                ),
+              },
               { path: '/vacaciones', element: <VacacionesPage /> },
               { path: '/novedades', element: <NovedadesPage /> },
               { path: '/novedades/:tipo', element: <NovedadesPage /> },

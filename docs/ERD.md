@@ -861,3 +861,24 @@ erDiagram
 ISR_APERTURAS: identity ALWAYS, único (empleado,año), corte al final de una quincena del año,
 montos NUMBER(12,2) no negativos, auditoría/ACTIVO/CHECK, FKs a empleado/creador/editor indexadas.
 Se valida continuidad/no duplicación con cierres desde el servicio; no sustituye nóminas cerradas.
+
+## FASE 9 — Instantáneas y liquidaciones (V017)
+
+PRESTACIONES conserva `HASH_FUENTES`, `SNAPSHOT` (JSON CLOB), `APROBADO_POR` y `APROBADO_EN`.
+Su snapshot incluye selección, empleado, empresa, entradas/versiones de nómina, parámetros,
+componentes y huellas. PRESTACION_DETALLE conserva promedio, importe y exención por componente.
+El índice único de ciclo omite ANULADA para permitir recalcular conservando historia; otro índice
+único impide dos liquidaciones vigentes para el mismo empleado. FK de aprobador y filtros indexados.
+
+```mermaid
+erDiagram
+  USUARIOS ||--o{ PRESTACIONES : aprueba
+  EMPLEADOS ||--o{ PRESTACIONES : recibe
+  PRESTACIONES ||--|{ PRESTACION_DETALLE : desglosa
+  EMPLEADOS ||--o{ VACACIONES_MOVIMIENTOS : liquida
+```
+
+Finiquito usa TIPO=INDEMNIZACION y detalles INDEMNIZACION, VACACIONES_PENDIENTES, AGUINALDO y
+BONO_14. El débito del kardex usa clave `FINIQUITO:id`. Nómina consume exenciones congeladas de
+PRESTACION_DETALLE, también para componentes proporcionales de finiquito. Reapertura protege las
+nóminas incluidas en `snapshot.nominas`. Continúan 54 tablas de negocio; no se modifican V000–V016.

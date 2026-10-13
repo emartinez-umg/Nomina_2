@@ -1,3 +1,4 @@
+import { fuenteUtilizada } from '../prestaciones/prestaciones.repository.js';
 import { createHash } from 'node:crypto';
 import { Decimal } from 'decimal.js';
 import type { Connection } from 'oracledb';
@@ -202,6 +203,11 @@ export function crearNominaService(db: BaseDatos) {
           }
           nuevo = 'CALCULADO';
         } else if (accion === 'reabrir') {
+          for (const n of await repo.resultados(c, p.id))
+            if (await fuenteUtilizada(c, n.id))
+              throw new ErrorConflicto(
+                'Este cierre sustenta prestaciones. Anula los cálculos pendientes; los aprobados o pagados conservan la historia.',
+              );
           await repo.revertir(c, p, a.idUsuario);
           nuevo = 'ABIERTO';
           hash = null;
