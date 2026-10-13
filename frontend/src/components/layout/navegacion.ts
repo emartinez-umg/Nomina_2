@@ -67,6 +67,7 @@ export const navegacion: Record<Rol, Acceso[]> = {
     ...compartidos,
     {
       titulo: 'Usuarios',
+      ruta: '/admin/usuarios',
       icono: 'seguridad',
       descripcion: 'Administra accesos y roles del sistema.',
     },
@@ -78,6 +79,7 @@ export const navegacion: Record<Rol, Acceso[]> = {
     },
     {
       titulo: 'Configuración',
+      ruta: '/catalogos/empresa',
       icono: 'configuracion',
       descripcion: 'Administra los parámetros del sistema.',
     },

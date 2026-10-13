@@ -264,3 +264,49 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
 - Calendario consulta el mes completo, separado del listado paginado; tope explícito de 2,000 eventos.
   Celebraciones/alertas: 50; resúmenes de comunicaciones: cinco y enlace al listado completo;
   sesiones/bitácora reciente: diez; exportaciones: 10,000. Sin datos falsos en pantallas.
+
+## FASE 12 — Cierre, aceptación y operación
+
+- Completar Usuarios y Datos de empresa conecta servicios/tablas ya existentes y permite preparar
+  una instalación vacía desde la interfaz. Solo ADMIN crea accesos administrativos; EMPLEADO se
+  genera desde el expediente. Alta, hash temporal y auditoría comparten transacción. Los secretos
+  aparecen una sola vez en memoria; listados/CSV no los contienen.
+- El recorrido conserva definiciones declarativas por módulo y agrega orientación de formato y
+  errores de los campos visibles. Los objetivos son elementos del contexto activo, nunca selectores
+  globales ambiguos. Se escapa HTML y se ofrece ayuda en todos los diálogos. La bienvenida ocupa
+  espacio en el contenido: una oferta flotante ocultaba acciones y Playwright detectó el problema.
+- Compose sirve HTTPS local con certificado generado y volumen privado; conserva cookies Secure.
+  Salud Oracle espera además la existencia del usuario de aplicación y sus grants, porque el
+  healthcheck oficial puede aprobar cuando XEPDB1 abre y APP_USER todavía no está creado. nginx
+  comprueba /api/salud para evitar seguir redirecciones hacia puertos externos al contenedor.
+- La aceptación limpia usa un proyecto Compose distinto, env temporal con permisos 0600, puertos
+  libres, Oracle y volúmenes nuevos. Comprueba primer login/cambio obligatorio y luego retira solo
+  sus recursos. Los verificadores de regresión y E2E usan esquemas desechables sin modificar usuarios
+  ni credenciales de aplicación. Las trazas/videos quedan apagados para evitar persistir secretos.
+- V020 es aditiva; índices de empresa y consulta de usuarios, sin cambiar las 54 tablas de negocio
+  ni checksums anteriores. SQL de usuarios usa predicados presentes y orden estático de lista blanca.
+  INSTR sigue siendo búsqueda parcial; B-tree no garantiza evitar recorridos de texto.
+- Los logs registran plantilla de ruta y un marcador para desconocidas, impidiendo que la URL
+  arbitraria filtre DPI/NIT. Continúan depuración de auditoría, ausencia de cuerpos/binds y mensajes
+  internos, RBAC global, comprobaciones de propiedad y CSRF de escrituras.
+
+- El build del frontend impone NODE_ENV=production aunque el .env compartido sea de desarrollo.
+  Evita incluir React de desarrollo en el artefacto y conserva carga diferida de módulos grandes.
+- Al terminar ayuda se restaura foco y posición originales. En móvil, Mis solicitudes elimina la
+  búsqueda de empleados y conserva filtros de gestiones propias, skeletons y vacío orientativo.
+
+### Pendientes operativos y mejoras futuras
+
+1. RH valida referencias legales, vigencias y documentos antes de nómina real; completar empresa,
+   organización e historia certificada. Preparar calendarios posteriores a 2026.
+2. Producción: certificado válido con renovación, backups Oracle verificados y restauración ensayada,
+   monitoreo, almacenamiento y acceso de red restringido. Configurar proxies confiables exclusivos.
+3. Para varias réplicas: compartir contador de login y clave CSRF previa; probar concurrencia de carga.
+4. Con datos reales: estadísticas/planes y presupuesto de latencia, Oracle Text o prefijos si crece
+   la búsqueda, paginación por cursor si se requiere. Ampliar compatibilidad automatizada a WebKit/Firefox.
+5. Fuera del alcance actual: firma electrónica, antimalware, mensajería externa y trámites SAT/IGSS;
+   ninguna pantalla anuncia estas integraciones como operativas.
+
+Se reserva `direccion` de query para el orden asc/desc; dirección postal usa `direccionTexto` en
+catálogos. La captura conserva su nombre de dominio `direccion`. La separación corrige listados
+vacíos al ordenar centros/empresa y evita ampliar la lista blanca del sentido de ordenamiento.

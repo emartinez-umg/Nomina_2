@@ -23,6 +23,7 @@ export function TextAreaField({
     <Field id={id} label={label} hint={hint} required={required} error={problema} ancho={ancho}>
       <textarea
         id={id}
+        aria-label={label}
         name={name}
         rows={4}
         value={value}

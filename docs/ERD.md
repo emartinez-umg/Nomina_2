@@ -921,3 +921,12 @@ erDiagram
 empleados activos/estado/ingreso/departamento, notificaciones por usuario/activo/lectura/fecha,
 bitácora por fecha/ID y sesiones por activo/revocación/expiración. Las agregaciones leen las mismas
 tablas con snapshot READ ONLY; no se almacenan contadores ni datos de dashboard duplicados.
+
+## Ajustes de cierre — V020
+
+V020 incorpora índices de DIRECCION, REPRESENTANTE, CORREO y TELEFONO en CONFIGURACION_EMPRESA,
+y `(ID_ROL, ACTIVO, CAMBIO_OBLIGATORIO, USUARIO)` en USUARIOS. NIT/usuario/correo conservan sus índices
+UNIQUE. No modifica tablas, relaciones ni migraciones anteriores. Los filtros habilitados figuran
+en `db/filtros.json`; `db:verify` comprueba sus índices y las 21 migraciones V000–V020.
+CONFIGURACION_EMPRESA se administra desde el catálogo Datos de empresa; mantiene una sola empresa
+activa. El formato IGSS existente y snapshots de documentos no se sobrescriben al editar sus datos.

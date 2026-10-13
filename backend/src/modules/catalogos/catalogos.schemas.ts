@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { nitValido } from '../empleados/empleados.schemas.js';
 import { Decimal } from 'decimal.js';
 import type { Catalogo, CampoCatalogo, DatosCatalogo } from './catalogos.definiciones.js';
 import { idSchema, paginacionSchema } from '../auditoria/auditoria.schemas.js';
@@ -65,6 +66,28 @@ export const diaSchema = z
 function schemaCampo(f: CampoCatalogo): z.ZodTypeAny {
   let s: z.ZodTypeAny;
   switch (f.tipo) {
+    case 'nit':
+      s = z
+        .string()
+        .trim()
+        .toUpperCase()
+        .max(20)
+        .refine(nitValido, 'El NIT no tiene un verificador válido. Revisa el RTU.');
+      break;
+    case 'correo':
+      s = z.string().trim().toLowerCase().email('Ingresa un correo válido.').max(254);
+      break;
+    case 'telefono':
+      s = z.string().regex(/^\d{8}$/, 'Ingresa ocho dígitos, sin código de país.');
+      break;
+    case 'nombre':
+      s = z
+        .string()
+        .trim()
+        .min(1)
+        .max(f.max ?? 200)
+        .regex(/^[\p{L}\p{M} '-]+$/u, 'Usa letras, espacios, apóstrofo o guion.');
+      break;
     case 'fecha':
       s = fechaSchema;
       break;
@@ -213,7 +236,7 @@ export function querySchema(cat: Catalogo) {
           f.tipo === 'fecha' ? fechaSchema : decimalSchema(f.decimales ?? 6)
         ).optional();
     } else
-      shape[f.nombre] = (
+      shape[f.nombre === 'direccion' ? 'direccionTexto' : f.nombre] = (
         f.tipo === 'referencia'
           ? idSchema
           : f.tipo === 'booleano'

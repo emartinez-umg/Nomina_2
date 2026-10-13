@@ -3,6 +3,47 @@ export const ayudaNomina: DefinicionAyuda = {
   id: 'nomina',
   pasos: [
     {
+      elemento: 'nomina-detalle',
+      titulo: 'Comprobar los conceptos de la boleta',
+      descripcion:
+        'Verifica empleado, intervalo, versión y estado. Compara ingresos, deducciones y neto; cada línea explica base, cantidad, tasa y banderas de IGSS/ISR. Descargar PDF conserva la versión actual cerrada; RH puede abrir una vista previa provisional. Si un importe no corresponde, resuelve la fuente y recalcula antes de aprobar.',
+    },
+    {
+      elemento: 'nomina-confirmar',
+      titulo: 'Confirmar el paso del periodo',
+      descripcion:
+        'Revisa qué cambia en esta operación. Calcular crea una versión, revisar acredita la revisión, aprobar habilita el cierre y cerrar aplica descuentos y publica boletas. Un cambio de fuentes invalida la revisión. ADMIN reabre con motivo y revierte cobros; no repitas el envío mientras se procesa.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
+      elemento: 'igss-patrono',
+      titulo: 'Identificación patronal',
+      descripcion:
+        'Captura número patronal, razón social, NIT, dirección y correo inscritos ante IGSS. Selecciona el destino de pruebas o producción según corresponda. Estos datos configuran el archivo mensual; para datos de constancias y representante utiliza Catálogos, Datos de empresa.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
+      elemento: 'igss-registros',
+      titulo: 'Centros, tipos y empleados',
+      descripcion:
+        'Elige una sección. Vincula cada centro interno con sus códigos oficiales; configura los tipos de planilla, jornada y cobertura IVS. Asigna empleados reales con sus nombres registrados sin dividir apellidos compuestos automáticamente. Agregar o actualizar incorpora el registro a la revisión, todavía sin guardar en Oracle.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
+      elemento: 'igss-tabla',
+      titulo: 'Revisar las asignaciones',
+      descripcion:
+        'Comprueba identificador y nombre de cada fila. Editar carga sus datos para corregirlos y Agregar o actualizar reemplaza ese identificador. Quitar del formato retira la asignación pendiente; no elimina el centro ni el expediente. Para exportar se exige el mes completo cerrado y todas las referencias vigentes.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
+      elemento: 'igss-guardar',
+      titulo: 'Guardar la configuración revisada',
+      descripcion:
+        'Explica el origen de los códigos con al menos diez caracteres. Revisa número patronal, destino y cantidades antes de confirmar. Cambiar un campo vuelve a exigir revisión. El servidor valida códigos, duplicados y referencias; corrige el error y revisa otra vez. Guardar no presenta una declaración externa.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
       elemento: 'nomina-periodos',
       titulo: 'Quincenas e historial',
       descripcion:

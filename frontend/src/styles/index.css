@@ -391,7 +391,7 @@
     @apply inline-flex items-center gap-2 text-sm underline;
   }
   .oferta-ayuda {
-    @apply fixed right-5 bottom-5 z-40 flex max-w-lg flex-col gap-3 rounded-tarjeta border border-borde bg-superficie p-5 shadow-tarjeta;
+    @apply relative mb-5 flex w-full flex-col gap-3 rounded-tarjeta border border-borde bg-superficie p-5 shadow-tarjeta;
   }
   .oferta-ayuda p {
     @apply mt-1 text-sm text-secundario;
@@ -486,9 +486,6 @@
   .usuario-boton {
     gap: 0.25rem;
   }
-  .usuario-boton > svg {
-    display: none;
-  }
   .avatar {
     width: 2rem;
     height: 2rem;
@@ -551,10 +548,6 @@
     right: 0.5rem;
   }
   .oferta-ayuda {
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
-    max-width: none;
     padding: 1rem;
   }
 }
@@ -854,4 +847,25 @@
 .agenda-grid .rdp-month_grid tbody tr,
 .calendario .rdp-month_grid tbody tr {
   background: transparent;
+}
+
+.saltar-contenido {
+  position: fixed;
+  left: 1rem;
+  top: -5rem;
+  z-index: 10002;
+  padding: 0.75rem 1rem;
+  background: white;
+  color: #1d395e;
+  border: 2px solid currentColor;
+}
+.saltar-contenido:focus {
+  top: 1rem;
+}
+.sidebar :focus-visible {
+  outline-color: white;
+}
+.modal {
+  max-height: 90dvh;
+  overflow-y: auto;
 }

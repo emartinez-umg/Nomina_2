@@ -25,8 +25,20 @@ export const cambiarRolSchema = z.object({ rol: rolSchema, motivo: motivoSchema 
 export const restablecerSchema = z.object({ motivo: motivoSchema }).strict();
 export const nuevoUsuarioInternoSchema = z
   .object({
-    nombre: z.string().trim().min(1).max(120),
-    apellido: z.string().trim().min(1).max(120),
+    nombre: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .regex(/^[\p{L}\p{M} '-]+$/u, 'Usa letras, espacios, apóstrofo o guion.')
+      .refine((v) => /\p{L}/u.test(v), 'Ingresa un nombre con letras.'),
+    apellido: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .regex(/^[\p{L}\p{M} '-]+$/u, 'Usa letras, espacios, apóstrofo o guion.')
+      .refine((v) => /\p{L}/u.test(v), 'Ingresa un apellido con letras.'),
     correo: z
       .string()
       .email()
@@ -36,3 +48,7 @@ export const nuevoUsuarioInternoSchema = z
   })
   .strict();
 export type UsuariosQuery = z.infer<typeof usuariosQuerySchema>;
+
+export const crearUsuarioSchema = nuevoUsuarioInternoSchema
+  .extend({ rol: z.enum(['ADMIN', 'RH']), motivo: motivoSchema, confirmado: z.literal(true) })
+  .strict();

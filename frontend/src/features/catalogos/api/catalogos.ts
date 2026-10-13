@@ -5,6 +5,10 @@ export const campoSchema = z.object({
   etiqueta: z.string(),
   tipo: z.enum([
     'texto',
+    'nit',
+    'correo',
+    'telefono',
+    'nombre',
     'codigo',
     'area',
     'dinero',

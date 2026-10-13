@@ -8,6 +8,7 @@ export function crearUsuariosRouter(service: ReturnType<typeof crearUsuariosServ
   const controller = crearUsuariosController(service);
   router.use(permitirRoles('ADMIN'));
   router.get('/', controller.listar);
+  router.post('/', controller.crear);
   router.patch('/:id/estado', controller.estado);
   router.patch('/:id/rol', controller.rol);
   router.post('/:id/restablecer-contrasena', controller.restablecer);

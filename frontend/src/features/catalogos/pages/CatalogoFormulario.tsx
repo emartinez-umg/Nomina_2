@@ -128,9 +128,16 @@ export function CatalogoFormulario({
                 className={
                   f.tipo === 'area'
                     ? 'col-span-12'
-                    : ['codigo', 'fecha', 'entero', 'dinero', 'decimal', 'booleano'].includes(
-                          f.tipo,
-                        )
+                    : [
+                          'codigo',
+                          'fecha',
+                          'entero',
+                          'dinero',
+                          'decimal',
+                          'booleano',
+                          'nit',
+                          'telefono',
+                        ].includes(f.tipo)
                       ? 'col-span-12 md:col-span-4'
                       : 'col-span-12 md:col-span-6'
                 }

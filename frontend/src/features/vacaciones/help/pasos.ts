@@ -3,6 +3,13 @@ export const ayudaVacaciones: DefinicionAyuda = {
   id: 'vacaciones',
   pasos: [
     {
+      elemento: 'vacaciones-resolver',
+      titulo: 'Resolver con el saldo actual',
+      descripcion:
+        'Comprueba empleado, rango y días laborales. Verde indica saldo suficiente; rojo explica el bloqueo y no permite aprobar. Confirmar aprobación vuelve a validar horario, feriados, saldo y traslapes y registra un único débito. Rechazar exige un motivo útil para el empleado y conserva el historial sin descontar. Una aprobación simultánea puede cambiar el saldo: actualiza antes de volver a intentar.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
       elemento: 'vacaciones-saldo',
       titulo: 'Saldo y kardex',
       descripcion:

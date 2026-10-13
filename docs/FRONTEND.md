@@ -117,3 +117,12 @@ un esquema N2UI aleatorio: tres roles, cambio obligatorio, rotación CSRF, recar
 expiración provocada en Oracle, logout, ayuda login/layout, notificaciones UI y móvil de 390 px.
 El esquema y procesos se eliminaron al terminar; no se cambiaron cuentas de aplicación.
 Las fixtures solo existen en pruebas, no en las pantallas de producto.
+
+## Cierre — ayuda y accesibilidad
+
+`pasosVisibles` complementa los pasos declarativos por módulo con orientación de todos los campos
+visibles (formato, selección/teclado, pegado, errores y corrección). Escapa texto antes de Driver y
+usa elementos DOM dentro del diálogo activo. Modal ofrece ayuda universal, incluso en confirmaciones.
+La bienvenida está integrada en el contenido para no cubrir botones. Se añadieron nombres accesibles
+estables, salto al contenido y foco blanco en el sidebar. Usuarios ADMIN y Datos de empresa usan
+los componentes y tokens existentes. Playwright/axe recorren páginas por rol y portal de 390 px.

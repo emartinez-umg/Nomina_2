@@ -5,6 +5,7 @@ import { sinDatos } from '../auth/auth.schemas.js';
 import { contextoDe } from '../auth/auth.controller.js';
 import {
   cambiarRolSchema,
+  crearUsuarioSchema,
   estadoSchema,
   restablecerSchema,
   usuarioIdSchema,
@@ -14,6 +15,13 @@ import type { crearUsuariosService } from './usuarios.service.js';
 
 export function crearUsuariosController(service: ReturnType<typeof crearUsuariosService>) {
   return {
+    async crear(req: Request, res: Response) {
+      sinDatos.parse(req.query);
+      const datos = crearUsuarioSchema.parse(req.body);
+      res
+        .status(201)
+        .json(respuestaOk(await service.crear(autenticacionDe(req), contextoDe(req).ip, datos)));
+    },
     async listar(req: Request, res: Response) {
       res.json(respuestaOk(await service.listar(usuariosQuerySchema.parse(req.query))));
     },

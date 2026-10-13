@@ -1,0 +1,13 @@
+{
+  "extends": "./backend/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "outDir": "./tmp/e2e-types"
+  },
+  "include": [
+    "e2e/**/*.ts",
+    "backend/e2e/**/*.ts",
+    "playwright.config.ts",
+    "backend/src/shared/types/**/*.d.ts"
+  ]
+}

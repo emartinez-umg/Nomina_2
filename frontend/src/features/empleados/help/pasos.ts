@@ -85,7 +85,7 @@ export function ayudaEmpleados(
         elemento: 'empleado-tabs',
         titulo: 'Auditoría de administración',
         descripcion:
-          'Como ADMIN puedes consultar además la bitácora global mediante su API. Esta pestaña se limita al expediente seleccionado y evita mostrar secretos o documentos bancarios.',
+          'Como ADMIN puedes consultar además la bitácora global desde Bitácora. Esta pestaña se limita al expediente seleccionado y evita mostrar secretos o documentos bancarios.',
         roles: ['ADMIN'] as 'ADMIN'[],
       },
     ],

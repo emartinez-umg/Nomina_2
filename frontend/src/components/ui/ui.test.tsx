@@ -100,6 +100,9 @@ describe('interacciones reutilizables', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
   it('ofrece la ayuda en primera visita y permite reiniciarla desde el botón global', async () => {
+    const rect = vi
+      .spyOn(Element.prototype, 'getClientRects')
+      .mockReturnValue([{ width: 100, height: 20 }] as unknown as DOMRectList);
     localStorage.clear();
     function Ejemplo() {
       usePageHelp(ayudaLogin);
@@ -122,5 +125,6 @@ describe('interacciones reutilizables', () => {
     expect(localStorage.getItem('nomina2:ayuda:login:publico')).toBe('vista');
     await userEvent.click(screen.getByRole('button', { name: 'Ayuda de esta página' }));
     expect(await screen.findByText('Bienvenido a Nómina')).toBeInTheDocument();
+    rect.mockRestore();
   });
 });

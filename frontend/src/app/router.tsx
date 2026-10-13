@@ -1,4 +1,7 @@
 import { lazy, Suspense } from 'react';
+const Usuarios = lazy(() =>
+  import('../features/usuarios/pages/UsuariosPage').then((m) => ({ default: m.UsuariosPage })),
+);
 const Solicitudes = lazy(() =>
   import('../features/solicitudes/pages/SolicitudesPage').then((m) => ({
     default: m.SolicitudesPage,
@@ -93,6 +96,14 @@ export const rutas = [
               },
               ...(rol === 'ADMIN'
                 ? [
+                    {
+                      path: '/admin/usuarios',
+                      element: (
+                        <Suspense fallback={<Skeleton />}>
+                          <Usuarios />
+                        </Suspense>
+                      ),
+                    },
                     {
                       path: '/admin/bitacora',
                       element: (

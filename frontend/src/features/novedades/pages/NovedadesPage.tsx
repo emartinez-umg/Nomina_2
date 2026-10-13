@@ -256,7 +256,7 @@ function Listado({ tipo }: { tipo: Tipo }) {
               Limpiar filtros
             </Button>
           </div>
-          <div className="my-3 flex flex-wrap gap-2" aria-label="Filtros activos">
+          <div role="group" className="my-3 flex flex-wrap gap-2" aria-label="Filtros activos">
             {Object.entries(q).map(([k, v]) => (
               <Button
                 key={k}

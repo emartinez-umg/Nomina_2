@@ -1,4 +1,8 @@
 export type TipoCampo =
+  | 'nit'
+  | 'correo'
+  | 'telefono'
+  | 'nombre'
   | 'texto'
   | 'codigo'
   | 'area'
@@ -104,6 +108,62 @@ const dinero = (nombre: string, columna: string, etiqueta: string, requerido = t
     { requerido, decimales: 2 },
   );
 export const catalogos: Catalogo[] = [
+  {
+    slug: 'empresa',
+    titulo: 'Datos de empresa',
+    tabla: 'CONFIGURACION_EMPRESA',
+    pk: 'ID_CONFIGURACION_EMPRESA',
+    campos: [
+      campo(
+        'nombre',
+        'RAZON_SOCIAL',
+        'Razón social',
+        'texto',
+        'Nombre legal de la empresa que aparecerá en boletas y constancias.',
+        { requerido: true, max: 200 },
+      ),
+      campo(
+        'nit',
+        'NIT',
+        'NIT de empresa',
+        'nit',
+        'NIT del RTU con verificador válido. Ejemplo: 1234567-9.',
+        { requerido: true, max: 20 },
+      ),
+      campo(
+        'direccion',
+        'DIRECCION',
+        'Dirección fiscal',
+        'area',
+        'Dirección completa de la empresa, hasta 500 caracteres.',
+        { requerido: true, max: 500 },
+      ),
+      campo(
+        'representante',
+        'REPRESENTANTE',
+        'Representante',
+        'nombre',
+        'Nombre completo de quien firma las constancias; no se agrega firma electrónica.',
+        { requerido: true, max: 200 },
+      ),
+      campo(
+        'correo',
+        'CORREO',
+        'Correo de empresa',
+        'correo',
+        'Correo de contacto institucional. Ejemplo: rh@empresa.com.',
+        { max: 254 },
+      ),
+      campo(
+        'telefono',
+        'TELEFONO',
+        'Teléfono de empresa',
+        'telefono',
+        'Ocho dígitos, sin código de país.',
+        { max: 8 },
+      ),
+    ],
+  },
   {
     slug: 'bancos',
     titulo: 'Bancos',

@@ -35,14 +35,14 @@ export function Field({
 }) {
   const Info = iconos.informacion;
   return (
-    <div className={`campo campo-${ancho}`}>
+    <div className={`campo campo-${ancho}`} data-campo={label}>
       <div className="campo-etiqueta">
         <label htmlFor={id}>
           {label}
-          {required && <span aria-label="obligatorio"> *</span>}
+          {required && <span aria-hidden="true"> *</span>}
         </label>
         <Tooltip texto={hint}>
-          <span tabIndex={0} aria-label={`Ayuda: ${label}`}>
+          <span role="img" tabIndex={0} aria-label={`Ayuda: ${label}`}>
             <Info size={16} aria-hidden="true" />
           </span>
         </Tooltip>
@@ -112,11 +112,12 @@ export function InputField({
           id={id}
           ref={inputRef}
           name={name}
+          aria-label={label}
           type={type}
           value={value}
           required={required}
           disabled={disabled}
-          placeholder={placeholder}
+          placeholder={placeholder ?? hint}
           maxLength={maxLength}
           inputMode={inputMode}
           pattern={pattern}

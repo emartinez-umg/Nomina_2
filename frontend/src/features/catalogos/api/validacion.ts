@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import Decimal from 'decimal.js';
-import { fechaValida } from '../../../lib/validadores';
+import { fechaValida, nitSchema, correoSchema, telefonoSchema } from '../../../lib/validadores';
 import type { Catalogo, Dia, Fila } from './catalogos';
 export const diasIniciales: Dia[] = Array.from({ length: 7 }, (_, i) => ({
   diaSemana: i + 1,
@@ -42,7 +42,13 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
         if (f.requerido) error(f.nombre, 'Este campo es obligatorio. Ingresa el dato solicitado.');
         continue;
       }
-      if (f.max && v.length > f.max) error(f.nombre, `Usa hasta ${f.max} caracteres.`);
+      const formato = { nit: nitSchema, correo: correoSchema, telefono: telefonoSchema }[
+        f.tipo as 'nit' | 'correo' | 'telefono'
+      ];
+      if (formato && !formato.safeParse(v).success)
+        error(f.nombre, 'Revisa el formato indicado en la ayuda del campo.');
+      if (f.max && (f.tipo === 'telefono' ? v.replace(/\s/g, '').length : v.length) > f.max)
+        error(f.nombre, `Usa hasta ${f.max} caracteres.`);
       if (f.tipo === 'codigo' && !/^[A-Z][A-Z0-9_]*$/.test(v))
         error(f.nombre, 'Usa mayúsculas, números y guion bajo; empieza con una letra.');
       if (f.tipo === 'fecha' && (!fechaValida(v) || v < '1900-01-01'))
@@ -136,7 +142,13 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
 export function cuerpo(cat: Catalogo, d: Record<string, string>) {
   const body: Record<string, unknown> = {};
   for (const f of cat.campos) {
-    const v = d[f.nombre]?.trim() ?? '';
+    const original = d[f.nombre]?.trim() ?? '';
+    const v =
+      f.tipo === 'telefono'
+        ? original.replace(/\s/g, '')
+        : f.tipo === 'correo'
+          ? original.toLowerCase()
+          : original;
     body[f.nombre] = !v
       ? null
       : f.tipo === 'booleano'

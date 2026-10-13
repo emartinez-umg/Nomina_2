@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,12 +16,12 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { mapearErrores } from '../../../lib/http';
-import { hoyGuatemala, fechaVisible } from '../../../lib/validadores';
+import { hoyGuatemala, fechaVisible, fechaSchema } from '../../../lib/validadores';
 import { useToast } from '../../../components/ui/Toast';
 const schema = z.object({
   idEmpleado: z.string().min(1, 'Selecciona un empleado.'),
   anio: z.string().regex(/^\d{4}$/, 'Ingresa un año de cuatro dígitos.'),
-  fecha: z.string().min(10, 'Selecciona una fecha.'),
+  fecha: fechaSchema,
   monto: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Ingresa el monto con dos decimales.'),
   igss: z.string(),
   isr: z.string(),
@@ -53,6 +53,10 @@ export function Fiscal() {
     }),
     id = form.watch('idEmpleado'),
     anio = form.watch('anio');
+  useEffect(() => {
+    const subscription = form.watch(() => setConfirmar(false));
+    return () => subscription.unsubscribe();
+  }, [form]);
   const tipos = useQuery({ queryKey: ['nomina', 'tipos-isr'], queryFn: api.tipos });
   const datos = useQuery({
     queryKey: ['nomina', 'fiscal', id, anio],

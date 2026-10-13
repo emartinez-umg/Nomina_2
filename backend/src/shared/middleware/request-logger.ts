@@ -6,7 +6,6 @@ export function registrarPeticiones(logger: Logger): RequestHandler {
   return (req, res, next) => {
     const requestId = randomUUID();
     const inicio = performance.now();
-    const ruta = req.path;
     res.locals.requestId = requestId;
     res.setHeader('X-Request-Id', requestId);
     res.on('finish', () => {
@@ -14,7 +13,8 @@ export function registrarPeticiones(logger: Logger): RequestHandler {
         {
           requestId,
           metodo: req.method,
-          ruta,
+          // La URL puede contener datos personales incluso en una ruta inexistente.
+          ruta: typeof req.route?.path === 'string' ? req.route.path : '(sin coincidencia)',
           estado: res.statusCode,
           duracionMs: Math.round(performance.now() - inicio),
         },

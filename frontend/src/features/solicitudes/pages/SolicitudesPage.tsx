@@ -12,6 +12,8 @@ import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { Table } from '../../../components/ui/Table';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { Skeleton } from '../../../components/ui/Skeleton';
 import { Modal, ConfirmModal } from '../../../components/ui/Modal';
 import {
   SelectField,
@@ -161,17 +163,19 @@ export function SolicitudesPage() {
             Exportar CSV
           </Button>
         </div>
-        <div className="form-grid">
-          <TextField
-            name="buscar"
-            label="Buscar empleado"
-            hint="Nombre, apellido o código del empleado."
-            placeholder="Nombre o código…"
-            value={q.buscar!}
-            onValueChange={(v) => cambiar('buscar', v)}
-            maxLength={200}
-          />
-        </div>
+        {!empleado && (
+          <div className="form-grid">
+            <TextField
+              name="buscar"
+              label="Buscar empleado"
+              hint="Nombre, apellido o código del empleado."
+              placeholder="Nombre o código…"
+              value={q.buscar!}
+              onValueChange={(v) => cambiar('buscar', v)}
+              maxLength={200}
+            />
+          </div>
+        )}
         {filtros && (
           <div className="form-grid mt-4">
             <SelectField
@@ -289,7 +293,7 @@ export function SolicitudesPage() {
         {empleado && (
           <div className="md:hidden" aria-busy={consulta.isPending}>
             {consulta.isPending ? (
-              <p role="status">Cargando solicitudes…</p>
+              <Skeleton lineas={5} />
             ) : consulta.error ? (
               <>
                 <p role="alert">{consulta.error.message}</p>
@@ -300,7 +304,10 @@ export function SolicitudesPage() {
             ) : (
               <>
                 {!consulta.data?.registros.length && (
-                  <p>Sin solicitudes. Elige una gestión para empezar.</p>
+                  <EmptyState
+                    titulo="Sin solicitudes"
+                    descripcion="Elige una gestión en las tarjetas superiores para empezar."
+                  />
                 )}
                 {consulta.data?.registros.map((s) => (
                   <article key={s.id} className="border-b border-borde py-4">

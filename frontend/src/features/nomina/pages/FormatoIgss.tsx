@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/nomina';
 import { Card } from '../../../components/ui/Card';
@@ -9,6 +9,8 @@ import {
   NumberField,
   SelectField,
   EmailField,
+  NitField,
+  PhoneField,
   TextAreaField,
   FormErrorSummary,
 } from '../../../components/forms';
@@ -63,6 +65,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
     [motivo, setMotivo] = useState(''),
     [confirmar, setConfirmar] = useState(false),
     [error, setError] = useState('');
+  useEffect(() => setConfirmar(false), [f, motivo]);
   const guardar = useMutation({
     mutationFn: () =>
       api.guardarFormato({
@@ -105,6 +108,15 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
             setF((p) => ({ ...p, [key]: v }));
             setConfirmar(false);
           }}
+          required
+        />
+      ) : key === 'nit' ? (
+        <NitField
+          name={key}
+          label={label}
+          hint={hint}
+          value={f[key]}
+          onValueChange={(v) => setF((p) => ({ ...p, [key]: v }))}
           required
         />
       ) : key === 'correo' ? (
@@ -226,7 +238,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
         Usa los códigos y nombres inscritos ante IGSS. El archivo mensual consolida las dos
         quincenas cerradas. Guarda los centros, tipos y asignaciones reales antes de exportar.
       </p>
-      <Card>
+      <Card data-tour="igss-patrono">
         <h3>Datos patronales</h3>
         <div className="form-grid my-4">
           {root(
@@ -274,7 +286,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
           </Button>
         ))}
       </div>
-      <div className="form-grid">
+      <div className="form-grid" data-tour="igss-registros">
         {seccion === 'centros' && (
           <SelectField
             name="idCentro"
@@ -314,6 +326,24 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
               value={r[k] ?? ''}
               onValueChange={(v) => setR((p) => ({ ...p, [k]: v }))}
             />
+          ) : k === 'correo' ? (
+            <EmailField
+              key={k}
+              name={k}
+              label={label}
+              hint="Correo del centro registrado ante IGSS."
+              value={r[k] ?? ''}
+              onValueChange={(v) => setR((p) => ({ ...p, [k]: v }))}
+            />
+          ) : ['telefono', 'fax'].includes(k) ? (
+            <PhoneField
+              key={k}
+              name={k}
+              label={label}
+              hint="Ocho dígitos sin código de país; vacío si no corresponde."
+              value={r[k] ?? ''}
+              onValueChange={(v) => setR((p) => ({ ...p, [k]: v.replace(/\s/g, '') }))}
+            />
           ) : (
             <TextField
               key={k}
@@ -321,6 +351,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
               label={label}
               hint="Dato registrado; deja vacío solo si no corresponde."
               maxLength={200}
+              tipo={/Nombre|Apellido|nombre|apellido|contacto/.test(k) ? 'nombre' : 'texto'}
               value={r[k] ?? ''}
               onValueChange={(v) => setR((p) => ({ ...p, [k]: v.replace(/[|]/g, '') }))}
             />
@@ -341,7 +372,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
       <Button icono="guardar" variante="secundario" onClick={agregar}>
         Agregar o actualizar registro
       </Button>
-      <div className="table-scroll my-4">
+      <div className="table-scroll my-4" data-tour="igss-tabla">
         <table>
           <caption>Registros del formato: {seccion}</caption>
           <thead>
@@ -401,6 +432,8 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
         icono="guardar"
         cargando={guardar.isPending}
         disabled={motivo.trim().length < 10}
+        motivoDeshabilitado="Escribe un motivo de al menos diez caracteres para revisar la configuración."
+        data-tour="igss-guardar"
         onClick={() => (confirmar ? guardar.mutate() : setConfirmar(true))}
       >
         {confirmar ? 'Confirmar configuración' : 'Revisar configuración'}

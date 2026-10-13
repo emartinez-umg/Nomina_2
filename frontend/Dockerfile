@@ -8,6 +8,8 @@ COPY frontend frontend
 RUN npm run build --workspace frontend
 
 FROM nginx:stable-alpine AS runtime
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+RUN apk add --no-cache openssl
+COPY frontend/nginx.conf /etc/nginx/templates/default.conf.template
+COPY --chmod=755 frontend/40-tls.sh /docker-entrypoint.d/40-tls.sh
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 80 443

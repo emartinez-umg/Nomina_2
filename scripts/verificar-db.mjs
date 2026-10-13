@@ -75,7 +75,7 @@ try {
       DB_POOL_MAX: '1',
     }),
   );
-  assert.equal(await ejecutarMigraciones(db, logger), 20, 'Deben aplicar V000–V019 desde cero.');
+  assert.equal(await ejecutarMigraciones(db, logger), 21, 'Deben aplicar V000–V020 desde cero.');
   assert.equal(
     await ejecutarMigraciones(db, logger),
     0,
@@ -93,7 +93,7 @@ try {
     );
     assert.equal(
       await escalar("SELECT COUNT(*) FROM VERSION_ESQUEMA WHERE ESTADO = 'APLICADA'"),
-      20,
+      21,
     );
     assert.equal(
       await escalar(`SELECT COUNT(*) FROM USER_CONSTRAINTS
@@ -222,7 +222,7 @@ try {
     antes === (await snapshot()),
     'Seeds idempotentes: conservar filas, valores, hash y fechas.',
   );
-  console.log('✓ V000–V019 desde cero; 54 tablas, identities, auditoría, CHECK y FKs indexadas.');
+  console.log('✓ V000–V020 desde cero; 54 tablas, identities, auditoría, CHECK y FKs indexadas.');
   console.log('✓ Seeds repetibles; parámetros, feriados, plantillas y ADMIN argon2id verificados.');
 
   await db.conConexion(async (conexion) => {

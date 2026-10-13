@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from './Button';
+import { DialogHelpButton } from '../help/HelpProvider';
 export function Modal({
   abierto,
   titulo,
@@ -29,6 +30,7 @@ export function Modal({
       ref={ref}
       className="modal"
       aria-labelledby={id}
+      data-tour="dialogo"
       onCancel={(e) => {
         e.preventDefault();
         onCerrar();
@@ -36,6 +38,7 @@ export function Modal({
     >
       <div className="flex items-center justify-between gap-4">
         <h2 id={id}>{titulo}</h2>
+        <DialogHelpButton />
         <Button
           icono="cancelar"
           soloIcono

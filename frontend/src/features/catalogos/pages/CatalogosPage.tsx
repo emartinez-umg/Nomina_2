@@ -102,7 +102,13 @@ function filtrosCampos(cat: Catalogo): Campo[] {
           etiqueta: `${f.etiqueta} ${sufijo === 'Min' ? 'desde' : 'hasta'}`,
           requerido: false,
         }))
-      : [{ ...f, requerido: false }],
+      : [
+          {
+            ...f,
+            nombre: f.nombre === 'direccion' ? 'direccionTexto' : f.nombre,
+            requerido: false,
+          },
+        ],
   );
 }
 function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[] }) {
@@ -405,7 +411,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
             </div>
           )}
         </form>
-        <div className="my-4 flex flex-wrap gap-2" aria-label="Filtros activos">
+        <div role="group" className="my-4 flex flex-wrap gap-2" aria-label="Filtros activos">
           {Object.entries(filtros).map(([key, v]) => (
             <Button
               key={key}

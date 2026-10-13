@@ -578,7 +578,7 @@ function Resolver({
         if (!m.isPending) cerrar();
       }}
     >
-      <p className="my-4">
+      <p className="my-4" data-tour="vacaciones-resolver">
         {fila.empleado} · {fechaVisible(fila.inicio)} al {fechaVisible(fila.fin)}
       </p>
       <Semaforo f={fila} />

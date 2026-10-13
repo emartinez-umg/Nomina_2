@@ -9,7 +9,7 @@ const explicaciones: Record<Tipo, string> = {
   comisiones:
     'Selecciona un día dentro de la quincena correspondiente y escribe el monto manual. El sistema identifica del 1 al 15 o del 16 al último día del mes, creando el periodo abierto cuando todavía no existe. La referencia evita registrar el mismo origen dos veces.',
   'horas-extra':
-    'Registra un único total de horas por empleado y día. Selecciona la jornada real; el valor usa salario vigente en esa fecha, divisor mensual, horas de jornada y recargo parametrizados. La vista previa es estimada; Fase 8 congelará los valores del cálculo.',
+    'Registra un único total de horas por empleado y día. Selecciona la jornada real; el valor usa salario vigente en esa fecha, divisor mensual, horas de jornada y recargo parametrizados. La vista previa es estimada; la planilla conserva los valores al calcular.',
   ausencias:
     'Selecciona permiso, ausencia o incapacidad y revisa el efecto indicado por el catálogo: con goce, sin goce o subsidio IGSS. Las fechas son inclusivas; no se aceptan traslapes con ausencias ni vacaciones en proceso, aprobadas o tomadas. Puedes adjuntar PDF, PNG o JPEG de hasta 1 MB.',
 };
@@ -61,7 +61,7 @@ export function ayudaNovedades(
         elemento: 'novedad-detalle',
         titulo: 'Control administrativo',
         descripcion:
-          'Como ADMIN puedes consultar los cambios en la API de bitácora por entidad e ID. El cierre protege novedades de todos los roles; la reapertura del periodo se realizará en el módulo de planilla.',
+          'Como ADMIN puedes consultar los cambios en Bitácora por entidad e ID. El cierre protege novedades de todos los roles; la reapertura del periodo se realiza en Planilla con motivo y confirmación.',
         roles: ['ADMIN'],
       },
       {

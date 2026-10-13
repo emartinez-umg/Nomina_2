@@ -21,6 +21,14 @@ export const ayudaSolicitudes: DefinicionAyuda = {
       titulo: 'Busca y combina filtros',
       descripcion:
         'Filtra por tipo, estado, empleado y fecha de creación. Desde y Hasta incluyen ambos días. Los chips quitan un filtro y Limpiar restablece la consulta. Puedes ordenar columnas, avanzar de página y exportar toda la consulta a CSV.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
+      elemento: 'solicitudes-filtros',
+      titulo: 'Consulta tus solicitudes',
+      descripcion:
+        'Abre Filtros para combinar tipo, estado y fechas de creación, ambos extremos incluidos. Los chips quitan un filtro y Limpiar vuelve a mostrar todas tus gestiones. Exportar CSV descarga tu consulta. Anterior y Siguiente recorren tus resultados; solo puedes consultar solicitudes de tu expediente.',
+      roles: ['EMPLEADO'],
     },
     {
       elemento: 'solicitudes-listado',

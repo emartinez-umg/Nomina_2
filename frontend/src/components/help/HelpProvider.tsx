@@ -5,6 +5,7 @@ import type { Driver } from 'driver.js';
 import type { Rol } from '../../features/auth/api/auth';
 import { Button } from '../ui/Button';
 import { iconos } from '../ui/icons';
+import { pasosVisibles } from './pasosVisibles';
 export interface PasoAyuda {
   elemento: string;
   titulo: string;
@@ -62,7 +63,18 @@ export function HelpProvider({ children }: PropsWithChildren) {
     activo.current?.destroy();
     const abiertos = document.querySelectorAll('dialog[open]');
     const alcance = abiertos.item(abiertos.length - 1) ?? document;
+    const activador = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const origen = { left: window.scrollX, top: window.scrollY };
     activo.current = driver({
+      onDestroyed: () => {
+        // Driver puede enfocar otro control al cerrar; devolvemos foco y posición al origen.
+        queueMicrotask(() => {
+          if (activador?.isConnected) {
+            activador.focus({ preventScroll: true });
+            window.scrollTo(origen);
+          }
+        });
+      },
       showProgress: true,
       progressText: 'Paso {{current}} de {{total}}',
       nextBtnText: 'Siguiente',
@@ -90,16 +102,7 @@ export function HelpProvider({ children }: PropsWithChildren) {
         popover.closeButton.setAttribute('title', 'Cerrar recorrido');
         agregar(popover.closeButton, 'cancelar');
       },
-      steps: definicion.ayuda.pasos
-        .filter(
-          (p) =>
-            (!p.roles || (definicion.rol && p.roles.includes(definicion.rol))) &&
-            alcance.querySelector(`[data-tour="${p.elemento}"]`),
-        )
-        .map((p) => ({
-          element: `[data-tour="${p.elemento}"]`,
-          popover: { title: p.titulo, description: p.descripcion },
-        })),
+      steps: pasosVisibles(definicion.ayuda, definicion.rol, alcance),
     });
     activo.current.drive();
   }, [definicion, descartar]);
@@ -157,5 +160,18 @@ export function HelpOffer() {
         </Button>
       </div>
     </aside>
+  ) : null;
+}
+
+export function DialogHelpButton() {
+  const contexto = useContext(Contexto);
+  return contexto ? (
+    <Button
+      icono="ayuda"
+      soloIcono
+      variante="texto"
+      aria-label="Ayuda de esta ventana"
+      onClick={contexto.iniciar}
+    />
   ) : null;
 }

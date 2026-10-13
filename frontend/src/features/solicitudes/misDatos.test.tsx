@@ -58,7 +58,7 @@ beforeEach(() => {
 describe('Mis datos: máscaras y separación de contacto e identidad', () => {
   it('normaliza teléfonos enmascarados antes de guardar solo contacto', async () => {
     abrir();
-    const campo = await screen.findByRole('textbox', { name: /^Teléfono obligatorio$/ });
+    const campo = await screen.findByRole('textbox', { name: /^Teléfono$/ });
     expect(campo).toHaveValue('5555 1234');
     fireEvent.change(campo, { target: { value: '5555 9999abc' } });
     fireEvent.blur(campo);
@@ -71,7 +71,7 @@ describe('Mis datos: máscaras y separación de contacto e identidad', () => {
   });
   it('normaliza DPI con espacios y envía propuesta sin editar el expediente', async () => {
     abrir();
-    const campo = await screen.findByRole('textbox', { name: /^DPI obligatorio$/ });
+    const campo = await screen.findByRole('textbox', { name: /^DPI$/ });
     expect(campo).toHaveValue('1234 56789 0123');
     fireEvent.change(campo, { target: { value: '9876 54321 0123xyz' } });
     fireEvent.blur(campo);

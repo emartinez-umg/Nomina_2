@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DayPicker } from 'react-day-picker';
@@ -28,7 +28,8 @@ export function ComunicacionPage() {
   const tipo: api.Tipo =
       tipoParam === 'eventos' || location.pathname.endsWith('/eventos') ? 'eventos' : 'anuncios',
     empleado = usuario?.rol === 'EMPLEADO';
-  usePageHelp(ayudaComunicacion, usuario?.rol);
+  const ayuda = useMemo(() => ({ ...ayudaComunicacion, id: `comunicacion-${tipo}` }), [tipo]);
+  usePageHelp(ayuda, usuario?.rol);
   const [params, setParams] = useSearchParams(),
     [form, setForm] = useState<{ id?: number; dia?: string }>(),
     [borrar, setBorrar] = useState<api.Fila>(),

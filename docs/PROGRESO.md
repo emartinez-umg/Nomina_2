@@ -1,7 +1,7 @@
 # Progreso de nomina2
 
-Estado actual: FASE 11 completada. Los registros de FASES 0–10 se conservan como historial; consultar
-la sección FASE 11 al final para el estado y las instrucciones de continuación.
+Estado actual: FASE 12 completada. Proyecto cerrado el 13/10/2026; los registros de FASES 0–11
+se conservan como historial. Ver FASE 12 y docs/CIERRE.md para aceptación y mejoras futuras.
 
 ## FASE 0 — Infraestructura y esqueleto
 
@@ -1254,3 +1254,93 @@ Estado: completada el 13/10/2026. Siguiente trabajo: esperar instrucciones para 
    `npm run db:verify`; `npm run verify:security`; `npm run verify:prestaciones`;
    `npm run verify:solicitudes`; `npm run verify:comunicacion`; `npm run verify:infra`.
    Integración Node 20: actualizar `nomina2-security-tests` y agregar `-- --docker`.
+
+## FASE 12 — Cierre del proyecto
+
+Estado: completada el 13/10/2026. Sin pendientes técnicos del criterio de aceptación.
+
+### Hecho
+
+- Releídos AGENTS.md y PROGRESO. Auditoría visual contra páginas 6/29 del mockup y tokens existentes;
+  matriz por página/rol, seguridad, fechas y rendimiento documentada en docs/CIERRE.md.
+- Revisadas las páginas públicas y autenticadas de ADMIN/RH/EMPLEADO, variantes de cinco novedades,
+  13 catálogos, fichas/edición/importación y portal móvil. Ayuda declarativa con rol, secciones,
+  filtros, acciones, formatos y errores; incorpora todos los campos visibles, reinicio y diálogos.
+  Objetivos DOM acotados al diálogo superior, texto escapado y foco/posición restituidos al salir.
+- Corregidos hints/etiquetas, asterisco accesible, roles ARIA, foco blanco en sidebar, salto al
+  contenido, cuenta móvil y alturas de ventanas. Bienvenida integrada para no tapar acciones.
+  Mis solicitudes muestra filtros propios y estados skeleton/vacío con icono en móvil.
+- Usuarios y roles ADMIN conectados a servicios existentes; alta administrativa transaccional,
+  confirmación/motivo, último ADMIN protegido y contraseña temporal de una entrega sin Query cache.
+  Datos de empresa habilitados como catálogo real para preparar constancias desde la interfaz.
+- Validación duplicada de contactos/NIT/formato IGSS; teléfono normalizado, fecha fiscal real,
+  pegado de fechas saneado antes de truncar y confirmaciones invalidadas al cambiar datos.
+  Corregida colisión de filtro postal/ordenamiento usando direccionTexto en query de catálogos.
+- Revisados guards globales/endpoints y propiedad; logs solo conservan plantillas de rutas,
+  sin cuerpo, query, cookies, binds ni secretos. Prueba con datos sensibles en URLs/header/cuerpo.
+  Verificador de .env privado/historial y firmas de claves/tokens en archivos versionados.
+- V020 aditiva: índices de empresa y usuarios. Consulta de usuarios usa predicados presentes y
+  orden de lista blanca. Sin cambiar migraciones previas, las 54 tablas de negocio ni snapshots.
+- HTTPS local automático con clave en volumen privado, cookies Secure conservadas. Salud Oracle
+  espera APP_USER y grants completos; nginx comprueba /api/salud. Build fuerza React de producción
+  aunque el .env compartido sea development; bundle principal 396.58 kB, sin elevar límites.
+- README final: instalación, variables, usuarios, bootstrap por UI, comandos, pruebas y operación.
+  DECISIONES/ERD/FRONTEND/CATALOGOS/SEGURIDAD actualizados y mejoras futuras registradas.
+
+### Validación realizada
+
+- Lint, TypeScript strict (incluido arnés E2E), Prettier, build backend/frontend y revisión de
+  diff sin errores; npm audit reporta cero vulnerabilidades. 324 unitarias aprobadas: 206 backend + 118 frontend, también con Node 20 Docker.
+- 114 pruebas Oracle thin/Supertest: seguridad 72, prestaciones 10, solicitudes 16 y comunicación 16.
+  Cubren RBAC, propiedad, CSRF, fechas, cálculos, concurrencia y rollback de auditoría.
+- Playwright: 10 casos aprobados con API/Oracle reales. Login de los tres roles; alta de empleado;
+  vacaciones con aprobación/débito; calcular/revisar/aprobar/cerrar quincena; constancia con PDF,
+  entrega/descarga; Usuarios/empresa y pruebas de recursos ajenos/roles.
+- Matriz E2E: 111 visitas por rol/viewport y 26 formularios de catálogo; hints, ayuda reiniciable,
+  foco al cerrar, axe WCAG A/AA, teclado y ausencia de desbordamiento/errores JS. Portal 390 × 844
+  revisado en capturas de boletas, solicitudes, datos, vacaciones, anuncios, eventos e inicio.
+- db:verify desde esquema vacío: V000–V020, idempotencia, seeds, identities, constraints, objetos
+  válidos e índices de FK/filtros. Seis endpoints medidos tres veces: 4–45 ms en fixtures locales.
+- verify:clean: docker compose up --build con otro proyecto, claves aleatorias y volúmenes vacíos;
+  tres servicios saludables, migraciones/seeds, HTTPS, login inicial, cambio obligatorio y recarga
+  con sesión Secure. Se retiraron exclusivamente recursos/esquemas de aceptación.
+- Composición habitual reconstruida y verify:infra aprobado: Oracle thin/API/nginx, SPA, assets y
+  worker PDF con MIME correcto. Se conservaron volumen y credenciales existentes.
+
+### Decisiones
+
+- Usuarios y empresa completan caminos ya previstos, necesarios para operar una instalación vacía
+  sin SQL manual. Solo ADMIN crea accesos administrativos; los empleados se generan desde expediente.
+- El certificado autofirmado local permite reproducir sesiones Secure. Dominio/certificado público
+  se configura al desplegar. El verificador admite certificado local únicamente en loopback.
+- Esquemas N2E2E/N2SEC/N2TEST y proyecto Compose de aceptación son desechables. No se graban trazas
+  ni videos con credenciales. No hay respuestas simuladas en E2E ni datos ficticios en la aplicación.
+- La aceptación encontró carrera de healthcheck Oracle/APP_USER y agotamiento del disco Docker.
+  Se corrigió la espera y se retiraron únicamente imágenes nomina2 sin uso y caché reconstruible;
+  no se borraron volúmenes de trabajo ni recursos de otros proyectos.
+
+### Supuestos
+
+- Chromium es el navegador automatizado; axe complementa la revisión de teclado/visual.
+- Latencias con pocos fixtures comprueban regresiones locales; no constituyen una prueba de carga.
+  B-tree no evita necesariamente recorridos de búsquedas INSTR; evaluar planes con volumen real.
+- Referencias legales y feriados de 2026 requieren validación operativa por RH antes de uso real.
+
+### Pendientes y mejoras futuras
+
+- Ningún pendiente técnico del cierre. RH valida parámetros/documentos y completa datos reales.
+- Para operación: certificado público/renovación, respaldo/restauración Oracle probado, monitoreo,
+  calendarios futuros y capacidad de almacenamiento. Ver lista detallada en DECISIONES.md.
+- Según crecimiento: rate limit/CSRF previo compartidos entre réplicas, pruebas de carga/planes,
+  Oracle Text y cobertura Firefox/WebKit. Integraciones externas únicamente si se solicitan.
+
+### Cómo probar
+
+1. Copiar .env.example a .env y configurar claves propias. docker compose up --build; abrir
+   https://localhost:8443/login, aceptar/confiar el certificado local y cambiar la clave inicial.
+2. Crear RH desde Usuarios; completar Datos de empresa/organización/horarios y crear empleados.
+   Probar flujos de vacaciones, planilla y documentos con las cuentas reales de cada rol.
+3. Node 20.19+ y npm ci; npx playwright install chromium. npm run verify:all ejecuta calidad,
+   migraciones, cuatro suites Oracle, E2E, infraestructura y aceptación limpia en secuencia.
+4. Comandos individuales y requisitos de espacio/RAM en README. Suites Oracle también admiten
+   -- --docker con imagen nomina2-security-tests. Reportes/capturas locales quedan ignorados.

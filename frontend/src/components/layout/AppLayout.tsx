@@ -47,11 +47,15 @@ export function AppLayout() {
   const Buscar = iconos.buscar;
   return (
     <div className="app-shell">
+      <a className="saltar-contenido" href="#contenido-principal">
+        Saltar al contenido principal
+      </a>
       {menu && (
         <button
           type="button"
           className="sidebar-fondo"
           aria-label="Cerrar menú de navegación"
+          title="Cerrar menú de navegación"
           onClick={() => setMenu(false)}
         >
           <iconos.cancelar aria-hidden="true" />
@@ -123,10 +127,12 @@ export function AppLayout() {
               value={buscar}
               maxLength={80}
               placeholder="Buscar sección…"
+              inputMode="search"
+              title="Busca el nombre de una sección; no busca datos personales."
               onChange={(e) => setBuscar(limpiarTexto(e.target.value))}
             />
             {buscar && (
-              <div className="buscador-resultados" aria-label="Resultados de búsqueda">
+              <div role="group" className="buscador-resultados" aria-label="Resultados de búsqueda">
                 {resultados.length ? (
                   resultados.map((a) => (
                     <Button
@@ -166,6 +172,7 @@ export function AppLayout() {
               <button
                 type="button"
                 className="usuario-boton"
+                aria-label={`Mi cuenta: ${usuario.usuario} · ${nombreRol[usuario.rol]}`}
                 aria-expanded={panel === 'usuario'}
                 aria-controls="panel-usuario"
                 onClick={() => setPanel((v) => (v === 'usuario' ? null : 'usuario'))}
@@ -197,10 +204,10 @@ export function AppLayout() {
             </div>
           </div>
         </header>
-        <main id="contenido-principal" className="app-contenido">
+        <main id="contenido-principal" tabIndex={-1} className="app-contenido">
+          <HelpOffer />
           <Outlet />
         </main>
-        <HelpOffer />
       </div>
     </div>
   );

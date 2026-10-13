@@ -56,7 +56,7 @@ export function PdfView({ documento, onListo }: { documento: Documento; onListo:
     };
   }, [documento, pagina, onListo]);
   return (
-    <div className="my-4" aria-label="Vista previa del documento" aria-busy={cargando}>
+    <div role="group" className="my-4" aria-label="Vista previa del documento" aria-busy={cargando}>
       {cargando && <Skeleton lineas={4} />}
       {error && <p role="alert">{error}</p>}
       <div className="overflow-auto max-h-[70vh]">

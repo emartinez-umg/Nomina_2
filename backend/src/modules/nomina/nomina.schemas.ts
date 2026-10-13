@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { nitValido } from '../empleados/empleados.schemas.js';
 import { fechaSchema } from '../vacaciones/vacaciones.schemas.js';
 import { idSchema } from '../auditoria/auditoria.schemas.js';
 const entero = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
@@ -77,7 +78,10 @@ export const formatoSchema = z
     patrono: z.string().regex(/^\d{1,10}$/),
     pruebas: z.enum(['0', '1']),
     nombre: texto.min(1),
-    nit: texto.min(1).max(20, 'El NIT patronal admite hasta 20 caracteres.'),
+    nit: texto
+      .min(1)
+      .max(20, 'El NIT patronal admite hasta 20 caracteres.')
+      .refine(nitValido, 'Revisa el verificador del NIT patronal.'),
     direccion: texto.min(1),
     correo: z.string().email().max(100),
     centros: z
@@ -89,10 +93,13 @@ export const formatoSchema = z
             nombre: texto.min(1),
             direccion: texto.min(1),
             zona: z.string().regex(/^\d{0,2}$/),
-            telefono: texto,
-            fax: texto,
+            telefono: z.string().regex(/^(?:\d{8})?$/, 'Ingresa ocho dígitos o deja vacío.'),
+            fax: z.string().regex(/^(?:\d{8})?$/, 'Ingresa ocho dígitos o deja vacío.'),
             contacto: texto,
-            correo: texto,
+            correo: z.union([
+              z.literal(''),
+              z.string().email('Ingresa un correo válido.').max(100),
+            ]),
             departamento: z.string().regex(/^\d{1,2}$/),
             municipio: z.string().regex(/^\d{1,2}$/),
             actividad: z.string().regex(/^\d{6}$/),

@@ -62,7 +62,9 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
     binds[key] = value as string | number | null;
   };
   if (q.buscar) {
-    const textos = cat.campos.filter((f) => ['texto', 'codigo', 'area', 'opcion'].includes(f.tipo));
+    const textos = cat.campos.filter((f) =>
+      ['texto', 'codigo', 'area', 'opcion', 'nit', 'correo', 'telefono', 'nombre'].includes(f.tipo),
+    );
     if (textos.length)
       agregar(
         `(${textos.map((f) => `INSTR(UPPER(T.${f.columna}),UPPER(:buscar))>0`).join(' OR ')})`,
@@ -73,12 +75,12 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
   if (q.activo !== undefined) agregar('T.ACTIVO=:activo', 'activo', Number(q.activo));
   for (const f of cat.campos) {
     for (const sufijo of ['', 'Min', 'Max']) {
-      const key = f.nombre + sufijo;
+      const key = (f.nombre === 'direccion' ? 'direccionTexto' : f.nombre) + sufijo;
       const v = q[key];
       if (v === undefined) continue;
       if (sufijo)
         agregar(`T.${f.columna} ${sufijo === 'Min' ? '>=' : '<='} ${expresion(f, key)}`, key, v);
-      else if (['texto', 'codigo', 'area'].includes(f.tipo))
+      else if (['texto', 'codigo', 'area', 'nit', 'correo', 'telefono', 'nombre'].includes(f.tipo))
         agregar(`INSTR(UPPER(T.${f.columna}),UPPER(:${key}))>0`, key, v);
       else agregar(`T.${f.columna}=:${key}`, key, f.tipo === 'booleano' ? Number(v) : v);
     }

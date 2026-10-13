@@ -52,7 +52,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             elemento: 'catalogo-nuevo',
             titulo: 'Crear registro',
             descripcion:
-              'Abre el formulario guiado. Crea departamentos antes de puestos y jefaturas. Un jefe responsable se elige de empleados activos del mismo departamento; si aún no hay empleados, podrás asignarlo en la fase 5.',
+              'Abre el formulario guiado. Crea departamentos antes de puestos y jefaturas. Un jefe responsable se elige de empleados activos del mismo departamento; si aún no hay empleados, podrás asignarlo después de crear su expediente.',
           },
           {
             elemento: 'catalogo-tabla',

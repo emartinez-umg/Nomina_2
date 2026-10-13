@@ -15,9 +15,10 @@ services:
     volumes:
       - nomina2-oradata:/opt/oracle/oradata
       - ./db/init:/container-entrypoint-initdb.d:ro
+      - ./db/healthcheck.sh:/opt/oracle/nomina2-healthcheck.sh:ro
     shm_size: '1gb'
     healthcheck:
-      test: ['CMD', 'healthcheck.sh']
+      test: ['CMD', 'bash', '/opt/oracle/nomina2-healthcheck.sh']
       interval: 10s
       timeout: 10s
       start_period: 120s
@@ -29,7 +30,7 @@ services:
       dockerfile: backend/Dockerfile
     restart: unless-stopped
     init: true
-    env_file: .env
+    env_file: ${NOMINA2_ENV_FILE:-.env}
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -48,8 +49,8 @@ services:
         - "fetch('http://127.0.0.1:3000/api/salud').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       interval: 15s
       timeout: 10s
-      start_period: 30s
-      retries: 5
+      start_period: 60s
+      retries: 10
 
   nomina2-web:
     build:
@@ -58,14 +59,20 @@ services:
     restart: unless-stopped
     ports:
       - '127.0.0.1:${WEB_PORT:-8080}:80'
+      - '127.0.0.1:${WEB_HTTPS_PORT:-8443}:443'
+    environment:
+      WEB_HTTPS_PORT: ${WEB_HTTPS_PORT:-8443}
+    volumes:
+      - nomina2-tls:/etc/nginx/tls
     depends_on:
       nomina2-api:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/']
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/api/salud']
       interval: 15s
       timeout: 5s
       retries: 3
 
 volumes:
+  nomina2-tls:
   nomina2-oradata:

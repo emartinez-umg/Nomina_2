@@ -101,3 +101,11 @@ Migración aditiva V013: `SALARIO_MINIMO`/`SALARIO_MAXIMO` en PUESTOS, CHECK de 
 6. `npm run lint`, `npm test`, `npm run typecheck`, `npm run build`, `npm run format:check`.
 7. `npm run verify:security`: suite Oracle/Supertest ampliada con catálogos en esquema N2SEC desechable.
    `npm run db:verify`: migraciones desde cero, idempotencia, índices y restricciones.
+
+## Corrección de filtros en el cierre
+
+Los catálogos con dirección postal (centros y empresa) usan `direccionTexto` para filtrar ese dato.
+`direccion` conserva exclusivamente `asc`/`desc` del ordenamiento. El formulario de captura mantiene
+`direccion`; la separación impide que el sentido de ordenamiento se interprete como texto postal.
+Datos de empresa incorpora NIT validado, representante, correo y teléfono normalizado, conservando
+FORMATO_IGSS y documentos ya emitidos. Solo una empresa activa, según la restricción de Oracle.

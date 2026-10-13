@@ -58,6 +58,7 @@ export function SelectField({
         <div className="control-grupo">
           <input
             id={id}
+            aria-label={props.label}
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={abierto}

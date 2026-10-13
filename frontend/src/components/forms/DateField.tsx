@@ -32,6 +32,14 @@ export function DateField({
           ? 'Esta fecha no está permitida. Selecciona una fecha habilitada en el calendario.'
           : validar?.(iso);
   const problema = props.error ?? (tocado ? localError : undefined);
+  const cambiar = (valor: string) => {
+    const digits = valor.replace(/\D/g, '').slice(0, 8);
+    const texto = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)]
+      .filter(Boolean)
+      .join('/');
+    setBorrador(texto);
+    props.onValueChange(fechaIso(texto));
+  };
   return (
     <Field
       id={id}
@@ -44,6 +52,7 @@ export function DateField({
       <div className="control-grupo">
         <input
           id={id}
+          aria-label={props.label}
           name={props.name}
           value={borrador ?? fechaVisible(props.value)}
           maxLength={10}
@@ -58,13 +67,15 @@ export function DateField({
             if (!e.ctrlKey && !e.metaKey && e.key.length === 1 && !/[0-9/]/.test(e.key))
               e.preventDefault();
           }}
-          onChange={(e) => {
-            const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
-            const texto = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)]
-              .filter(Boolean)
-              .join('/');
-            setBorrador(texto);
-            props.onValueChange(fechaIso(texto));
+          onChange={(e) => cambiar(e.target.value)}
+          onPaste={(e) => {
+            e.preventDefault();
+            const el = e.currentTarget;
+            cambiar(
+              el.value.slice(0, el.selectionStart ?? el.value.length) +
+                e.clipboardData.getData('text') +
+                el.value.slice(el.selectionEnd ?? el.value.length),
+            );
           }}
           onBlur={() => {
             setTocado(true);

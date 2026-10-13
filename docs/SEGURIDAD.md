@@ -129,3 +129,15 @@ npm run verify:security -- --docker
 La opción `--docker` usa la red `nomina2_default` del Compose y monta `db/` en solo lectura.
 Las credenciales temporales se transfieren por entorno y no aparecen en los argumentos.
 Las pruebas `.oracle.ts` se excluyen del build de producción.
+
+## Cierre — accesos y logs
+
+`POST /api/usuarios` solo ADMIN: `{ nombre, apellido, correo, rol: "ADMIN" | "RH", motivo,
+confirmado: true }`. Revalida al actor en la transacción, genera usuario/clave temporal y audita;
+responde 201 con `{ idUsuario, usuario, contrasenaTemporal }` una sola vez. EMPLEADO se crea vinculado
+al expediente. Los endpoints anteriores de estado/rol/restablecimiento conservan revocación y
+protección del último ADMIN. Interfaz: `/admin/usuarios`.
+
+Los logs HTTP guardan la plantilla del endpoint, sin parámetros de ruta, query, cuerpo o cookies.
+HTTPS local en 8443 mantiene Secure; README describe certificado, proxy de producción y aceptación
+aislada. La matriz completa de controles y pruebas se documenta en CIERRE.md.

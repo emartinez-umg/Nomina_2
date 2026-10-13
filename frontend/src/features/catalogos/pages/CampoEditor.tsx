@@ -4,6 +4,9 @@ import type { Campo, Fila } from '../api/catalogos';
 import { opciones } from '../api/catalogos';
 import {
   TextField,
+  NitField,
+  EmailField,
+  PhoneField,
   TextAreaField,
   MoneyField,
   NumberField,
@@ -69,6 +72,14 @@ export function CampoEditor({
   ...props
 }: CampoProps & { campo: Campo; actual?: Fila | undefined; minFecha?: string | undefined }) {
   switch (campo.tipo) {
+    case 'nit':
+      return <NitField {...props} />;
+    case 'correo':
+      return <EmailField {...props} />;
+    case 'telefono':
+      return <PhoneField {...props} />;
+    case 'nombre':
+      return <TextField {...props} tipo="nombre" maxLength={campo.max ?? 200} />;
     case 'referencia':
       return <Referencia {...props} campo={campo} actual={actual} />;
     case 'fecha':

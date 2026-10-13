@@ -118,7 +118,7 @@ export function crearCatalogosService(db: BaseDatos) {
         error && typeof error === 'object' && 'errorNum' in error ? error.errorNum : undefined;
       if (n === 1)
         conflicto(
-          cat.slug === 'tramos-isr' ? 'vigenteDesde' : 'codigo',
+          cat.slug === 'empresa' ? 'nit' : cat.slug === 'tramos-isr' ? 'vigenteDesde' : 'codigo',
           'Ya existe un registro con esa clave o fecha. Revisa los datos.',
         );
       if (n === 2292)

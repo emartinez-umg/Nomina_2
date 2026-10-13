@@ -138,3 +138,11 @@ describe('campos guiados', () => {
     expect(cambio).toHaveBeenLastCalledWith(valido);
   });
 });
+
+it('pegar una fecha retira letras antes de aplicar la longitud de la máscara', async () => {
+  const usuario = userEvent.setup();
+  render(<Controlado Campo={DateField} />);
+  await usuario.click(screen.getByRole('textbox'));
+  await usuario.paste('abc01/10/2026xyz');
+  expect(screen.getByRole('textbox')).toHaveValue('01/10/2026');
+});

@@ -713,7 +713,7 @@ function Planilla({
           if (!actuar.isPending) setAccion('');
         }}
       >
-        <p className="my-4">
+        <p className="my-4" data-tour="nomina-confirmar">
           {accion === 'cerrar'
             ? 'Se aplicarán los descuentos, se publicarán las boletas y el periodo quedará bloqueado.'
             : accion === 'reabrir'
@@ -785,96 +785,98 @@ function DetalleBoleta({
   });
   return (
     <Modal abierto titulo="Detalle de boleta" onCerrar={cerrar}>
-      {d.isPending ? (
-        <Skeleton lineas={8} />
-      ) : d.error ? (
-        <p role="alert">{d.error.message}</p>
-      ) : (
-        d.data && (
-          <>
-            <h3 className="my-4">{d.data.empleado}</h3>
-            <p>
-              {fechaVisible(d.data.inicio)} al {fechaVisible(d.data.fin)} · {d.data.estado} · v
-              {d.data.version}
-            </p>
-            <p>
-              Salario mensual {moneda(d.data.resultado.salario)} · Días pagados{' '}
-              {d.data.resultado.dias}
-            </p>
-            <div className="table-scroll my-4">
-              <table>
-                <caption>Conceptos conservados en el cálculo</caption>
-                <thead>
-                  <tr>
-                    <th>Concepto</th>
-                    <th>Base</th>
-                    <th>Cantidad / tasa</th>
-                    <th>Monto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {d.data.resultado.lineas.map((l, i) => (
-                    <tr key={i}>
-                      <td>
-                        {l.descripcion}
-                        <p className="campo-hint">
-                          {l.concepto.naturaleza} · IGSS {l.concepto.igss ? 'Sí' : 'No'} · ISR{' '}
-                          {l.concepto.isr ? 'Sí' : 'No'}
-                        </p>
-                      </td>
-                      <td className="whitespace-nowrap">{moneda(l.base)}</td>
-                      <td>
-                        {l.cantidad}
-                        {l.tasa ? ` · ${l.tasa}%` : ''}
-                      </td>
-                      <td className="whitespace-nowrap">{moneda(l.monto)}</td>
+      <section data-tour="nomina-detalle">
+        {d.isPending ? (
+          <Skeleton lineas={8} />
+        ) : d.error ? (
+          <p role="alert">{d.error.message}</p>
+        ) : (
+          d.data && (
+            <>
+              <h3 className="my-4">{d.data.empleado}</h3>
+              <p>
+                {fechaVisible(d.data.inicio)} al {fechaVisible(d.data.fin)} · {d.data.estado} · v
+                {d.data.version}
+              </p>
+              <p>
+                Salario mensual {moneda(d.data.resultado.salario)} · Días pagados{' '}
+                {d.data.resultado.dias}
+              </p>
+              <div className="table-scroll my-4">
+                <table>
+                  <caption>Conceptos conservados en el cálculo</caption>
+                  <thead>
+                    <tr>
+                      <th>Concepto</th>
+                      <th>Base</th>
+                      <th>Cantidad / tasa</th>
+                      <th>Monto</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <strong>Neto: {moneda(d.data.resultado.neto)}</strong>
-            <details className="my-4">
-              <summary>Proyección ISR y acumulados</summary>
-              {Object.entries(d.data.resultado.isr).map(([k, v]) => (
-                <p key={k}>
-                  {
-                    (
-                      {
-                        renta: 'Renta anual proyectada',
-                        personal: 'Deducción personal',
-                        acreditadas: 'Deducciones acreditadas',
-                        igss: 'IGSS proyectado',
-                        imponible: 'Renta imponible',
-                        anual: 'ISR anual',
-                        retenido: 'Retenido acumulado',
-                        restantes: 'Periodos restantes',
-                        retencion: 'Retención de esta quincena',
-                        exceso: 'Retenido en exceso',
-                        futuro: 'Renta futura proyectada',
-                      } as Record<string, string>
-                    )[k]
-                  }
-                  : {k === 'restantes' ? v : moneda(String(v))}
+                  </thead>
+                  <tbody>
+                    {d.data.resultado.lineas.map((l, i) => (
+                      <tr key={i}>
+                        <td>
+                          {l.descripcion}
+                          <p className="campo-hint">
+                            {l.concepto.naturaleza} · IGSS {l.concepto.igss ? 'Sí' : 'No'} · ISR{' '}
+                            {l.concepto.isr ? 'Sí' : 'No'}
+                          </p>
+                        </td>
+                        <td className="whitespace-nowrap">{moneda(l.base)}</td>
+                        <td>
+                          {l.cantidad}
+                          {l.tasa ? ` · ${l.tasa}%` : ''}
+                        </td>
+                        <td className="whitespace-nowrap">{moneda(l.monto)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <strong>Neto: {moneda(d.data.resultado.neto)}</strong>
+              <details className="my-4">
+                <summary>Proyección ISR y acumulados</summary>
+                {Object.entries(d.data.resultado.isr).map(([k, v]) => (
+                  <p key={k}>
+                    {
+                      (
+                        {
+                          renta: 'Renta anual proyectada',
+                          personal: 'Deducción personal',
+                          acreditadas: 'Deducciones acreditadas',
+                          igss: 'IGSS proyectado',
+                          imponible: 'Renta imponible',
+                          anual: 'ISR anual',
+                          retenido: 'Retenido acumulado',
+                          restantes: 'Periodos restantes',
+                          retencion: 'Retención de esta quincena',
+                          exceso: 'Retenido en exceso',
+                          futuro: 'Renta futura proyectada',
+                        } as Record<string, string>
+                      )[k]
+                    }
+                    : {k === 'restantes' ? v : moneda(String(v))}
+                  </p>
+                ))}
+              </details>
+              {d.data.resultado.alertas.map((a) => (
+                <p key={a} role="status">
+                  {a}
                 </p>
               ))}
-            </details>
-            {d.data.resultado.alertas.map((a) => (
-              <p key={a} role="status">
-                {a}
-              </p>
-            ))}
-            <div className="flex flex-wrap gap-3">
-              <Button icono="ver" onClick={preview}>
-                Vista previa PDF
-              </Button>
-              <Button icono="exportar" onClick={descargar}>
-                Descargar PDF
-              </Button>
-            </div>
-          </>
-        )
-      )}
+              <div className="flex flex-wrap gap-3">
+                <Button icono="ver" onClick={preview}>
+                  Vista previa PDF
+                </Button>
+                <Button icono="exportar" onClick={descargar}>
+                  Descargar PDF
+                </Button>
+              </div>
+            </>
+          )
+        )}
+      </section>
     </Modal>
   );
 }

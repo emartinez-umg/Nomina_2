@@ -84,7 +84,7 @@ async function crearCuenta(rol: Rol = 'EMPLEADO', temporal = false) {
   const cuenta = await enTransaccion(db, (c) =>
     crearUsuarioInterno(c, admin, {
       nombre: 'Persona',
-      apellido: `Prueba${++secuencia}`,
+      apellido: `Prueba${String(++secuencia).replace(/\d/g, (n) => String.fromCharCode(65 + Number(n)))}`,
       correo: `persona${secuencia}@example.test`,
       rol,
     }),
@@ -571,7 +571,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await empleado.agent.get('/api/catalogos').expect(403);
       const rh = await entrarCuenta('RH');
       const r = await rh.agent.get('/api/catalogos').expect(200);
-      expect(r.body.data).toHaveLength(12);
+      expect(r.body.data).toHaveLength(13);
       expect(r.text).not.toContain('columna');
       await rh.agent.post('/api/catalogos/departamentos').send(base).expect(403);
       await rh.agent.get('/api/catalogos/departamentos').query({ sql: 'SELECT' }).expect(400);

@@ -14,7 +14,7 @@ import { revalidarActor } from '../auth/auth.service.js';
 import { usuarioPublico } from '../auth/auth.types.js';
 import type { ActorAuditoria, Autenticacion, Rol } from '../auth/auth.types.js';
 import * as repository from './usuarios.repository.js';
-import { nuevoUsuarioInternoSchema } from './usuarios.schemas.js';
+import { nuevoUsuarioInternoSchema, crearUsuarioSchema } from './usuarios.schemas.js';
 import type { UsuariosQuery } from './usuarios.schemas.js';
 
 export async function generarNombreUsuario(c: Connection, nombre: string, apellido: string) {
@@ -134,6 +134,23 @@ export function crearUsuariosService(db: BaseDatos) {
     });
   }
   return {
+    crear: (auth: Autenticacion, ip: string, entrada: z.infer<typeof crearUsuarioSchema>) =>
+      enTransaccion(db, async (c) => {
+        await repository.bloquearAdministracion(c);
+        const actor = await revalidarActor(c, auth);
+        if (actor.rol !== 'ADMIN') throw new ErrorProhibido();
+        const { motivo, nombre, apellido, correo, rol } = crearUsuarioSchema.parse(entrada);
+        const datos = { nombre, apellido, correo, rol };
+        const creado = await crearUsuarioInterno(c, { ...actor, ip }, datos);
+        await registrarAuditoria(c, {
+          actor: { ...actor, ip },
+          accion: 'AUTORIZAR_ALTA_USUARIO',
+          entidad: 'USUARIOS',
+          idEntidad: creado.idUsuario,
+          motivo,
+        });
+        return creado;
+      }),
     listar: (q: UsuariosQuery) => db.conConexion((c) => repository.listarUsuarios(c, q)),
     modificar,
   };
