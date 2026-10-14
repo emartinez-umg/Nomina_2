@@ -1,24 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useSession } from '../../app/session';
 import { cerrarSesion } from '../../features/auth/api/auth';
 import { Button } from '../ui/Button';
 import { Notificaciones } from '../../features/vacaciones/pages/Notificaciones';
-import { Tooltip } from '../ui/Tooltip';
 import { useToast } from '../ui/Toast';
 import { iconos } from '../ui/icons';
 import { HelpButton, HelpOffer } from '../help/HelpProvider';
-import { limpiarTexto } from '../../lib/validadores';
-import { navegacion, nombreRol } from './navegacion';
+import { nombreRol, opcionesNavegacion } from './navigation.config';
+import { guardarReciente, leerRecientes } from './navigation.history';
+import { NavigationMenu } from './NavigationMenu';
+import { CommandPalette } from './CommandPalette';
+
 export function AppLayout() {
   const { usuario, establecer } = useSession();
   const toast = useToast();
   const navigate = useNavigate();
-  const [menu, setMenu] = useState(false);
-  const [buscar, setBuscar] = useState('');
+  const [buscar, setBuscar] = useState(false);
   const [panel, setPanel] = useState<'usuario' | 'notificaciones' | null>(null);
   const barra = useRef<HTMLElement>(null);
+  const opciones = useMemo(() => (usuario ? opcionesNavegacion(usuario.rol) : []), [usuario]);
   const logout = useMutation({
     mutationFn: cerrarSesion,
     onSuccess: () => establecer(null),
@@ -28,137 +30,63 @@ export function AppLayout() {
     const fuera = (e: PointerEvent) => {
       if (!barra.current?.contains(e.target as Node)) setPanel(null);
     };
-    const escape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+    const teclado = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.repeat) {
+        // No se apilan ventanas sobre formularios o confirmaciones en curso.
+        if (document.querySelector('dialog[open]') && !buscar) return;
+        e.preventDefault();
+        setBuscar((actual) => !actual);
         setPanel(null);
-        setMenu(false);
       }
+      if (e.key === 'Escape') setPanel(null);
     };
     document.addEventListener('pointerdown', fuera);
-    document.addEventListener('keydown', escape);
+    document.addEventListener('keydown', teclado);
     return () => {
       document.removeEventListener('pointerdown', fuera);
-      document.removeEventListener('keydown', escape);
+      document.removeEventListener('keydown', teclado);
     };
-  }, []);
+  }, [buscar]);
   if (!usuario) return null;
-  const accesos = navegacion[usuario.rol];
-  const resultados = accesos.filter((a) => a.titulo.toLowerCase().includes(buscar.toLowerCase()));
-  const Buscar = iconos.buscar;
+  const recordar = (id: string) => {
+    guardarReciente(usuario.idUsuario, id, opciones);
+  };
   return (
     <div className="app-shell">
       <a className="saltar-contenido" href="#contenido-principal">
         Saltar al contenido principal
       </a>
-      {menu && (
-        <button
-          type="button"
-          className="sidebar-fondo"
-          aria-label="Cerrar menú de navegación"
-          title="Cerrar menú de navegación"
-          onClick={() => setMenu(false)}
-        >
-          <iconos.cancelar aria-hidden="true" />
-        </button>
-      )}
-      <aside
-        className={`sidebar ${menu ? 'sidebar-abierto' : ''}`}
-        data-tour="sidebar"
-        aria-label="Menú principal"
-      >
-        <div className="sidebar-logo">
-          <img src="/logo-mockup.png" alt="Nómina" />
-        </div>
-        <nav aria-label="Secciones del sistema">
-          <ul>
-            {accesos.map((a) => {
-              const Icono = iconos[a.icono];
-              return (
-                <li key={a.titulo}>
-                  {a.ruta ? (
-                    <NavLink
-                      to={a.ruta}
-                      end={a.ruta !== '/catalogos'}
-                      onClick={() => setMenu(false)}
-                      className={({ isActive }) => `nav-item ${isActive ? 'nav-activo' : ''}`}
-                    >
-                      <Icono size={23} aria-hidden="true" />
-                      {a.titulo}
-                    </NavLink>
-                  ) : (
-                    <Tooltip texto="Disponible en una próxima fase.">
-                      <button type="button" className="nav-item" disabled>
-                        <Icono size={23} aria-hidden="true" />
-                        {a.titulo}
-                      </button>
-                    </Tooltip>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-        <div className="sidebar-salir" data-tour="cerrar-sesion">
-          <Button
-            icono="salir"
-            variante="texto"
-            cargando={logout.isPending}
-            onClick={() => logout.mutate()}
-          >
-            Cerrar sesión
-          </Button>
-        </div>
-      </aside>
       <div className="app-cuerpo">
         <header className="barra-superior" ref={barra}>
-          <Button
-            icono="menu"
-            variante="texto"
-            soloIcono
-            aria-label="Abrir menú de navegación"
-            aria-expanded={menu}
-            onClick={() => setMenu((v) => !v)}
-            className="menu-movil"
+          <Link to={opciones[0]!.ruta} className="marca-navegacion" aria-label="Nómina · Inicio">
+            <img src="/logo-mockup.png" alt="" />
+            <strong>Nómina</strong>
+          </Link>
+          <NavigationMenu
+            key={`${usuario.idUsuario}:${usuario.rol}`}
+            rol={usuario.rol}
+            onElegir={recordar}
           />
-          <div className="buscador-global" data-tour="buscador">
-            <Buscar size={18} aria-hidden="true" />
-            <input
-              aria-label="Buscar sección"
-              value={buscar}
-              maxLength={80}
-              placeholder="Buscar sección…"
-              inputMode="search"
-              title="Busca el nombre de una sección; no busca datos personales."
-              onChange={(e) => setBuscar(limpiarTexto(e.target.value))}
-            />
-            {buscar && (
-              <div role="group" className="buscador-resultados" aria-label="Resultados de búsqueda">
-                {resultados.length ? (
-                  resultados.map((a) => (
-                    <Button
-                      key={a.titulo}
-                      icono={a.icono}
-                      variante="texto"
-                      disabled={!a.ruta}
-                      motivoDeshabilitado={!a.ruta ? 'Disponible en una próxima fase.' : undefined}
-                      onClick={() => {
-                        if (a.ruta) navigate(a.ruta);
-                        setBuscar('');
-                      }}
-                    >
-                      {a.titulo}
-                    </Button>
-                  ))
-                ) : (
-                  <p>No hay secciones con ese nombre.</p>
-                )}
-                <Button icono="cancelar" variante="texto" onClick={() => setBuscar('')}>
-                  Limpiar búsqueda
-                </Button>
-              </div>
-            )}
-          </div>
           <div className="barra-acciones">
+            <div data-tour="buscador">
+              <Button
+                icono="buscar"
+                variante="secundario"
+                className="buscar-activador"
+                aria-label="Buscar sección o acción"
+                aria-keyshortcuts="Control+k Meta+k"
+                aria-haspopup="dialog"
+                aria-expanded={buscar}
+                title="Buscar una sección o acción con Ctrl+K o ⌘+K"
+                onClick={() => {
+                  setBuscar(true);
+                  setPanel(null);
+                }}
+              >
+                <span>Buscar</span>
+                <kbd>Ctrl / ⌘ K</kbd>
+              </Button>
+            </div>
             <div className="panel-ancla" data-tour="notificaciones">
               <Notificaciones
                 abierto={panel === 'notificaciones'}
@@ -209,6 +137,19 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      {buscar && (
+        <CommandPalette
+          key={`${usuario.idUsuario}:${usuario.rol}`}
+          opciones={opciones}
+          recientes={leerRecientes(usuario.idUsuario, opciones)}
+          onCerrar={() => setBuscar(false)}
+          onElegir={(opcion) => {
+            recordar(opcion.id);
+            setBuscar(false);
+            navigate(opcion.ruta);
+          }}
+        />
+      )}
     </div>
   );
 }

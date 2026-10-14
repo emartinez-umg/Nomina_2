@@ -126,3 +126,26 @@ usa elementos DOM dentro del diálogo activo. Modal ofrece ayuda universal, incl
 La bienvenida está integrada en el contenido para no cubrir botones. Se añadieron nombres accesibles
 estables, salto al contenido y foco blanco en el sidebar. Usuarios ADMIN y Datos de empresa usan
 los componentes y tokens existentes. Playwright/axe recorren páginas por rol y portal de 390 px.
+
+## Navegación v1 (FASE V1-1, A2)
+
+La barra superior reemplaza al menú lateral. `components/layout/navigation.config.ts` define
+los grupos, rutas, iconos, descripciones y sinónimos por ADMIN, RH y EMPLEADO; tanto los
+acordeones y desplegables como la paleta leen esa configuración. Los destinos corresponden
+al router existente, incluidos los trece catálogos y las cinco clases de novedades. Los detalles
+y la edición de registros conservan sus acciones contextuales dentro de cada módulo.
+
+Enter/Espacio abre una categoría; izquierda/derecha cambia de categoría; arriba/abajo abre y
+recorre opciones; Inicio/Fin va a los extremos. Escape cierra y devuelve el foco; salir con Tab
+o hacer clic fuera también cierra. La opción activa se determina por la ruta más específica.
+En pantallas menores de 1200 px aparece el botón Menú con acordeones; Buscar sigue visible.
+
+Buscar o Ctrl+K / ⌘+K abre la paleta de [cmdk](https://github.com/dip/cmdk). Acepta sinónimos,
+acentos y pequeños errores de escritura; muestra la categoría y permite elegir con flechas y
+Enter. Escape cierra el diálogo y restaura el foco. Los cinco accesos recientes se guardan por
+ID de usuario y se filtran contra sus permisos actuales; almacenamiento bloqueado no impide
+navegar. Las acciones rápidas abren los formularios actuales, sin ejecutar escrituras.
+
+El historial usa `nomina2:navegacion:v1:{idUsuario}` y almacena solo IDs de opciones, sin datos
+de expedientes. Simulación de pagos y las demás reglas del adendo se reservan para fases
+posteriores. `docs/PROGRESO_V1.md` registra las pruebas y decisiones de esta fase.

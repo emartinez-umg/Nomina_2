@@ -10,6 +10,20 @@ function visibles() {
   ] as unknown as DOMRectList);
 }
 describe('Ayuda final por contexto', () => {
+  it.each(['ADMIN', 'RH', 'EMPLEADO'] as const)(
+    'explica navegación y buscador nuevos para %s',
+    (rol) => {
+      visibles();
+      document.body.innerHTML =
+        '<div data-tour="navegacion"></div><div data-tour="buscador"></div>';
+      const pasos = pasosVisibles({ id: 'layout', pasos: [] }, rol, document);
+      expect(pasos).toHaveLength(2);
+      expect(pasos[0]!.popover!.description).toMatch(/categor|barra/i);
+      expect(pasos[0]!.popover!.description).toMatch(/móvil/);
+      expect(pasos[1]!.popover!.description).toMatch(/Ctrl\+K.*⌘\+K.*cinco.*usuario/);
+      expect(pasos[1]!.popover!.description).toMatch(/acciones rápidas.*sin guardar/);
+    },
+  );
   it('limita los objetivos al diálogo y filtra roles', () => {
     visibles();
     document.body.innerHTML =

@@ -216,3 +216,138 @@ Opción "Carga masiva" en Empleados: descarga de **plantilla CSV de ejemplo**, s
 - Pruebas unitarias obligatorias para: ISR, IGSS, horas extra, bonificación incentivo, vacaciones (acumulación y días laborales), aguinaldo, bono 14, indemnización, validadores (DPI, NIT, fechas) y RBAC. Pruebas de integración (Supertest) para endpoints críticos.
 - Nombres de dominio en español (`empleado`, `planilla`, `calcularIsr`), términos técnicos genéricos en inglés (`controller`, `service`, `repository`). Comentarios en español, útiles y breves.
 - Sin secretos en el repositorio. `.env.example` completo.
+
+---
+
+# ADENDO v1 — Cambios y mejoras sobre la versión 0
+
+> Agrega este bloque **al final de `AGENTS.md`**. Donde contradiga a la versión 0, **este adendo manda**. Todo lo no mencionado aquí sigue igual.
+
+## A1. Alcance y reglas de la v1
+
+- La v0 está completa (fases 0 a 12). La v1 corrige y automatiza. El objetivo transversal: **automatizar al máximo y evitar que el usuario cometa errores**.
+- Trabaja en la rama `v1` (la v0 queda etiquetada como `v0.0`).
+- **No edites migraciones anteriores.** Todo cambio de esquema va en migraciones nuevas, con migración de los datos existentes (sin perder información).
+- No rompas pruebas existentes. Si una regla cambia a propósito, actualiza la prueba y anótalo en `docs/PROGRESO_V1.md`.
+- Cada pantalla que cambie debe actualizar su recorrido de ayuda (`driver.js`) y sus hints.
+- Usa `docs/PROGRESO_V1.md` (no `PROGRESO.md`) como bitácora de la v1.
+
+## A2. Navegación horizontal con búsqueda (Ctrl/⌘ + K)
+
+- Reemplaza el menú lateral por una **barra superior horizontal** con **grupos por categoría que se despliegan hacia abajo** (panel con ícono, nombre y una línea de descripción por opción). Se abre con clic o con teclado (Enter/Espacio, flechas, Esc) y se cierra al hacer clic fuera.
+- Lado derecho de la barra: botón de búsqueda (muestra el atajo), notificaciones, ayuda y menú de usuario.
+- **Buscador tipo command palette** (`cmdk`): se abre con `Ctrl+K` / `⌘+K` y también con clic. Busca en todas las opciones del menú **permitidas al rol**, con tolerancia a errores de escritura, palabras clave y sinónimos (ej. "boleta" → Planilla/Boletas), muestra el grupo de cada resultado, recuerda las últimas 5 opciones usadas (por usuario) y ofrece **acciones rápidas** ("Nuevo empleado", "Simular pago", "Cargar comisión"…).
+- Define el menú en un único archivo de configuración por rol (`navigation.config.ts`: grupos, ítems, ícono, ruta, palabras clave). El menú y el buscador leen de ahí.
+- Grupos sugeridos para RH (ajusta a las rutas reales): **Inicio**, **Personal** (empleados, carga masiva), **Organización** (departamentos, puestos, jefaturas, horarios, centros de trabajo, feriados), **Novedades** (descuentos, préstamos, comisiones, horas extra, ausencias, parqueo, consumo en tienda), **Nómina** (simular pago, planilla, boletas, reporte IGSS, historial), **Prestaciones** (aguinaldo, bono 14, indemnización, constancias de salario), **Vacaciones**, **Solicitudes** (bandeja, plantillas), **Comunicación** (anuncios, eventos) y **Configuración** (parámetros legales, empresa). ADMIN añade Usuarios, Bitácora y Sistema. EMPLEADO: Inicio, Mis gestiones, Vacaciones, Anuncios y eventos, Mis datos.
+- Responsive: en pantallas pequeñas la barra se convierte en un botón de menú con un panel de acordeones y el buscador sigue accesible. Resalta la ruta activa y mantén migas de pan.
+- **No se toca la lógica de negocio**: solo layout, navegación y rutas.
+
+## A3. Borradores de formularios (autoguardado en el navegador)
+
+- Todos los formularios (nuevos y de edición) guardan automáticamente lo que el usuario lleva escrito en el **almacenamiento del navegador** (`localStorage`) mientras escribe (con *debounce* de ~500 ms). Hook reutilizable `useFormDraft(formKey, recordId?)` integrado con React Hook Form.
+- Clave: `nomina2:borrador:{usuarioId}:{formKey}:{recordId|nuevo}` más una versión del esquema del formulario. Si la versión no coincide, descarta el borrador sin errores.
+- Al volver al formulario aparece un aviso: *"Tienes un borrador guardado hace X minutos"* con botones **Continuar** y **Descartar borrador** (ambos con ícono; el descarte pide confirmación). Se muestra también el indicador "Borrador guardado".
+- El borrador **se elimina** cuando: el usuario pulsa **Descartar**, se guarda con éxito el formulario o el usuario **cierra sesión** de forma explícita. Si inicia sesión otro usuario, purga los borradores ajenos.
+- **Nunca** guardar en borrador: contraseñas, archivos adjuntos ni tokens. Conserva el paso actual en formularios por secciones. Maneja con elegancia el almacenamiento lleno o bloqueado.
+- No muestres alertas de "cambios sin guardar" al navegar: el borrador ya los protege.
+
+## A4. Códigos automáticos (en todos los formularios que pidan un código)
+
+- Todo campo "código" es **de solo lectura y se genera solo**; el formulario muestra una vista previa en vivo ("Código: ING") y el servidor lo asigna definitivamente al guardar, de forma segura ante concurrencia (secuencias con bloqueo de fila; índice `UNIQUE`). **Un código nunca cambia** una vez asignado.
+- **Algoritmo genérico** `generarCodigoGenerico(palabra, longitudMax = 3)`:
+  1. Convertir a MAYÚSCULAS.
+  2. Limpiar: quitar acentos y diéresis (Ñ→N, Ü→U) y todo carácter que no sea letra, número o espacio.
+  3. Si tiene espacios (es compuesta): tomar la primera letra de cada palabra significativa (ignorar conectores: de, del, la, las, el, los, y, e, en, para, por, con, a). Si queda de menos de 2 caracteres, usar la opción A sobre la primera palabra significativa. Recortar a `longitudMax`.
+  4. Si es una sola palabra: **Opción A** (por defecto): los primeros `longitudMax` caracteres.
+  5. **Colisión**: si el código ya existe en la tabla, probar la **Opción B** (conservar la primera letra, quitar las demás vocales y recortar) y, si aún choca, agregar sufijo numérico (`ING2`, `ING3`…).
+- Configuración por entidad en una tabla `CONFIG_CODIGOS` (entidad, prefijo, longitud máxima, patrón): departamentos 3, puestos 4, jefaturas 4, horarios 4, centros de trabajo 4, tipos (contrato, descuento, ausencia, solicitud) 3.
+- **Empleado**: `EMP_<CODIGO_DEPTO>_<####>`, con contador **independiente por departamento** (`EMP_ING_0001`, `EMP_ING_0002`, `EMP_VEN_0001`). Si el empleado cambia de departamento, **su código no cambia**. Relleno de 4 dígitos que crece si hace falta.
+- **Documentos y registros transaccionales** (solicitudes, préstamos, descuentos, eventos, anuncios…): `<PREFIJO>_<AÑO>_<####>`, por ejemplo `SOL_2026_0001`.
+- Los registros existentes de la v0 se migran a la nueva numeración conservando el valor anterior en `CODIGO_ANTERIOR`.
+
+## A5. Ubicaciones de Guatemala
+
+- Tablas `DEPARTAMENTOS_GT` (22) y `MUNICIPIOS_GT` (340), cargadas desde una **fuente oficial (INE)** guardada como archivo de datos versionado en el repositorio, con una **prueba que verifica esos totales** y que cada municipio pertenece a un departamento. No inventes municipios; si no puedes obtener la fuente, deténte y regístralo en `docs/PROGRESO_V1.md`.
+- Componente `UbicacionSelect` (departamento → municipio en cascada, con búsqueda). Valores por defecto: **departamento Guatemala, municipio Guatemala**.
+- **Zona**: desplegable de 1 a 25 más la opción "No aplica"; es obligatoria solo cuando el municipio es Guatemala.
+- **Dirección de empleado**: departamento, municipio, zona y un campo corto de **número de casa/vivienda** (alfanumérico con guion, con hint de formato). Reemplaza el campo único de dirección. Migración: conserva el texto anterior en `DIRECCION_ANTERIOR` y muéstralo como referencia en la edición.
+- **Centros de trabajo**: el campo "localidad" pasa a ser el selector de departamento y municipio.
+
+## A6. Configuración de empresa y PDFs membretados
+
+- Pantalla **Configuración de empresa** (RH y ADMIN): razón social, nombre comercial, NIT, dirección, teléfono, correo, sitio web y **logo** (carga de imagen PNG/JPG/SVG, máximo 2 MB, con vista previa, validación de tipo y tamaño).
+- **Todos los PDF** del sistema (boletas, constancias, certificados, cartas, planilla, constancias de salario, credenciales) llevan **membrete**: logo y datos de la empresa en el encabezado y pie de página. Un único módulo de PDF compartido (`shared/pdf`) aplica el membrete.
+- **Firma**: en los documentos que requieren aprobación, el bloque de firma muestra el **nombre completo y el cargo del usuario de RRHH que aprobó el documento** (no el del representante legal). Elimina cualquier referencia al representante legal. Cada usuario RH tiene nombre completo y cargo (tomados de su ficha de empleado/puesto); si faltan, el sistema no permite aprobar y explica cómo completarlos. Guarda en el documento generado quién lo aprobó y cuándo.
+
+## A7. Horarios personalizados
+
+- Un horario es un conjunto de **bloques**. Cada bloque tiene: días (selección con chips y **atajos de rango**: "Lun–Vie", "Lun–Sáb", "Lun–Dom", "Fin de semana", "Personalizado"), **hora de entrada y de salida en desplegables de 30 en 30 minutos** (nunca texto libre) y **descanso en desplegable de 30 o 60 minutos**.
+- El usuario puede **crear horarios personalizados**, con varios bloques (ej. Lun–Vie 8:00–17:00 y Sáb 8:00–12:00) y duplicar uno existente. No se configura día por día.
+- Se calculan solos y se muestran: horas diarias por bloque (salida − entrada − descanso), horas semanales y **tipo de jornada** (diurna 6:00–18:00, nocturna 18:00–6:00, mixta si combina ambas). Valida los límites legales parametrizables (diurna 8 h/día y 44 h/semana, mixta 7 h/día y 42 h/semana, nocturna 6 h/día y 36 h/semana) con mensajes claros. No se permiten bloques solapados en un mismo día ni salida anterior a la entrada (se contempla jornada nocturna que cruza medianoche).
+- Los días sin bloque son **días de descanso** del empleado. Esa información alimenta el cálculo de días laborales (vacaciones) y el valor de la hora extra.
+- Desde el formulario de empleado se elige un horario del catálogo o se crea uno personalizado en un modal, sin salir del formulario.
+- Migración de los horarios v0 a la nueva estructura sin cambiar su significado.
+
+## A8. Formulario de empleado (nuevo y edición)
+
+- **Código**: automático (A4); se ve la vista previa al elegir el departamento.
+- **NIT**: validación con **dígito verificador (módulo 11)**: se toman los dígitos sin el verificador, se multiplican por factores que bajan desde (cantidad de dígitos + 1) hasta 2, se suman, y el verificador es `(11 − (suma mod 11)) mod 11`; si da 10 el verificador es `K`. El campo solo acepta dígitos y una `K` final, con máscara, y explica el error: *"El dígito verificador del NIT no coincide. Revisa el número."* Se valida también en el backend.
+- **Dirección**: departamento, municipio, zona y número de casa (A5).
+- **Fecha de ingreso**: por defecto **hoy** (sigue siendo editable dentro de las reglas de fechas existentes).
+- **Fecha de fin de contrato**: depende del tipo de contrato. Cada tipo tiene la bandera `REQUIERE_FECHA_FIN`. Si es **tiempo indefinido**, el campo se **bloquea** (con tooltip que lo explica) y queda vacío; en los demás es obligatorio y posterior a la fecha de ingreso. Cambiar el tipo de contrato ajusta el campo automáticamente.
+- **Sexo**: solo `Masculino` y `Femenino`.
+- **Parentesco** (contacto de emergencia): desplegable con Madre, Padre, Hermano/a, Esposo/a, Hijo/a, Abuelo/a, Tío/a, Primo/a, Cuñado/a, Suegro/a, Pareja/conviviente y Otro.
+- **Usuario y contraseña**: se crean **automáticamente al guardar el empleado**, en la misma transacción (si falla uno, no se crea ninguno). Usuario `nombre.apellido` (A4 de v0), contraseña temporal aleatoria, cambio obligatorio en el primer login. Se muestran **una sola vez** en un modal con **Copiar credenciales** y **Descargar PDF** (con membrete, el usuario, la contraseña temporal y las instrucciones de primer ingreso). El modal exige confirmar "ya copié o descargué las credenciales" antes de cerrarse. **No se guarda la contraseña en texto plano ni en logs**; si se pierde, RRHH/ADMIN restablece una nueva. **No hay botón de "generar usuario"**.
+- **Carga masiva**: actualizada a las nuevas reglas (códigos y usuarios automáticos, ubicaciones validadas contra el catálogo, sexo M/F, parentesco del catálogo, horario por código), con plantilla CSV de ejemplo nueva y un **único PDF de credenciales** (una por empleado) descargable una sola vez.
+
+## A9. Vacaciones (reglas v1)
+
+- **Acumulación automática, sin intervención**: `acumulado = 1.25 × meses completos` desde la fecha de contratación hasta hoy (ej.: 5 meses completos = 6.25 días). Se calcula al consultar (determinista) y se descuenta con el kardex de consumos. `disponible = acumulado − días tomados/aprobados − vacaciones previas`. **Solo se pueden solicitar días completos**: `solicitables = floor(disponible)` (con 6.25 disponibles solo puede solicitar 6).
+- El portal del empleado y la pantalla de RRHH muestran: acumulado, tomados, disponible (con decimales) y **solicitables (entero)**.
+- **Empleado**: al elegir un rango en el calendario el sistema cuenta los días laborales según su horario (excluye descansos y feriados) y **solo permite enviar si esos días ≤ solicitables**, con un mensaje claro si no.
+- **RRHH**: al abrir la solicitud el sistema calcula los **días laborales del rango según el horario del empleado**. Ejemplo de prueba obligatoria: del 1 al 15 de noviembre de 2026 con horario Lun–Vie = **10 días**. Compara con el disponible: verde si alcanza; rojo y botón de autorizar deshabilitado si no (también en el backend, que revalida al aprobar).
+- **Al autorizar**: se conserva el registro de la solicitud del empleado (quién la pidió, rango, días laborales calculados, quién aprobó y cuándo) y se genera el movimiento en el kardex que **resta los días del saldo**. Una solicitud aprobada que aún no comenzó puede cancelarse y devuelve los días (queda registro).
+- Una solicitud rechazada exige motivo y no descuenta nada.
+
+## A10. Novedades (todas se cargan antes de calcular la nómina)
+
+- **Horas extra**: se registran por **mes** (selector de mes y año, no fecha) y **cantidad de horas** (admite medias horas). El mes no puede ser futuro ni pertenecer a un periodo cerrado; hay un tope mensual parametrizable que genera advertencia. Valor: `horas × (salario mensual / 30 / horas de jornada diaria del horario) × 1.5`. Se reflejan en la boleta (cantidad de horas y monto).
+- **Ausencias**: las **sin goce de sueldo restan** al pago (valor día = salario / 30) y aparecen en la boleta como línea propia ("Descuento por ausencias, N días"). Las con goce no restan.
+- **Comisiones**: carga **manual** por empleado y mes, con descripción.
+- **Consumo en tienda**: carga **manual** (mes, monto, referencia). Se descuenta en el pago del último día del mes.
+- **Parqueo como suscripción**: RRHH configura dos **tarifas mensuales vigentes** en Configuración (**Carro** y **Moto**, con vigencia y auditoría). El empleado solicita parqueo indicando tipo de vehículo (y placa opcional); al **aprobarse se crea la suscripción activa** y el descuento se aplica **automáticamente cada mes en el pago del último día**, desde el mes de aprobación y sin prorrateo, hasta que se dé de baja. El empleado puede **solicitar la baja**; RRHH también puede suspender o dar de baja (efectiva al cierre del mes en curso).
+- Toda novedad tiene estado `Pendiente` o `Aplicada` (a qué pago se aplicó) y no se puede editar una vez aplicada o si su periodo está cerrado.
+
+## A11. Planilla v1: anticipo, pago y simulación (reemplaza el flujo quincenal de v0)
+
+**Estructura.** Cada mes tiene dos pagos que se corresponden con los dos periodos quincenales ya existentes: **Anticipo** (día 15) y **Pago** (último día del mes: 28, 29, 30 o 31). La fecha de pago es informativa; el sistema no la mueve por fines de semana o feriados.
+
+**Notación** (empleado, mes M):
+```
+SB    = salario base mensual (prorrateado por días de contrato en el mes: SB × días / 30, tope 30)
+AUS   = días de ausencia sin goce × SB / 30
+BI    = bonificación incentivo (parámetro, Q250) × (30 − días ausencia sin goce) / 30
+COM   = comisiones del mes (manual)
+HE    = horas extra × valor hora × 1.5
+DEV   = SB − AUS + BI + COM + HE                   # devengado total del mes
+AFECTO_IGSS = SB − AUS + COM + HE                  # la bonificación incentivo no es afecta
+```
+**Anticipo (día 15)** = `0.50 × SB + BI + COM_cargadas + HE_cargadas` (lo que esté cargado al momento de calcular). **No lleva descuentos**.
+
+**Pago (último día)** = `DEV − anticipo ya pagado − IGSS − ISR − parqueo − consumo en tienda − préstamos/anticipos/embargos y otros descuentos`.
+- IGSS laboral (4.83 % parametrizable) sobre `AFECTO_IGSS`.
+- ISR: **se retiene una sola vez, en el pago del último día**, con el método de proyección anual de v0 (retención = (ISR anual − retenido acumulado) / meses restantes, recálculo en diciembre). Aguinaldo y Bono 14 exentos dentro del límite.
+- Lo que se cargue después de calcular el anticipo (comisiones, horas extra) se paga en el pago del último día. Las novedades pendientes de meses anteriores se incluyen en el cálculo del mes actual y se etiquetan como retroactivas.
+- Los descuentos de v0 con cuota quincenal pasan a **cuota mensual aplicada en el pago del último día** (migrar conservando el monto y número de cuotas, y documentarlo).
+- Si el neto resultante es negativo: **bloquear** el pago de ese empleado con una alerta clara indicando qué ajustar.
+- Ejemplo de prueba obligatoria: salario base Q10,000.00, sin extras → anticipo = Q5,250.00 (5,000 + bonificación 250); IGSS = Q483.00; neto del mes = 10,250 − 483 − ISR − otros descuentos. Calcula los valores esperados de las pruebas de forma independiente a la implementación.
+
+**Boleta** (membretada): salario base, descuento por ausencias, bonificación incentivo, comisiones, horas extra (cantidad y monto), total devengado, anticipo (en el pago), IGSS, ISR, parqueo, consumo en tienda, préstamos y otros, neto a pagar. La boleta del anticipo se titula "Anticipo quincenal".
+
+**Simular un pago.** Pantalla con selección de: **tipo de pago** (Anticipo, Pago del mes, Bono 14, Aguinaldo; la indemnización es individual), **mes**, y **objetivo**: un empleado, un departamento o todos. Flujo: **Simular** (calcula sin guardar, muestra la tabla con totales, alertas y vista previa de boleta marcada "SIMULACIÓN") → lista de verificación previa (cuántos empleados tienen horas extra, comisiones, consumos y ausencias cargados, novedades pendientes de meses anteriores, empleados con alertas) con casilla obligatoria "confirmo que las novedades del mes están completas" → **Confirmar y pagar** (transaccional, idempotente: `UNIQUE (empleado, mes, tipo de pago)`; no permite pagar dos veces). Al confirmar: guarda el cálculo, **genera las boletas PDF** de todos los empleados del objetivo (descarga individual y ZIP), marca las novedades como aplicadas y notifica a cada empleado. Reversión solo para ADMIN, con motivo y antes del cierre del periodo. El cierre del periodo de v0 se mantiene.
+
+## A12. Prestaciones automáticas
+
+Integradas a **Simular un pago** (A11) y también disponibles en sus pantallas:
+- **Bono 14** (periodo 1 jul – 30 jun) y **Aguinaldo** (1 dic – 30 nov): el sistema los calcula **solo** a partir de la fecha de contratación. Con menos de 1 año en el periodo, **proporcional** (`promedio × días laborados en el periodo / 365`); con 1 año o más, **pago completo** (100 % del promedio mensual de los últimos 12 meses, incluyendo comisiones y horas extra). Exentos de ISR dentro del límite legal. El cálculo aparece **precalculado y listo para revisar** al llegar su fecha de pago (julio y diciembre).
+- **Indemnización**: se calcula **automáticamente** al elegir el empleado, desde su fecha de contratación hasta la fecha de baja (por defecto hoy): promedio de los últimos 6 meses × tiempo laborado en años y fracción de año, más vacaciones pendientes (`días × salario / 30`) y aguinaldo y bono 14 proporcionales (finiquito). Muestra el desglose paso a paso y genera el documento PDF membretado.

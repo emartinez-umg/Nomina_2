@@ -71,16 +71,16 @@ export function pasosVisibles(
   if (alcance === document) {
     const comunes = [
       [
-        'sidebar',
+        'navegacion',
         'Navegación según tu rol',
         rol === 'EMPLEADO'
-          ? 'Estas secciones muestran únicamente tus gestiones. En móvil abre Menú y elige una sección; Escape lo cierra. No compartas tu cuenta.'
-          : 'El menú reúne los módulos permitidos por tu rol. En móvil abre Menú y elige una sección. La bitácora global y gestión de usuarios corresponden a ADMIN.',
+          ? 'La barra agrupa tus gestiones personales. Abre una categoría con clic, Enter o Espacio; usa flechas para recorrer categorías y opciones. Escape cierra el grupo y devuelve el foco. En móvil pulsa Menú para desplegar los acordeones; la opción activa se resalta en verde. Solo aparecen secciones de tu rol.'
+          : 'La barra agrupa los módulos permitidos por tu rol. Abre categorías con clic, Enter o Espacio; flechas izquierda/derecha recorren categorías y arriba/abajo sus opciones. Inicio y Fin van a los extremos. Escape o clic fuera cierra el panel. En móvil pulsa Menú y abre los acordeones. Usuarios y Bitácora corresponden a ADMIN; el verde identifica la sección activa.',
       ],
       [
         'buscador',
         'Encontrar una sección',
-        'Escribe el nombre de una sección y elige un resultado. Limpiar búsqueda cierra los resultados; esta búsqueda no consulta expedientes personales.',
+        'Pulsa Buscar o Ctrl+K / ⌘+K desde cualquier página. Busca nombres o sinónimos como boleta, agenda o constancia; también se toleran pequeños errores de escritura. Solo verás destinos de tu rol, con su categoría, acciones rápidas y los cinco últimos accesos de tu usuario en este navegador. Usa flechas y Enter para abrir, o Escape para cerrar y volver. Las acciones rápidas abren formularios sin guardar cambios. No se buscan expedientes personales.',
       ],
       [
         'notificaciones',

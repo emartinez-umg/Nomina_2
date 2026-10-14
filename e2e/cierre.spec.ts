@@ -90,6 +90,116 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       await page.reload();
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     });
+  for (const rol of ['ADMIN', 'RH', 'EMPLEADO'] as const)
+    test(`navegación horizontal y Ctrl/⌘ K de ${rol} en escritorio y móvil`, async ({ page }) => {
+      await entrar(page, rol);
+      const menu = page.getByRole('navigation', { name: 'Secciones del sistema' });
+      const inicio = menu.getByRole('button', { name: 'Inicio', exact: true });
+      await inicio.focus();
+      await page.keyboard.press('Enter');
+      await expect(inicio).toHaveAttribute('aria-expanded', 'true');
+      await page.keyboard.press('Space');
+      await expect(inicio).toHaveAttribute('aria-expanded', 'false');
+      await page.keyboard.press('ArrowDown');
+      await expect(menu.getByRole('link', { name: /^Resumen/ })).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(inicio).toBeFocused();
+      await page.keyboard.press('ArrowRight');
+      await expect(
+        menu.getByRole('button', {
+          name: rol === 'EMPLEADO' ? 'Mis gestiones' : 'Personal',
+          exact: true,
+        }),
+      ).toBeFocused();
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('End');
+      await expect(menu.getByRole('link').last()).toBeFocused();
+      await page.keyboard.press('Escape');
+      // Los grupos pueden ocupar varias filas: cada panel debe permanecer dentro de la pantalla.
+      for (const grupo of await menu.getByRole('button').all()) {
+        await grupo.click();
+        const limites = await menu.locator('.grupo-panel:visible').boundingBox();
+        expect(limites).not.toBeNull();
+        expect(limites!.x).toBeGreaterThanOrEqual(8);
+        expect(limites!.x + limites!.width).toBeLessThanOrEqual(1280);
+        await page.keyboard.press('Escape');
+      }
+      const buscar = page.getByRole('button', { name: 'Buscar sección o acción', exact: true });
+      await buscar.focus();
+      await page.keyboard.press('Control+k');
+      const dialogo = page.getByRole('dialog', { name: 'Buscar en el sistema' });
+      await expect(dialogo).toBeVisible();
+      const entrada = dialogo.getByRole('combobox');
+      await expect(entrada).toBeFocused();
+      await expect(dialogo.getByRole('option', { name: /^Usuarios/ })).toHaveCount(
+        rol === 'ADMIN' ? 1 : 0,
+      );
+      await expect(dialogo.getByRole('option', { name: /^Nuevo empleado/ })).toHaveCount(
+        rol === 'EMPLEADO' ? 0 : 1,
+      );
+      await mkdir('tmp/pdfs', { recursive: true });
+      await page.screenshot({ path: `tmp/pdfs/paleta-${rol}.png` });
+      await entrada.fill('boltea');
+      await expect(dialogo.getByRole('option')).toHaveCount(1);
+      await expect(dialogo.getByRole('option')).toContainText(
+        rol === 'EMPLEADO' ? 'Mis gestiones' : 'Nómina',
+      );
+      const a11y = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(
+        a11y.violations.map((v) => ({ id: v.id, nodos: v.nodes.map((n) => n.target) })),
+      ).toEqual([]);
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(
+        rol === 'EMPLEADO' ? /\/mis-gestiones\/boletas$/ : /\/planilla$/,
+      );
+      await oferta(page);
+      await page.keyboard.press('Meta+k');
+      await expect(dialogo.getByText('Recientes', { exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await page.reload();
+      await buscar.click();
+      await expect(dialogo.getByText('Recientes', { exact: true })).toBeVisible();
+      await entrada.fill(rol === 'EMPLEADO' ? 'Actualizar mi contacto' : 'Cargar comisión');
+      await dialogo.getByRole('option').click();
+      await expect(page).toHaveURL(
+        rol === 'EMPLEADO' ? /\/mis-gestiones\/datos$/ : /\/novedades\/comisiones\/nuevo$/,
+      );
+      await oferta(page);
+      await mkdir('tmp/pdfs', { recursive: true });
+      await page.screenshot({ path: `tmp/pdfs/navegacion-${rol}-desktop.png`, fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      const abrir = page.getByRole('button', { name: 'Abrir menú de navegación', exact: true });
+      await abrir.click();
+      const categoria = menu.getByRole('button', {
+        name: rol === 'EMPLEADO' ? 'Anuncios y eventos' : 'Comunicación',
+        exact: true,
+      });
+      await categoria.click();
+      await expect(categoria).toHaveAttribute('aria-expanded', 'true');
+      await expect(menu.getByRole('link', { name: /^Eventos/ })).toBeVisible();
+      const ancho = await page.evaluate(() => ({
+        pagina: document.documentElement.scrollWidth,
+        pantalla: innerWidth,
+      }));
+      expect(ancho.pagina).toBeLessThanOrEqual(ancho.pantalla);
+      const movilA11y = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(movilA11y.violations.map((v) => v.id)).toEqual([]);
+      await page.screenshot({ path: `tmp/pdfs/navegacion-${rol}-movil.png`, fullPage: true });
+      await menu.getByRole('link', { name: /^Eventos/ }).click();
+      await expect(page).toHaveURL(
+        rol === 'EMPLEADO' ? /\/mis-gestiones\/eventos$/ : /\/comunicacion\/eventos$/,
+      );
+      await expect(abrir).toHaveAttribute('aria-expanded', 'false');
+      await buscar.click();
+      await expect(entrada).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(buscar).toBeFocused();
+    });
   test('alta guiada de empleado y validaciones de formato/fechas', async ({ page }) => {
     await entrar(page, 'RH');
     await page.goto('/empleados/nuevo');
@@ -479,6 +589,9 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         await page.getByRole('button', { name: 'Abrir menú de navegación', exact: true }).click();
         await expect(page.getByRole('navigation', { name: 'Secciones del sistema' })).toBeVisible();
         await page.keyboard.press('Escape');
+        await expect(
+          page.getByRole('button', { name: 'Abrir menú de navegación', exact: true }),
+        ).toHaveAttribute('aria-expanded', 'false');
         await page.goto('/mis-gestiones');
         await revisarUi(page);
         await page.evaluate(() => window.scrollTo(0, 0));
