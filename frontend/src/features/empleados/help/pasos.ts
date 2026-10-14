@@ -31,6 +31,12 @@ export function ayudaEmpleados(
       },
     ],
     formulario: [
+      {
+        elemento: 'codigo-automatico',
+        titulo: 'Código automático por departamento',
+        descripcion:
+          'Selecciona el departamento en Datos laborales para ver EMP, su código y un contador de cuatro dígitos. Cada departamento tiene su propio contador. La vista previa no reserva el número. El código definitivo se asigna al guardar y nunca cambia, incluso si el empleado se traslada.',
+      },
       ...secciones.map((s, i) => ({
         elemento: `empleado-seccion-${i}`,
         titulo: s.titulo,
@@ -94,13 +100,13 @@ export function ayudaEmpleados(
         elemento: 'carga-archivo',
         titulo: 'Preparar CSV',
         descripcion:
-          'Descarga la plantilla y reemplaza la fila ilustrativa con empleados reales. Conserva las columnas; usa fechas aaaa-mm-dd, montos sin Q ni separadores de miles, IDs reales de catálogos y true/false para generarUsuario. Máximo 100 empleados y 1 MB. Textos con comas llevan comillas dobles.',
+          'El CSV no pide código: se asigna al importar. Descarga la plantilla y reemplaza la fila ilustrativa con empleados reales. Conserva las columnas; usa fechas aaaa-mm-dd, montos sin Q ni separadores de miles, IDs reales de catálogos y true/false para generarUsuario. Máximo 100 empleados y 1 MB. Textos con comas llevan comillas dobles.',
       },
       {
         elemento: 'carga-preview',
         titulo: 'Revisar cada fila',
         descripcion:
-          'Validar crea una vista previa, sin dar de alta empleados. Revisa los errores por número de fila y las advertencias salariales. Repetir un DPI, NIT, correo, IGSS o código dentro del archivo invalida todas sus apariciones. Corrige el CSV y vuelve a validar.',
+          'Validar crea una vista previa, sin dar de alta empleados. Revisa los errores por número de fila y las advertencias salariales. Repetir un DPI, NIT, correo o IGSS dentro del archivo invalida todas sus apariciones. Corrige el CSV y vuelve a validar.',
       },
       {
         elemento: 'carga-confirmar',

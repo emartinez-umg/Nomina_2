@@ -5,6 +5,7 @@ import { rangoLibre } from './api/vacaciones';
 import type { Fila } from './api/vacaciones';
 import { TextField } from '../../components/forms/TextField';
 const base: Fila = {
+  codigo: 'SOL_2026_0001',
   id: 1,
   idEmpleado: 1,
   empleado: 'Expediente de prueba',

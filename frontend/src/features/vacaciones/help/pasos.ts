@@ -3,6 +3,12 @@ export const ayudaVacaciones: DefinicionAyuda = {
   id: 'vacaciones',
   pasos: [
     {
+      elemento: 'codigo-automatico',
+      titulo: 'Código de solicitud',
+      descripcion:
+        'El sistema asigna SOL, el año y un contador al enviar la solicitud, dentro de la misma transacción. La vista previa no reserva el número. El código definitivo aparece en el historial y permanece al aprobar, rechazar o cancelar. Puedes buscarlo para localizar tu trámite.',
+    },
+    {
       elemento: 'vacaciones-resolver',
       titulo: 'Resolver con el saldo actual',
       descripcion:

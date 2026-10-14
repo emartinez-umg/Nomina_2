@@ -38,6 +38,7 @@ export async function empleado(c: Connection, id: number) {
   )[0];
 }
 export interface Solicitud {
+  codigo: string;
   id: number;
   idEmpleado: number;
   usuario: number | null;
@@ -52,7 +53,7 @@ export interface Solicitud {
   datos: string | null;
   documento: number | null;
 }
-const select = `S.ID_SOLICITUD "id", S.ID_EMPLEADO "idEmpleado", E.ID_USUARIO "usuario", E.NOMBRES||' '||E.APELLIDOS "empleado", T.CODIGO "tipo", T.NOMBRE "nombreTipo", T.GENERA_PDF "generaPdf", S.ESTADO "estado", TO_CHAR(S.FECHA_CREACION,'YYYY-MM-DD') "fecha", S.OBSERVACIONES "observaciones", S.MOTIVO_RECHAZO "motivo", S.DATOS_SOLICITADOS "datos", (SELECT MAX(D.ID_DOCUMENTO_GENERADO) FROM DOCUMENTOS_GENERADOS D WHERE D.ID_SOLICITUD=S.ID_SOLICITUD AND D.ACTIVO=1 AND D.ESTADO<>'ANULADO') "documento"`;
+const select = `S.ID_SOLICITUD "id",S.CODIGO "codigo", S.ID_EMPLEADO "idEmpleado", E.ID_USUARIO "usuario", E.NOMBRES||' '||E.APELLIDOS "empleado", NVL(T.CODIGO_ANTERIOR,T.CODIGO) "tipo", T.NOMBRE "nombreTipo", T.GENERA_PDF "generaPdf", S.ESTADO "estado", TO_CHAR(S.FECHA_CREACION,'YYYY-MM-DD') "fecha", S.OBSERVACIONES "observaciones", S.MOTIVO_RECHAZO "motivo", S.DATOS_SOLICITADOS "datos", (SELECT MAX(D.ID_DOCUMENTO_GENERADO) FROM DOCUMENTOS_GENERADOS D WHERE D.ID_SOLICITUD=S.ID_SOLICITUD AND D.ACTIVO=1 AND D.ESTADO<>'ANULADO') "documento"`;
 const from =
   'SOLICITUDES S JOIN EMPLEADOS E ON E.ID_EMPLEADO=S.ID_EMPLEADO JOIN TIPOS_SOLICITUD T ON T.ID_TIPO_SOLICITUD=S.ID_TIPO_SOLICITUD';
 export async function solicitud(c: Connection, id: number) {
@@ -68,11 +69,11 @@ export async function listar(c: Connection, q: Query, propietario: number | null
   const binds: BindParameters = { propietario };
   const filtros = [
     'S.ACTIVO=1',
-    "T.CODIGO IN ('CONSTANCIA_LABORAL','CERTIFICADO_IGSS','CONSTANCIA_INTECAP','GAFETE','PARQUEO','ACTUALIZACION_DATOS')",
+    "NVL(T.CODIGO_ANTERIOR,T.CODIGO) IN ('CONSTANCIA_LABORAL','CERTIFICADO_IGSS','CONSTANCIA_INTECAP','GAFETE','PARQUEO','ACTUALIZACION_DATOS')",
     '(:propietario IS NULL OR E.ID_USUARIO=:propietario)',
   ];
   if (q.tipo) {
-    filtros.push('T.CODIGO=:tipo');
+    filtros.push('NVL(T.CODIGO_ANTERIOR,T.CODIGO)=:tipo');
     binds.tipo = q.tipo;
   }
   if (q.estado) {
@@ -84,7 +85,9 @@ export async function listar(c: Connection, q: Query, propietario: number | null
     binds.empleado = q.idEmpleado;
   }
   if (q.buscar) {
-    filtros.push("INSTR(LOWER(E.NOMBRES||' '||E.APELLIDOS||' '||E.CODIGO),LOWER(:buscar))>0");
+    filtros.push(
+      "INSTR(LOWER(E.NOMBRES||' '||E.APELLIDOS||' '||E.CODIGO||' '||S.CODIGO),LOWER(:buscar))>0",
+    );
     binds.buscar = q.buscar;
   }
   if (q.desde) {
@@ -100,6 +103,7 @@ export async function listar(c: Connection, q: Query, propietario: number | null
     await filas<{ n: number }>(c, `SELECT COUNT(*) "n" FROM ${from} WHERE ${where}`, binds)
   )[0]!.n;
   const orden = {
+    codigo: 'S.CODIGO',
     id: 'S.ID_SOLICITUD',
     empleado: 'E.NOMBRES',
     tipo: 'T.NOMBRE',
@@ -123,7 +127,7 @@ export async function tipo(c: Connection, codigo: string) {
   return (
     await filas<{ id: number; nombre: string }>(
       c,
-      'SELECT ID_TIPO_SOLICITUD "id",NOMBRE "nombre" FROM TIPOS_SOLICITUD WHERE CODIGO=:codigo AND ACTIVO=1 AND ES_DIRECTA=0',
+      'SELECT ID_TIPO_SOLICITUD "id",NOMBRE "nombre" FROM TIPOS_SOLICITUD WHERE NVL(CODIGO_ANTERIOR,CODIGO)=:codigo AND ACTIVO=1 AND ES_DIRECTA=0',
       { codigo },
     )
   )[0];

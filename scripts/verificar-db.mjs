@@ -75,7 +75,7 @@ try {
       DB_POOL_MAX: '1',
     }),
   );
-  assert.equal(await ejecutarMigraciones(db, logger), 21, 'Deben aplicar V000–V020 desde cero.');
+  assert.equal(await ejecutarMigraciones(db, logger), 22, 'Deben aplicar V000–V021 desde cero.');
   assert.equal(
     await ejecutarMigraciones(db, logger),
     0,
@@ -93,7 +93,7 @@ try {
     );
     assert.equal(
       await escalar("SELECT COUNT(*) FROM VERSION_ESQUEMA WHERE ESTADO = 'APLICADA'"),
-      21,
+      22,
     );
     assert.equal(
       await escalar(`SELECT COUNT(*) FROM USER_CONSTRAINTS
@@ -166,22 +166,25 @@ try {
     assert.equal(await escalar('SELECT COUNT(*) FROM FERIADOS'), 13);
     assert.equal(
       await escalar(
-        "SELECT TO_CHAR(FECHA, 'YYYY-MM-DD') FROM FERIADOS WHERE CODIGO = 'DIA_EJERCITO'",
+        "SELECT TO_CHAR(FECHA, 'YYYY-MM-DD') FROM FERIADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'DIA_EJERCITO'",
       ),
       '2026-06-29',
     );
     assert.equal(await escalar('SELECT COUNT(*) FROM FERIADOS WHERE MINUTO_INICIO = 720'), 2);
     assert.equal(
       await escalar(
-        "SELECT VALOR FROM PARAMETROS_LEGALES WHERE CODIGO = 'IGSS_LABORAL_PORCENTAJE'",
+        "SELECT VALOR FROM PARAMETROS_LEGALES WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'IGSS_LABORAL_PORCENTAJE'",
       ),
       4.83,
     );
 
     // Simula ajustes legítimos de RRHH y un ADMIN que ya cambió la contraseña.
-    await conexion.execute("UPDATE TIPOS_DESCUENTO SET NOMBRE = :nombre WHERE CODIGO = 'PARQUEO'", {
-      nombre: 'Parqueo editado por RRHH',
-    });
+    await conexion.execute(
+      "UPDATE TIPOS_DESCUENTO SET NOMBRE = :nombre WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'PARQUEO'",
+      {
+        nombre: 'Parqueo editado por RRHH',
+      },
+    );
     await conexion.execute(
       "UPDATE PLANTILLAS_DOCUMENTO SET CONTENIDO = :texto WHERE CODIGO = 'CONSTANCIA_LABORAL'",
       { texto: 'Plantilla editada por RRHH' },
@@ -222,7 +225,7 @@ try {
     antes === (await snapshot()),
     'Seeds idempotentes: conservar filas, valores, hash y fechas.',
   );
-  console.log('✓ V000–V020 desde cero; 54 tablas, identities, auditoría, CHECK y FKs indexadas.');
+  console.log('✓ V000–V021 desde cero; 54 tablas, identities, auditoría, CHECK y FKs indexadas.');
   console.log('✓ Seeds repetibles; parámetros, feriados, plantillas y ADMIN argon2id verificados.');
 
   await db.conConexion(async (conexion) => {
@@ -300,7 +303,7 @@ try {
       LOCALIDAD: 'GUATEMALA_CIUDAD',
     });
     const contrato = await escalar(
-      "SELECT ID_TIPO_CONTRATO FROM TIPOS_CONTRATO WHERE CODIGO = 'INDEFINIDO'",
+      "SELECT ID_TIPO_CONTRATO FROM TIPOS_CONTRATO WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'INDEFINIDO'",
     );
     const persona = {
       CODIGO: 'PRUEBA_A',
@@ -398,7 +401,7 @@ try {
       ID_HISTORIAL_SALARIAL: otroSalario,
     });
     const tipoVacaciones = await escalar(
-      "SELECT ID_TIPO_SOLICITUD FROM TIPOS_SOLICITUD WHERE CODIGO = 'VACACIONES'",
+      "SELECT ID_TIPO_SOLICITUD FROM TIPOS_SOLICITUD WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'VACACIONES'",
     );
     const solicitud = await insertar('SOLICITUDES', 'ID_SOLICITUD', {
       ID_EMPLEADO: empleado,
@@ -492,7 +495,10 @@ try {
         ),
       /otro rol/,
     );
-    assert.equal(await escalar("SELECT COUNT(*) FROM BANCOS WHERE CODIGO = 'ROLLBACK'"), 0);
+    assert.equal(
+      await escalar("SELECT COUNT(*) FROM BANCOS WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'ROLLBACK'"),
+      0,
+    );
   });
   console.log(
     '✓ Rechazo real de duplicados, identidades manuales, FKs inválidas, quincenas solapadas y bitácora mutable.',

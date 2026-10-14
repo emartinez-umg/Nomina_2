@@ -437,6 +437,7 @@ export function crearNovedadesService(db: BaseDatos) {
       db.conConexion(async (c) => {
         const filas: unknown[][] = [
           [
+            'Código',
             'Empleado',
             'Tipo',
             'Inicio',
@@ -456,6 +457,7 @@ export function crearNovedadesService(db: BaseDatos) {
           const r = await repo.listar(c, tipo, { ...q, pagina, limite: 100 });
           for (const f of r.registros)
             filas.push([
+              f.codigo,
               f.empleado,
               f.tipoNombre ?? tipo,
               f.fechaInicio,

@@ -278,6 +278,16 @@ function Listado({ tipo }: { tipo: Tipo }) {
         <div data-tour="novedades-tabla">
           <Table<Fila>
             columnas={[
+              ...(tipo === 'descuentos' || tipo === 'prestamos'
+                ? [
+                    {
+                      id: 'codigo',
+                      titulo: 'Código',
+                      ordenable: true,
+                      render: (r: Fila) => r.codigo,
+                    },
+                  ]
+                : []),
               {
                 id: 'empleado',
                 titulo: 'Empleado',

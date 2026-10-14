@@ -121,7 +121,11 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
       id: cuenta.idUsuario,
     });
     await ejecutar("INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('F9','Departamento F9')");
-    dep = Number(await escalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='F9'"));
+    dep = Number(
+      await escalar(
+        "SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F9'",
+      ),
+    );
     await ejecutar(
       "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('F9','Puesto F9',:dep)",
       { dep },
@@ -132,8 +136,12 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
     await ejecutar(
       "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,CORREO) VALUES ('Empresa de pruebas F9','1234567-9','Dirección de pruebas','empresa@example.test')",
     );
-    const puesto = await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='F9'"),
-      centro = await escalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='F9'"),
+    const puesto = await escalar(
+        "SELECT ID_PUESTO FROM PUESTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F9'",
+      ),
+      centro = await escalar(
+        "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F9'",
+      ),
       contrato = await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO');
     await ejecutar(
       "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES ('F9',:usuario,'Persona','Prestaciones','9876543210123','1234567-9',DATE '1995-01-01','O','SOLTERO','Dirección','55551234','empleado@example.test',:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
@@ -145,7 +153,9 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
         centro: Number(centro),
       },
     );
-    empleado = Number(await escalar("SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO='F9'"));
+    empleado = Number(
+      await escalar("SELECT ID_EMPLEADO FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F9'"),
+    );
     await ejecutar(
       "INSERT INTO HISTORIAL_SALARIAL (ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,VIGENTE_HASTA,MOTIVO) VALUES (:id,3000,DATE '2026-01-01',DATE '2026-03-31','Historia real de prueba')",
       { id: empleado },

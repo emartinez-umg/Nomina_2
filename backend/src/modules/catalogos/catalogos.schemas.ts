@@ -131,7 +131,15 @@ function schemaCampo(f: CampoCatalogo): z.ZodTypeAny {
 }
 export function entradaSchema(cat: Catalogo) {
   const shape: z.ZodRawShape = Object.fromEntries(
-    cat.campos.map((f) => [f.nombre, schemaCampo(f)]),
+    cat.campos.map((f) => [
+      f.nombre,
+      f.tipo === 'codigo'
+        ? z
+            .unknown()
+            .optional()
+            .transform(() => null)
+        : schemaCampo(f),
+    ]),
   );
   if (cat.slug === 'horarios')
     shape.dias = z.array(diaSchema).length(7, 'Configura los siete días.');

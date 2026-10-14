@@ -715,13 +715,13 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
                   : {};
         const lista = await agent
           .get(`/api/catalogos/${slug}`)
-          .query({ ...filtro, codigo: body.codigo, limite: 1 })
+          .query({ ...filtro, codigo: r.body.data.codigo, limite: 1 })
           .expect(200);
         expect(lista.body.data.total).toBe(1);
         if (slug === 'horarios') {
           const descanso = await agent
             .get('/api/catalogos/horarios')
-            .query({ codigo: body.codigo, diaSemana: 7, laborable: '0' })
+            .query({ codigo: r.body.data.codigo, diaSemana: 7, laborable: '0' })
             .expect(200);
           expect(descanso.body.data.total).toBe(1);
         }
@@ -774,7 +774,9 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         "INSERT INTO CENTROS_TRABAJO (CODIGO,NOMBRE,LOCALIDAD) VALUES ('F4_CENTRO','Centro temporal','PRUEBA')",
       );
       const centro = Number(
-        await escalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='F4_CENTRO'"),
+        await escalar(
+          "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F4_CENTRO'",
+        ),
       );
       const contrato = Number(
         await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO WHERE ACTIVO=1'),
@@ -784,7 +786,9 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         { puesto: puesto.body.data.id, departamento: dep.body.data.id, contrato, centro },
       );
       const empleado = Number(
-        await escalar("SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO='F4_EMPLEADO'"),
+        await escalar(
+          "SELECT ID_EMPLEADO FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F4_EMPLEADO'",
+        ),
       );
       await crear('jefaturas', {
         ...base,
@@ -879,10 +883,12 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         await agent
           .post('/api/catalogos/parametros-legales')
           .set('X-CSRF-Token', csrf)
-          .send({ ...body, codigo: 'F4_ROLLBACK' })
+          .send({ ...body, nombre: 'Rollback de prueba', codigo: 'F4_ROLLBACK' })
           .expect(500);
         expect(
-          await escalar("SELECT COUNT(*) FROM PARAMETROS_LEGALES WHERE CODIGO='F4_ROLLBACK'"),
+          await escalar(
+            "SELECT COUNT(*) FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='ROLLBACK_DE_PRUEBA'",
+          ),
         ).toBe(0);
         const nuevaId = respuestas.find((r) => r.status === 200)!.body.data.id as number;
         await agent
@@ -895,7 +901,9 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .expect(200)
           .then((r) => expect(r.body.data.vigenteHasta).toBe(null));
         expect(
-          await escalar("SELECT COUNT(*) FROM PARAMETROS_LEGALES WHERE CODIGO='F4_TASA'"),
+          await escalar('SELECT COUNT(*) FROM PARAMETROS_LEGALES WHERE CODIGO=:codigo', {
+            codigo: r.body.data.codigo,
+          }),
         ).toBe(2);
       } finally {
         await ejecutar('DROP TRIGGER F4_FALLAR_AUD');
@@ -1126,7 +1134,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       ).toBe(d.contactoTelefono);
       for (const tipo of ['salario', 'descuentos', 'vacaciones', 'documentos', 'historial'])
         await agent.get(`/api/empleados/${id}/pestanas/${tipo}`).expect(200);
-      for (const campo of ['dpi', 'nit', 'afiliacionIgss', 'correo', 'codigo']) {
+      for (const campo of ['dpi', 'nit', 'afiliacionIgss', 'correo']) {
         const duplicado = { ...datos(), [campo]: d[campo as keyof typeof d] };
         const e = await agent
           .post('/api/empleados')
@@ -1179,7 +1187,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       expect(r.text).not.toContain(d.dpi);
       expect(r.text).not.toContain(d.nit);
       const csv = await agent.get('/api/empleados/exportar').query(filtros).expect(200);
-      expect(csv.body.data).toContain(d.codigo);
+      expect(csv.body.data).toContain(n.body.data.empleado.codigo);
       expect(csv.body.data).not.toContain(d.dpi);
       await agent.get('/api/empleados').query({ ordenarPor: 'DPI DESC' }).expect(400);
     });
@@ -1296,9 +1304,12 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       try {
         await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(500);
         expect(
-          await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE CODIGO=:codigo', {
-            codigo: d.codigo,
-          }),
+          await escalar(
+            'SELECT COUNT(*) FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)=:codigo',
+            {
+              codigo: d.codigo,
+            },
+          ),
         ).toBe(0);
         expect(
           await escalar('SELECT COUNT(*) FROM USUARIOS WHERE CORREO=:correo', { correo: d.correo }),
@@ -1338,7 +1349,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       expect(p.body.data.filas[1].errores).toHaveProperty('telefono');
       expect(p.body.data.filas[1].errores.telefono).toHaveLength(1);
       expect(
-        await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE CODIGO=:codigo', {
+        await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)=:codigo', {
           codigo: valida.codigo,
         }),
       ).toBe(0);
@@ -1402,7 +1413,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         .expect(201);
       const id = p.body.data.id as number;
       await ejecutar(
-        `CREATE OR REPLACE TRIGGER F5_FALLAR_FILA BEFORE INSERT ON EMPLEADOS FOR EACH ROW BEGIN IF :NEW.CODIGO='${ds[1]!.codigo}' THEN RAISE_APPLICATION_ERROR(-20046,'Fallo de prueba'); END IF; END;`,
+        `CREATE OR REPLACE TRIGGER F5_FALLAR_FILA BEFORE INSERT ON EMPLEADOS FOR EACH ROW BEGIN IF :NEW.CORREO='${ds[1]!.correo}' THEN RAISE_APPLICATION_ERROR(-20046,'Fallo de prueba'); END IF; END;`,
       );
       try {
         await agent
@@ -1412,8 +1423,8 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .expect(500);
         for (const d of ds) {
           expect(
-            await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE CODIGO=:codigo', {
-              codigo: d.codigo,
+            await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE CORREO=:correo', {
+              correo: d.correo,
             }),
           ).toBe(0);
           expect(
@@ -1808,14 +1819,18 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(datos()).expect(201)
         ).body.data.empleado.id;
         descuento = Number(
-          await escalar("SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='PARQUEO'"),
+          await escalar(
+            "SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='PARQUEO'",
+          ),
         );
         prestamo = Number(
-          await escalar("SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='PRESTAMO'"),
+          await escalar(
+            "SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='PRESTAMO'",
+          ),
         );
         ausencia = Number(
           await escalar(
-            "SELECT ID_TIPO_AUSENCIA FROM TIPOS_AUSENCIA WHERE CODIGO='PERMISO_SIN_GOCE'",
+            "SELECT ID_TIPO_AUSENCIA FROM TIPOS_AUSENCIA WHERE NVL(CODIGO_ANTERIOR,CODIGO)='PERMISO_SIN_GOCE'",
           ),
         );
       });
@@ -2038,7 +2053,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       it('impide rangos ocupados por vacaciones y admite días contiguos', async () => {
         const { agent, csrf } = await entrarAdmin();
         await ejecutar(
-          "INSERT INTO SOLICITUDES (ID_EMPLEADO,ID_TIPO_SOLICITUD) SELECT :id,ID_TIPO_SOLICITUD FROM TIPOS_SOLICITUD WHERE CODIGO='VACACIONES'",
+          "INSERT INTO SOLICITUDES (ID_EMPLEADO,ID_TIPO_SOLICITUD) SELECT :id,ID_TIPO_SOLICITUD FROM TIPOS_SOLICITUD WHERE NVL(CODIGO_ANTERIOR,CODIGO)='VACACIONES'",
           { id: idEmpleado },
         );
         const idSolicitud = Number(
@@ -2303,20 +2318,26 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         "INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('F8_DEP','Departamento de prueba F8')",
       );
       const dep = Number(
-        await escalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='F8_DEP'"),
+        await escalar(
+          "SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F8_DEP'",
+        ),
       );
       await ejecutar(
         "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('F8_PUESTO','Puesto F8',:dep)",
         { dep },
       );
       const puesto = Number(
-        await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='F8_PUESTO'"),
+        await escalar(
+          "SELECT ID_PUESTO FROM PUESTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F8_PUESTO'",
+        ),
       );
       await ejecutar(
         "INSERT INTO CENTROS_TRABAJO (CODIGO,NOMBRE,LOCALIDAD,DIRECCION) VALUES ('F8_CENTRO','Centro F8','PRUEBA','Dirección F8')",
       );
       centroId = Number(
-        await escalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='F8_CENTRO'"),
+        await escalar(
+          "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F8_CENTRO'",
+        ),
       );
       const contrato = Number(await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO'));
       cuentaF8 = await crearCuenta('EMPLEADO');
@@ -2340,15 +2361,25 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           },
         );
       }
-      empleadoId = Number(await escalar("SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO='F8_EMP'"));
-      otroId = Number(await escalar("SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO='F8_OTRO'"));
+      empleadoId = Number(
+        await escalar(
+          "SELECT ID_EMPLEADO FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F8_EMP'",
+        ),
+      );
+      otroId = Number(
+        await escalar(
+          "SELECT ID_EMPLEADO FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F8_OTRO'",
+        ),
+      );
       for (const id of [empleadoId, otroId])
         await ejecutar(
           "INSERT INTO HISTORIAL_SALARIAL (ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES (:id,3000,DATE '2099-01-01','Fixture F8')",
           { id },
         );
       const tipo = Number(
-        await escalar("SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='PRESTAMO'"),
+        await escalar(
+          "SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='PRESTAMO'",
+        ),
       );
       const { agent, csrf } = await entrarAdmin();
       const prestamo = await agent
@@ -2546,7 +2577,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await actuar('revisar', 1, 409);
       await actuar('calcular', 1);
       await ejecutar(
-        "INSERT INTO DESCUENTOS_EMPLEADO (ID_EMPLEADO,ID_TIPO_DESCUENTO,MODALIDAD,MONTO_QUINCENA,FECHA_INICIO,MOTIVO) VALUES (:id,(SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='EMBARGO'),'FIJO',9999,DATE '2099-01-16','Neto negativo prueba')",
+        "INSERT INTO DESCUENTOS_EMPLEADO (ID_EMPLEADO,ID_TIPO_DESCUENTO,MODALIDAD,MONTO_QUINCENA,FECHA_INICIO,MOTIVO) VALUES (:id,(SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='EMBARGO'),'FIJO',9999,DATE '2099-01-16','Neto negativo prueba')",
         { id: empleadoId },
       );
       const neg = await actuar('calcular', 2);
@@ -2647,7 +2678,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
     });
     it('cobra cuotas vencidas al siguiente cierre y bloquea reabrir periodos con cierres posteriores', async () => {
       await ejecutar(
-        "INSERT INTO DESCUENTOS_EMPLEADO (ID_EMPLEADO,ID_TIPO_DESCUENTO,MODALIDAD,MONTO_QUINCENA,MONTO_TOTAL,SALDO,NUMERO_CUOTAS,FECHA_INICIO,FECHA_FIN,MOTIVO) VALUES (:id,(SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE CODIGO='OTROS'),'UNICO',10,10,10,1,DATE '2099-01-20',DATE '2099-01-31','Cuota anterior al inicio del sistema')",
+        "INSERT INTO DESCUENTOS_EMPLEADO (ID_EMPLEADO,ID_TIPO_DESCUENTO,MODALIDAD,MONTO_QUINCENA,MONTO_TOTAL,SALDO,NUMERO_CUOTAS,FECHA_INICIO,FECHA_FIN,MOTIVO) VALUES (:id,(SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='OTROS'),'UNICO',10,10,10,1,DATE '2099-01-20',DATE '2099-01-31','Cuota anterior al inicio del sistema')",
         { id: empleadoId },
       );
       const desc = Number(

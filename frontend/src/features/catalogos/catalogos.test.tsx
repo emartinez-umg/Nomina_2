@@ -171,7 +171,7 @@ describe('Catálogos: validación y formularios', () => {
     localStorage.setItem(
       clave,
       JSON.stringify({
-        version: 1,
+        version: 2,
         guardado: Date.now(),
         valores: { ...valoresIniciales(c, actual), valor: '5', motivo: 'Norma revisada' },
         paso: 'revision',

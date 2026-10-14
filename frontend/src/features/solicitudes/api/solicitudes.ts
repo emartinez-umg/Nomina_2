@@ -32,6 +32,7 @@ export const contactoSchema = z.object({
 export const datosSchema = z.object({ criticos: criticosSchema, contacto: contactoSchema });
 export type MisDatos = z.infer<typeof datosSchema>;
 const fila = z.object({
+  codigo: z.string(),
   id: z.number(),
   idEmpleado: z.number(),
   empleado: z.string(),

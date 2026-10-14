@@ -130,7 +130,9 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     ajeno = await entrar(cuentas[2]!.usuario, cuentas[2]!.contrasenaTemporal);
     await ejecutar("INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('F10','Gestiones')");
     const dep = Number(
-      await escalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='F10'"),
+      await escalar(
+        "SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F10'",
+      ),
     );
     await ejecutar(
       "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('F10','Analista de gestiones',:dep)",
@@ -142,9 +144,13 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     await ejecutar(
       "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,REPRESENTANTE) VALUES ('Empresa de pruebas F10','1234567-9','Dirección de pruebas','Representante de pruebas')",
     );
-    const puesto = Number(await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='F10'")),
+    const puesto = Number(
+        await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F10'"),
+      ),
       centro = Number(
-        await escalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='F10'"),
+        await escalar(
+          "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F10'",
+        ),
       ),
       contrato = Number(await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO'));
     for (const i of [1, 2]) {
@@ -165,7 +171,9 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
         },
       );
       const e = Number(
-        await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO=:c', { c: `F10_${i}` }),
+        await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)=:c', {
+          c: `F10_${i}`,
+        }),
       );
       if (i === 1) empleado = e;
       else segundo = e;

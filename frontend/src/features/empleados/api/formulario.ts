@@ -41,7 +41,7 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         nombre: 'codigo',
         label: 'Código',
         tipo: 'texto',
-        hint: 'Código único en mayúsculas, números y guion. Ejemplo: EMP_001.',
+        hint: 'Código automático: EMP, código de departamento y contador. Se conserva al trasladar al empleado.',
         max: 40,
         required: true,
         ancho: 'corto',
@@ -300,9 +300,7 @@ export function schemaFormulario(r: Reglas, editar = false) {
     else schema = z.string().min(1, 'Completa este campo obligatorio.').pipe(schema);
     shape[f.nombre] = schema;
   }
-  shape.codigo = z
-    .string()
-    .regex(/^[A-Z0-9_-]{1,40}$/, 'Usa mayúsculas, números, guion o guion bajo.');
+  shape.codigo = z.string().default('');
   shape.cuentaBancaria = z.string().regex(/^[A-Za-z0-9-]{0,34}$/, 'Usa letras, números o guiones.');
   shape.generarUsuario = z.enum(['true', 'false']);
   shape.motivo = editar
@@ -330,6 +328,7 @@ export function schemaFormulario(r: Reglas, editar = false) {
 export function cuerpo(d: Record<string, string>, editar = false) {
   const result: Record<string, unknown> = {};
   for (const f of todosCampos) {
+    if (f.nombre === 'codigo') continue;
     if (editar && f.nombre === 'salarioBase') continue;
     const v = d[f.nombre] ?? '';
     result[f.nombre] =

@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useCallback, useState } from 'react';
@@ -149,6 +150,7 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
   };
   return (
     <section data-tour="solicitud-detalle" className="mt-5">
+      <CampoCodigo entidad="solicitudes" codigo={s.codigo} />
       {!empleado && s.estado === 'EN_PROCESO' && <FormDraftNotice draft={draft} />}
       <HelpButton />
       <h3>

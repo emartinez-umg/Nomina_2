@@ -15,7 +15,10 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
           ...cat.campos.map((f) => ({
             elemento: `campo-${f.nombre}`,
             titulo: f.etiqueta,
-            descripcion: `${f.hint} ${f.requerido ? 'Es obligatorio.' : 'Puede dejarse vacío.'} ${f.tipo === 'referencia' ? 'Escribe para buscar registros reales; puedes cargar más opciones. Un registro inactivo no se acepta para nuevas asignaciones.' : ''}`,
+            descripcion:
+              f.tipo === 'codigo'
+                ? 'El código se genera a partir del nombre: iniciales sin conectores o primeras letras. Ante coincidencias usa consonantes y luego un número. La vista previa no reserva el código; al guardar se asigna sin duplicados y será permanente aunque renombres el registro.'
+                : `${f.hint} ${f.requerido ? 'Es obligatorio.' : 'Puede dejarse vacío.'} ${f.tipo === 'referencia' ? 'Escribe para buscar registros reales; puedes cargar más opciones. Un registro inactivo no se acepta para nuevas asignaciones.' : ''}`,
           })),
           ...(cat.slug === 'horarios'
             ? [

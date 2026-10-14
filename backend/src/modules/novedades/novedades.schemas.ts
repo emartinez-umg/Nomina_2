@@ -120,7 +120,9 @@ export const querySchema = z
   .object({
     pagina: z.coerce.number().int().min(1).max(1000000).default(1),
     limite: z.coerce.number().int().min(1).max(100).default(20),
-    ordenarPor: z.enum(['id', 'empleado', 'fechaInicio', 'monto', 'estado', 'saldo']).default('id'),
+    ordenarPor: z
+      .enum(['id', 'codigo', 'empleado', 'fechaInicio', 'monto', 'estado', 'saldo'])
+      .default('id'),
     direccion: z.enum(['asc', 'desc']).default('desc'),
     buscar: z.string().trim().max(150).optional(),
     idEmpleado: z.coerce.number().int().positive().optional(),

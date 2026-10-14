@@ -508,12 +508,13 @@ export function crearEmpleadosService(db: BaseDatos) {
         await autorizarCarga(c, id, actor);
         const filas = await repo.filasCarga(c, id);
         return escribirCsv([
-          ['Fila', 'Nombre', 'Estado', 'ID empleado', 'Usuario', 'Errores'],
+          ['Fila', 'Nombre', 'Estado', 'ID empleado', 'Código', 'Usuario', 'Errores'],
           ...filas.map((f) => [
             f.numero,
             `${String(f.datos.nombres ?? '')} ${String(f.datos.apellidos ?? '')}`,
             f.estado,
             f.idEmpleado,
+            f.codigo,
             f.usuario,
             Object.entries(f.errores)
               .map(([k, v]) => `${k}: ${v.join(' ')}`)

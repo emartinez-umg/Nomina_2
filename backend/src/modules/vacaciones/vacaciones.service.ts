@@ -347,12 +347,12 @@ export function crearVacacionesService(db: BaseDatos) {
             ? { ...q, idEmpleado: (await obtener(c, { ...auth, ip: '' })).id }
             : q;
         const filas: unknown[][] = [
-          ['Empleado', 'Inicio', 'Fin', 'Días laborales', 'Estado', 'Motivo de rechazo'],
+          ['Código', 'Empleado', 'Inicio', 'Fin', 'Días laborales', 'Estado', 'Motivo de rechazo'],
         ];
         for (let pagina = 1; pagina <= 1000; pagina++) {
           const r = await repo.listar(c, { ...filtro, pagina, limite: 100 });
           for (const s of r.registros)
-            filas.push([s.empleado, s.inicio, s.fin, s.dias, s.estado, s.motivo]);
+            filas.push([s.codigo, s.empleado, s.inicio, s.fin, s.dias, s.estado, s.motivo]);
           if (pagina * 100 >= r.total) return escribirCsv(filas);
         }
         throw new ErrorConflicto('Reduce los filtros para exportar hasta 100,000 registros.');

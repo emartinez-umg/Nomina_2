@@ -52,7 +52,7 @@ const salarioSql = `(SELECT S.SALARIO_BASE FROM HISTORIAL_SALARIAL S WHERE S.ID_
 const base = `SELECT E.*, D.NOMBRE DEPARTAMENTO,P.NOMBRE PUESTO,${salarioSql} SALARIO FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO`;
 export async function reglas(c: Connection): Promise<ReglasEmpleado> {
   const r = await c.execute<{ hoy: string; min: number; max: number; ultimoCierre: string | null }>(
-    `SELECT ${fecha(hoy)} "hoy",(SELECT VALOR FROM PARAMETROS_LEGALES WHERE CODIGO='EMPLEADO_EDAD_MINIMA' AND ACTIVO=1 AND VIGENTE_DESDE<=${hoy} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${hoy}) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "min",(SELECT VALOR FROM PARAMETROS_LEGALES WHERE CODIGO='EMPLEADO_EDAD_MAXIMA' AND ACTIVO=1 AND VIGENTE_DESDE<=${hoy} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${hoy}) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "max",(SELECT ${fecha('MAX(FECHA_FIN)')} FROM PERIODOS_NOMINA WHERE ESTADO='CERRADO') "ultimoCierre" FROM DUAL`,
+    `SELECT ${fecha(hoy)} "hoy",(SELECT VALOR FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='EMPLEADO_EDAD_MINIMA' AND ACTIVO=1 AND VIGENTE_DESDE<=${hoy} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${hoy}) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "min",(SELECT VALOR FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='EMPLEADO_EDAD_MAXIMA' AND ACTIVO=1 AND VIGENTE_DESDE<=${hoy} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${hoy}) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "max",(SELECT ${fecha('MAX(FECHA_FIN)')} FROM PERIODOS_NOMINA WHERE ESTADO='CERRADO') "ultimoCierre" FROM DUAL`,
     {},
     opts,
   );
@@ -61,7 +61,7 @@ export async function reglas(c: Connection): Promise<ReglasEmpleado> {
 }
 export async function salarioMinimo(c: Connection, desde: string) {
   const r = await c.execute<{ valor: string }>(
-    `SELECT ${monto('VALOR')} "valor" FROM PARAMETROS_LEGALES WHERE CODIGO='SALARIO_MINIMO_MENSUAL' AND UNIDAD='QUETZALES' AND ACTIVO=1 AND VIGENTE_DESDE<=TO_DATE(:desde,'YYYY-MM-DD') AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=TO_DATE(:desde,'YYYY-MM-DD')) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY`,
+    `SELECT ${monto('VALOR')} "valor" FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='SALARIO_MINIMO_MENSUAL' AND UNIDAD='QUETZALES' AND ACTIVO=1 AND VIGENTE_DESDE<=TO_DATE(:desde,'YYYY-MM-DD') AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=TO_DATE(:desde,'YYYY-MM-DD')) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY`,
     { desde },
     opts,
   );
@@ -76,7 +76,11 @@ export async function listar(c: Connection, q: QueryEmpleados) {
       where.push(sql);
     }
   };
-  add('nombre', q.nombre, "INSTR(UPPER(E.NOMBRES||' '||E.APELLIDOS),UPPER(:nombre))>0");
+  add(
+    'nombre',
+    q.nombre,
+    "INSTR(UPPER(E.NOMBRES||' '||E.APELLIDOS||' '||E.CODIGO),UPPER(:nombre))>0",
+  );
   add('dpi', q.dpi, 'INSTR(E.DPI,:dpi)>0');
   add('nit', q.nit, 'INSTR(E.NIT,:nit)>0');
   for (const key of [
@@ -170,7 +174,6 @@ export async function opciones(
   return r.rows ?? [];
 }
 export const unicos = {
-  codigo: 'CODIGO',
   dpi: 'DPI',
   nit: 'NIT',
   afiliacionIgss: 'AFILIACION_IGSS',
@@ -204,7 +207,7 @@ export async function guardar(
   id?: number,
   idUsuario?: number,
 ) {
-  const entries = Object.entries(campos),
+  const entries = Object.entries(campos).filter(([key]) => key !== 'codigo'),
     binds: Record<string, string | number | null | oracledb.BindParameter> = { actor };
   for (const [key] of entries) binds[key] = d[key as keyof typeof campos];
   const exp = (key: string) =>
@@ -343,8 +346,9 @@ export async function filasCarga(c: Connection, id: number) {
     idEmpleado: number | null;
     estado: string;
     usuario: string | null;
+    codigo: string | null;
   }>(
-    `SELECT F.NUMERO_FILA "numero",F.DATOS "datos",F.ERRORES "errores",F.ID_EMPLEADO "idEmpleado",F.ESTADO "estado",U.USUARIO "usuario" FROM CARGA_MASIVA_FILAS F LEFT JOIN EMPLEADOS E ON E.ID_EMPLEADO=F.ID_EMPLEADO LEFT JOIN USUARIOS U ON U.ID_USUARIO=E.ID_USUARIO WHERE F.ID_CARGA_MASIVA=:id ORDER BY F.NUMERO_FILA`,
+    `SELECT F.NUMERO_FILA "numero",F.DATOS "datos",F.ERRORES "errores",F.ID_EMPLEADO "idEmpleado",F.ESTADO "estado",E.CODIGO "codigo",U.USUARIO "usuario" FROM CARGA_MASIVA_FILAS F LEFT JOIN EMPLEADOS E ON E.ID_EMPLEADO=F.ID_EMPLEADO LEFT JOIN USUARIOS U ON U.ID_USUARIO=E.ID_USUARIO WHERE F.ID_CARGA_MASIVA=:id ORDER BY F.NUMERO_FILA`,
     { id },
     {
       ...opts,

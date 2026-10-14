@@ -210,7 +210,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await page.goto('/empleados/nuevo');
     await oferta(page);
     await expect(page.getByLabel('Código', { exact: true })).toBeVisible();
-    await page.getByLabel('Código', { exact: true }).fill('E2E_ALTA');
+    await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
     await page.getByLabel('Nombres', { exact: true }).fill('Nueva123 Persona');
     expect(await page.getByLabel('Nombres', { exact: true }).inputValue()).toBe('Nueva Persona');
     await page.getByLabel('Apellidos', { exact: true }).fill('Prueba');
@@ -655,26 +655,18 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
     await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('');
     await expect(volver.getByText(/Tienes un borrador guardado hace/)).toHaveCount(0);
   });
-  test('catálogo restaura, conserva ante conflicto y limpia al guardar y editar', async ({
-    page,
-  }) => {
+  test('catálogo restaura, genera código y limpia al guardar y editar', async ({ page }) => {
     await entrar(page, 'RH');
     await page.goto('/catalogos/departamentos');
     await oferta(page);
     await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
-    await page.getByLabel('Código', { exact: true }).fill('E2E');
+    await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
     await page.getByLabel('Nombre', { exact: true }).fill('Departamento Borrador');
     await page.reload();
     await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
     await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Departamento Borrador');
-    const conflicto = page.waitForResponse(
-      (r) => r.request().method() === 'POST' && r.url().endsWith('/catalogos/departamentos'),
-    );
-    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
-    expect((await conflicto).status()).toBe(409);
-    expect(await clavesBorradores(page)).toHaveLength(1);
-    await page.getByLabel('Código', { exact: true }).fill('E2E_BORRADOR');
+    await expect(page.getByLabel('Código', { exact: true })).toHaveValue('DB');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.getByText('Registro guardado y auditado.', { exact: true })).toBeVisible();
     expect(await clavesBorradores(page)).toHaveLength(0);
@@ -712,5 +704,48 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
     await context.clearCookies();
     await entrar(page, 'EMPLEADO');
     expect(await clavesBorradores(page)).toHaveLength(0);
+  });
+});
+
+test.describe('FASE V1-3: códigos automáticos con API real', () => {
+  test('vista previa, colisiones, búsqueda e inmutabilidad en formularios', async ({ page }) => {
+    await entrar(page, 'RH');
+    await page.goto('/catalogos/departamentos');
+    await oferta(page);
+    const codigos: string[] = [];
+    for (const esperado of ['VC', 'VNT', 'VC2']) {
+      await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+      const codigo = page.getByLabel('Código', { exact: true });
+      await expect(codigo).toHaveAttribute('readonly');
+      await page.getByLabel('Nombre', { exact: true }).fill('Ventas de códigos');
+      await expect(codigo).toHaveValue(esperado);
+      const respuesta = page.waitForResponse(
+        (r) => r.request().method() === 'POST' && r.url().endsWith('/catalogos/departamentos'),
+      );
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+      const guardado = await respuesta;
+      expect(guardado.status()).toBe(201);
+      codigos.push((await guardado.json()).data.codigo);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+    expect(new Set(codigos).size).toBe(3);
+    await page.getByLabel('Buscar', { exact: true }).fill('VC2');
+    await page.getByRole('button', { name: 'Aplicar búsqueda y filtros', exact: true }).click();
+    const fila = page.getByRole('row').filter({ hasText: 'Ventas de códigos' });
+    await expect(fila).toHaveCount(1);
+    await fila.getByRole('button', { name: /^Editar registro/ }).click();
+    await page.getByLabel('Nombre', { exact: true }).fill('Nombre renombrado');
+    await expect(page.getByLabel('Código', { exact: true })).toHaveValue('VC2');
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations).toEqual([]);
+    await tour(page, true);
+    await mkdir('tmp/pdfs', { recursive: true });
+    await page.screenshot({ path: 'tmp/pdfs/codigos-automaticos.png', fullPage: true });
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.getByRole('row').filter({ hasText: 'Nombre renombrado' })).toContainText(
+      'VC2',
+    );
   });
 });

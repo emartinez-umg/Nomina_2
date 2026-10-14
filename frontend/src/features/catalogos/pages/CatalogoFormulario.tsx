@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -71,7 +72,7 @@ export function CatalogoFormulario({
   } = form;
   const draft = useFormDraft(`catalogo-${cat.slug}`, actual?.id, {
     form,
-    version: 1,
+    version: 2,
     alDescartar: () => {
       setRevision(null);
       setMotivoError(undefined);
@@ -164,38 +165,46 @@ export function CatalogoFormulario({
                 key={f.nombre}
                 data-tour={`campo-${f.nombre}`}
               >
-                <Controller
-                  control={control}
-                  name={f.nombre}
-                  render={({ field }) => (
-                    <CampoEditor
-                      campo={f}
-                      actual={actual}
-                      name={field.name}
-                      label={f.etiqueta}
-                      hint={f.hint}
-                      placeholder={f.hint.split('.')[0] ?? ''}
-                      value={field.value ?? ''}
-                      onValueChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      required={!!f.requerido}
-                      error={errors[f.nombre]?.message}
-                      disabled={
-                        mutation.isPending ||
-                        !!(
-                          actual &&
-                          cat.legal &&
-                          ['codigo', 'unidad', 'limiteInferior'].includes(f.nombre)
-                        ) ||
-                        !!(actual?.enUso && cat.slug === 'horarios' && f.nombre === 'jornada')
-                      }
-                      minFecha={
-                        f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
-                      }
-                    />
-                  )}
-                />
+                {f.tipo === 'codigo' ? (
+                  <CampoCodigo
+                    entidad={cat.slug}
+                    palabra={form.watch('nombre')}
+                    codigo={actual?.codigo ? String(actual.codigo) : undefined}
+                  />
+                ) : (
+                  <Controller
+                    control={control}
+                    name={f.nombre}
+                    render={({ field }) => (
+                      <CampoEditor
+                        campo={f}
+                        actual={actual}
+                        name={field.name}
+                        label={f.etiqueta}
+                        hint={f.hint}
+                        placeholder={f.hint.split('.')[0] ?? ''}
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        required={!!f.requerido}
+                        error={errors[f.nombre]?.message}
+                        disabled={
+                          mutation.isPending ||
+                          !!(
+                            actual &&
+                            cat.legal &&
+                            ['codigo', 'unidad', 'limiteInferior'].includes(f.nombre)
+                          ) ||
+                          !!(actual?.enUso && cat.slug === 'horarios' && f.nombre === 'jornada')
+                        }
+                        minFecha={
+                          f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
+                        }
+                      />
+                    )}
+                  />
+                )}
               </div>
             ))}
             {cat.slug === 'horarios' && (

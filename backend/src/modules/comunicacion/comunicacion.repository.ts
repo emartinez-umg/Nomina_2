@@ -33,6 +33,7 @@ const grupos = {
   JEFATURA: ['JEFATURAS', 'ID_JEFATURA'],
 } as const;
 export interface Fila {
+  codigo: string;
   id: number;
   titulo: string;
   contenido: string;
@@ -56,7 +57,7 @@ export function audienciaSql(tipo: Tipo) {
 function filtros(tipo: Tipo, q: Query, usuario: number | null) {
   const t = config[tipo];
   const where = [
-    `(:buscar IS NULL OR INSTR(LOWER(T.TITULO),LOWER(:buscar))>0)`,
+    `(:buscar IS NULL OR INSTR(LOWER(T.CODIGO||' '||T.TITULO),LOWER(:buscar))>0)`,
     `(:desde IS NULL OR T.${t.fin}>=TO_DATE(:desde,'YYYY-MM-DD'))`,
     `(:hasta IS NULL OR T.${t.inicio}<TO_DATE(:hasta,'YYYY-MM-DD')+1)`,
     `(:activo IS NULL OR T.ACTIVO=:activo)`,
@@ -90,7 +91,7 @@ function filtros(tipo: Tipo, q: Query, usuario: number | null) {
 const seleccion = (tipo: Tipo) => {
   const t = config[tipo],
     formato = tipo === 'anuncios' ? 'YYYY-MM-DD' : 'YYYY-MM-DD"T"HH24:MI';
-  return `T.${t.id} "id",T.TITULO "titulo",T.${t.contenido} "contenido",TO_CHAR(T.${t.inicio},'${formato}') "inicio",TO_CHAR(T.${t.fin},'${formato}') "fin",${tipo === 'eventos' ? 'T.LUGAR' : "' '"} "lugar",T.PARA_TODOS "paraTodos",T.ACTIVO "activo",T.VERSION "version"`;
+  return `T.${t.id} "id",T.CODIGO "codigo",T.TITULO "titulo",T.${t.contenido} "contenido",TO_CHAR(T.${t.inicio},'${formato}') "inicio",TO_CHAR(T.${t.fin},'${formato}') "fin",${tipo === 'eventos' ? 'T.LUGAR' : "' '"} "lugar",T.PARA_TODOS "paraTodos",T.ACTIVO "activo",T.VERSION "version"`;
 };
 export async function listar(c: Connection, tipo: Tipo, q: Query, usuario: number | null) {
   const t = config[tipo],
@@ -102,7 +103,9 @@ export async function listar(c: Connection, tipo: Tipo, q: Query, usuario: numbe
       opts,
     )
   ).rows![0]!.N;
-  const orden = { id: t.id, titulo: 'TITULO', inicio: t.inicio, fin: t.fin }[q.ordenarPor];
+  const orden = { codigo: 'CODIGO', id: t.id, titulo: 'TITULO', inicio: t.inicio, fin: t.fin }[
+    q.ordenarPor
+  ];
   const registros =
     (
       await c.execute<Fila>(

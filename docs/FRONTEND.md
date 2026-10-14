@@ -185,3 +185,21 @@ En carga masiva se conserva la modalidad; el CSV debe seleccionarse y validarse 
 Las confirmaciones y los cálculos derivados requieren revisión actual; nunca se ejecuta una
 acción de negocio automáticamente por restaurar un borrador. Los hints del aviso y el paso
 compartido de `pasosVisibles` explican estos límites en todos los módulos y roles.
+
+## V1-3 — Código automático
+
+`components/forms/CampoCodigo.tsx` presenta un input `readOnly` seleccionable/copiable,
+con tooltip e hint, consulta cancelable y debounce de 250 ms. Usa
+`GET /api/codigos/vista-previa?entidad=...&palabra=...&idDepartamento=...`.
+La respuesta `{ codigo, definitivo: false }` consulta Oracle sin reservar números.
+El código puede cambiar antes de guardar por altas concurrentes. En edición muestra el valor
+persistido y no vuelve a consultar un contador, aunque se renombre o traslade el registro.
+
+Los formularios de catálogo y empleado omiten código de sus cuerpos de escritura;
+el backend también descarta valores enviados por clientes anteriores. Sus borradores pasan
+a versión 2, descartando versiones anteriores con códigos manuales. La plantilla CSV de
+empleados contiene 28 columnas: no incluye código. El reporte de importación incluye el código
+asignado. Solicitudes (incluidas vacaciones), descuentos, préstamos y publicaciones muestran su vista previa y sus
+listados/CSV permiten localizar los códigos definitivos con las búsquedas existentes.
+Los códigos patronales/de centros/tipos IGSS siguen siendo referencias externas oficiales;
+no se generan identificadores inventados para una declaración oficial.

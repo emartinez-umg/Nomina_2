@@ -116,11 +116,11 @@ describe('Empleados: validación y CSV', () => {
     expect(() => dinero.safeParse('mal')).not.toThrow();
     expect(dinero.safeParse('mal').success).toBe(false);
   });
-  it('la plantilla contiene una fila ilustrativa válida con 29 columnas', () => {
+  it('la plantilla contiene una fila ilustrativa válida con 28 columnas y sin código manual', () => {
     const filas = leerCsv(plantillaCsv());
     expect(filas).toHaveLength(1);
     expect(filas[0]?.errores).toEqual({});
-    expect(columnasCsv).toHaveLength(29);
+    expect(columnasCsv).toHaveLength(28);
   });
   it('lee UTF-8 BOM, comillas escapadas, comas y saltos de línea', () => {
     const valores = columnasCsv.map((k) => fixture[k as keyof typeof fixture] ?? '');
@@ -136,11 +136,11 @@ describe('Empleados: validación y CSV', () => {
   it('rechaza cabecera alterada, archivo vacío, comillas rotas y exceso de filas', () => {
     for (const csv of [
       '',
-      plantillaCsv().replace('codigo', 'clave'),
+      plantillaCsv().replace('nombres', 'clave'),
       plantillaCsv() + '"',
       columnasCsv.join(',') +
         '\n' +
-        Array.from({ length: 101 }, () => Array.from({ length: 29 }, () => 'x').join(',')).join(
+        Array.from({ length: 101 }, () => Array.from({ length: 28 }, () => 'x').join(',')).join(
           '\n',
         ),
     ])

@@ -23,6 +23,7 @@ const cuotaSchema = z.object({
   estado: z.string(),
 });
 const filaSchema = z.object({
+  codigo: z.string().nullable(),
   id: z.number(),
   idEmpleado: z.number(),
   empleado: z.string(),

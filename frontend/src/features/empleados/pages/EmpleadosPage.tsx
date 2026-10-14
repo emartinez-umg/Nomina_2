@@ -21,7 +21,7 @@ const filtros: Def[] = [
     nombre: 'nombre',
     label: 'Nombre o apellidos',
     tipo: 'texto',
-    hint: 'Busca una parte del nombre completo.',
+    hint: 'Busca una parte del nombre completo o del código.',
     max: 200,
   },
   ...todosCampos

@@ -140,20 +140,30 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
     await ejecutar(
       "INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('F11','Equipo de comunicación')",
     );
-    dep = Number(await escalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='F11'"));
+    dep = Number(
+      await escalar(
+        "SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F11'",
+      ),
+    );
     await ejecutar("INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('OTRO','Otro equipo')");
     await ejecutar(
       "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('F11','Analista',:dep)",
       { dep },
     );
-    puesto = Number(await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='F11'"));
+    puesto = Number(
+      await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F11'"),
+    );
     await ejecutar(
       "INSERT INTO JEFATURAS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('F11','Jefatura de prueba',:dep)",
       { dep },
     );
-    jefatura = Number(await escalar("SELECT ID_JEFATURA FROM JEFATURAS WHERE CODIGO='F11'"));
+    jefatura = Number(
+      await escalar("SELECT ID_JEFATURA FROM JEFATURAS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F11'"),
+    );
     const otro = Number(
-      await escalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='OTRO'"),
+      await escalar(
+        "SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='OTRO'",
+      ),
     );
     await ejecutar(
       "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('OTRO','Segundo puesto',:dep)",
@@ -163,7 +173,9 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
       "INSERT INTO CENTROS_TRABAJO (CODIGO,NOMBRE,LOCALIDAD) VALUES ('F11','Oficina','PRUEBA')",
     );
     const centro = Number(
-        await escalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='F11'"),
+        await escalar(
+          "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F11'",
+        ),
       ),
       contrato = Number(await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO')),
       hoy = hora().slice(0, 10);
@@ -181,7 +193,11 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
           puesto:
             i === 1
               ? puesto
-              : Number(await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='OTRO'")),
+              : Number(
+                  await escalar(
+                    "SELECT ID_PUESTO FROM PUESTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='OTRO'",
+                  ),
+                ),
           dep: i === 1 ? dep : otro,
           jefe: i === 1 ? jefatura : null,
           contrato,
@@ -191,7 +207,9 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
         },
       );
       const id = Number(
-        await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO=:c', { c: `F11_${i}` }),
+        await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)=:c', {
+          c: `F11_${i}`,
+        }),
       );
       if (i === 1) empleado = id;
       else segundo = id;
@@ -451,7 +469,7 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
   it('admin refleja usuarios/sesiones/estado sin hashes y filtra auditoría', async () => {
     const r = await administrador.agent.get('/api/tableros/admin').expect(200);
     expect(r.body.data.usuarios.find((u: { rol: string }) => u.rol === 'EMPLEADO').activos).toBe(2);
-    expect(r.body.data.sistema.version).toBe(20);
+    expect(r.body.data.sistema.version).toBe(21);
     expect(r.body.data.sistema.objetosInvalidos).toBe(0);
     expect(r.body.data.sistema.sesionesActivas).toBe(4);
     expect(JSON.stringify(r.body.data)).not.toMatch(/TOKEN_HASH|CSRF_HASH|argon2id/);

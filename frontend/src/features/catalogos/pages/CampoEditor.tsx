@@ -13,7 +13,6 @@ import {
   DateField,
   SelectField,
 } from '../../../components/forms';
-import { InputField } from '../../../components/forms/Field';
 import type { CampoProps } from '../../../components/forms/Field';
 import { Button } from '../../../components/ui/Button';
 export function Referencia({
@@ -116,16 +115,7 @@ export function CampoEditor({
     case 'area':
       return <TextAreaField {...props} maxLength={campo.max ?? 500} />;
     case 'codigo':
-      return (
-        <InputField
-          {...props}
-          ancho="corto"
-          maxLength={campo.max ?? 40}
-          pattern="[A-Z][A-Z0-9_]*"
-          sanitizar={(v) => v.toUpperCase().replace(/[^A-Z0-9_]/g, '')}
-          placeholder="CODIGO_UNICO"
-        />
-      );
+      return null; // CampoCodigo recibe el contexto del formulario.
     default:
       return <TextField {...props} maxLength={campo.max ?? 120} />;
   }

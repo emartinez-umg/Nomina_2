@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -154,6 +155,9 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
         })}
       >
         <FormDraftNotice draft={draft} />
+        {(tipo === 'descuentos' || tipo === 'prestamos') && (
+          <CampoCodigo entidad={tipo} codigo={actual?.codigo ?? undefined} />
+        )}
         <Card>
           <div className="form-grid" data-tour="novedad-campos">
             {defs.map((f) => (

@@ -1,3 +1,4 @@
+import { limpiarPalabra } from '../codigos/codigos.generador.js';
 import type { Connection } from 'oracledb';
 import type { BaseDatos } from '../../shared/db/pool.js';
 import { enTransaccion } from '../../shared/db/transaccion.js';
@@ -67,6 +68,15 @@ export function crearCatalogosService(db: BaseDatos) {
         'fecha',
         'La franja coincide con otro feriado aplicable a la misma localidad. Revisa fecha, localidad y horas.',
       );
+    if (cat.slug === 'parametros-legales') {
+      const clave = String(d.claveInterna);
+      const valor = Number(d.valor);
+      const max = clave.endsWith('_DIA') ? 31 : clave.endsWith('_MES') ? 12 : null;
+      if (max !== null && (!Number.isInteger(valor) || valor < 1 || valor > max))
+        conflicto('valor', `Ingresa un entero entre 1 y ${max} para esta posición del calendario.`);
+      if (/^JORNADA_.*_HORAS$/.test(clave) && (valor <= 0 || valor > 24))
+        conflicto('valor', 'La duración de una jornada debe superar 0 y no exceder 24 horas.');
+    }
     if (!cat.legal) return;
     const cierre = await repository.ultimoCierre(c);
     if (cierre && String(d.vigenteDesde) <= cierre)
@@ -146,6 +156,13 @@ export function crearCatalogosService(db: BaseDatos) {
     guardar: (auth: Autenticacion, ip: string, cat: Catalogo, d: DatosCatalogo, id?: number) =>
       transaccion(auth, cat, async (c, actor) => {
         const antes = id ? await buscar(c, cat, id) : null;
+        d = {
+          ...d,
+          ...(cat.campos.some((f) => f.tipo === 'codigo') ? { codigo: antes?.codigo ?? null } : {}),
+        };
+        if (cat.slug === 'parametros-legales')
+          d.claveInterna =
+            antes?.claveInterna ?? limpiarPalabra(String(d.nombre)).replace(/ /g, '_');
         await validar(c, cat, d, id ?? 0, antes);
         let destino = id;
         if (cat.legal && antes && String(d.vigenteDesde) > String(antes.vigenteDesde)) {

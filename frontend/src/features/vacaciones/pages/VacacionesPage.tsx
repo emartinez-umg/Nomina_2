@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -195,6 +196,7 @@ function Portal() {
     <>
       <SaldoCard s={s.data!} />
       <FormDraftNotice draft={draft} />
+      <CampoCodigo entidad="solicitudes" />
       <Card className="mb-5">
         <div className="vacaciones-seleccion">
           <section data-tour="vacaciones-calendario">
@@ -380,7 +382,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
                 <TextField
                   name="buscar"
                   label="Buscar empleado"
-                  hint="Nombre, apellido o código del expediente."
+                  hint="Nombre, apellido o código del expediente o solicitud."
                   value={q.buscar ?? ''}
                   onValueChange={(v) => cambiar('buscar', v)}
                 />
@@ -463,6 +465,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
         error={datos.error?.message ?? ''}
         onReintentar={() => void datos.refetch()}
         columnas={[
+          { id: 'codigo', titulo: 'Código', render: (f) => f.codigo },
           ...(!empleado
             ? [
                 {

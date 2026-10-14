@@ -132,15 +132,7 @@ export function CampoEmpleado({
         pattern="[0-9]*"
       />
     );
-  if (campo.nombre === 'codigo')
-    return (
-      <InputField
-        {...props}
-        maxLength={40}
-        sanitizar={(v) => v.toUpperCase().replace(/[^A-Z0-9_-]/g, '')}
-        pattern="[A-Z0-9_-]+"
-      />
-    );
+  if (campo.nombre === 'codigo') return null;
   if (campo.nombre === 'cuentaBancaria')
     return (
       <InputField

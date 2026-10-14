@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -165,19 +166,17 @@ export function SolicitudesPage() {
             Exportar CSV
           </Button>
         </div>
-        {!empleado && (
-          <div className="form-grid">
-            <TextField
-              name="buscar"
-              label="Buscar empleado"
-              hint="Nombre, apellido o código del empleado."
-              placeholder="Nombre o código…"
-              value={q.buscar!}
-              onValueChange={(v) => cambiar('buscar', v)}
-              maxLength={200}
-            />
-          </div>
-        )}
+        <div className="form-grid">
+          <TextField
+            name="buscar"
+            label={empleado ? 'Buscar código de solicitud' : 'Buscar empleado o solicitud'}
+            hint="Nombre o código del empleado o de la solicitud."
+            placeholder="Nombre, EMP… o SOL…"
+            value={q.buscar!}
+            onValueChange={(v) => cambiar('buscar', v)}
+            maxLength={200}
+          />
+        </div>
         {filtros && (
           <div className="form-grid mt-4">
             <SelectField
@@ -265,7 +264,7 @@ export function SolicitudesPage() {
             {...(consulta.error ? { error: consulta.error.message } : {})}
             onReintentar={() => void consulta.refetch()}
             columnas={[
-              { id: 'id', titulo: 'Solicitud', ordenable: true, render: (s) => `#${s.id}` },
+              { id: 'codigo', titulo: 'Solicitud', ordenable: true, render: (s) => s.codigo },
               { id: 'empleado', titulo: 'Empleado', ordenable: true, render: (s) => s.empleado },
               { id: 'tipo', titulo: 'Gestión', ordenable: true, render: (s) => s.nombreTipo },
               {
@@ -397,6 +396,7 @@ function Nueva({ tipo, onCerrar }: { tipo: string; onCerrar: () => void }) {
       >
         <form data-tour="solicitudes-nueva" onSubmit={f.handleSubmit(() => setConfirmar(true))}>
           <FormDraftNotice draft={draft} />
+          <CampoCodigo entidad="solicitudes" />
           <HelpButton />
           <p className="my-4">
             RRHH revisará tu solicitud y te avisará de cada cambio.{' '}

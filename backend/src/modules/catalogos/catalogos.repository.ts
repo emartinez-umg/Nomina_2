@@ -67,7 +67,7 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
     );
     if (textos.length)
       agregar(
-        `(${textos.map((f) => `INSTR(UPPER(T.${f.columna}),UPPER(:buscar))>0`).join(' OR ')})`,
+        `(${textos.map((f) => `INSTR(UPPER(${f.tipo === 'codigo' ? "T.CODIGO||' '||T.CODIGO_ANTERIOR" : `T.${f.columna}`}),UPPER(:buscar))>0`).join(' OR ')})`,
         'buscar',
         q.buscar,
       );
@@ -81,7 +81,11 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
       if (sufijo)
         agregar(`T.${f.columna} ${sufijo === 'Min' ? '>=' : '<='} ${expresion(f, key)}`, key, v);
       else if (['texto', 'codigo', 'area', 'nit', 'correo', 'telefono', 'nombre'].includes(f.tipo))
-        agregar(`INSTR(UPPER(T.${f.columna}),UPPER(:${key}))>0`, key, v);
+        agregar(
+          `INSTR(UPPER(${f.tipo === 'codigo' ? "T.CODIGO||' '||T.CODIGO_ANTERIOR" : `T.${f.columna}`}),UPPER(:${key}))>0`,
+          key,
+          v,
+        );
       else agregar(`T.${f.columna}=:${key}`, key, f.tipo === 'booleano' ? Number(v) : v);
     }
   }
@@ -131,7 +135,7 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
         : cat.campos.find((f) => f.nombre === q.ordenarPor)!.columna;
   const dir = q.direccion === 'asc' ? 'ASC' : 'DESC';
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT T.${cat.pk} "id", T.ACTIVO "activo", ${await usoSql(c, cat)} "enUso",${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T${where} ORDER BY T.${orden} ${dir},T.${cat.pk} ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+    `SELECT T.${cat.pk} "id", T.ACTIVO "activo", ${await usoSql(c, cat)} "enUso",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T${where} ORDER BY T.${orden} ${dir},T.${cat.pk} ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
     { ...binds, offset: (q.pagina - 1) * q.limite, limite: q.limite },
     opciones,
   );
@@ -144,7 +148,7 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
 }
 export async function detalle(c: Connection, cat: Catalogo, id: number) {
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT T.${cat.pk} "id",T.ACTIVO "activo",${await usoSql(c, cat)} "enUso",${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T WHERE T.${cat.pk}=:id`,
+    `SELECT T.${cat.pk} "id",T.ACTIVO "activo",${await usoSql(c, cat)} "enUso",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T WHERE T.${cat.pk}=:id`,
     { id },
     opciones,
   );
@@ -186,9 +190,17 @@ export async function guardar(
   actor: number,
   id?: number,
 ) {
-  const columnas = cat.campos.map((f) => f.columna);
-  const valores = cat.campos.map((f) => expresion(f));
-  const binds: Binds = { ...bindsCampos(cat, d), actor };
+  const campos = cat.campos.filter(
+    (f) => f.tipo !== 'codigo' || (cat.slug === 'parametros-legales' && !id && d.codigo),
+  );
+  const columnas = campos.map((f) => f.columna);
+  const valores = campos.map((f) => expresion(f));
+  const binds: Binds = { ...bindsCampos({ ...cat, campos }, d), actor };
+  if (cat.slug === 'parametros-legales') {
+    columnas.push('CLAVE_INTERNA');
+    valores.push(':claveInterna');
+    binds.claveInterna = String(d.claveInterna);
+  }
   if (cat.legal) {
     columnas.push('MOTIVO');
     valores.push(':motivo');
@@ -297,13 +309,13 @@ export async function opcionesReferencia(
 export async function versiones(c: Connection, cat: Catalogo, d: DatosCatalogo, id: number) {
   const where =
     cat.slug === 'parametros-legales'
-      ? 'T.CODIGO=:codigo'
+      ? 'T.CLAVE_INTERNA=:claveInterna'
       : `T.LIMITE_INFERIOR=${numero('inferior')}`;
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT T.${cat.pk} "id",T.ACTIVO "activo",0 "enUso",${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T WHERE ${where} AND T.${cat.pk}<>:id`,
+    `SELECT T.${cat.pk} "id",T.ACTIVO "activo",0 "enUso",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T WHERE ${where} AND T.${cat.pk}<>:id`,
     {
       ...(cat.slug === 'parametros-legales'
-        ? { codigo: d.codigo as string }
+        ? { claveInterna: d.claveInterna as string }
         : { inferior: d.limiteInferior as string }),
       id,
     },

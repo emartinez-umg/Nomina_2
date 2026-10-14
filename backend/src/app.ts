@@ -1,3 +1,5 @@
+import { crearCodigosRouter } from './modules/codigos/codigos.routes.js';
+import type { crearCodigosService } from './modules/codigos/codigos.service.js';
 import { crearComunicacionRouter } from './modules/comunicacion/comunicacion.routes.js';
 import type { crearComunicacionService } from './modules/comunicacion/comunicacion.service.js';
 import { crearTablerosRouter } from './modules/tableros/tableros.routes.js';
@@ -42,6 +44,7 @@ import { crearVacacionesRouter } from './modules/vacaciones/vacaciones.routes.js
 import type { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 
 interface SeguridadApp {
+  codigos?: ReturnType<typeof crearCodigosService>;
   comunicacion?: ReturnType<typeof crearComunicacionService>;
   tableros?: ReturnType<typeof crearTablerosService>;
   solicitudes?: ReturnType<typeof crearSolicitudesService>;
@@ -82,6 +85,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
       permitirRoles('ADMIN', 'RH', 'EMPLEADO'),
       exigirCambioCompletado,
     );
+    if (seguridad.codigos) app.use('/api/codigos', crearCodigosRouter(seguridad.codigos));
     if (seguridad.comunicacion)
       app.use('/api/comunicacion', crearComunicacionRouter(seguridad.comunicacion));
     if (seguridad.tableros) app.use('/api/tableros', crearTablerosRouter(seguridad.tableros));

@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -88,7 +89,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
   } = form;
   const draft = useFormDraft('empleado', actual?.id, {
     form,
-    version: 1,
+    version: 2,
     alDescartar: () => setErrorGeneral(''),
     paso: seccionActual,
     restaurarPaso: (paso) => {
@@ -188,40 +189,48 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                           : 'col-span-12 md:col-span-6'
                     }
                   >
-                    <Controller
-                      name={f.nombre}
-                      control={control}
-                      render={({ field }) => (
-                        <CampoEmpleado
-                          campo={f}
-                          name={field.name}
-                          label={f.label}
-                          hint={f.hint}
-                          placeholder={f.hint.split('.')[0] ?? ''}
-                          value={field.value ?? ''}
-                          onValueChange={(v) => {
-                            field.onChange(v);
-                          }}
-                          onBlur={field.onBlur}
-                          inputRef={field.ref}
-                          required={!!f.required}
-                          disabled={
-                            isSubmitting ||
-                            (!!actual && ['fechaIngreso', 'salarioBase'].includes(f.nombre))
-                          }
-                          error={errors[f.nombre]?.message}
-                          ancho={f.ancho ?? 'medio'}
-                          reglas={r}
-                          nacimiento={vals.fechaNacimiento}
-                          ingreso={vals.fechaIngreso}
-                          departamento={
-                            ['idPuesto', 'idJefatura'].includes(f.nombre)
-                              ? vals.idDepartamento
-                              : undefined
-                          }
-                        />
-                      )}
-                    />
+                    {f.nombre === 'codigo' ? (
+                      <CampoCodigo
+                        entidad="empleados"
+                        idDepartamento={vals.idDepartamento}
+                        codigo={actual?.codigo}
+                      />
+                    ) : (
+                      <Controller
+                        name={f.nombre}
+                        control={control}
+                        render={({ field }) => (
+                          <CampoEmpleado
+                            campo={f}
+                            name={field.name}
+                            label={f.label}
+                            hint={f.hint}
+                            placeholder={f.hint.split('.')[0] ?? ''}
+                            value={field.value ?? ''}
+                            onValueChange={(v) => {
+                              field.onChange(v);
+                            }}
+                            onBlur={field.onBlur}
+                            inputRef={field.ref}
+                            required={!!f.required}
+                            disabled={
+                              isSubmitting ||
+                              (!!actual && ['fechaIngreso', 'salarioBase'].includes(f.nombre))
+                            }
+                            error={errors[f.nombre]?.message}
+                            ancho={f.ancho ?? 'medio'}
+                            reglas={r}
+                            nacimiento={vals.fechaNacimiento}
+                            ingreso={vals.fechaIngreso}
+                            departamento={
+                              ['idPuesto', 'idJefatura'].includes(f.nombre)
+                                ? vals.idDepartamento
+                                : undefined
+                            }
+                          />
+                        )}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

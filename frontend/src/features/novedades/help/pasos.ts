@@ -21,10 +21,16 @@ export function ayudaNovedades(
     id: `novedades-${tipo}-${pagina}`,
     pasos: [
       {
+        elemento: 'codigo-automatico',
+        titulo: 'Código asignado por el sistema',
+        descripcion:
+          'La vista previa consulta el contador actual sin reservar números. Guardar asigna el código definitivo dentro de la transacción. Será permanente, también después de editar o desactivar el registro. Puedes copiarlo para localizarlo en la búsqueda del listado.',
+      },
+      {
         elemento: 'novedades-tipos',
         titulo: 'Novedades de nómina',
         descripcion:
-          'Cada sección registra novedades reales para las próximas quincenas. Cambiar de sección conserva los registros; los filtros se aplican dentro del módulo seleccionado.',
+          'Los códigos internos se asignan automáticamente al guardar y se conservan al editar. Puedes buscarlos en el listado. Cada sección registra novedades reales para las próximas quincenas. Cambiar de sección conserva los registros; los filtros se aplican dentro del módulo seleccionado.',
       },
       {
         elemento: 'novedades-filtros',

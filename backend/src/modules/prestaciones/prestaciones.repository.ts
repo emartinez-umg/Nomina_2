@@ -49,7 +49,7 @@ export async function empleados(c: Connection, q: Seleccion, inicio: string, fin
 export async function parametros(c: Connection) {
   return filas<Parametro>(
     c,
-    `SELECT ID_PARAMETRO_LEGAL "id",CODIGO "codigo",${str('VALOR')} "valor",UNIDAD "unidad",TO_CHAR(VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(VIGENTE_HASTA,'YYYY-MM-DD') "hasta" FROM PARAMETROS_LEGALES WHERE ACTIVO=1 ORDER BY CODIGO,VIGENTE_DESDE`,
+    `SELECT ID_PARAMETRO_LEGAL "id",CLAVE_INTERNA "codigo",${str('VALOR')} "valor",UNIDAD "unidad",TO_CHAR(VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(VIGENTE_HASTA,'YYYY-MM-DD') "hasta" FROM PARAMETROS_LEGALES WHERE ACTIVO=1 ORDER BY CODIGO,VIGENTE_DESDE`,
   );
 }
 export async function salario(c: Connection, id: number, corte: string) {

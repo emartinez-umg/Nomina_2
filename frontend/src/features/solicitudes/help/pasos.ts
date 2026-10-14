@@ -3,10 +3,16 @@ export const ayudaSolicitudes: DefinicionAyuda = {
   id: 'solicitudes',
   pasos: [
     {
+      elemento: 'codigo-automatico',
+      titulo: 'Código asignado por el sistema',
+      descripcion:
+        'La vista previa consulta el contador actual sin reservar números. Guardar asigna el código definitivo dentro de la transacción. Será permanente, también después de editar o desactivar el registro. Puedes copiarlo para localizarlo en la búsqueda del listado.',
+    },
+    {
       elemento: 'gestiones-accesos',
       titulo: 'Elige tu gestión',
       descripcion:
-        'Las boletas se descargan directamente de tu historial. Vacaciones abre el calendario laboral. Para constancias, certificados, gafete y parqueo, envía una solicitud: RRHH recibirá un aviso. No envíes otra del mismo tipo mientras esté en proceso.',
+        'Los códigos internos se asignan automáticamente al guardar y se conservan al editar. Puedes buscarlos en el listado. Las boletas se descargan directamente de tu historial. Vacaciones abre el calendario laboral. Para constancias, certificados, gafete y parqueo, envía una solicitud: RRHH recibirá un aviso. No envíes otra del mismo tipo mientras esté en proceso.',
       roles: ['EMPLEADO'],
     },
     {

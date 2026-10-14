@@ -47,7 +47,7 @@ const codigo = (max = 40) =>
     'CODIGO',
     'Código',
     'codigo',
-    'Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.',
+    'Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.',
     { requerido: true, max },
   );
 const nombre = (max = 120) =>

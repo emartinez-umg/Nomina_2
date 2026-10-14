@@ -1,3 +1,4 @@
+import { crearCodigosService } from '../src/modules/codigos/codigos.service.js';
 import { crearBaseDatos } from '../src/shared/db/pool.js';
 import { validarEntorno } from '../src/config/env.schema.js';
 import { ejecutarMigraciones } from '../src/shared/db/migraciones.js';
@@ -66,7 +67,7 @@ await enTransaccion(db, async (c) => {
     cuentas.push(u);
   }
   await c.execute("INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('E2E','Departamento E2E')");
-  const dep = await scalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='E2E'");
+  const dep = await scalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO_ANTERIOR='E2E'");
   await c.execute(
     "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('E2E','Analista E2E',:dep)",
     { dep },
@@ -77,9 +78,11 @@ await enTransaccion(db, async (c) => {
   await c.execute(
     "INSERT INTO HORARIOS (CODIGO,NOMBRE,JORNADA) VALUES ('E2E','Horario E2E','DIURNA')",
   );
-  const puesto = await scalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='E2E'"),
-    centro = await scalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='E2E'"),
-    horario = await scalar("SELECT ID_HORARIO FROM HORARIOS WHERE CODIGO='E2E'"),
+  const puesto = await scalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO_ANTERIOR='E2E'"),
+    centro = await scalar(
+      "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO_ANTERIOR='E2E'",
+    ),
+    horario = await scalar("SELECT ID_HORARIO FROM HORARIOS WHERE CODIGO_ANTERIOR='E2E'"),
     contrato = await scalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO');
   for (let dia = 1; dia <= 7; dia++)
     await c.execute(
@@ -112,7 +115,7 @@ await enTransaccion(db, async (c) => {
         centro,
       },
     );
-    const id = await scalar(`SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO='E2E_${i}'`);
+    const id = await scalar(`SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO_ANTERIOR='E2E_${i}'`);
     await c.execute(
       "INSERT INTO HISTORIAL_SALARIAL (ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES (:id,5000,DATE '2026-01-01','Salario E2E')",
       { id },
@@ -128,6 +131,7 @@ const app = crearApp(salud, logger, {
   auth: await crearAuthService(db, config),
   usuarios: crearUsuariosService(db),
   auditoria: crearAuditoriaService(db),
+  codigos: crearCodigosService(db),
   catalogos: crearCatalogosService(db),
   empleados: crearEmpleadosService(db),
   novedades: crearNovedadesService(db),

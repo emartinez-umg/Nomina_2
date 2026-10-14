@@ -11,3 +11,4 @@ export { TextAreaField } from './TextAreaField';
 export { FileField } from './FileField';
 
 export { FormErrorSummary } from './FormErrorSummary';
+export { CampoCodigo } from './CampoCodigo';

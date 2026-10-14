@@ -125,7 +125,7 @@ export const querySchema = z
     buscar: z.string().trim().max(200).optional(),
     desde: fecha.optional(),
     hasta: fecha.optional(),
-    ordenarPor: z.enum(['id', 'empleado', 'tipo', 'estado', 'fecha']).default('fecha'),
+    ordenarPor: z.enum(['id', 'codigo', 'empleado', 'tipo', 'estado', 'fecha']).default('fecha'),
     direccion: z.enum(['asc', 'desc']).default('desc'),
   })
   .strict()

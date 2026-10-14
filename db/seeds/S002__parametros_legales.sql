@@ -2,266 +2,266 @@
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'IGSS_LABORAL_PORCENTAJE' CODIGO, 'IGSS laboral' NOMBRE, 4.83 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'IGSS_PATRONAL_PORCENTAJE' CODIGO, 'IGSS patronal' NOMBRE, 10.67 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'IRTRA_PATRONAL_PORCENTAJE' CODIGO, 'IRTRA patronal' NOMBRE, 1 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'INTECAP_PATRONAL_PORCENTAJE' CODIGO, 'INTECAP patronal' NOMBRE, 1 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'HORAS_EXTRA_RECARGO_PORCENTAJE' CODIGO, 'Recargo de hora extra' NOMBRE, 50 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'BONIFICACION_INCENTIVO_MENSUAL' CODIGO, 'Bonificación incentivo mensual' NOMBRE, 250 VALOR, 'QUETZALES' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'ISR_DEDUCCION_PERSONAL_ANUAL' CODIGO, 'Deducción personal ISR anual' NOMBRE, 48000 VALOR, 'QUETZALES' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'ISR_DONACIONES_TOPE_PORCENTAJE' CODIGO, 'Tope donaciones sobre renta bruta' NOMBRE, 5 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'Decreto 10-2012, artículo 72 literal b' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'VACACIONES_ACUMULACION_MENSUAL' CODIGO, 'Acumulación mensual de vacaciones' NOMBRE, 1.25 VALOR, 'DIAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'JORNADA_DIURNA_HORAS' CODIGO, 'Horas de jornada diurna' NOMBRE, 8 VALOR, 'HORAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'JORNADA_MIXTA_HORAS' CODIGO, 'Horas de jornada mixta' NOMBRE, 7 VALOR, 'HORAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'JORNADA_NOCTURNA_HORAS' CODIGO, 'Horas de jornada nocturna' NOMBRE, 6 VALOR, 'HORAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'SALARIO_DIAS_MES' CODIGO, 'Divisor mensual de salario' NOMBRE, 30 VALOR, 'DIAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'QUINCENAS_MES' CODIGO, 'Quincenas por mes' NOMBRE, 2 VALOR, 'PERIODOS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'PERIODOS_ANIO' CODIGO, 'Quincenas por año' NOMBRE, 24 VALOR, 'PERIODOS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'AGUINALDO_PROMEDIO_MESES' CODIGO, 'Meses de promedio para aguinaldo' NOMBRE, 12 VALOR, 'MESES' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'BONO14_PROMEDIO_MESES' CODIGO, 'Meses de promedio para Bono 14' NOMBRE, 12 VALOR, 'MESES' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'INDEMNIZACION_PROMEDIO_MESES' CODIGO, 'Meses de promedio para indemnización' NOMBRE, 6 VALOR, 'MESES' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'AGUINALDO_PORCENTAJE' CODIGO, 'Porcentaje anual de aguinaldo' NOMBRE, 100 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'BONO14_PORCENTAJE' CODIGO, 'Porcentaje anual de Bono 14' NOMBRE, 100 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'INDEMNIZACION_PORCENTAJE' CODIGO, 'Porcentaje por año de indemnización' NOMBRE, 100 VALOR, 'PORCENTAJE' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'PRESTACIONES_MESES_ANIO' CODIGO, 'Meses por año para proporcionalidad' NOMBRE, 12 VALOR, 'MESES' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'AGUINALDO_INICIO_MES' CODIGO, 'Mes inicial del ciclo de aguinaldo' NOMBRE, 12 VALOR, 'CANTIDAD' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'AGUINALDO_INICIO_DIA' CODIGO, 'Día inicial del ciclo de aguinaldo' NOMBRE, 1 VALOR, 'DIAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'AGUINALDO_PAGO_MES' CODIGO, 'Mes límite de pago de aguinaldo' NOMBRE, 12 VALOR, 'CANTIDAD' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'AGUINALDO_PAGO_DIA' CODIGO, 'Día límite de pago de aguinaldo' NOMBRE, 15 VALOR, 'DIAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'BONO14_INICIO_MES' CODIGO, 'Mes inicial del ciclo de Bono 14' NOMBRE, 7 VALOR, 'CANTIDAD' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'BONO14_INICIO_DIA' CODIGO, 'Día inicial del ciclo de Bono 14' NOMBRE, 1 VALOR, 'DIAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'BONO14_PAGO_MES' CODIGO, 'Mes límite de pago de Bono 14' NOMBRE, 7 VALOR, 'CANTIDAD' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'BONO14_PAGO_DIA' CODIGO, 'Día límite de pago de Bono 14' NOMBRE, 15 VALOR, 'DIAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'ISR_EXENCION_AGUINALDO_MESES' CODIGO, 'Límite exento aguinaldo en salarios mensuales' NOMBRE, 1 VALOR, 'MESES' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'ISR_EXENCION_BONO14_MESES' CODIGO, 'Límite exento Bono 14 en salarios mensuales' NOMBRE, 1 VALOR, 'MESES' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'EMPLEADO_EDAD_MINIMA' CODIGO, 'Edad mínima de ingreso' NOMBRE, 18 VALOR, 'ANIOS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'EMPLEADO_EDAD_MAXIMA' CODIGO, 'Edad máxima de ingreso' NOMBRE, 75 VALOR, 'ANIOS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'INGRESO_MAXIMO_DIAS_FUTURO' CODIGO, 'Anticipación máxima de ingreso' NOMBRE, 30 VALOR, 'DIAS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'SESION_INACTIVIDAD_MINUTOS' CODIGO, 'Caducidad por inactividad' NOMBRE, 30 VALOR, 'MINUTOS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'LOGIN_MAX_INTENTOS' CODIGO, 'Intentos antes de bloqueo' NOMBRE, 5 VALOR, 'CANTIDAD' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /
 
 MERGE INTO PARAMETROS_LEGALES destino
 USING (SELECT 'LOGIN_BLOQUEO_MINUTOS' CODIGO, 'Duración de bloqueo' NOMBRE, 15 VALOR, 'MINUTOS' UNIDAD, DATE '2026-01-01' VIGENTE_DESDE, 'AGENTS.md sección 10; referencia inicial pendiente de validación por RRHH' FUNDAMENTO, 'Instalación inicial, vigencia de referencia 2026' MOTIVO FROM DUAL) origen
-ON (destino.CODIGO = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
+ON (destino.CLAVE_INTERNA = origen.CODIGO AND destino.VIGENTE_DESDE = origen.VIGENTE_DESDE)
 WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, VALOR, UNIDAD, VIGENTE_DESDE, FUNDAMENTO, MOTIVO)
 VALUES (origen.CODIGO, origen.NOMBRE, origen.VALOR, origen.UNIDAD, origen.VIGENTE_DESDE, origen.FUNDAMENTO, origen.MOTIVO);
 /

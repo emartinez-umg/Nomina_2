@@ -172,3 +172,119 @@ Estado: completada el 13/10/2026. Alcance limitado a A3 del adendo; rama `v1`.
 4. Volver a seleccionar adjuntos/CSV. Bloquear almacenamiento muestra el aviso y permite guardar por API.
 5. Con Node 20: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run format:check`.
    E2E: `npm run test:e2e` o `npm run test:e2e -- --grep 'FASE V1-2'` con Oracle en Docker.
+
+## FASE V1-3 — Generación automática de códigos
+
+Estado: completada el 14/10/2026. Rama `v1`, alcance A4.
+
+### Hecho
+
+- Leídos AGENTS.md con adendo y progresos de v0/v1. Árbol limpio al iniciar; V000–V020 intactas.
+- `generarCodigoGenerico(palabra, longitudMax = 3)` normaliza mayúsculas, acentos/ñ/ü y caracteres;
+  usa iniciales significativas en compuestas, omite conectores, vuelve a la primera palabra cuando
+  quedan menos de dos iniciales y recorta. Colisiones prueban opción B y después sufijos desde 2
+  sobre la opción A. Pruebas de los siete casos solicitados, longitudes y entradas sin palabras útiles.
+- V021 agrega CONFIG_CODIGOS, SECUENCIAS_CODIGOS y REGISTRO_CODIGOS con identity ALWAYS,
+  UNIQUE, auditoría y FKs indexadas. El paquete N2_CODIGOS y los triggers asignan definitivamente
+  dentro de la transacción de negocio; crean el contador tolerando concurrencia y bloquean su fila.
+  Sin commits internos ni transacciones autónomas: falla de entidad/auditoría revierte las reservas.
+- Configurados departamentos 3, puestos/jefaturas/horarios/centros 4 y los cuatro tipos 3. Bancos,
+  feriados y parámetros usan 3. Reservas permanentes evitan reutilización tras eliminación física.
+- Empleados EMP_<DEPTO>_<contador>, independiente por ID de departamento; traslados conservan el
+  código original. Solicitudes SOL, préstamos PRE, descuentos DES, eventos EVT y anuncios ANU:
+  prefijo/año/contador. El contador comienza con cuatro dígitos y crece sin truncamiento.
+- Migración de todos los registros, incluidos inactivos, conservando CODIGO_ANTERIOR, PK, FK,
+  importes y snapshots. Empleados ordenados por fecha de ingreso/id; transacciones por creación/id
+  y año de creación. Las entidades sin código anterior conservan null en esa referencia.
+- Parámetros separan CLAVE_INTERNA inmutable del código visible: migración conserva la clave
+  semántica original; altas la derivan del nombre completo normalizado. Así RH puede crear, por
+  ejemplo, Salario mínimo mensual sin escribir SALARIO_MINIMO_MENSUAL. Las vigencias conservan
+  código/clave y validan traslapes. Tipos operativos conservan su alias para los cálculos/trámites.
+- Seeds adaptados a claves preservadas/internas: repetibles sin duplicar catálogos ni alterar ajustes.
+  Repositories de reglas, nómina, vacaciones, solicitudes y prestaciones mantienen sus referencias
+  semánticas; no se modificaron fórmulas, porcentajes ni snapshots de periodos cerrados.
+- GET /api/codigos/vista-previa validado con Zod, autenticado y sin reserva; RH/ADMIN consultan
+  entidades permitidas, EMPLEADO solo solicitudes. Requiere haber cambiado contraseña temporal.
+- CampoCodigo reutilizable de solo lectura, copiable, tooltip/hint, debounce de 250 ms y errores de
+  API. Altas cambian la vista previa con nombre/departamento; edición muestra el código persistido.
+  Todos los formularios de código interno manual lo reemplazan y los cuerpos omiten ese campo;
+  backend también ignora códigos enviados por clientes anteriores. Oracle prohíbe cambiarlos.
+- CSV de empleados actualizado a 28 columnas sin código; la importación asigna códigos en la
+  transacción y el reporte incorpora los definitivos. Borradores de empleado/catálogos versión 2
+  descartan el esquema anterior con códigos manuales. Formularios de transacciones muestran vista previa.
+- Listados/búsquedas/CSV muestran códigos de solicitudes (incluidas vacaciones), préstamos,
+  descuentos y comunicaciones; búsqueda de empleados incluye código. Catálogos permiten buscar
+  código actual/anterior. Orden por código con lista blanca donde corresponde. Ayuda/hints actualizados.
+- ERD, CATALOGOS, FRONTEND y README documentan tablas, API, numeración y operación.
+
+### Validación realizada
+
+- Lint, TypeScript strict, Prettier y builds de backend/frontend sin errores.
+- 410 unitarias aprobadas: 220 backend y 190 frontend; 14 nuevas del algoritmo y cuatro del campo
+  prueban lectura exclusiva, escritura/pegado bloqueados, API al cambiar nombre/departamento,
+  conservación al trasladar/renombrar y fallo de consulta. Backend también probado con Node 20 Docker.
+- Nueve pruebas nuevas Oracle/Supertest: migración con datos previos en los doce catálogos, empleados
+  con empate de fecha/id y cinco transacciones; paridad TS/PLSQL; opciones A/B/sufijos; 25 asignaciones
+  transaccionales y 15 genéricas paralelas; contador por departamento/año, crecimiento a 10000,
+  rollback, inmutabilidad, seeds repetibles, parámetros versionados y API protegida sin reserva.
+- Regresión Oracle: seguridad/catálogos/empleados/novedades/vacaciones/nómina 72, prestaciones 10,
+  solicitudes 16 y comunicación 16. Los casos antiguos de códigos escritos ahora contrastan los
+  códigos devueltos por API; conservan validaciones personales, RBAC, auditoría y rollback.
+- db:verify desde cero V000–V021: objetos válidos, UNIQUE/FK e índices, seeds repetibles y datos
+  operativos preservados. Esquemas temporales eliminados al terminar.
+- Diecisiete E2E aprobados con API/Oracle reales, incluida matriz de páginas/roles, móvil, hints,
+  recorridos y axe A/AA. Nuevo caso verifica VC → VNT → VC2, búsqueda y conservación al renombrar.
+  Tres casos afectados de vacaciones/constancias/códigos repetidos después de ampliar su visualización.
+  Cuatro flujos de alta, cálculo, empresa y códigos repetidos tras separar CLAVE_INTERNA.
+  Captura `tmp/pdfs/codigos-automaticos.png` inspeccionada; artefactos locales ignorados.
+- Backend final: 220 unitarias y nueve casos Oracle aprobados con Node 20.20.2 Docker.
+- Entorno local reconstruido con Node 20, V021 aplicada y tres servicios saludables; verify:infra
+  aprueba API/Oracle/nginx/React/assets/PDF. Conteos antes/después idénticos: dos empleados,
+  dos departamentos, una solicitud, 38 parámetros y ninguna fila en préstamos/descuentos/eventos/anuncios.
+  Cero objetos Oracle inválidos; ambos empleados conservan CODIGO_ANTERIOR. Volumen y credenciales conservados.
+
+### Decisiones
+
+- La asignación definitiva reside en Oracle para cubrir todos los caminos: API, carga masiva,
+  solicitudes de vacaciones, parqueo automático y seeds. El generador TS y su equivalente PL/SQL
+  tienen pruebas de paridad. Controllers/services/repositories conservan su separación existente.
+- La vista previa no reserva números ni se usa como promesa: altas concurrentes pueden cambiarla.
+  No se consumen contadores si se revierte la transacción. Eliminar físicamente no libera códigos.
+- Códigos nuevos de parámetro son visibles abreviados; CLAVE_INTERNA conserva el significado legal
+  y se genera sin entrada manual. Nuevas vigencias mantienen identidad aunque cambie el nombre.
+- El test de borradores que esperaba conflicto por código manual ahora comprueba guardado automático;
+  los conflictos personales y transaccionales reales conservan su cobertura. Las pruebas de rollback
+  disparan por correo/nombre independiente, porque el usuario ya no elige el código.
+
+### Supuestos
+
+- Opción B opera sobre el texto completo limpio sin espacios: conserva la primera letra y quita
+  las demás vocales; el sufijo siempre parte de A. Si no queda palabra significativa, se explica
+  el error en nombre. No se inventa un identificador para un nombre vacío o compuesto solo por conectores.
+- Bancos, feriados y parámetros no tienen longitud particular en A4 y usan el valor genérico 3.
+  Roles, conceptos y plantillas son claves internas predefinidas, sin campos de código editables.
+- Referencias oficiales de IGSS (número patronal, códigos inscritos de centro/tipo) conservan su
+  captura validada: son datos externos oficiales, no códigos internos asignables por nomina2.
+  A4 no puede inventar referencias para una declaración oficial.
+- Año de numeración: creación en America/Guatemala; fechas de desembolso, evento o solicitud
+  no alteran ese año. Las vacaciones usan el código de su trámite SOL vinculado.
+- Primer intento E2E tuvo un reinicio del formulario; alta aislada y posterior regresión completa
+  pasaron. Prueba Node 20 inicialmente carecía de SQL de seeds; al montarlos en lectura pasó.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de FASE V1-3.
+- A5–A12 quedan reservadas para sus fases; no se adelantaron ubicaciones ni reglas nuevas de nómina.
+
+### Cómo probar
+
+1. `docker compose up --build` aplica V021 sobre el volumen existente sin reemplazarlo.
+2. Entrar a https://localhost:8443/login con RH/ADMIN; crear/editar un catálogo. Escribir nombre,
+   observar código de solo lectura, repetir nombre y comprobar alternativa/sufijo. Renombrar conserva.
+3. Crear empleados en dos departamentos: cada uno inicia/continúa su contador. Editar departamento
+   conserva el código. Descargar plantilla CSV actual, validar/importar y revisar códigos en el reporte.
+4. Crear solicitudes/vacaciones, préstamos/descuentos y publicaciones; buscar sus códigos y exportar.
+   Crear o versionar parámetros con motivo/confirmación, comprobando vigencias y clave conservada.
+5. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:codigos` y suites Oracle existentes; `npm run test:e2e`.
+   Node 20: imagen de pruebas actualizada y `npm run verify:codigos -- --docker`.

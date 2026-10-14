@@ -109,3 +109,13 @@ Los catálogos con dirección postal (centros y empresa) usan `direccionTexto` p
 `direccion`; la separación impide que el sentido de ordenamiento se interprete como texto postal.
 Datos de empresa incorpora NIT validado, representante, correo y teléfono normalizado, conservando
 FORMATO_IGSS y documentos ya emitidos. Solo una empresa activa, según la restricción de Oracle.
+
+### Actualización v1-3
+
+Todos los códigos internos son de solo lectura, se derivan del nombre y se asignan al guardar.
+Renombrar conserva el código. Coincidencias prueban consonantes y después sufijos numéricos.
+La vista previa es orientativa y no reserva números. Los filtros de código consultan el código
+actual y el anterior preservado; también puede buscarse por ambos con la búsqueda general.
+Parámetros conserva su identidad entre vigencias y valida calendario/jornadas usando la clave
+interna inmutable, aunque su código visible ahora esté abreviado. En altas nuevas esa clave se
+deriva del nombre completo normalizado; el usuario no escribe códigos.

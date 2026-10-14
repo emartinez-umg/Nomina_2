@@ -1,7 +1,6 @@
 import { ErrorValidacion } from '../../shared/errors/errors.js';
 import { crearEmpleadoSchema } from './empleados.schemas.js';
 export const columnasCsv = [
-  'codigo',
   'nombres',
   'apellidos',
   'dpi',
@@ -116,7 +115,6 @@ export const plantillaCsv = () =>
   escribirCsv([
     Array.from(columnasCsv),
     [
-      'EMP_001',
       'Ana',
       'Lopez',
       '1234567890123',

@@ -198,3 +198,12 @@ Seeds aditivos: no sobrescriben cuentas, parámetros editados ni plantillas exis
 - [Comunicación y tableros](docs/COMUNICACION_TABLEROS.md), [mockup visual](docs/MOCKUP/README.md).
 
 Repositorio: [emartinez-umg/Nomina_2](https://github.com/emartinez-umg/Nomina_2).
+
+### Códigos automáticos (v1-3)
+
+`docker compose up --build` aplica V021 y migra los códigos existentes conservando
+`CODIGO_ANTERIOR`. Los formularios consultan una vista previa y Oracle asigna el código
+al guardar. El código es permanente. La plantilla CSV de empleados ya no pide código;
+descarga la versión actual desde Carga masiva. Las referencias oficiales de IGSS se conservan.
+`npm run verify:codigos` comprueba migración con datos de v0, contadores por departamento/año,
+colisiones, concurrencia, rollback, inmutabilidad y el endpoint autenticado en Oracle temporal.

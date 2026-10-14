@@ -23,6 +23,8 @@ export function valoresIniciales(cat: Catalogo, fila?: Fila): Record<string, str
             ? '1'
             : '0'
           : String(fila[f.nombre]);
+  if (fila?.claveInterna) d.claveInterna = String(fila.claveInterna);
+  if (fila?.codigoAnterior) d.codigoAnterior = String(fila.codigoAnterior);
   if (cat.slug === 'horarios') d.dias = JSON.stringify(fila?.dias ?? diasIniciales);
   if (cat.slug === 'feriados' && !fila) {
     d.ambito = 'NACIONAL';
@@ -37,6 +39,7 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
     const error = (campo: string, mensaje: string) =>
       ctx.addIssue({ code: 'custom', path: [campo], message: mensaje });
     for (const f of cat.campos) {
+      if (f.tipo === 'codigo') continue;
       const v = d[f.nombre]?.trim() ?? '';
       if (!v) {
         if (f.requerido) error(f.nombre, 'Este campo es obligatorio. Ingresa el dato solicitado.');
@@ -49,8 +52,6 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
         error(f.nombre, 'Revisa el formato indicado en la ayuda del campo.');
       if (f.max && (f.tipo === 'telefono' ? v.replace(/\s/g, '').length : v.length) > f.max)
         error(f.nombre, `Usa hasta ${f.max} caracteres.`);
-      if (f.tipo === 'codigo' && !/^[A-Z][A-Z0-9_]*$/.test(v))
-        error(f.nombre, 'Usa mayúsculas, números y guion bajo; empieza con una letra.');
       if (f.tipo === 'fecha' && (!fechaValida(v) || v < '1900-01-01'))
         error(f.nombre, 'Ingresa una fecha válida en formato dd/mm/aaaa.');
       if (['dinero', 'decimal', 'entero', 'referencia'].includes(f.tipo)) {
@@ -78,10 +79,20 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
     }
     if (cat.slug === 'parametros-legales' && /^\d+(\.\d+)?$/.test(d.valor ?? '')) {
       const valor = new Decimal(d.valor!);
-      const max = d.codigo?.endsWith('_DIA') ? 31 : d.codigo?.endsWith('_MES') ? 12 : null;
+      const clave =
+        d.claveInterna ||
+        d.codigoAnterior ||
+        d.nombre
+          ?.toUpperCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^A-Z0-9 ]/g, '')
+          .trim()
+          .replace(/ +/g, '_');
+      const max = clave?.endsWith('_DIA') ? 31 : clave?.endsWith('_MES') ? 12 : null;
       if (max !== null && (!valor.isInteger() || valor.lt(1) || valor.gt(max)))
         error('valor', `Ingresa un entero entre 1 y ${max} para esta posición del calendario.`);
-      if (/^JORNADA_.*_HORAS$/.test(d.codigo ?? '') && (valor.lte(0) || valor.gt(24)))
+      if (/^JORNADA_.*_HORAS$/.test(clave ?? '') && (valor.lte(0) || valor.gt(24)))
         error('valor', 'La duración de una jornada debe superar 0 y no exceder 24 horas.');
     }
     const comparables = (a: string, b: string) =>
@@ -142,6 +153,7 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
 export function cuerpo(cat: Catalogo, d: Record<string, string>) {
   const body: Record<string, unknown> = {};
   for (const f of cat.campos) {
+    if (f.tipo === 'codigo') continue;
     const original = d[f.nombre]?.trim() ?? '';
     const v =
       f.tipo === 'telefono'

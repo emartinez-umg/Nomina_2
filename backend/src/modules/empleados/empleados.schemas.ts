@@ -50,7 +50,10 @@ export const dinero = z
 const opcionalFecha = fecha.nullable();
 const datos = z
   .object({
-    codigo: texto(40).regex(/^[A-Z0-9_-]+$/, 'Usa mayúsculas, números, guion o guion bajo.'),
+    codigo: z
+      .unknown()
+      .optional()
+      .transform(() => ''),
     nombres: nombre,
     apellidos: nombre,
     dpi: z.string().regex(/^\d{13}$/, 'El DPI debe tener exactamente 13 dígitos.'),

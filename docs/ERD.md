@@ -930,3 +930,54 @@ UNIQUE. No modifica tablas, relaciones ni migraciones anteriores. Los filtros ha
 en `db/filtros.json`; `db:verify` comprueba sus índices y las 21 migraciones V000–V020.
 CONFIGURACION_EMPRESA se administra desde el catálogo Datos de empresa; mantiene una sola empresa
 activa. El formato IGSS existente y snapshots de documentos no se sobrescriben al editar sus datos.
+
+## V1-3 — Identificadores automáticos (V021)
+
+V021 conserva PK, FK y snapshots; renumera los once catálogos con código editable de v0,
+`TIPOS_SOLICITUD`, empleados y las cinco entidades transaccionales indicadas en A4.
+`CODIGO_ANTERIOR` conserva el valor previo; es nulo en entidades que no tenían código.
+Los empleados se recorren por `FECHA_INGRESO, ID_EMPLEADO`. Las transacciones se numeran
+por año de `FECHA_CREACION` y por fecha/id, incluyendo registros inactivos.
+
+```mermaid
+erDiagram
+    CONFIG_CODIGOS ||--o{ SECUENCIAS_CODIGOS : configura
+    CONFIG_CODIGOS ||--o{ REGISTRO_CODIGOS : reserva
+    CONFIG_CODIGOS {
+        number ID_CONFIG_CODIGO PK
+        varchar ENTIDAD UK
+        varchar PREFIJO
+        number LONGITUD_MAXIMA
+        varchar PATRON
+    }
+    SECUENCIAS_CODIGOS {
+        number ID_SECUENCIA_CODIGO PK
+        varchar ENTIDAD FK
+        varchar AMBITO "UNIQUE entidad/ámbito"
+        number ULTIMO_NUMERO
+    }
+    REGISTRO_CODIGOS {
+        number ID_REGISTRO_CODIGO PK
+        varchar ENTIDAD FK
+        varchar CODIGO "UNIQUE entidad/código"
+        varchar LEGADO
+    }
+```
+
+Estas tres tablas de infraestructura tienen identity ALWAYS, auditoría y FKs indexadas.
+`N2_CODIGOS.ASIGNAR` crea el contador tolerando su creación simultánea, bloquea su fila
+con `SELECT ... FOR UPDATE` y registra la reserva dentro de la transacción llamante.
+No usa transacciones autónomas ni commits internos. El rollback revierte contador y reserva.
+El ámbito es GENERAL para catálogos, ID de departamento para empleados y año para transacciones.
+La reserva permanece tras eliminación física, impidiendo reutilización de identificadores.
+Los triggers de las entidades asignan el código al insertar y prohíben modificarlo después,
+independientemente del cliente. UNIQUE protege cada tabla; parámetros conserva UNIQUE por
+código/vigencia, compartiendo identidad entre sus versiones.
+
+Los parámetros tienen `CLAVE_INTERNA` inmutable: V021 copia su clave original y las altas
+la derivan automáticamente del nombre completo normalizado (p. ej. Salario mínimo mensual →
+SALARIO_MINIMO_MENSUAL). Sus nuevas vigencias heredan la clave y el código. Los cálculos
+consultan esa clave; los tipos de trámite conservan la referencia semántica mediante
+`NVL(CODIGO_ANTERIOR,CODIGO)`. Los seeds buscan también por dicha clave, conservando su idempotencia.
+Los códigos de roles, conceptos de nómina, plantillas y las referencias oficiales de IGSS
+no son identificadores introducidos por los formularios de A4 y conservan su significado.

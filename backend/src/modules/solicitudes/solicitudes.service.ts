@@ -339,7 +339,7 @@ export function crearSolicitudesService(db: BaseDatos) {
             throw new ErrorConflicto('Reduce los filtros para exportar hasta 10,000 solicitudes.');
           filas.push(
             ...r.registros.map((s) => [
-              s.id,
+              s.codigo,
               s.empleado,
               s.nombreTipo,
               s.estado,

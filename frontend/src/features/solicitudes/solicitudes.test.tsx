@@ -25,6 +25,7 @@ vi.mock('./pages/PdfView', async () => {
   };
 });
 const solicitud: Detalle = {
+  codigo: 'PRUEBA_2026_0001',
   id: 1,
   idEmpleado: 1,
   empleado: 'Persona de prueba',

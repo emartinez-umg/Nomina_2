@@ -38,7 +38,7 @@ export async function parametros(c: Connection) {
   return (
     (
       await c.execute<Vigencia>(
-        `SELECT TO_CHAR(VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(VIGENTE_HASTA,'YYYY-MM-DD') "hasta",${str('VALOR')} "valor" FROM PARAMETROS_LEGALES WHERE CODIGO='VACACIONES_ACUMULACION_MENSUAL' AND UNIDAD='DIAS' AND ACTIVO=1 ORDER BY VIGENTE_DESDE`,
+        `SELECT TO_CHAR(VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(VIGENTE_HASTA,'YYYY-MM-DD') "hasta",${str('VALOR')} "valor" FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='VACACIONES_ACUMULACION_MENSUAL' AND UNIDAD='DIAS' AND ACTIVO=1 ORDER BY VIGENTE_DESDE`,
         {},
         opts,
       )
@@ -114,6 +114,7 @@ export async function bloqueos(c: Connection, id: number, excluir = 0) {
   );
 }
 export interface Solicitud {
+  codigo: string;
   id: number;
   idEmpleado: number;
   empleado: string;
@@ -125,8 +126,9 @@ export interface Solicitud {
   estado: string;
   motivo: string | null;
 }
-const select = `V.ID_VACACIONES_SOLICITUD "id",V.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",TO_CHAR(V.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(V.FECHA_FIN,'YYYY-MM-DD') "fin",${str('V.DIAS_SOLICITADOS')} "dias",${str('V.SALDO_AL_SOLICITAR')} "saldoAlSolicitar",${str('V.SALDO_AL_RESOLVER')} "saldoAlResolver",V.ESTADO "estado",V.MOTIVO_RECHAZO "motivo"`;
-const from = 'VACACIONES_SOLICITUDES V JOIN EMPLEADOS E ON E.ID_EMPLEADO=V.ID_EMPLEADO';
+const select = `V.ID_VACACIONES_SOLICITUD "id",S.CODIGO "codigo",V.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",TO_CHAR(V.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(V.FECHA_FIN,'YYYY-MM-DD') "fin",${str('V.DIAS_SOLICITADOS')} "dias",${str('V.SALDO_AL_SOLICITAR')} "saldoAlSolicitar",${str('V.SALDO_AL_RESOLVER')} "saldoAlResolver",V.ESTADO "estado",V.MOTIVO_RECHAZO "motivo"`;
+const from =
+  'VACACIONES_SOLICITUDES V JOIN SOLICITUDES S ON S.ID_SOLICITUD=V.ID_SOLICITUD JOIN EMPLEADOS E ON E.ID_EMPLEADO=V.ID_EMPLEADO';
 export async function solicitud(c: Connection, id: number) {
   return (
     await c.execute<Solicitud>(
@@ -148,7 +150,9 @@ export async function listar(c: Connection, q: Query) {
     b.estado = q.estado;
   }
   if (q.buscar) {
-    w.push("INSTR(UPPER(E.CODIGO||' '||E.NOMBRES||' '||E.APELLIDOS),UPPER(:buscar))>0");
+    w.push(
+      "INSTR(UPPER(S.CODIGO||' '||E.CODIGO||' '||E.NOMBRES||' '||E.APELLIDOS),UPPER(:buscar))>0",
+    );
     b.buscar = q.buscar;
   }
   if (q.desde) {
@@ -192,7 +196,7 @@ export async function crear(
 ) {
   const tipo = (
     await c.execute<{ ID: number }>(
-      "SELECT ID_TIPO_SOLICITUD ID FROM TIPOS_SOLICITUD WHERE CODIGO='VACACIONES' AND ACTIVO=1",
+      "SELECT ID_TIPO_SOLICITUD ID FROM TIPOS_SOLICITUD WHERE NVL(CODIGO_ANTERIOR,CODIGO)='VACACIONES' AND ACTIVO=1",
       {},
       opts,
     )
@@ -337,7 +341,7 @@ export async function valoresFiniquito(c: Connection, id: number, corte: string)
   const divisor =
     (
       await c.execute<{ VALOR: string }>(
-        `SELECT ${str('VALOR')} VALOR FROM PARAMETROS_LEGALES WHERE CODIGO='SALARIO_DIAS_MES' AND UNIDAD='DIAS' AND ACTIVO=1 AND VIGENTE_DESDE<=${fecha('corte')} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${fecha('corte')})`,
+        `SELECT ${str('VALOR')} VALOR FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='SALARIO_DIAS_MES' AND UNIDAD='DIAS' AND ACTIVO=1 AND VIGENTE_DESDE<=${fecha('corte')} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${fecha('corte')})`,
         { corte },
         opts,
       )

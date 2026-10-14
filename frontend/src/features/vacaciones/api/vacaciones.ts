@@ -27,6 +27,7 @@ const comparacion = z.object({
   bloqueo: z.string().nullable(),
 });
 export const filaSchema = comparacion.extend({
+  codigo: z.string(),
   id: z.number(),
   idEmpleado: z.number(),
   empleado: z.string(),
