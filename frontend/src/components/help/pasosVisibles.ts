@@ -41,6 +41,12 @@ export function pasosVisibles(
     const elemento = alcance.querySelector(`[data-tour="${paso.elemento}"]`);
     if (elemento) agregar(elemento, paso.titulo, paso.descripcion);
   }
+  for (const borrador of alcance.querySelectorAll('[data-tour="borrador-formulario"]'))
+    agregar(
+      borrador,
+      'Retomar formularios con borradores',
+      'Mientras escribes, el formulario guarda un borrador en este navegador después de medio segundo. Puedes cerrar la pestaña o volver a abrir el mismo formulario y registro; pulsa Continuar para recuperar los datos y la sección. Descartar borrador pide confirmación y devuelve los valores iniciales. Guardar con éxito elimina el borrador; un error lo conserva. Cerrar sesión explícitamente elimina todos tus borradores; entrar con otro usuario purga los ajenos. La expiración por inactividad permite recuperarlos al volver a entrar con la misma cuenta. Nunca se guardan contraseñas, tokens ni archivos: vuelve a seleccionar los adjuntos. Si el navegador bloquea el almacenamiento o se llena, verás el aviso y podrás seguir editando y guardar en el servidor.',
+    );
   // Complementa las secciones declarativas de cada módulo con todos los campos realmente visibles.
   for (const campo of alcance.querySelectorAll('[data-campo]')) {
     if (!visible(campo)) continue;
@@ -71,16 +77,16 @@ export function pasosVisibles(
   if (alcance === document) {
     const comunes = [
       [
-        'sidebar',
+        'navegacion',
         'Navegación según tu rol',
         rol === 'EMPLEADO'
-          ? 'Estas secciones muestran únicamente tus gestiones. En móvil abre Menú y elige una sección; Escape lo cierra. No compartas tu cuenta.'
-          : 'El menú reúne los módulos permitidos por tu rol. En móvil abre Menú y elige una sección. La bitácora global y gestión de usuarios corresponden a ADMIN.',
+          ? 'La barra agrupa tus gestiones personales. Abre una categoría con clic, Enter o Espacio; usa flechas para recorrer categorías y opciones. Escape cierra el grupo y devuelve el foco. En móvil pulsa Menú para desplegar los acordeones; la opción activa se resalta en verde. Solo aparecen secciones de tu rol.'
+          : 'La barra agrupa los módulos permitidos por tu rol. Abre categorías con clic, Enter o Espacio; flechas izquierda/derecha recorren categorías y arriba/abajo sus opciones. Inicio y Fin van a los extremos. Escape o clic fuera cierra el panel. En móvil pulsa Menú y abre los acordeones. Usuarios y Bitácora corresponden a ADMIN; el verde identifica la sección activa.',
       ],
       [
         'buscador',
         'Encontrar una sección',
-        'Escribe el nombre de una sección y elige un resultado. Limpiar búsqueda cierra los resultados; esta búsqueda no consulta expedientes personales.',
+        'Pulsa Buscar o Ctrl+K / ⌘+K desde cualquier página. Busca nombres o sinónimos como boleta, agenda o constancia; también se toleran pequeños errores de escritura. Solo verás destinos de tu rol, con su categoría, acciones rápidas y los cinco últimos accesos de tu usuario en este navegador. Usa flechas y Enter para abrir, o Escape para cerrar y volver. Las acciones rápidas abren formularios sin guardar cambios. No se buscan expedientes personales.',
       ],
       [
         'notificaciones',
@@ -90,7 +96,7 @@ export function pasosVisibles(
       [
         'usuario-menu',
         'Tu sesión',
-        'Comprueba usuario y rol antes de trabajar. Cierra sesión al terminar, especialmente en equipos compartidos. Tras el tiempo de inactividad debes volver a ingresar; nunca compartas contraseñas.',
+        'Comprueba usuario y rol antes de trabajar. Cerrar sesión elimina todos tus borradores de formularios de este navegador. Tras el tiempo de inactividad debes volver a ingresar; tus borradores se conservan para la misma cuenta. Entrar con otro usuario elimina los ajenos. Nunca compartas contraseñas.',
       ],
       [
         'ayuda-global',

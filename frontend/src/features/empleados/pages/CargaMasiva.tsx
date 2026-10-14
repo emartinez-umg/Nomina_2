@@ -1,3 +1,5 @@
+import { useDraftValues } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,9 +21,12 @@ export function CargaMasivaPage() {
   const cliente = useQueryClient(),
     nav = useNavigate(),
     toast = useToast();
+  const { campo, draft } = useDraftValues('carga-empleados', undefined, {
+    modalidad: 'TODO_O_NADA',
+  });
+  const [modalidad, setModalidad] = campo('modalidad');
   const [archivo, setArchivo] = useState<File | null>(null),
     [preview, setPreview] = useState<Preview | null>(null),
-    [modalidad, setModalidad] = useState('TODO_O_NADA'),
     [ocupado, setOcupado] = useState(false),
     [error, setError] = useState(''),
     [confirmacion, setConfirmacion] = useState(false),
@@ -55,6 +60,7 @@ export function CargaMasivaPage() {
           Volver a empleados
         </Button>
       </div>
+      <FormDraftNotice draft={draft} />
       <Card>
         <section data-tour="carga-archivo">
           <h2>1. Preparar archivo</h2>
@@ -227,6 +233,7 @@ export function CargaMasivaPage() {
             if (!preview) return;
             try {
               const saved = await confirmar(preview.id, modalidad);
+              draft.limpiar();
               setResultado({ id: saved.id, importadas: saved.importadas });
               setConfirmacion(false);
               if (saved.credenciales.length) setCredenciales(saved.credenciales);

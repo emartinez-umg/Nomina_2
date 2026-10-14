@@ -1,3 +1,5 @@
+import { useDraftValues } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -235,10 +237,27 @@ function Accion({
 }) {
   const cliente = useQueryClient(),
     toast = useToast();
-  const [importe, setImporte] = useState(''),
-    [fecha, setFecha] = useState(r.hoy),
-    [motivo, setMotivo] = useState(''),
-    [revision, setRevision] = useState(false),
+  const { campo, draft } = useDraftValues(
+    `empleado-${tipo}`,
+    e.id,
+    {
+      importe: '',
+      fecha: r.hoy,
+      motivo: '',
+    },
+    true,
+    {
+      alDescartar: () => {
+        setRevision(false);
+        setError('');
+        setCampos({});
+      },
+    },
+  );
+  const [importe, setImporte] = campo('importe');
+  const [fecha, setFecha] = campo('fecha');
+  const [motivo, setMotivo] = campo('motivo');
+  const [revision, setRevision] = useState(false),
     [ocupado, setOcupado] = useState(false),
     [error, setError] = useState(''),
     [campos, setCampos] = useState<Record<string, string[]>>({});
@@ -259,6 +278,7 @@ function Accion({
         if (!ocupado) cerrar();
       }}
     >
+      <FormDraftNotice draft={draft} />
       <div className="my-4 flex justify-end">
         <HelpButton />
       </div>
@@ -389,6 +409,7 @@ function Accion({
                     : baja(e.id, { fechaEgreso: fecha, motivo, confirmado: true })
                 )
                   .then(async (guardado) => {
+                    draft.limpiar();
                     if (Array.isArray(guardado.advertencias))
                       for (const aviso of guardado.advertencias) toast(aviso, 'peligro');
                     await cliente.invalidateQueries({ queryKey: ['empleados'] });

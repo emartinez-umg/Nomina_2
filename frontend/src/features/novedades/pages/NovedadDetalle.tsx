@@ -1,3 +1,5 @@
+import { useDraftValues } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -49,9 +51,10 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
   const nav = useNavigate(),
     cache = useQueryClient(),
     toast = useToast();
+  const { campo, draft } = useDraftValues(`novedad-${tipo}-anular`, d.id, { motivo: '' });
+  const [motivo, setMotivo] = campo('motivo');
   const [anulando, setAnulando] = useState(false),
     [confirmando, setConfirmando] = useState(false),
-    [motivo, setMotivo] = useState(''),
     [guardando, setGuardando] = useState(false),
     [error, setError] = useState(''),
     [descargando, setDescargando] = useState(false);
@@ -210,6 +213,7 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
           if (!guardando) setAnulando(false);
         }}
       >
+        <FormDraftNotice draft={draft} />
         <div className="my-5">
           <TextAreaField
             name="motivo"
@@ -250,6 +254,7 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
           setGuardando(true);
           void anular(tipo, d.id, motivo)
             .then(async () => {
+              draft.limpiar();
               await cache.invalidateQueries({ queryKey: ['novedades'] });
               await cache.invalidateQueries({ queryKey: ['empleados'] });
               setConfirmando(false);

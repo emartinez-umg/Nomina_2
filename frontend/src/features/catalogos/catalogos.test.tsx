@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,10 @@ import { CatalogoFormulario } from './pages/CatalogoFormulario';
 import { HelpProvider } from '../../components/help/HelpProvider';
 import { ToastProvider } from '../../components/ui/Toast';
 import { guardarCsrf } from '../../lib/http';
+import { claveBorrador } from '../../lib/formDraft';
+vi.mock('../../app/session', () => ({
+  useSession: () => ({ usuario: { idUsuario: 7, rol: 'RH' } }),
+}));
 const cat = (slug: string) =>
   catalogoSchema.parse({
     ...catalogos.find((c) => c.slug === slug),
@@ -28,6 +32,7 @@ const actual = filaSchema.parse({
   fundamento: 'Norma de referencia',
 });
 beforeEach(() => {
+  localStorage.clear();
   vi.stubGlobal('fetch', vi.fn());
   HTMLDialogElement.prototype.showModal = function () {
     this.setAttribute('open', '');
@@ -159,6 +164,44 @@ describe('Catálogos: validación y formularios', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(String(vi.mocked(fetch).mock.calls[1]![0])).toContain('pagina=2');
     expect(String(vi.mocked(fetch).mock.calls[1]![0])).toContain('nombre=Departamento');
+  });
+  it('retoma la revisión legal con su motivo y descartar invalida la revisión anterior', async () => {
+    const c = cat('parametros-legales');
+    const clave = claveBorrador(7, 'catalogo-parametros-legales', actual.id);
+    localStorage.setItem(
+      clave,
+      JSON.stringify({
+        version: 1,
+        guardado: Date.now(),
+        valores: { ...valoresIniciales(c, actual), valor: '5', motivo: 'Norma revisada' },
+        paso: 'revision',
+      }),
+    );
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={c} actual={actual} cierre={null} onCerrar={vi.fn()} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    const revision = await screen.findByRole('dialog', {
+      name: 'ADVERTENCIA · Cambio de parametrización legal',
+    });
+    expect(within(revision).getByLabelText(/^Motivo del cambio/)).toHaveValue('Norma revisada');
+    await userEvent.click(within(revision).getByRole('button', { name: 'Descartar borrador' }));
+    const descartar = screen.getByRole('dialog', { name: 'Descartar borrador' });
+    await userEvent.click(within(descartar).getByRole('button', { name: 'Confirmar' }));
+    expect(
+      screen.queryByRole('dialog', { name: 'ADVERTENCIA · Cambio de parametrización legal' }),
+    ).toBeNull();
+    expect(screen.getByLabelText(/^Valor/)).toHaveValue('4.83');
+    expect(fetch).not.toHaveBeenCalled();
+    expect(localStorage.getItem(clave)).toBeNull();
+    cliente.clear();
   });
   it('escapa fórmulas, comillas y saltos de línea al exportar CSV', () => {
     const c = cat('departamentos');

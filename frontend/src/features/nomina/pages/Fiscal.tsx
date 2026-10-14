@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +21,7 @@ import { mapearErrores } from '../../../lib/http';
 import { hoyGuatemala, fechaVisible, fechaSchema } from '../../../lib/validadores';
 import { useToast } from '../../../components/ui/Toast';
 const schema = z.object({
+  operacion: z.string(),
   idEmpleado: z.string().min(1, 'Selecciona un empleado.'),
   anio: z.string().regex(/^\d{4}$/, 'Ingresa un año de cuatro dígitos.'),
   fecha: fechaSchema,
@@ -33,13 +36,13 @@ type Datos = z.infer<typeof schema>;
 export function Fiscal() {
   const cache = useQueryClient(),
     toast = useToast(),
-    [tipo, setTipo] = useState('aperturas'),
     [confirmar, setConfirmar] = useState(false),
     [error, setError] = useState('');
   const form = useForm<Datos>({
       resolver: zodResolver(schema),
       mode: 'onBlur',
       defaultValues: {
+        operacion: 'aperturas',
         idEmpleado: '',
         anio: hoyGuatemala().slice(0, 4),
         fecha: '',
@@ -53,6 +56,16 @@ export function Fiscal() {
     }),
     id = form.watch('idEmpleado'),
     anio = form.watch('anio');
+  const tipo = form.watch('operacion');
+  const setTipo = (v: string) => form.setValue('operacion', v, { shouldDirty: true });
+  const draft = useFormDraft('fiscal', undefined, {
+    form,
+    version: 1,
+    alDescartar: () => {
+      setConfirmar(false);
+      setError('');
+    },
+  });
   useEffect(() => {
     const subscription = form.watch(() => setConfirmar(false));
     return () => subscription.unsubscribe();
@@ -81,6 +94,7 @@ export function Fiscal() {
       );
     },
     onSuccess: () => {
+      draft.limpiar();
       setConfirmar(false);
       toast('Datos fiscales registrados. Recalcula las quincenas abiertas.');
       void cache.invalidateQueries({ queryKey: ['nomina'] });
@@ -102,6 +116,7 @@ export function Fiscal() {
   });
   return (
     <section data-tour="nomina-fiscal">
+      <FormDraftNotice draft={draft} />
       <p className="campo-hint my-4">
         Registra únicamente importes acreditados. La apertura certifica pagos anteriores al sistema
         y se permite una sola vez por empleado/año, antes de aprobar su primera nómina.

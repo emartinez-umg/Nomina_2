@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
@@ -70,6 +72,12 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
       z.object({ motivo: z.string().max(500), monto: z.string(), fechaInicio: z.string() }),
     ),
   });
+  const draft = useFormDraft('solicitud-resolucion', s.id, {
+    form: f,
+    version: 1,
+    alDescartar: () => setAccion(undefined),
+    enabled: !empleado && s.estado === 'EN_PROCESO',
+  });
   const invalidar = () => {
     void cache.invalidateQueries({ queryKey: ['solicitudes'] });
     void cache.invalidateQueries({ queryKey: ['notificaciones'] });
@@ -92,6 +100,7 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
               : {}),
           }),
     onSuccess: () => {
+      draft.limpiar();
       toast(
         accion === 'ENTREGADA'
           ? 'Entrega registrada. El empleado recibió su aviso.'
@@ -140,6 +149,7 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
   };
   return (
     <section data-tour="solicitud-detalle" className="mt-5">
+      {!empleado && s.estado === 'EN_PROCESO' && <FormDraftNotice draft={draft} />}
       <HelpButton />
       <h3>
         {s.nombreTipo} · {s.empleado}

@@ -4,7 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MisDatosPage } from './pages/MisDatosPage';
 import * as api from './api/solicitudes';
 import { HelpProvider } from '../../components/help/HelpProvider';
-vi.mock('../../app/session', () => ({ useSession: () => ({ usuario: { rol: 'EMPLEADO' } }) }));
+vi.mock('../../app/session', () => ({
+  useSession: () => ({ usuario: { idUsuario: 7, rol: 'EMPLEADO' } }),
+}));
 vi.mock('./api/solicitudes', async (importOriginal) => ({
   ...(await importOriginal<typeof api>()),
   misDatos: vi.fn(),
@@ -44,6 +46,7 @@ function abrir() {
   );
 }
 beforeEach(() => {
+  localStorage.clear();
   vi.clearAllMocks();
   vi.mocked(api.misDatos).mockResolvedValue(datos);
   vi.mocked(api.contacto).mockResolvedValue({ actualizado: true });

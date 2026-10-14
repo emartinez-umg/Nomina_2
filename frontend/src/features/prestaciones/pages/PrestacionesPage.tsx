@@ -1,3 +1,5 @@
+import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -158,6 +160,7 @@ export function PrestacionesPage() {
   );
 }
 const formSchema = z.object({
+  motivo: z.string(),
   tipo: z.enum(['AGUINALDO', 'BONO_14']),
   anio: z.string().regex(/^\d{4}$/, 'Ingresa el año de cierre.'),
   idEmpleado: z.string(),
@@ -176,6 +179,7 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
     resolver: zodResolver(formSchema),
     mode: 'onBlur',
     defaultValues: {
+      motivo: '',
       tipo: 'BONO_14',
       anio: hoy.slice(0, 4),
       idEmpleado: empleadoInicial,
@@ -186,6 +190,16 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
       fin: hoy,
     },
   });
+  const draft = useFormDraft(`prestacion-${modo}`, undefined, {
+    form,
+    version: 1,
+    alDescartar: () => {
+      setPrev(undefined);
+      setConfirmar(false);
+    },
+  });
+  const motivo = form.watch('motivo');
+  const setMotivo = (v: string) => form.setValue('motivo', v, { shouldDirty: true });
   const idSeleccionado = form.watch('idEmpleado');
   const expediente = useQuery({
     queryKey: ['empleados', 'detalle', idSeleccionado],
@@ -200,7 +214,6 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
       seleccion: unknown;
       limitePago?: string;
     }>(),
-    [motivo, setMotivo] = useState(''),
     [confirmar, setConfirmar] = useState(false);
   const campos = (
     name: keyof Form,
@@ -295,6 +308,7 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
       return undefined;
     },
     onSuccess: (r) => {
+      if (modo === 'constancia') draft.limpiar();
       setPrev(r);
     },
     onError: (e) => {
@@ -310,6 +324,7 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
       return modo === 'anual' ? api.calcular(body) : api.liquidar(body);
     },
     onSuccess: () => {
+      draft.limpiar();
       toast(
         modo === 'anual'
           ? 'Cálculos guardados. Revisa y aprueba desde el historial.'
@@ -325,6 +340,7 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
   });
   return (
     <Card data-tour={`prestaciones-${modo === 'anual' ? 'calculo' : modo}`}>
+      <FormDraftNotice draft={draft} />
       <h2>
         {modo === 'anual'
           ? 'Cálculo masivo con vista previa'
@@ -475,7 +491,10 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
             if (validar(d))
               void api
                 .constancia({ idEmpleado: d.idEmpleado, inicio: d.inicio, fin: d.fin })
-                .then((r) => descargar(r))
+                .then((r) => {
+                  draft.limpiar();
+                  descargar(r);
+                })
                 .catch((e) => toast((e as Error).message, 'peligro'));
           }}
         >
@@ -690,11 +709,23 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
     }),
     qc = useQueryClient(),
     toast = useToast();
-  const [op, setOp] = useState(''),
-    [motivo, setMotivo] = useState(''),
-    [fechaPago, setFecha] = useState(hoyGuatemala()),
-    [referencia, setRef] = useState(''),
-    [confirmar, setConfirmar] = useState(false);
+  const { campo, draft } = useDraftValues(
+    'prestacion-operacion',
+    id,
+    {
+      op: '',
+      motivo: '',
+      fechaPago: hoyGuatemala(),
+      referencia: '',
+    },
+    true,
+    { alDescartar: () => setConfirmar(false) },
+  );
+  const [op, setOp] = campo('op');
+  const [motivo, setMotivo] = campo('motivo');
+  const [fechaPago, setFecha] = campo('fechaPago');
+  const [referencia, setRef] = campo('referencia');
+  const [confirmar, setConfirmar] = useState(false);
   const m = useMutation({
     onError: () => setConfirmar(false),
     mutationFn: () =>
@@ -705,6 +736,7 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
         ...(op === 'pagar' ? { fechaPago, referencia } : {}),
       }),
     onSuccess: () => {
+      draft.limpiar();
       toast('Operación registrada.');
       setOp('');
       setConfirmar(false);
@@ -720,6 +752,7 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
         if (!m.isPending) cerrar();
       }}
     >
+      <FormDraftNotice draft={draft} />
       <HelpButton />
       {r.isPending ? (
         <Skeleton lineas={4} />

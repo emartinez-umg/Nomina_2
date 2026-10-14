@@ -126,3 +126,62 @@ usa elementos DOM dentro del diálogo activo. Modal ofrece ayuda universal, incl
 La bienvenida está integrada en el contenido para no cubrir botones. Se añadieron nombres accesibles
 estables, salto al contenido y foco blanco en el sidebar. Usuarios ADMIN y Datos de empresa usan
 los componentes y tokens existentes. Playwright/axe recorren páginas por rol y portal de 390 px.
+
+## Navegación v1 (FASE V1-1, A2)
+
+La barra superior reemplaza al menú lateral. `components/layout/navigation.config.ts` define
+los grupos, rutas, iconos, descripciones y sinónimos por ADMIN, RH y EMPLEADO; tanto los
+acordeones y desplegables como la paleta leen esa configuración. Los destinos corresponden
+al router existente, incluidos los trece catálogos y las cinco clases de novedades. Los detalles
+y la edición de registros conservan sus acciones contextuales dentro de cada módulo.
+
+Enter/Espacio abre una categoría; izquierda/derecha cambia de categoría; arriba/abajo abre y
+recorre opciones; Inicio/Fin va a los extremos. Escape cierra y devuelve el foco; salir con Tab
+o hacer clic fuera también cierra. La opción activa se determina por la ruta más específica.
+En pantallas menores de 1200 px aparece el botón Menú con acordeones; Buscar sigue visible.
+
+Buscar o Ctrl+K / ⌘+K abre la paleta de [cmdk](https://github.com/dip/cmdk). Acepta sinónimos,
+acentos y pequeños errores de escritura; muestra la categoría y permite elegir con flechas y
+Enter. Escape cierra el diálogo y restaura el foco. Los cinco accesos recientes se guardan por
+ID de usuario y se filtran contra sus permisos actuales; almacenamiento bloqueado no impide
+navegar. Las acciones rápidas abren los formularios actuales, sin ejecutar escrituras.
+
+El historial usa `nomina2:navegacion:v1:{idUsuario}` y almacena solo IDs de opciones, sin datos
+de expedientes. Simulación de pagos y las demás reglas del adendo se reservan para fases
+posteriores. `docs/PROGRESO_V1.md` registra las pruebas y decisiones de esta fase.
+
+## Borradores v1 (FASE V1-2, A3)
+
+`hooks/useFormDraft.ts` conecta `useFormDraft(formKey, recordId, { form, version })` con
+React Hook Form. Cada esquema declara una versión; increméntala si cambian los datos
+compatibles del formulario. La clave es `nomina2:borrador:{usuarioId}:{formKey}:{recordId|nuevo}`;
+el contenido incluye versión, fecha de guardado, valores y paso opcional. No se guardan
+formularios intactos ni se considera una hidratación desde la API como una edición.
+
+Incluye `FormDraftNotice` en el formulario y llama `draft.limpiar()` únicamente después de
+confirmar el éxito de la API. Cancelar, navegar, cerrar una ventana o perder la sesión por
+inactividad conserva el borrador. Al regresar al mismo formulario y registro, Continuar
+restaura los valores conservando la validación habitual y el estado modificado de RHF.
+Descartar exige confirmación y restablece los valores iniciales. Usa `alDescartar` para
+invalidar revisiones, vistas previas o confirmaciones que dependan de esos datos.
+
+Las opciones `paso` y `restaurarPaso` conservan la sección actual del expediente y la revisión
+legal; el editor IGSS conserva sección, listas y fila parcial, y Fiscal su operación seleccionada.
+`useDraftValues` adapta editores controlados a RHF: recibe valores iniciales, habilitación y
+opciones de versión/descarte; `campo(nombre)` devuelve el valor y su setter compatible con
+actualizaciones funcionales. Formularios diferentes y ediciones de registros distintos usan
+claves independientes. Los modales se retoman abriendo la misma acción desde su listado/ficha.
+
+El debounce es de 500 ms. `pagehide`, ocultar la pestaña y desmontar el formulario vacían la
+escritura pendiente, sin avisos que bloqueen la navegación. Login y consulta inicial de sesión
+purgan borradores ajenos; logout exitoso los elimina y cancela escrituras pendientes, también
+mediante eventos de almacenamiento entre pestañas. Las preferencias de ayuda y navegación
+se conservan. Almacenamiento bloqueado o lleno muestra un aviso y permite seguir editando.
+
+El saneamiento recursivo excluye contraseñas, tokens, credenciales, archivos, adjuntos,
+contenido base64 y objetos del navegador. Solo se conserva JSON de los campos editables.
+Autenticación/cambio de contraseña y filtros de consulta no generan borradores de escritura.
+En carga masiva se conserva la modalidad; el CSV debe seleccionarse y validarse otra vez.
+Las confirmaciones y los cálculos derivados requieren revisión actual; nunca se ejecuta una
+acción de negocio automáticamente por restaurar un borrador. Los hints del aviso y el paso
+compartido de `pasosVisibles` explican estos límites en todos los módulos y roles.

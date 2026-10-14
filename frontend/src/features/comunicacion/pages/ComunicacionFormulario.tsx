@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
@@ -142,16 +144,25 @@ function Editor({
 }) {
   const ahora = api.horaGuatemala(),
     cache = useQueryClient(),
-    toast = useToast(),
-    [grupo, setGrupo] = useState('DEPARTAMENTO'),
-    [seleccion, setSeleccion] = useState(''),
-    [nombreSeleccion, setNombreSeleccion] = useState('');
-  const f = useForm<api.Formulario>({
+    toast = useToast();
+  const f = useForm<
+    api.Formulario & { grupoPendiente: string; seleccionPendiente: string; nombrePendiente: string }
+  >({
     resolver: zodResolver(api.formularioSchema(tipo, ahora)),
     mode: 'onBlur',
     defaultValues: inicial
-      ? { ...inicial, paraTodos: !!inicial.paraTodos, destinatarios: inicial.destinatarios }
+      ? {
+          grupoPendiente: 'DEPARTAMENTO',
+          seleccionPendiente: '',
+          nombrePendiente: '',
+          ...inicial,
+          paraTodos: !!inicial.paraTodos,
+          destinatarios: inicial.destinatarios,
+        }
       : {
+          grupoPendiente: 'DEPARTAMENTO',
+          seleccionPendiente: '',
+          nombrePendiente: '',
           titulo: '',
           contenido: '',
           inicio: tipo === 'anuncios' ? ahora.slice(0, 10) : `${dia ?? ahora.slice(0, 10)}T`,
@@ -162,6 +173,13 @@ function Editor({
           version: 1,
         },
   });
+  const draft = useFormDraft(`comunicacion-${tipo}`, id, { form: f, version: 1 });
+  const grupo = f.watch('grupoPendiente'),
+    seleccion = f.watch('seleccionPendiente'),
+    nombreSeleccion = f.watch('nombrePendiente');
+  const setGrupo = (v: string) => f.setValue('grupoPendiente', v, { shouldDirty: true });
+  const setSeleccion = (v: string) => f.setValue('seleccionPendiente', v, { shouldDirty: true });
+  const setNombreSeleccion = (v: string) => f.setValue('nombrePendiente', v, { shouldDirty: true });
   const todos = f.watch('paraTodos'),
     destinatarios = f.watch('destinatarios');
   const m = useMutation({
@@ -172,6 +190,7 @@ function Editor({
         id,
       ),
     onSuccess: () => {
+      draft.limpiar();
       void cache.invalidateQueries({ queryKey: ['comunicacion'] });
       void cache.invalidateQueries({ queryKey: ['tablero'] });
       void cache.invalidateQueries({ queryKey: ['notificaciones'] });
@@ -236,6 +255,7 @@ function Editor({
       noValidate
       data-tour="comunicacion-formulario"
     >
+      <FormDraftNotice draft={draft} />
       <fieldset disabled={m.isPending}>
         <div className="form-grid my-6">
           {campo('titulo', 'Título', 'Nombre breve que se mostrará en el tablero y en la campana.')}

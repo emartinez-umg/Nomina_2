@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
@@ -74,10 +76,16 @@ function Editor({ p, variables }: { p: api.Plantilla; variables: string[] }) {
       }),
     ),
   });
+  const draft = useFormDraft('plantilla', p.id, {
+    form: f,
+    version: 1,
+    alDescartar: () => setConfirmar(false),
+  });
   const m = useMutation({
     mutationFn: () =>
       api.guardarPlantilla(p.tipo, { ...f.getValues(), version: p.version, confirmado: true }),
     onSuccess: () => {
+      draft.limpiar();
       toast('Nueva versión guardada. Los documentos anteriores se conservan.');
       void cache.invalidateQueries({ queryKey: ['solicitudes', 'plantillas'] });
       setConfirmar(false);
@@ -89,6 +97,7 @@ function Editor({ p, variables }: { p: api.Plantilla; variables: string[] }) {
   });
   return (
     <form data-tour="plantillas-editor" onSubmit={f.handleSubmit(() => setConfirmar(true))}>
+      <FormDraftNotice draft={draft} />
       <HelpButton />
       <p>Versión {p.version} · Inserta datos del expediente:</p>
       <div className="flex flex-wrap gap-2 my-3">

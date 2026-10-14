@@ -17,5 +17,5 @@ export const tokens = {
   tipografia: ['Trebuchet MS', 'Arial', 'sans-serif'],
   radios: { tarjeta: '0.75rem', control: '0.625rem', boton: '999px' },
   sombras: { tarjeta: '0 8px 20px rgb(0 0 0 / 12%)', barra: '0 3px 6px rgb(0 0 0 / 10%)' },
-  espaciado: { seccion: '2rem', campo: '1rem', sidebar: '15rem', cabecera: '4.5rem' },
+  espaciado: { seccion: '2rem', campo: '1rem', cabecera: '4.5rem' },
 } as const;

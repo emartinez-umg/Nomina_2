@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,19 +56,35 @@ export function CatalogoFormulario({
   const cliente = useQueryClient();
   const toast = useToast();
   const [revision, setRevision] = useState<Record<string, string> | null>(null);
-  const [motivo, setMotivo] = useState('');
   const [motivoError, setMotivoError] = useState<string>();
   const resolver = useMemo(() => zodResolver(schemaFormulario(cat, cierre)), [cat, cierre]);
+  const form = useForm<Record<string, string>>({
+    resolver,
+    mode: 'onBlur',
+    defaultValues: { ...valoresIniciales(cat, actual), motivo: '' },
+  });
   const {
     control,
     handleSubmit,
     setError,
     formState: { errors },
-  } = useForm<Record<string, string>>({
-    resolver,
-    mode: 'onBlur',
-    defaultValues: valoresIniciales(cat, actual),
+  } = form;
+  const draft = useFormDraft(`catalogo-${cat.slug}`, actual?.id, {
+    form,
+    version: 1,
+    alDescartar: () => {
+      setRevision(null);
+      setMotivoError(undefined);
+    },
+    paso: revision ? 'revision' : 'edicion',
+    restaurarPaso: (paso) => {
+      if (paso === 'revision' && schemaFormulario(cat, cierre).safeParse(form.getValues()).success)
+        setRevision(form.getValues());
+    },
   });
+  const motivo = form.watch('motivo') ?? '';
+  const setMotivo = (v: string) => form.setValue('motivo', v, { shouldDirty: true });
+
   const mutation = useMutation({
     mutationFn: (datos: Record<string, string>) =>
       guardar(
@@ -78,6 +96,7 @@ export function CatalogoFormulario({
         actual?.id,
       ),
     onSuccess: () => {
+      draft.limpiar();
       void cliente.invalidateQueries({ queryKey: ['catalogos'] });
       toast('Registro guardado y auditado.');
       onCerrar();
@@ -104,6 +123,7 @@ export function CatalogoFormulario({
             }
           })}
         >
+          <FormDraftNotice draft={draft} />
           <div className="my-4 flex justify-between gap-3">
             <p className="text-sm text-secundario">Los campos con * son obligatorios.</p>
             <HelpButton />
@@ -222,6 +242,7 @@ export function CatalogoFormulario({
         }}
       >
         <div className="catalogo-advertencia">
+          {revision && <FormDraftNotice draft={draft} />}
           <p className="alerta mt-4">
             <iconos.error className="inline" size={18} aria-hidden="true" /> Este cambio modifica
             las reglas de nómina desde la vigencia indicada. Revisa los valores y explica el motivo

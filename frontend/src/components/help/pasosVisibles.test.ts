@@ -10,6 +10,39 @@ function visibles() {
   ] as unknown as DOMRectList);
 }
 describe('Ayuda final por contexto', () => {
+  it.each(['ADMIN', 'RH', 'EMPLEADO'] as const)(
+    'explica borradores y sus límites para %s',
+    (rol) => {
+      visibles();
+      document.body.innerHTML =
+        '<dialog open><aside data-tour="borrador-formulario"></aside></dialog>';
+      const pasos = pasosVisibles(
+        { id: 'formulario', pasos: [] },
+        rol,
+        document.querySelector('dialog')!,
+      );
+      expect(pasos[1]!.popover!.description).toMatch(
+        /medio segundo.*Continuar.*Descartar.*confirmación/,
+      );
+      expect(pasos[1]!.popover!.description).toMatch(
+        /Cerrar sesión.*otro usuario.*contraseñas, tokens ni archivos/,
+      );
+    },
+  );
+  it.each(['ADMIN', 'RH', 'EMPLEADO'] as const)(
+    'explica navegación y buscador nuevos para %s',
+    (rol) => {
+      visibles();
+      document.body.innerHTML =
+        '<div data-tour="navegacion"></div><div data-tour="buscador"></div>';
+      const pasos = pasosVisibles({ id: 'layout', pasos: [] }, rol, document);
+      expect(pasos).toHaveLength(2);
+      expect(pasos[0]!.popover!.description).toMatch(/categor|barra/i);
+      expect(pasos[0]!.popover!.description).toMatch(/móvil/);
+      expect(pasos[1]!.popover!.description).toMatch(/Ctrl\+K.*⌘\+K.*cinco.*usuario/);
+      expect(pasos[1]!.popover!.description).toMatch(/acciones rápidas.*sin guardar/);
+    },
+  );
   it('limita los objetivos al diálogo y filtra roles', () => {
     visibles();
     document.body.innerHTML =

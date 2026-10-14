@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { guardarCsrf, solicitar } from '../../../lib/http';
+import { activarBorradoresUsuario, limpiarBorradoresSesion } from '../../../lib/formDraft';
 export const usuarioSchema = z.object({
   idUsuario: z.number().int(),
   usuario: z.string(),
@@ -23,6 +24,7 @@ export async function iniciarSesion(datos: { usuario: string; contrasena: string
     notificarSesion: false,
   });
   guardarCsrf(resultado.csrfToken);
+  activarBorradoresUsuario(resultado.usuario.idUsuario);
   return resultado.usuario;
 }
 export async function cambiarContrasena(datos: {
@@ -38,6 +40,7 @@ export async function cambiarContrasena(datos: {
 }
 export async function cerrarSesion() {
   await solicitar('/auth/logout', z.object({ mensaje: z.string() }), { method: 'POST', body: {} });
+  limpiarBorradoresSesion();
   guardarCsrf();
 }
 export const destinoRol = (rol: Rol) =>

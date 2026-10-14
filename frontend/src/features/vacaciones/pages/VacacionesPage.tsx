@@ -1,3 +1,5 @@
+import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -109,8 +111,23 @@ function SaldoCard({ s }: { s: Saldo }) {
 function Portal() {
   const cache = useQueryClient(),
     toast = useToast();
-  const [rango, setRango] = useState<DateRange>(),
-    [error, setError] = useState(''),
+  const { campo, valores, draft } = useDraftValues('vacaciones-solicitud', undefined, {
+    inicio: '',
+    fin: '',
+  });
+  const [, setInicio] = campo('inicio');
+  const [, setFin] = campo('fin');
+  const rango: DateRange | undefined = valores.inicio
+    ? {
+        from: new Date(`${valores.inicio}T12:00:00`),
+        to: valores.fin ? new Date(`${valores.fin}T12:00:00`) : undefined,
+      }
+    : undefined;
+  const setRango = (r: DateRange | undefined) => {
+    setInicio(r?.from ? api.isoLocal(r.from) : '');
+    setFin(r?.to ? api.isoLocal(r.to) : '');
+  };
+  const [error, setError] = useState(''),
     [confirmar, setConfirmar] = useState(false);
   const hoy = hoyGuatemala(),
     fin = new Date(Date.parse(hoy) + 365 * 86400000).toISOString().slice(0, 10);
@@ -132,6 +149,7 @@ function Portal() {
   const crear = useMutation({
     mutationFn: () => api.crear(inicio, hasta),
     onSuccess: () => {
+      draft.limpiar();
       toast('Solicitud enviada a RRHH.');
       setConfirmar(false);
       setRango(undefined);
@@ -176,6 +194,7 @@ function Portal() {
   return (
     <>
       <SaldoCard s={s.data!} />
+      <FormDraftNotice draft={draft} />
       <Card className="mb-5">
         <div className="vacaciones-seleccion">
           <section data-tour="vacaciones-calendario">
@@ -555,9 +574,11 @@ function Resolver({
     mode: 'onBlur',
     resolver: zodResolver(estado === 'RECHAZADA' ? motivoSchema : z.object({ motivo: z.string() })),
   });
+  const draft = useFormDraft(`vacaciones-${estado}`, fila.id, { form, version: 1 });
   const m = useMutation({
     mutationFn: () => api.resolver(fila.id, estado, form.getValues('motivo')),
     onSuccess: () => {
+      draft.limpiar();
       toast(
         estado === 'APROBADA'
           ? 'Vacaciones aprobadas; saldo actualizado.'
@@ -582,6 +603,7 @@ function Resolver({
         {fila.empleado} · {fechaVisible(fila.inicio)} al {fechaVisible(fila.fin)}
       </p>
       <Semaforo f={fila} />
+      <FormDraftNotice draft={draft} />
       <form onSubmit={form.handleSubmit(() => m.mutate())} noValidate>
         <FormErrorSummary
           mensajes={Object.values(form.formState.errors).map((e) => e.message)}
@@ -708,9 +730,11 @@ function CargarPrevias({ id, cerrar }: { id: string; cerrar: () => void }) {
     mode: 'onBlur',
     resolver: zodResolver(cargaFormSchema),
   });
+  const draft = useFormDraft('vacaciones-previas', id, { form, version: 1 });
   const m = useMutation({
     mutationFn: () => api.cargar(id, { ...form.getValues(), confirmado: true }),
     onSuccess: () => {
+      draft.limpiar();
       toast('Historia de vacaciones registrada; saldo actualizado.');
       void cache.invalidateQueries({ queryKey: ['vacaciones'] });
       cerrar();
@@ -729,6 +753,7 @@ function CargarPrevias({ id, cerrar }: { id: string; cerrar: () => void }) {
         if (!m.isPending) cerrar();
       }}
     >
+      <FormDraftNotice draft={draft} />
       <form
         noValidate
         onChange={() => setConfirmar(false)}

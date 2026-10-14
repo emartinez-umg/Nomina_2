@@ -282,55 +282,90 @@
   .app-shell {
     @apply min-h-screen;
   }
-  .sidebar {
-    @apply fixed inset-y-0 left-0 z-40 flex w-sidebar flex-col bg-marca text-white;
-  }
-  .sidebar-logo {
-    @apply mb-3 flex h-28 shrink-0 items-center justify-center bg-[#c6c6c6];
-    border-bottom-right-radius: 50% 80%;
-    border-bottom-left-radius: 50% 35%;
-  }
-  .sidebar-logo img {
-    @apply h-24 w-24 object-contain;
-  }
-  .sidebar nav {
-    @apply flex-1 overflow-y-auto px-2;
-  }
-  .sidebar .tooltip {
-    @apply w-full;
-  }
-  .nav-item {
-    @apply my-1 flex min-h-10 w-full items-center gap-3 rounded-sm px-3 py-2 text-left text-base text-white;
-  }
-  .nav-activo {
-    @apply bg-primario;
-  }
-  .nav-item:disabled {
-    opacity: 0.8;
-  }
-  .sidebar-salir {
-    @apply border-t-2 border-[#91b69b] px-5 py-5;
-  }
-  .sidebar-salir .boton {
-    @apply text-white;
-  }
-  .sidebar-salir .boton:hover {
-    @apply bg-primario;
-  }
-  .app-cuerpo {
-    @apply ml-sidebar;
-  }
   .barra-superior {
-    @apply sticky top-0 z-30 flex h-cabecera items-center justify-between gap-4 bg-superficie px-6 shadow-barra;
+    @apply sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 bg-superficie px-6 pt-3 shadow-barra;
   }
-  .buscador-global {
-    @apply relative flex w-72 items-center gap-2 text-secundario;
+  .marca-navegacion {
+    @apply flex items-center gap-3 text-lg;
   }
-  .buscador-global input {
-    @apply min-w-0 w-full rounded-control px-2 py-2 text-sm;
+  .marca-navegacion img {
+    @apply h-11 w-11 object-contain;
   }
-  .buscador-resultados {
-    @apply absolute top-full left-0 z-40 mt-3 flex w-80 max-w-[85vw] flex-col gap-1 rounded-control border border-borde bg-superficie p-3 shadow-tarjeta;
+  .navegacion {
+    @apply order-3 w-full;
+  }
+  .menu-horizontal {
+    @apply flex flex-wrap gap-1;
+  }
+  .grupo-navegacion {
+    @apply relative;
+  }
+  .grupo-boton {
+    @apply flex min-h-11 items-center gap-2 rounded-t-control px-2.5 py-2 text-sm font-bold text-marca;
+    border-bottom: 3px solid transparent;
+  }
+  .grupo-boton:hover,
+  .grupo-boton[aria-expanded='true'] {
+    @apply bg-informacion;
+  }
+  .grupo-activo {
+    @apply text-primario;
+    border-bottom-color: #28622a;
+  }
+  .grupo-panel {
+    @apply absolute top-full left-0 z-40 max-h-[65dvh] overflow-y-auto rounded-b-control border border-borde bg-superficie p-2 shadow-tarjeta;
+    width: min(27rem, calc(100vw - 3rem));
+  }
+  .grupo-panel[hidden] {
+    display: none;
+  }
+  .opcion-navegacion,
+  .paleta-opcion {
+    @apply flex items-center gap-3 rounded-control p-3 text-sm;
+  }
+  .opcion-navegacion > svg,
+  .paleta-opcion > svg {
+    @apply shrink-0 text-primario;
+  }
+  .opcion-navegacion span,
+  .paleta-opcion > span:first-of-type {
+    @apply flex min-w-0 flex-col gap-1;
+  }
+  .opcion-navegacion small,
+  .paleta-opcion small {
+    @apply text-xs leading-5 text-secundario;
+  }
+  .opcion-navegacion:hover,
+  .opcion-navegacion[aria-current='page'],
+  .paleta-opcion[data-selected='true'] {
+    @apply bg-suave;
+  }
+  .buscar-activador kbd {
+    @apply rounded border border-borde px-1.5 py-0.5 text-xs font-normal;
+  }
+  .paleta-entrada {
+    @apply mt-5 flex items-center gap-3 rounded-control border border-borde px-3 py-2;
+  }
+  .paleta-entrada input {
+    @apply min-w-0 flex-1 p-2;
+  }
+  .paleta-hint {
+    @apply my-3 text-xs leading-5 text-secundario;
+  }
+  .paleta-lista {
+    @apply max-h-[55dvh] overflow-y-auto overscroll-contain;
+  }
+  .paleta-vacia {
+    @apply p-6 text-center text-sm text-secundario;
+  }
+  [cmdk-group-heading] {
+    @apply px-3 pt-4 pb-2 text-xs font-bold text-secundario;
+  }
+  .paleta-opcion {
+    cursor: pointer;
+  }
+  .paleta-grupo {
+    @apply ml-auto max-w-28 shrink-0 text-right text-xs text-secundario;
   }
   .barra-acciones {
     @apply flex shrink-0 items-center gap-3;
@@ -399,9 +434,6 @@
   .menu-movil {
     display: none;
   }
-  .sidebar-fondo {
-    @apply fixed inset-0 z-40 bg-black/40;
-  }
   .ayuda-popover {
     font-family: 'Trebuchet MS', Arial, sans-serif;
     color: #1d395e;
@@ -435,12 +467,6 @@
   }
 }
 @media (max-width: 1023px) {
-  .sidebar {
-    width: 13rem;
-  }
-  .app-cuerpo {
-    margin-left: 13rem;
-  }
   .usuario-texto {
     display: none;
   }
@@ -452,18 +478,6 @@
   }
 }
 @media (max-width: 767px) {
-  .sidebar {
-    transform: translateX(-100%);
-  }
-  .sidebar-abierto {
-    transform: translateX(0);
-  }
-  .app-cuerpo {
-    margin-left: 0;
-  }
-  .menu-movil {
-    display: inline-flex;
-  }
   .barra-superior {
     padding: 0.5rem;
     gap: 0.25rem;
@@ -471,12 +485,20 @@
   .barra-acciones {
     gap: 0.1rem;
   }
-  .buscador-global {
-    flex: 1;
-    width: auto;
-  }
-  .buscador-global > svg {
+  .marca-navegacion strong,
+  .buscar-activador span,
+  .buscar-activador kbd {
     display: none;
+  }
+  .barra-acciones .buscar-activador {
+    font-size: 1rem;
+  }
+  .paleta-opcion {
+    gap: 0.5rem;
+    padding: 0.65rem;
+  }
+  .paleta-grupo {
+    max-width: 4.5rem;
   }
   .barra-acciones .boton {
     padding: 0.5rem;
@@ -862,10 +884,70 @@
 .saltar-contenido:focus {
   top: 1rem;
 }
-.sidebar :focus-visible {
-  outline-color: white;
-}
 .modal {
   max-height: 90dvh;
   overflow-y: auto;
+}
+
+@media (max-width: 1199px) {
+  .barra-superior {
+    flex-wrap: nowrap;
+    padding: 0.65rem 1rem;
+    gap: 0.5rem;
+  }
+  .navegacion {
+    order: 0;
+    width: auto;
+    margin-right: auto;
+  }
+  .menu-movil {
+    display: inline-flex;
+  }
+  .menu-horizontal {
+    display: none;
+  }
+  .menu-horizontal.menu-abierto {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 75dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.75rem;
+    background: white;
+    border-bottom: 1px solid #d5dde2;
+    box-shadow: 0 8px 20px rgb(0 0 0 / 12%);
+  }
+  .grupo-boton {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 0.625rem;
+  }
+  .grupo-boton > svg:last-child {
+    margin-left: auto;
+  }
+  .grupo-panel {
+    position: static;
+    width: 100%;
+    max-height: none;
+    box-shadow: none;
+    border: 0;
+    padding-left: 1.5rem;
+  }
+}
+@media (max-width: 767px) {
+  .barra-superior {
+    padding: 0.5rem;
+  }
+  .marca-navegacion img {
+    width: 2rem;
+    height: 2rem;
+  }
+  .menu-movil {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    gap: 0.3rem;
+  }
 }

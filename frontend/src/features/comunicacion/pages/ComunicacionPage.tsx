@@ -1,3 +1,5 @@
+import { useDraftValues } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -33,9 +35,15 @@ export function ComunicacionPage() {
   const [params, setParams] = useSearchParams(),
     [form, setForm] = useState<{ id?: number; dia?: string }>(),
     [borrar, setBorrar] = useState<api.Fila>(),
-    [motivo, setMotivo] = useState(''),
     [confirmar, setConfirmar] = useState(false),
     [filtros, setFiltros] = useState(false);
+  const { campo, draft } = useDraftValues(
+    `comunicacion-${tipo}-eliminar`,
+    borrar?.id,
+    { motivo: '' },
+    !!borrar,
+  );
+  const [motivo, setMotivo] = campo('motivo');
   const cambiar = (k: string, v: string) => {
     const p = new URLSearchParams(params);
     if (v) p.set(k, v);
@@ -72,6 +80,7 @@ export function ComunicacionPage() {
     mutationFn: () =>
       api.eliminar(tipo, borrar!.id, { version: borrar!.version, motivo, confirmado: true }),
     onSuccess: () => {
+      draft.limpiar();
       void cache.invalidateQueries({ queryKey: ['comunicacion'] });
       void cache.invalidateQueries({ queryKey: ['tablero'] });
       void cache.invalidateQueries({ queryKey: ['notificaciones'] });
@@ -365,6 +374,7 @@ export function ComunicacionPage() {
           if (!eliminar.isPending) setBorrar(undefined);
         }}
       >
+        <FormDraftNotice draft={draft} />
         <p className="my-4">
           Se retirará «{borrar?.titulo}» del portal y de la campana. Se conservará su auditoría.
         </p>

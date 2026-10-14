@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
@@ -92,16 +94,26 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
     [archivo, setArchivo] = useState<File | null>(null),
     [quitarAdjunto, setQuitarAdjunto] = useState(false);
   const resolver = useMemo(() => zodResolver(schemaFormulario(tipo, hoy)), [tipo, hoy]);
+  const form = useForm<Record<string, string>>({
+    mode: 'onBlur',
+    resolver,
+    defaultValues: iniciales(tipo, hoy, actual),
+  });
   const {
     control,
     watch,
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<Record<string, string>>({
-    mode: 'onBlur',
-    resolver,
-    defaultValues: iniciales(tipo, hoy, actual),
+  } = form;
+  const draft = useFormDraft(`novedad-${tipo}`, actual?.id, {
+    form,
+    version: 1,
+    alDescartar: () => {
+      setPreview(null);
+      setPendiente(null);
+      setErrorGeneral('');
+    },
   });
   const d = watch(),
     defs = campos(tipo, d.modalidad);
@@ -141,6 +153,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
           }
         })}
       >
+        <FormDraftNotice draft={draft} />
         <Card>
           <div className="form-grid" data-tour="novedad-campos">
             {defs.map((f) => (
@@ -294,6 +307,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
           setEnviando(true);
           void guardar(tipo, pendiente, actual?.id)
             .then(async (saved) => {
+              draft.limpiar();
               await cache.invalidateQueries({ queryKey: ['novedades'] });
               await cache.invalidateQueries({ queryKey: ['empleados'] });
               toast('Novedad guardada y auditada.');

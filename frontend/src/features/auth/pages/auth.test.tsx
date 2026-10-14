@@ -6,6 +6,7 @@ import { Providers } from '../../../app/providers';
 import { rutas } from '../../../app/router';
 import type { Rol } from '../api/auth';
 import { cambioSchema } from '../api/schemas';
+import { claveBorrador } from '../../../lib/formDraft';
 const usuario = (rol: Rol = 'ADMIN', cambioObligatorio = false) => ({
   idUsuario: 1,
   idRol: 1,
@@ -84,12 +85,23 @@ describe('autenticación y guards', () => {
     expect(screen.queryByRole('heading', { name: 'Administración' })).not.toBeInTheDocument();
   });
   it('sesión expirada limpia la pantalla y explica cómo continuar', async () => {
+    localStorage.setItem(claveBorrador(1, 'empleado'), 'borrador propio');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(200, usuario())));
     const router = mostrar('/admin');
     await screen.findByRole('heading', { name: 'Administración' });
     act(() => window.dispatchEvent(new Event('nomina2:sesion-expirada')));
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
     expect(screen.getByRole('alert')).toHaveTextContent('sesión expiró');
+    expect(localStorage.getItem(claveBorrador(1, 'empleado'))).toBe('borrador propio');
+  });
+  it('consultar una sesión existente purga los borradores de otro usuario', async () => {
+    localStorage.setItem(claveBorrador(1, 'empleado'), 'borrador propio');
+    localStorage.setItem(claveBorrador(2, 'empleado'), 'borrador ajeno');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(200, usuario())));
+    mostrar('/admin');
+    await screen.findByRole('heading', { name: 'Administración' });
+    expect(localStorage.getItem(claveBorrador(1, 'empleado'))).toBe('borrador propio');
+    expect(localStorage.getItem(claveBorrador(2, 'empleado'))).toBeNull();
   });
   it('muestra errores de credenciales sin navegar ni repetir el envío', async () => {
     const fetch = vi.fn().mockImplementation(async (url: string) =>
