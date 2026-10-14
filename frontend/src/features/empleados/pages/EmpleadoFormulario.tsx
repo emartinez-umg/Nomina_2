@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
@@ -70,17 +72,33 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
   const [error, setErrorGeneral] = useState(''),
     [credenciales, setCredenciales] = useState<Credencial[] | null>(null);
   const [destino, setDestino] = useState('');
+  const [seccionActual, setSeccionActual] = useState(0);
   const resolver = useMemo(() => zodResolver(schemaFormulario(r, !!actual)), [r, actual]);
+  const form = useForm<Record<string, string>>({
+    mode: 'onBlur',
+    resolver,
+    defaultValues: iniciales(actual),
+  });
   const {
     control,
     watch,
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<Record<string, string>>({
-    mode: 'onBlur',
-    resolver,
-    defaultValues: iniciales(actual),
+  } = form;
+  const draft = useFormDraft('empleado', actual?.id, {
+    form,
+    version: 1,
+    alDescartar: () => setErrorGeneral(''),
+    paso: seccionActual,
+    restaurarPaso: (paso) => {
+      if (typeof paso === 'number' && paso >= 0 && paso < secciones.length) {
+        setSeccionActual(paso);
+        document
+          .querySelector(`[data-tour="empleado-seccion-${paso}"]`)
+          ?.scrollIntoView?.({ block: 'start' });
+      }
+    },
   });
   const vals = watch();
   const reglaSalario = useQuery({
@@ -119,6 +137,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
               if (saved.credenciales) setCredenciales([saved.credenciales]);
               for (const aviso of saved.advertencias) toast(aviso, 'peligro');
             }
+            draft.limpiar();
             await cliente.invalidateQueries({ queryKey: ['empleados'] });
             toast('Expediente guardado y auditado.');
             const path = `/empleados/${id}`;
@@ -134,8 +153,14 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
           }
         })}
       >
+        <FormDraftNotice draft={draft} />
         {secciones.map((s, i) => (
-          <section className="mb-5" key={s.titulo} data-tour={`empleado-seccion-${i}`}>
+          <section
+            className="mb-5"
+            key={s.titulo}
+            data-tour={`empleado-seccion-${i}`}
+            onFocusCapture={() => setSeccionActual(i)}
+          >
             <Card>
               <h2 className="mb-4">{s.titulo}</h2>
               {i === 2 && (

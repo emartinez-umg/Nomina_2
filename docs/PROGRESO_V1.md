@@ -84,3 +84,91 @@ Estado: completada el 13/10/2026. Alcance limitado a A2 del adendo.
 4. A 390 px abrir Menú, desplegar acordeones y navegar; probar Buscar, campana, Ayuda y Mi cuenta.
 5. Con Node 20 y `npm ci`: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`,
    `npm run format:check`, `npm run test:e2e` (Oracle en Docker) y `npm run verify:infra`.
+
+## FASE V1-2 — Autoguardado de borradores en el navegador
+
+Estado: completada el 13/10/2026. Alcance limitado a A3 del adendo; rama `v1`.
+
+### Hecho
+
+- Leídos AGENTS.md con el adendo completo y el progreso de v1. Inicio con árbol limpio.
+- Hook `useFormDraft(formKey, recordId, { form, version, ... })` integrado con React Hook Form,
+  debounce de 500 ms y claves por usuario/formulario/registro. El contenido versionado conserva
+  fecha, valores y paso; versiones incompatibles o JSON dañado se descartan sin romper el formulario.
+- `useDraftValues` adapta los editores controlados existentes a RHF, incluidos objetos, arreglos,
+  setters funcionales y cambios de identidad del registro. No mezcla datos entre altas/ediciones.
+- Aviso accesible con antigüedad en minutos, Continuar, Descartar borrador con confirmación e iconos,
+  indicador Borrador guardado y orientación sobre persistencia local, limpieza y archivos excluidos.
+- Limpieza después del éxito de la API y al descartar; logout exitoso elimina los borradores y cancela
+  timers. Login y consulta inicial purgan los ajenos. La expiración por inactividad los conserva para
+  la misma cuenta. El saneamiento excluye credenciales, contraseñas, tokens, archivos/adjuntos y
+  objetos no JSON, también anidados. No se modifica el comportamiento de las cookies ni del backend.
+- Escritura pendiente vaciada al ocultar/cerrar la pestaña o desmontar el formulario; tolerancia a
+  almacenamiento bloqueado/lleno con aviso y posibilidad de continuar editando/guardando.
+- Integración en todos los formularios de escritura existentes: empleados y cambios salariales/baja;
+  trece catálogos (incluidos parámetros y empresa), horarios y sus acciones; descuentos, préstamos,
+  comisiones, horas extra, ausencias y anulaciones; publicaciones de anuncios/eventos y eliminación;
+  solicitudes, resolución de parqueo/datos críticos, plantillas y Mis datos; usuarios y sus acciones;
+  solicitudes/resolución/historia de vacaciones; periodos, reapertura/devolución, fiscal, configuración
+  IGSS y prestaciones/constancias/operaciones. Carga masiva conserva su modalidad sin guardar el CSV.
+- Se conserva la sección enfocada del empleado, la revisión legal con motivo revalidado, la operación
+  fiscal y toda la sección/listas/fila parcial de IGSS. Los destinatarios seleccionados aún sin agregar
+  también se conservan. Descartar invalida revisiones/vistas previas dependientes de los datos.
+- Hints y recorrido compartido de borradores aplicados a todos los formularios y roles; ayuda de sesión
+  actualizada. Guía técnica y de uso en docs/FRONTEND.md. No había bloqueadores de navegación ni
+  avisos de cambios sin guardar que retirar; sigue sin haberlos.
+
+### Validación realizada
+
+- Lint, TypeScript strict (incluidos E2E), Prettier y builds backend/frontend aprobados con Node 20.20.2.
+- 392 pruebas aprobadas (206 backend, 186 frontend). Las 41 nuevas verifican debounce, restauración
+  explícita, dirty de RHF, paso, descarte confirmado, limpieza y timers, expiración, cambio de usuario,
+  aislamiento por registro, versión distinta, JSON dañado, exclusión recursiva de campos sensibles,
+  almacenamiento fallido/recuperado, StrictMode, adaptador, autenticación y ayuda de los tres roles.
+  Incluyen una regresión real de componente: descartar desde revisión legal invalida esa instantánea.
+- Los trece E2E previos aprobaron con API/Oracle reales, incluida la matriz de páginas y axe A/AA por
+  rol y portal móvil. Tres E2E nuevos aprobados con Node 20: cerrar pestaña y recuperar empleado,
+  descarte/logout, alta y edición de catálogo con conflicto 409 y limpieza exitosa, sección/fila parcial
+  IGSS y purga al entrar con otra cuenta. Los esquemas Oracle temporales se eliminaron al finalizar.
+- El primer E2E de edición usó un nombre de botón incorrecto; corregido a su aria-label existente
+  «Editar registro …» y los tres flujos nuevos pasaron. Sin cambios en la funcionalidad por ese ajuste.
+- Captura de borrador del empleado inspeccionada y axe sin infracciones; artefactos locales en
+  `tmp/pdfs/borrador-empleado.png` ignorados por Git.
+
+### Decisiones
+
+- Los borradores guardan entradas del usuario, nunca resultados de cálculo, PDFs, hashes de revisión
+  ni credenciales generadas. Restaurar no confirma acciones; la API vuelve a validar antes de escribir.
+- Se ofrece Continuar antes de aplicar el borrador; mientras se decide no se sobrescribe el existente.
+  Cancelar/cerrar modales conserva datos para reabrir la misma acción, sin ejecutar escrituras.
+- `draft.limpiar()` cancela timers e ignora los resets inmediatos posteriores al éxito. Así el cierre o
+  desmontaje no recrea un borrador eliminado. Eventos de sesión también cancelan escrituras antiguas.
+- Se usa el lenguaje visual y los componentes existentes. Los formularios de autenticación contienen
+  secretos y no generan borradores; los filtros son consultas, no formularios de alta/edición.
+- Pruebas aisladas existentes ahora proporcionan identidad de sesión y limpian almacenamiento entre
+  casos; no se cambiaron reglas de negocio ni se redujeron aserciones previas.
+
+### Supuestos
+
+- Persistencia local por navegador/origen: al volver se abre el mismo formulario, registro o acción
+  contextual. No se implementa sincronización de borradores con el servidor.
+- Los archivos deben seleccionarse y validarse otra vez; por eso carga masiva conserva modalidad,
+  pero su vista previa/importación requiere nuevamente el CSV. Una expiración no equivale a logout.
+- Los motivos se conservan; aprobaciones, revisiones de importes y envíos requieren confirmación
+  actual. No se restaura automáticamente una confirmación destructiva ni un envío en curso.
+
+### Pendientes
+
+- Ningún pendiente del criterio de aceptación de FASE V1-2.
+- A4–A12 siguen reservadas para sus fases. No se tocaron backend, migraciones ni cálculo de nómina.
+
+### Cómo probar
+
+1. `docker compose up --build`; entrar con una cuenta real y abrir cualquier formulario de alta o edición.
+2. Escribir, esperar Borrador guardado, cerrar la pestaña y volver al mismo formulario/registro/acción.
+   Pulsar Continuar: se recuperan datos y sección. Probar también IGSS, parámetros legales y plantillas.
+3. Descartar borrador → Cancelar conserva; Confirmar devuelve valores iniciales. Guardar con éxito elimina;
+   un error del servidor conserva. Cerrar sesión elimina todos; una cuenta distinta purga los ajenos.
+4. Volver a seleccionar adjuntos/CSV. Bloquear almacenamiento muestra el aviso y permite guardar por API.
+5. Con Node 20: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run format:check`.
+   E2E: `npm run test:e2e` o `npm run test:e2e -- --grep 'FASE V1-2'` con Oracle en Docker.

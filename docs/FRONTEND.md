@@ -149,3 +149,39 @@ navegar. Las acciones rápidas abren los formularios actuales, sin ejecutar escr
 El historial usa `nomina2:navegacion:v1:{idUsuario}` y almacena solo IDs de opciones, sin datos
 de expedientes. Simulación de pagos y las demás reglas del adendo se reservan para fases
 posteriores. `docs/PROGRESO_V1.md` registra las pruebas y decisiones de esta fase.
+
+## Borradores v1 (FASE V1-2, A3)
+
+`hooks/useFormDraft.ts` conecta `useFormDraft(formKey, recordId, { form, version })` con
+React Hook Form. Cada esquema declara una versión; increméntala si cambian los datos
+compatibles del formulario. La clave es `nomina2:borrador:{usuarioId}:{formKey}:{recordId|nuevo}`;
+el contenido incluye versión, fecha de guardado, valores y paso opcional. No se guardan
+formularios intactos ni se considera una hidratación desde la API como una edición.
+
+Incluye `FormDraftNotice` en el formulario y llama `draft.limpiar()` únicamente después de
+confirmar el éxito de la API. Cancelar, navegar, cerrar una ventana o perder la sesión por
+inactividad conserva el borrador. Al regresar al mismo formulario y registro, Continuar
+restaura los valores conservando la validación habitual y el estado modificado de RHF.
+Descartar exige confirmación y restablece los valores iniciales. Usa `alDescartar` para
+invalidar revisiones, vistas previas o confirmaciones que dependan de esos datos.
+
+Las opciones `paso` y `restaurarPaso` conservan la sección actual del expediente y la revisión
+legal; el editor IGSS conserva sección, listas y fila parcial, y Fiscal su operación seleccionada.
+`useDraftValues` adapta editores controlados a RHF: recibe valores iniciales, habilitación y
+opciones de versión/descarte; `campo(nombre)` devuelve el valor y su setter compatible con
+actualizaciones funcionales. Formularios diferentes y ediciones de registros distintos usan
+claves independientes. Los modales se retoman abriendo la misma acción desde su listado/ficha.
+
+El debounce es de 500 ms. `pagehide`, ocultar la pestaña y desmontar el formulario vacían la
+escritura pendiente, sin avisos que bloqueen la navegación. Login y consulta inicial de sesión
+purgan borradores ajenos; logout exitoso los elimina y cancela escrituras pendientes, también
+mediante eventos de almacenamiento entre pestañas. Las preferencias de ayuda y navegación
+se conservan. Almacenamiento bloqueado o lleno muestra un aviso y permite seguir editando.
+
+El saneamiento recursivo excluye contraseñas, tokens, credenciales, archivos, adjuntos,
+contenido base64 y objetos del navegador. Solo se conserva JSON de los campos editables.
+Autenticación/cambio de contraseña y filtros de consulta no generan borradores de escritura.
+En carga masiva se conserva la modalidad; el CSV debe seleccionarse y validarse otra vez.
+Las confirmaciones y los cálculos derivados requieren revisión actual; nunca se ejecuta una
+acción de negocio automáticamente por restaurar un borrador. Los hints del aviso y el paso
+compartido de `pasosVisibles` explican estos límites en todos los módulos y roles.

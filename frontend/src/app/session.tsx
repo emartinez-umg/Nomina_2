@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { consultarSesion } from '../features/auth/api/auth';
 import type { Usuario } from '../features/auth/api/auth';
 import { ErrorApi, guardarCsrf } from '../lib/http';
+import { activarBorradoresUsuario } from '../lib/formDraft';
 interface Sesion {
   usuario: Usuario | null;
   cargando: boolean;
@@ -64,6 +65,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (consulta.data === null) guardarCsrf();
   }, [consulta.data]);
+  const idUsuario = consulta.data?.idUsuario;
+  useEffect(() => {
+    if (idUsuario) activarBorradoresUsuario(idUsuario);
+  }, [idUsuario]);
   return (
     <Contexto.Provider
       value={{

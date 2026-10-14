@@ -1,3 +1,5 @@
+import { useDraftValues } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eliminar, estado } from '../api/catalogos';
@@ -18,8 +20,12 @@ export function CatalogoAccion({
   tipo: 'eliminar' | 'estado';
   onCerrar: () => void;
 }) {
-  const [motivo, setMotivo] = useState('');
-  const [fisica, setFisica] = useState('0');
+  const { campo, draft } = useDraftValues(`catalogo-${cat.slug}-${tipo}`, fila.id, {
+    motivo: '',
+    fisica: '0',
+  });
+  const [motivo, setMotivo] = campo('motivo');
+  const [fisica, setFisica] = campo('fisica');
   const [error, setError] = useState<string>();
   const cliente = useQueryClient();
   const toast = useToast();
@@ -38,6 +44,7 @@ export function CatalogoAccion({
             ...(cat.legal ? { confirmado: true } : {}),
           }),
     onSuccess: () => {
+      draft.limpiar();
       void cliente.invalidateQueries({ queryKey: ['catalogos'] });
       toast('Cambio aplicado y auditado.');
       onCerrar();
@@ -51,6 +58,7 @@ export function CatalogoAccion({
         if (!accion.isPending) onCerrar();
       }}
     >
+      <FormDraftNotice draft={draft} />
       <p className="alerta mt-4">
         {tipo === 'eliminar'
           ? 'La baja lógica conserva el registro y lo oculta de nuevas asignaciones. No se pueden eliminar registros en uso.'

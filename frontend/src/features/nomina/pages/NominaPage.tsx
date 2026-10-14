@@ -1,3 +1,5 @@
+import { useDraftValues } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { Decimal } from 'decimal.js';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -157,8 +159,9 @@ export function NominaPage() {
 function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
   const cache = useQueryClient(),
     toast = useToast();
-  const [fecha, setFecha] = useState(hoyGuatemala()),
-    [q, setQ] = useState<Record<string, string>>({ pagina: '1', limite: '10' });
+  const { campo, draft } = useDraftValues('periodo-nomina', undefined, { fecha: hoyGuatemala() });
+  const [fecha, setFecha] = campo('fecha');
+  const [q, setQ] = useState<Record<string, string>>({ pagina: '1', limite: '10' });
   const ps = useQuery({
     queryKey: ['nomina', 'periodos', q],
     queryFn: ({ signal }) => api.periodos(q, signal),
@@ -166,6 +169,7 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
   const crear = useMutation({
     mutationFn: () => api.crear(fecha),
     onSuccess: (r) => {
+      draft.limpiar();
       void cache.invalidateQueries({ queryKey: ['nomina'] });
       onAbrir(r.id);
     },
@@ -174,6 +178,7 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
   return (
     <Card data-tour="nomina-periodos">
       <h2>Periodos quincenales</h2>
+      <FormDraftNotice draft={draft} />
       <div className="form-grid my-4">
         <DateField
           name="fecha"
@@ -292,9 +297,15 @@ function Planilla({
     }),
     [filtros, setFiltros] = useState(false),
     [accion, setAccion] = useState(''),
-    [motivo, setMotivo] = useState(''),
     [error, setError] = useState(''),
     [ver, setVer] = useState<number>();
+  const { campo, draft } = useDraftValues(
+    `periodo-${accion || 'operacion'}`,
+    id,
+    { motivo: '' },
+    !!id && ['reabrir', 'devolver'].includes(accion),
+  );
+  const [motivo, setMotivo] = campo('motivo');
   const datos = useQuery({
     queryKey: ['nomina', 'tabla', propio, id, q],
     queryFn: ({ signal }) => api.listar(q, propio, id, signal),
@@ -307,6 +318,7 @@ function Planilla({
   const actuar = useMutation({
     mutationFn: () => api.accion(id!, p.data!.version, accion, motivo),
     onSuccess: (r) => {
+      draft.limpiar();
       toast(
         r.alertas.length
           ? 'Cálculo guardado con alertas. Revísalas antes de aprobar.'
@@ -375,7 +387,6 @@ function Planilla({
                   ocupado={actuar.isPending}
                   onAccion={(a) => {
                     setAccion(a);
-                    setMotivo('');
                     setError('');
                   }}
                 />
@@ -713,6 +724,7 @@ function Planilla({
           if (!actuar.isPending) setAccion('');
         }}
       >
+        {['reabrir', 'devolver'].includes(accion) && <FormDraftNotice draft={draft} />}
         <p className="my-4" data-tour="nomina-confirmar">
           {accion === 'cerrar'
             ? 'Se aplicarán los descuentos, se publicarán las boletas y el periodo quedará bloqueado.'

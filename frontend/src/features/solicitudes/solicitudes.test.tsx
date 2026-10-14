@@ -5,6 +5,9 @@ import { HelpProvider } from '../../components/help/HelpProvider';
 import { SolicitudDetalle } from './pages/SolicitudDetalle';
 import * as api from './api/solicitudes';
 import type { Detalle } from './api/solicitudes';
+vi.mock('../../app/session', () => ({
+  useSession: () => ({ usuario: { idUsuario: 7, rol: 'RH' } }),
+}));
 vi.mock('./api/solicitudes', async (importOriginal) => ({
   ...(await importOriginal<typeof api>()),
   detalle: vi.fn(),
@@ -62,6 +65,7 @@ function abrir(s: Detalle, empleado = false) {
   );
 }
 beforeEach(() => {
+  localStorage.clear();
   vi.clearAllMocks();
   HTMLDialogElement.prototype.showModal = function () {
     this.setAttribute('open', '');

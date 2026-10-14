@@ -41,6 +41,12 @@ export function pasosVisibles(
     const elemento = alcance.querySelector(`[data-tour="${paso.elemento}"]`);
     if (elemento) agregar(elemento, paso.titulo, paso.descripcion);
   }
+  for (const borrador of alcance.querySelectorAll('[data-tour="borrador-formulario"]'))
+    agregar(
+      borrador,
+      'Retomar formularios con borradores',
+      'Mientras escribes, el formulario guarda un borrador en este navegador después de medio segundo. Puedes cerrar la pestaña o volver a abrir el mismo formulario y registro; pulsa Continuar para recuperar los datos y la sección. Descartar borrador pide confirmación y devuelve los valores iniciales. Guardar con éxito elimina el borrador; un error lo conserva. Cerrar sesión explícitamente elimina todos tus borradores; entrar con otro usuario purga los ajenos. La expiración por inactividad permite recuperarlos al volver a entrar con la misma cuenta. Nunca se guardan contraseñas, tokens ni archivos: vuelve a seleccionar los adjuntos. Si el navegador bloquea el almacenamiento o se llena, verás el aviso y podrás seguir editando y guardar en el servidor.',
+    );
   // Complementa las secciones declarativas de cada módulo con todos los campos realmente visibles.
   for (const campo of alcance.querySelectorAll('[data-campo]')) {
     if (!visible(campo)) continue;
@@ -90,7 +96,7 @@ export function pasosVisibles(
       [
         'usuario-menu',
         'Tu sesión',
-        'Comprueba usuario y rol antes de trabajar. Cierra sesión al terminar, especialmente en equipos compartidos. Tras el tiempo de inactividad debes volver a ingresar; nunca compartas contraseñas.',
+        'Comprueba usuario y rol antes de trabajar. Cerrar sesión elimina todos tus borradores de formularios de este navegador. Tras el tiempo de inactividad debes volver a ingresar; tus borradores se conservan para la misma cuenta. Entrar con otro usuario elimina los ajenos. Nunca compartas contraseñas.',
       ],
       [
         'ayuda-global',

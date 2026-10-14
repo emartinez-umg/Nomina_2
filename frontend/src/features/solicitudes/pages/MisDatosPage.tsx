@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
@@ -130,6 +132,11 @@ function DatosForm({
     resolver: zodResolver(tipo === 'contacto' ? contacto : criticos),
     mode: 'onBlur',
   });
+  const draft = useFormDraft(`mis-datos-${tipo}`, undefined, {
+    form: f,
+    version: 1,
+    alDescartar: () => setConfirmar(false),
+  });
   const m = useMutation({
     mutationFn: async (): Promise<unknown> =>
       tipo === 'contacto'
@@ -140,6 +147,7 @@ function DatosForm({
             confirmado: true,
           }),
     onSuccess: () => {
+      draft.limpiar();
       toast(
         tipo === 'contacto'
           ? 'Contacto actualizado y auditado.'
@@ -164,6 +172,7 @@ function DatosForm({
           : 'Tu expediente conservará los datos actuales hasta que RRHH apruebe la solicitud.'}
       </p>
       <form onSubmit={f.handleSubmit(() => setConfirmar(true))}>
+        <FormDraftNotice draft={draft} />
         <div className="form-grid">
           {Object.keys(inicial).map((key) => (
             <Controller

@@ -11,6 +11,25 @@ function visibles() {
 }
 describe('Ayuda final por contexto', () => {
   it.each(['ADMIN', 'RH', 'EMPLEADO'] as const)(
+    'explica borradores y sus límites para %s',
+    (rol) => {
+      visibles();
+      document.body.innerHTML =
+        '<dialog open><aside data-tour="borrador-formulario"></aside></dialog>';
+      const pasos = pasosVisibles(
+        { id: 'formulario', pasos: [] },
+        rol,
+        document.querySelector('dialog')!,
+      );
+      expect(pasos[1]!.popover!.description).toMatch(
+        /medio segundo.*Continuar.*Descartar.*confirmación/,
+      );
+      expect(pasos[1]!.popover!.description).toMatch(
+        /Cerrar sesión.*otro usuario.*contraseñas, tokens ni archivos/,
+      );
+    },
+  );
+  it.each(['ADMIN', 'RH', 'EMPLEADO'] as const)(
     'explica navegación y buscador nuevos para %s',
     (rol) => {
       visibles();

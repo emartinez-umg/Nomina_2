@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -367,10 +369,16 @@ function Nueva({ tipo, onCerrar }: { tipo: string; onCerrar: () => void }) {
     defaultValues: { observaciones: '' },
     mode: 'onBlur',
   });
+  const draft = useFormDraft(`solicitud-${tipo}`, undefined, {
+    form: f,
+    version: 1,
+    alDescartar: () => setConfirmar(false),
+  });
   const m = useMutation({
     mutationFn: () =>
       api.crear({ tipo, observaciones: f.getValues('observaciones'), confirmado: true }),
     onSuccess: () => {
+      draft.limpiar();
       toast('Solicitud enviada. RRHH recibió una notificación.');
       void cache.invalidateQueries({ queryKey: ['solicitudes'] });
       void cache.invalidateQueries({ queryKey: ['notificaciones'] });
@@ -388,6 +396,7 @@ function Nueva({ tipo, onCerrar }: { tipo: string; onCerrar: () => void }) {
         }}
       >
         <form data-tour="solicitudes-nueva" onSubmit={f.handleSubmit(() => setConfirmar(true))}>
+          <FormDraftNotice draft={draft} />
           <HelpButton />
           <p className="my-4">
             RRHH revisará tu solicitud y te avisará de cada cambio.{' '}

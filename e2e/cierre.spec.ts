@@ -22,6 +22,11 @@ async function entrar(page: Page, rol: 'ADMIN' | 'RH' | 'EMPLEADO') {
   );
   await oferta(page);
 }
+async function clavesBorradores(page: Page) {
+  return page.evaluate(() =>
+    Object.keys(localStorage).filter((k) => k.startsWith('nomina2:borrador:')),
+  );
+}
 async function elegir(page: Page, label: string, texto?: string) {
   const campo = page.getByRole('combobox', { name: label, exact: true });
   await campo.click();
@@ -600,5 +605,112 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       }
     }
     expect(errores).toEqual([]);
+  });
+});
+
+test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
+  test('cierra la pestaña y retoma empleado; descartar y cerrar sesión limpian', async ({
+    page,
+    context,
+  }) => {
+    await entrar(page, 'RH');
+    await page.goto('/empleados/nuevo');
+    await oferta(page);
+    await page.getByLabel('Nombres', { exact: true }).fill('Borrador Persona');
+    await page.getByLabel('Nombre del contacto', { exact: true }).fill('Contacto Borrador');
+    await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
+    await page.close();
+    const volver = await context.newPage();
+    await volver.goto('/empleados/nuevo');
+    await expect(volver.getByText(/Tienes un borrador guardado hace/)).toBeVisible();
+    await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('');
+    await volver.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('Borrador Persona');
+    await expect(volver.getByLabel('Nombre del contacto', { exact: true })).toHaveValue(
+      'Contacto Borrador',
+    );
+    const axe = await new AxeBuilder({ page: volver })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+    await volver.evaluate(() => window.scrollTo(0, 0));
+    await volver.screenshot({ path: 'tmp/pdfs/borrador-empleado.png', fullPage: true });
+    await volver.getByRole('button', { name: 'Descartar borrador', exact: true }).click();
+    let dialogo = volver.getByRole('dialog', { name: 'Descartar borrador', exact: true });
+    await dialogo.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    expect(await clavesBorradores(volver)).toHaveLength(1);
+    await volver.getByRole('button', { name: 'Descartar borrador', exact: true }).click();
+    dialogo = volver.getByRole('dialog', { name: 'Descartar borrador', exact: true });
+    await dialogo.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('');
+    expect(await clavesBorradores(volver)).toHaveLength(0);
+    await volver.getByLabel('Nombres', { exact: true }).fill('Borrador Final');
+    await expect(volver.getByText('Borrador guardado', { exact: true })).toBeVisible();
+    await volver.getByRole('button', { name: /^Mi cuenta:/ }).click();
+    await volver.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
+    await expect(volver).toHaveURL(/\/login$/);
+    expect(await clavesBorradores(volver)).toHaveLength(0);
+    await entrar(volver, 'RH');
+    await volver.goto('/empleados/nuevo');
+    await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('');
+    await expect(volver.getByText(/Tienes un borrador guardado hace/)).toHaveCount(0);
+  });
+  test('catálogo restaura, conserva ante conflicto y limpia al guardar y editar', async ({
+    page,
+  }) => {
+    await entrar(page, 'RH');
+    await page.goto('/catalogos/departamentos');
+    await oferta(page);
+    await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+    await page.getByLabel('Código', { exact: true }).fill('E2E');
+    await page.getByLabel('Nombre', { exact: true }).fill('Departamento Borrador');
+    await page.reload();
+    await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Departamento Borrador');
+    const conflicto = page.waitForResponse(
+      (r) => r.request().method() === 'POST' && r.url().endsWith('/catalogos/departamentos'),
+    );
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    expect((await conflicto).status()).toBe(409);
+    expect(await clavesBorradores(page)).toHaveLength(1);
+    await page.getByLabel('Código', { exact: true }).fill('E2E_BORRADOR');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.getByText('Registro guardado y auditado.', { exact: true })).toBeVisible();
+    expect(await clavesBorradores(page)).toHaveLength(0);
+    const fila = page.getByRole('row').filter({ hasText: 'Departamento Borrador' });
+    await fila.getByRole('button', { name: /^Editar registro/ }).click();
+    await page.getByLabel('Descripción', { exact: true }).fill('Descripción retomada');
+    await page.reload();
+    await fila.getByRole('button', { name: /^Editar registro/ }).click();
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByLabel('Descripción', { exact: true })).toHaveValue(
+      'Descripción retomada',
+    );
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.getByText('Registro guardado y auditado.', { exact: true })).toBeVisible();
+    expect(await clavesBorradores(page)).toHaveLength(0);
+  });
+  test('IGSS retoma sección y fila parcial; entrar con otra cuenta purga borradores', async ({
+    page,
+    context,
+  }) => {
+    await entrar(page, 'RH');
+    await page.goto('/planilla');
+    await oferta(page);
+    await page.getByRole('button', { name: 'Configurar IGSS', exact: true }).click();
+    await page.getByLabel('Número patronal', { exact: true }).fill('123456');
+    await page.getByRole('button', { name: 'Asignación de empleados', exact: true }).click();
+    await page.getByLabel('Primer nombre', { exact: true }).fill('Nombre pendiente');
+    await page.reload();
+    await page.getByRole('button', { name: 'Configurar IGSS', exact: true }).click();
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByLabel('Número patronal', { exact: true })).toHaveValue('123456');
+    await expect(page.getByLabel('Primer nombre', { exact: true })).toHaveValue('Nombre pendiente');
+    expect(await clavesBorradores(page)).toHaveLength(1);
+    // Quitar la cookie representa sesión perdida; no es el cierre explícito que elimina borradores.
+    await context.clearCookies();
+    await entrar(page, 'EMPLEADO');
+    expect(await clavesBorradores(page)).toHaveLength(0);
   });
 });

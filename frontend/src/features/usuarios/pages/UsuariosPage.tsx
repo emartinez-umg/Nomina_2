@@ -1,3 +1,5 @@
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -248,6 +250,11 @@ function Editor({
       motivo: '',
     },
   });
+  const draft = useFormDraft(`usuario-${accion.tipo}`, accion.usuario?.idUsuario, {
+    form,
+    version: 1,
+    alDescartar: () => setConfirmar(false),
+  });
   const m = useMutation({
     mutationFn: async () => {
       const d = form.getValues();
@@ -275,6 +282,7 @@ function Editor({
       return { credencialEntregada: !!r.contrasenaTemporal };
     },
     onSuccess: (r) => {
+      draft.limpiar();
       void cache.invalidateQueries({ queryKey: ['usuarios'] });
       toast('Cambio de acceso registrado y auditado.');
       setConfirmar(false);
@@ -302,6 +310,7 @@ function Editor({
           noValidate
           onSubmit={form.handleSubmit(() => setConfirmar(true))}
         >
+          <FormDraftNotice draft={draft} />
           <p className="alerta">
             {nuevo
               ? 'ADMIN y RH se crean aquí. Crea usuarios de empleados desde su expediente.'

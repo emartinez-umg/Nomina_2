@@ -1,3 +1,5 @@
+import { useDraftValues } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/nomina';
@@ -40,30 +42,50 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
   const cache = useQueryClient(),
     toast = useToast();
   const inicial = datos.formato as unknown as Formato | null;
-  const [f, setF] = useState<Formato>(() =>
-    inicial
-      ? {
-          ...inicial,
-          centros: inicial.centros.map((c) => ({ ...c, id: String(c.id) })),
-          empleados: inicial.empleados.map((e) => ({ ...e, id: String(e.id) })),
-        }
-      : {
-          version: '2.2.0',
-          patrono: '',
-          pruebas: '1',
-          nombre: datos.empresa?.nombre ?? '',
-          nit: datos.empresa?.nit ?? '',
-          direccion: '',
-          correo: '',
-          centros: [],
-          tipos: [],
-          empleados: [],
-        },
+  const { campo, draft } = useDraftValues<{
+    f: Formato;
+    seccion: 'centros' | 'tipos' | 'empleados';
+    r: Registro;
+    motivo: string;
+  }>(
+    'formato-igss',
+    undefined,
+    {
+      f: inicial
+        ? {
+            ...inicial,
+            centros: inicial.centros.map((c) => ({ ...c, id: String(c.id) })),
+            empleados: inicial.empleados.map((e) => ({ ...e, id: String(e.id) })),
+          }
+        : {
+            version: '2.2.0',
+            patrono: '',
+            pruebas: '1',
+            nombre: datos.empresa?.nombre ?? '',
+            nit: datos.empresa?.nit ?? '',
+            direccion: '',
+            correo: '',
+            centros: [],
+            tipos: [],
+            empleados: [],
+          },
+      seccion: 'centros',
+      r: {},
+      motivo: '',
+    },
+    true,
+    {
+      alDescartar: () => {
+        setConfirmar(false);
+        setError('');
+      },
+    },
   );
-  const [seccion, setSeccion] = useState<'centros' | 'tipos' | 'empleados'>('centros'),
-    [r, setR] = useState<Registro>({}),
-    [motivo, setMotivo] = useState(''),
-    [confirmar, setConfirmar] = useState(false),
+  const [f, setF] = campo('f');
+  const [seccion, setSeccion] = campo('seccion');
+  const [r, setR] = campo('r');
+  const [motivo, setMotivo] = campo('motivo');
+  const [confirmar, setConfirmar] = useState(false),
     [error, setError] = useState('');
   useEffect(() => setConfirmar(false), [f, motivo]);
   const guardar = useMutation({
@@ -78,6 +100,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
         confirmado: true,
       }),
     onSuccess: () => {
+      draft.limpiar();
       toast('Formato IGSS guardado. Ya puedes exportar meses cerrados.');
       setConfirmar(false);
       void cache.invalidateQueries({ queryKey: ['nomina', 'formato-igss'] });
@@ -234,6 +257,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
   };
   return (
     <>
+      <FormDraftNotice draft={draft} />
       <p className="campo-hint my-4">
         Usa los códigos y nombres inscritos ante IGSS. El archivo mensual consolida las dos
         quincenas cerradas. Guarda los centros, tipos y asignaciones reales antes de exportar.
