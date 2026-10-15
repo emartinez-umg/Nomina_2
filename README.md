@@ -268,3 +268,12 @@ con una página por empleado y una sola descarga. Descarga una plantilla nueva d
 `docker compose up --build` aplica V025 conservando referencias históricas. Completa primero empresa
 para emitir las credenciales membretadas. Pruebas: `npm run verify:empleados`, `npm run verify:security`
 y `npm run test:e2e -- --grep 'FASE V1-7'`. Detalle en [Empleados](docs/EMPLEADOS.md).
+
+### Vacaciones A9 — V1-8
+
+El saldo se calcula al consultar: meses completos × tasa mensual configurada (referencia 1.25),
+menos consumos y previas. Portal y RRHH muestran decimales y días enteros solicitables.
+Calendario por bloques/feriados; aprobación revalida y descuenta una vez. Cancelar antes del
+inicio devuelve el débito original y conserva la aprobación. V026 preserva saldos e historia v0.
+Ver [reglas y API de vacaciones](docs/VACACIONES.md). Validar con npm run verify:vacaciones,
+npm run verify:security y npm run test:e2e -- --grep 'FASE V1-8'.

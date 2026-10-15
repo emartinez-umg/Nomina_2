@@ -18,13 +18,13 @@ import { hoy, opciones, cerrados } from '../novedades/novedades.repository.js';
 import { escribirCsv } from '../empleados/empleados.csv.js';
 import { dinero } from '../../shared/utils/dinero.js';
 import {
-  acumulaciones,
   calcularSaldo,
   exigirSaldo,
+  exigirCancelacion,
   traslapan,
   valorarPendientes,
 } from './vacaciones.reglas.js';
-import { cargaSchema, rangoSchema, resolverSchema } from './vacaciones.schemas.js';
+import { cancelarSchema, cargaSchema, rangoSchema, resolverSchema } from './vacaciones.schemas.js';
 import type { Query } from './vacaciones.schemas.js';
 import * as repo from './vacaciones.repository.js';
 const audit = (
@@ -47,31 +47,10 @@ const visible = (fecha: string) => fecha.split('-').reverse().join('/');
 const invalido = (campo: string, mensaje: string): never => {
   throw new ErrorNegocio(mensaje, 422, 'VALIDACION', { [campo]: [mensaje] });
 };
-async function sincronizar(c: Connection, e: repo.Empleado, corte: string, actor: ActorAuditoria) {
+async function consultarSaldo(c: Connection, e: repo.Empleado, corte: string) {
   const hasta = e.egreso && e.egreso < corte ? e.egreso : corte;
-  let movimientos = await repo.movimientos(c, e.id);
+  const movimientos = await repo.movimientos(c, e.id);
   const parametros = await repo.parametros(c);
-  const nuevos = acumulaciones(e.ingreso, hasta, parametros, movimientos).filter(
-    (m) => !movimientos.some((v) => v.clave === m.clave),
-  );
-  for (const m of nuevos)
-    await repo.mover(
-      c,
-      e.id,
-      { ...m, tipo: 'ACUMULACION' },
-      'Mes cumplido desde la fecha de contratación',
-      actor.idUsuario,
-    );
-  if (nuevos.length) {
-    await registrarAuditoria(c, {
-      actor,
-      accion: 'ACUMULAR_VACACIONES',
-      entidad: 'VACACIONES_MOVIMIENTOS',
-      idEntidad: e.id,
-      despues: { meses: nuevos },
-    });
-    movimientos = await repo.movimientos(c, e.id);
-  }
   return {
     ...calcularSaldo(e.ingreso, hasta, parametros, movimientos),
     corte: hasta,
@@ -158,33 +137,41 @@ export function crearVacacionesService(db: BaseDatos) {
     else if (cal.dias.some((d) => d.motivo === 'Sin horario vigente'))
       bloqueo =
         'Falta un horario vigente dentro del rango. Pide a RRHH que complete la asignación.';
-    else if (!cal.dias[0]?.laborable || !cal.dias.at(-1)?.laborable)
-      bloqueo =
-        'El inicio y el fin deben ser días laborales; los descansos y feriados intermedios no consumen saldo.';
     else if (cal.bloqueos.some((b) => traslapan(inicio, fin, b.inicio, b.fin)))
       bloqueo =
         'El rango se traslapa con vacaciones, una ausencia o un periodo cerrado. Selecciona fechas libres.';
-    const alcanza = new Decimal(dias).gt(0) && new Decimal(saldo).gte(dias);
+    if (!bloqueo && new Decimal(dias).isZero())
+      bloqueo =
+        'El rango no contiene días laborales. Selecciona al menos un día de trabajo según tu horario.';
+    const solicitables = new Decimal(saldo).floor().toNumber();
+    const alcanza = new Decimal(dias).gt(0) && new Decimal(dias).lte(solicitables);
     return {
       dias,
       disponible: saldo,
+      solicitables,
       alcanza,
       puedeAprobar: alcanza && !bloqueo,
       bloqueo:
         bloqueo ??
         (!alcanza
-          ? `Saldo insuficiente: ${saldo} días disponibles y ${dias} solicitados. Reduce el rango o revisa el kardex con RRHH.`
+          ? `Puedes solicitar ${solicitables} días completos (${saldo} disponibles); el rango consume ${dias} días laborales. Reduce el rango o revisa el kardex con RRHH.`
           : null),
     };
   }
   async function enriquecer(c: Connection, a: ActorAuditoria, s: repo.Solicitud) {
     try {
       const e = await obtener(c, a, s.idEmpleado);
-      const saldo = await sincronizar(c, e, await hoy(c), a);
+      const saldo = await consultarSaldo(c, e, await hoy(c));
       const comp = await comparar(c, e, s.inicio, s.fin, saldo.disponible, s.id);
       return {
         ...s,
         ...comp,
+        dias: s.estado === 'EN_PROCESO' ? comp.dias : s.dias,
+        saldo,
+        puedeCancelar:
+          s.estado === 'APROBADA' &&
+          s.inicio > (await hoy(c)) &&
+          !(await cerrados(c, s.inicio, s.fin)),
         diasRegistrados: s.dias,
         puedeAprobar: s.estado === 'EN_PROCESO' && comp.puedeAprobar,
       };
@@ -192,6 +179,9 @@ export function crearVacacionesService(db: BaseDatos) {
       if (!(error instanceof ErrorNegocio)) throw error;
       return {
         ...s,
+        saldo: null,
+        puedeCancelar: false,
+        solicitables: null,
         diasRegistrados: s.dias,
         disponible: null,
         alcanza: false,
@@ -202,7 +192,7 @@ export function crearVacacionesService(db: BaseDatos) {
   }
   return {
     saldo: (auth: Autenticacion, ip: string, id?: number) =>
-      tx(auth, ip, async (c, a) => sincronizar(c, await obtener(c, a, id), await hoy(c), a)),
+      tx(auth, ip, async (c, a) => consultarSaldo(c, await obtener(c, a, id), await hoy(c))),
     calendario: (auth: Autenticacion, ip: string, inicio: string, fin: string, id?: number) =>
       tx(auth, ip, async (c, a) => {
         rangoSchema.parse({ inicio, fin });
@@ -213,14 +203,14 @@ export function crearVacacionesService(db: BaseDatos) {
       tx(auth, ip, async (c, a) => {
         const d = rangoSchema.parse(raw),
           e = await obtener(c, a),
-          s = await sincronizar(c, e, await hoy(c), a);
+          s = await consultarSaldo(c, e, await hoy(c));
         return comparar(c, e, d.inicio, d.fin, s.disponible);
       }),
     solicitar: (auth: Autenticacion, ip: string, raw: unknown) =>
       tx(auth, ip, async (c, a) => {
         const d = rangoSchema.parse(raw),
           e = await obtener(c, a),
-          s = await sincronizar(c, e, await hoy(c), a);
+          s = await consultarSaldo(c, e, await hoy(c));
         const p = await comparar(c, e, d.inicio, d.fin, s.disponible);
         if (!p.puedeAprobar) invalido('inicio', p.bloqueo!);
         const id = await repo.crear(c, e.id, d.inicio, d.fin, p.dias, s.disponible, a.idUsuario);
@@ -257,7 +247,7 @@ export function crearVacacionesService(db: BaseDatos) {
         let saldo = s.saldoAlSolicitar,
           dias = s.dias;
         if (d.estado === 'APROBADA') {
-          const actual = await sincronizar(c, e, await hoy(c), a);
+          const actual = await consultarSaldo(c, e, await hoy(c));
           saldo = actual.disponible;
           const p = await comparar(c, e, s.inicio, s.fin, saldo, id);
           if (!p.puedeAprobar) throw new ErrorConflicto(p.bloqueo!);
@@ -296,6 +286,61 @@ export function crearVacacionesService(db: BaseDatos) {
         );
         return repo.solicitud(c, id);
       }),
+    detalle: (auth: Autenticacion, ip: string, id: number) =>
+      tx(auth, ip, async (c, a) => {
+        const s = await repo.solicitud(c, id);
+        if (!s) throw new ErrorNoEncontrado();
+        await obtener(c, a, s.idEmpleado);
+        return enriquecer(c, a, s);
+      }),
+    cancelar: (auth: Autenticacion, ip: string, id: number, raw: unknown) =>
+      tx(auth, ip, async (c, a) => {
+        const d = cancelarSchema.parse(raw);
+        const s = await repo.solicitud(c, id);
+        if (!s) throw new ErrorNoEncontrado();
+        const e = await obtener(c, a, s.idEmpleado),
+          fecha = await hoy(c);
+        exigirCancelacion(s.estado, s.inicio, fecha);
+        if (await cerrados(c, s.inicio, s.fin))
+          throw new ErrorConflicto('El rango afecta un periodo cerrado; no se puede cancelar.');
+        const consumo = await repo.consumoSolicitud(c, id);
+        if (!consumo || !new Decimal(consumo).lt(0))
+          throw new ErrorConflicto(
+            'No se encontró el débito original. RRHH debe revisar el kardex.',
+          );
+        const diasDevueltos = new Decimal(consumo).negated().toFixed(2);
+        await repo.mover(
+          c,
+          e.id,
+          {
+            tipo: 'REVERSO',
+            fecha,
+            dias: diasDevueltos,
+            clave: `CANCELACION:${id}`,
+          },
+          d.motivo,
+          a.idUsuario,
+          id,
+        );
+        await repo.cancelar(c, id, d.motivo, a.idUsuario);
+        await repo.notificar(
+          c,
+          e,
+          id,
+          'CANCELADA',
+          `Vacaciones del ${visible(s.inicio)} al ${visible(s.fin)} canceladas. Se devuelven ${diasDevueltos} días. Motivo: ${d.motivo}`,
+          a.idUsuario,
+        );
+        await audit(
+          c,
+          a,
+          id,
+          'CANCELAR_VACACIONES',
+          { estado: 'CANCELADA', motivo: d.motivo, diasDevueltos },
+          s,
+        );
+        return repo.solicitud(c, id);
+      }),
     cargar: (auth: Autenticacion, ip: string, id: number, raw: unknown) =>
       tx(auth, ip, async (c, a) => {
         rh(a);
@@ -312,7 +357,7 @@ export function crearVacacionesService(db: BaseDatos) {
             'La apertura solo se permite una vez y antes de registrar disfrutes o ajustes.',
           );
         if (d.tipo === 'TOMADAS') {
-          const s = await sincronizar(c, e, fecha, a);
+          const s = await consultarSaldo(c, e, fecha);
           exigirSaldo(s.disponible, d.dias);
         }
         const m = {
@@ -329,7 +374,7 @@ export function crearVacacionesService(db: BaseDatos) {
           idEntidad: id,
           despues: { ...m, motivo: d.motivo },
         });
-        return sincronizar(c, e, fecha, a);
+        return consultarSaldo(c, e, fecha);
       }),
     opciones: (buscar: string, pagina: number, seleccionado?: number) =>
       db.conConexion((c) => opciones(c, 'empleados', buscar, pagina, seleccionado)),
@@ -388,7 +433,7 @@ export async function prepararVacacionesFiniquito(
     throw new ErrorConflicto(
       'Hay movimientos posteriores al corte. Revisa sus reservas antes de preparar el finiquito.',
     );
-  const saldo = await sincronizar(c, e, corte, actor),
+  const saldo = await consultarSaldo(c, e, corte),
     v = await repo.valoresFiniquito(c, id, corte);
   if (!v.salario || !v.divisor)
     throw new ErrorConflicto('Falta salario o divisor mensual vigente para el finiquito.');

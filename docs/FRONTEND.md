@@ -265,3 +265,16 @@ Credenciales y PDF se mantienen en estado de React, fuera del formulario, caché
 Copiar o descargar habilita la confirmación; Escape/Cerrar no descartan la entrega sin confirmarla.
 Una sola descarga del PDF y limpieza al cerrar. El restablecimiento tiene motivo, borrador y recorrido.
 Ayuda de credenciales/horario/restablecimiento usa un HelpProvider propio para conservar la página.
+
+## Vacaciones A9 — V1-8
+
+Portal, Inicio y RRHH muestran acumulados, tomados/aprobados, disponibles decimales y solicitables
+enteros. El saldo se recalcula en API al consultar; se refresca al enfocar, cada minuto y tras operar.
+El calendario admite descansos en los extremos y cuenta únicamente trabajo según V1-6 y feriados.
+Enviar y Aprobar se bloquean con explicación cuando no alcanza. Abrir detalle/resolución refresca
+la comparación; no permite confirmar mientras carga/falla. El servidor siempre revalida.
+
+Ver solicitud conserva solicitante, rango, días, aprobación y cancelación. Cancelar vacaciones
+aprobadas exige motivo/confirmación y devuelve el débito original solo antes del día de inicio.
+El motivo tiene borrador y ayuda contextual. Recorridos vacaciones-v1-8/tableros-v1-8 y hints
+explican floor, fracciones, compensaciones v0, días laborales y cancelación.

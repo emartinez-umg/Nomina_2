@@ -1882,7 +1882,127 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .get(`/api/vacaciones/empleados/${idEmpleado}/finiquito?corte=${hoy}`)
           .expect(409);
       });
-      it('materializa aniversarios una sola vez y permite apertura cero sin tasas históricas inventadas', async () => {
+      it('V1-8: detalle propio, cancelación concurrente y devolución exacta conservan aprobador', async () => {
+        const a = await entrarCuenta('RH'),
+          e = await empleado(),
+          otro = await entrarCuenta();
+        const id = Number(
+          await escalar(
+            "SELECT MAX(ID_VACACIONES_SOLICITUD) FROM VACACIONES_SOLICITUDES WHERE ID_EMPLEADO=:id AND ESTADO='APROBADA'",
+            { id: idEmpleado },
+          ),
+        );
+        await otro.agent.get(`/api/vacaciones/solicitudes/${id}`).expect(403);
+        const antes = (await e.agent.get(`/api/vacaciones/solicitudes/${id}`).expect(200)).body
+          .data;
+        expect(antes).toMatchObject({
+          puedeCancelar: true,
+          diasRegistrados: '1',
+          saldo: { disponible: '0.00', solicitables: 0 },
+        });
+        expect(antes.aprobadoPor).toBeTruthy();
+        await e.agent
+          .post(`/api/vacaciones/solicitudes/${id}/cancelar`)
+          .send({ motivo: 'Cancelación de prueba', confirmado: true })
+          .expect(403);
+        await otro.agent
+          .post(`/api/vacaciones/solicitudes/${id}/cancelar`)
+          .set('X-CSRF-Token', otro.csrf)
+          .send({ motivo: 'Cancelación de prueba', confirmado: true })
+          .expect(403);
+        await e.agent
+          .post(`/api/vacaciones/solicitudes/${id}/cancelar`)
+          .set('X-CSRF-Token', e.csrf)
+          .send({ motivo: '', confirmado: true })
+          .expect(400);
+        const respuestas = await Promise.all(
+          [e, a].map((u) =>
+            u.agent
+              .post(`/api/vacaciones/solicitudes/${id}/cancelar`)
+              .set('X-CSRF-Token', u.csrf)
+              .send({ motivo: 'Cambio de fechas de descanso', confirmado: true }),
+          ),
+        );
+        expect(respuestas.map((r) => r.status).sort()).toEqual([200, 409]);
+        const despues = (await e.agent.get(`/api/vacaciones/solicitudes/${id}`).expect(200)).body
+          .data;
+        expect(despues).toMatchObject({
+          estado: 'CANCELADA',
+          aprobadoPor: antes.aprobadoPor,
+          aprobadoEn: antes.aprobadoEn,
+          saldo: { disponible: '1.00', solicitables: 1 },
+        });
+        expect(despues.canceladoPor).toBeTruthy();
+        expect(
+          await escalar('SELECT COUNT(*) FROM VACACIONES_MOVIMIENTOS WHERE CLAVE_ORIGEN=:clave', {
+            clave: `CANCELACION:${id}`,
+          }),
+        ).toBe(1);
+        expect(
+          await escalar(
+            "SELECT COUNT(*) FROM SOLICITUD_HISTORIAL H JOIN VACACIONES_SOLICITUDES V ON V.ID_SOLICITUD=H.ID_SOLICITUD WHERE V.ID_VACACIONES_SOLICITUD=:id AND H.ESTADO_NUEVO='CANCELADA'",
+            { id },
+          ),
+        ).toBe(1);
+      });
+      it('V1-8: cancelación con fallo de auditoría revierte estado, kardex y notificación; bloquea inicio hoy', async () => {
+        const a = await entrarAdmin(),
+          e = await empleado();
+        const r = await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send({ inicio: tramo.inicio, fin: tramo.inicio })
+          .expect(201);
+        const id = r.body.data.id;
+        await a.agent
+          .post(`/api/vacaciones/solicitudes/${id}/resolver`)
+          .set('X-CSRF-Token', a.csrf)
+          .send({ estado: 'APROBADA', confirmado: true })
+          .expect(200);
+        await ejecutar(
+          "CREATE OR REPLACE TRIGGER V18_FALLAR_AUD BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='CANCELAR_VACACIONES' THEN RAISE_APPLICATION_ERROR(-20047,'Fallo de prueba'); END IF; END;",
+        );
+        try {
+          await a.agent
+            .post(`/api/vacaciones/solicitudes/${id}/cancelar`)
+            .set('X-CSRF-Token', a.csrf)
+            .send({ motivo: 'Cambio de fechas de descanso', confirmado: true })
+            .expect(500);
+          expect(
+            await escalar(
+              'SELECT ESTADO FROM VACACIONES_SOLICITUDES WHERE ID_VACACIONES_SOLICITUD=:id',
+              { id },
+            ),
+          ).toBe('APROBADA');
+          expect(
+            await escalar('SELECT COUNT(*) FROM VACACIONES_MOVIMIENTOS WHERE CLAVE_ORIGEN=:clave', {
+              clave: `CANCELACION:${id}`,
+            }),
+          ).toBe(0);
+          expect(
+            await escalar('SELECT COUNT(*) FROM NOTIFICACIONES WHERE CLAVE_EVENTO=:clave', {
+              clave: `VACACIONES:${id}:CANCELADA`,
+            }),
+          ).toBe(0);
+          expect((await e.agent.get('/api/vacaciones/mi-saldo')).body.data.disponible).toBe('0.00');
+        } finally {
+          await ejecutar('DROP TRIGGER V18_FALLAR_AUD');
+        }
+        await ejecutar(
+          "UPDATE VACACIONES_SOLICITUDES SET FECHA_INICIO=TO_DATE(:hoy,'YYYY-MM-DD') WHERE ID_VACACIONES_SOLICITUD=:id",
+          { id, hoy },
+        );
+        await e.agent
+          .post(`/api/vacaciones/solicitudes/${id}/cancelar`)
+          .set('X-CSRF-Token', e.csrf)
+          .send({ motivo: 'Cambio de fechas de descanso', confirmado: true })
+          .expect(409);
+        await ejecutar(
+          "UPDATE VACACIONES_SOLICITUDES SET FECHA_INICIO=TO_DATE(:inicio,'YYYY-MM-DD') WHERE ID_VACACIONES_SOLICITUD=:id",
+          { id, inicio: tramo.inicio },
+        );
+      });
+      it('consulta determinista sin materializar aniversarios y permite apertura cero certificada', async () => {
         const a = await entrarAdmin();
         const reciente = await a.agent
           .post('/api/empleados')
@@ -1893,14 +2013,19 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         const primero = await a.agent.get(`/api/vacaciones/empleados/${id}/saldo`).expect(200);
         expect(primero.body.data.disponible).toBe('11.25');
         const segundo = await a.agent.get(`/api/vacaciones/empleados/${id}/saldo`).expect(200);
-        expect(segundo.body.data.kardex).toHaveLength(9);
+        expect(segundo.body.data.kardex).toHaveLength(0);
+        expect(segundo.body.data).toMatchObject({
+          mesesCompletos: 9,
+          acumulado: '11.25',
+          solicitables: 11,
+        });
         const antiguo = await a.agent
           .post('/api/empleados')
           .set('X-CSRF-Token', a.csrf)
           .send({ ...datos(), fechaIngreso: '2020-01-12' })
           .expect(201);
         const antiguoId = antiguo.body.data.empleado.id;
-        await a.agent.get(`/api/vacaciones/empleados/${antiguoId}/saldo`).expect(409);
+        await a.agent.get(`/api/vacaciones/empleados/${antiguoId}/saldo`).expect(200);
         const cero = await a.agent
           .post(`/api/vacaciones/empleados/${antiguoId}/cargar`)
           .set('X-CSRF-Token', a.csrf)
@@ -1959,6 +2084,58 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         } finally {
           await ejecutar('DROP TRIGGER F7_FALLAR_AUD');
         }
+      });
+      it('V1-8: revalida feriados al aprobar y devuelve el débito guardado aunque cambie el calendario', async () => {
+        const a = await entrarAdmin();
+        const nuevo = await a.agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', a.csrf)
+          .send({ ...datos() })
+          .expect(201);
+        const idEmpleado = nuevo.body.data.empleado.id,
+          cred = nuevo.body.data.credenciales;
+        await ejecutar('UPDATE USUARIOS SET CAMBIO_OBLIGATORIO=0 WHERE ID_USUARIO=:id', {
+          id: cred.idUsuario,
+        });
+        await a.agent
+          .post(`/api/vacaciones/empleados/${idEmpleado}/cargar`)
+          .set('X-CSRF-Token', a.csrf)
+          .send(apertura('3'))
+          .expect(201);
+        const e = await entrar(cred.usuario, cred.contrasenaTemporal);
+        const r = await e.agent
+          .post('/api/vacaciones/solicitudes')
+          .set('X-CSRF-Token', e.csrf)
+          .send(tramo)
+          .expect(201);
+        const id = r.body.data.id;
+        await ejecutar(
+          "INSERT INTO FERIADOS(NOMBRE,FECHA,FECHA_CONMEMORACION,AMBITO,LOCALIDAD,FUNDAMENTO) VALUES('Cambio calendario V18',DATE '2095-01-04',DATE '2095-01-04','NACIONAL','*','Prueba de revalidación')",
+        );
+        const detalle = (await a.agent.get(`/api/vacaciones/solicitudes/${id}`).expect(200)).body
+          .data;
+        expect(detalle).toMatchObject({ diasRegistrados: '2', dias: '1.00', solicitables: 3 });
+        await a.agent
+          .post(`/api/vacaciones/solicitudes/${id}/resolver`)
+          .set('X-CSRF-Token', a.csrf)
+          .send({ estado: 'APROBADA', confirmado: true })
+          .expect(200);
+        expect((await e.agent.get('/api/vacaciones/mi-saldo')).body.data).toMatchObject({
+          disponible: '2.00',
+          tomados: '1.00',
+        });
+        await ejecutar(
+          "INSERT INTO FERIADOS(NOMBRE,FECHA,FECHA_CONMEMORACION,AMBITO,LOCALIDAD,FUNDAMENTO) VALUES('Cambio posterior V18',DATE '2095-01-03',DATE '2095-01-03','NACIONAL','*','Prueba de devolución original')",
+        );
+        await e.agent
+          .post(`/api/vacaciones/solicitudes/${id}/cancelar`)
+          .set('X-CSRF-Token', e.csrf)
+          .send({ motivo: 'Cambio posterior del calendario laboral', confirmado: true })
+          .expect(200);
+        expect((await e.agent.get('/api/vacaciones/mi-saldo')).body.data).toMatchObject({
+          disponible: '3.00',
+          tomados: '0.00',
+        });
       });
     });
     describe('Fase 6: novedades con Oracle real', () => {

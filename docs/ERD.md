@@ -510,7 +510,8 @@ erDiagram
 ## 9. Vacaciones
 
 Migraciones: [V009__vacaciones.sql](../db/migrations/V009__vacaciones.sql) y
-[V015__vacaciones_saldo_inicial.sql](../db/migrations/V015__vacaciones_saldo_inicial.sql).
+[V015__vacaciones_saldo_inicial.sql](../db/migrations/V015__vacaciones_saldo_inicial.sql) y
+[V026__vacaciones_deterministas_cancelacion.sql](../db/migrations/V026__vacaciones_deterministas_cancelacion.sql).
 
 ```mermaid
 erDiagram
@@ -520,6 +521,9 @@ erDiagram
         DATE FECHA_INICIO
         DATE FECHA_FIN
         NUMBER RESUELTO_POR FK
+        NUMBER CANCELADO_POR FK
+        DATE CANCELADO_EN
+        VARCHAR2 MOTIVO_CANCELACION
         NUMBER ID_SOLICITUD FK
     }
     VACACIONES_MOVIMIENTOS {
@@ -532,7 +536,7 @@ erDiagram
         VARCHAR2 CLAVE_ORIGEN
     }
     EMPLEADOS ||--o{ VACACIONES_SOLICITUDES : "ID_EMPLEADO"
-    USUARIOS ||--o{ VACACIONES_SOLICITUDES : "RESUELTO_POR"
+    USUARIOS ||--o{ VACACIONES_SOLICITUDES : "RESUELTO_POR, CANCELADO_POR"
     SOLICITUDES ||--o{ VACACIONES_SOLICITUDES : "ID_SOLICITUD, ID_EMPLEADO"
     EMPLEADOS ||--o{ VACACIONES_MOVIMIENTOS : "ID_EMPLEADO"
     VACACIONES_SOLICITUDES ||--o{ VACACIONES_MOVIMIENTOS : "ID_VACACIONES_SOLICITUD, ID_EMPLEADO"
@@ -1144,3 +1148,15 @@ para seeds/herramientas históricas. Obra determinada requiere fecha final en nu
 Las altas nuevas siempre vinculan usuario en la misma transacción. Históricos sin cuenta conservan
 su vínculo previo. Contraseñas/PDF no se persisten; se devuelve solo la entrega inicial en memoria.
 Las 62 tablas se verifican con db:verify; V000–V024 permanecen intactas.
+
+## Vacaciones deterministas y cancelación — V1-8
+
+V026 añade CANCELADO_POR (FK indexada a USUARIOS), CANCELADO_EN y MOTIVO_CANCELACION a
+VACACIONES_SOLICITUDES. Conserva CREADO_POR/FECHA_CREACION y RESUELTO_POR/RESUELTO_EN:
+cancelar no sobrescribe aprobación. SOLICITUDES admite CANCELADA; SOLICITUD_HISTORIAL registra
+APROBADA → CANCELADA con actor/fecha/motivo. Los nuevos campos tienen CHECK de integridad.
+
+VACACIONES_MOVIMIENTOS conserva ACUMULACION v0 como respaldo. AJUSTE MIGRACION_V1_8 compensa
+diferencias al corte sin alterar solicitudes/snapshots/débitos. DISFRUTE SOLICITUD:id reserva al
+aprobar; REVERSO CANCELACION:id devuelve exactamente el débito. UNIQUE empleado/clave protege
+idempotencia. El saldo y los solicitables son derivados, sin nuevas tablas ni acumulación materializada.

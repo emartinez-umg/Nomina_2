@@ -9,7 +9,7 @@ export const tipos = [
   'ACTUALIZACION_DATOS',
 ] as const;
 export const tipoSchema = z.enum(tipos);
-export const estados = z.enum(['EN_PROCESO', 'APROBADA', 'RECHAZADA', 'ENTREGADA']);
+export const estados = z.enum(['EN_PROCESO', 'APROBADA', 'RECHAZADA', 'ENTREGADA', 'CANCELADA']);
 const expediente = crearEmpleadoSchema.innerType();
 export const contactoSchema = expediente
   .pick({

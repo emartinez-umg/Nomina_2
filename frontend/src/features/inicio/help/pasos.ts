@@ -1,6 +1,6 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaInicio: DefinicionAyuda = {
-  id: 'tableros-fase11',
+  id: 'tableros-v1-8',
   pasos: [
     {
       elemento: 'indicadores',
@@ -35,7 +35,7 @@ export const ayudaInicio: DefinicionAyuda = {
       titulo: 'Tu saldo y última boleta',
       roles: ['EMPLEADO'],
       descripcion:
-        'El saldo suma meses cumplidos con la tasa vigente y resta vacaciones previas y aprobadas. No anticipa meses futuros. Si falta historia o configuración, verás Por revisar y la indicación de RRHH. La última boleta corresponde exclusivamente a tu nómina cerrada más reciente; abre Boletas de pago para consultar o descargar su PDF.',
+        'Se muestran acumulados por meses completos, tomados/aprobados, disponibles decimales y solicitables enteros (redondeo hacia abajo). Cinco meses a 1.25 dan 6.25 disponibles y 6 solicitables. Abre Vacaciones para revisar previas, kardex o cancelar una aprobada antes de iniciar. No anticipa meses futuros. Si falta historia o configuración, verás Por revisar y la indicación de RRHH. La última boleta corresponde exclusivamente a tu nómina cerrada más reciente; abre Boletas de pago para consultar o descargar su PDF.',
     },
     {
       elemento: 'accesos',

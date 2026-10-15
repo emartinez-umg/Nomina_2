@@ -13,6 +13,11 @@ export const saldoSchema = z.object({
   empleado: z.string(),
   corte: z.string(),
   acumulado: z.string(),
+  tomados: z.string(),
+  previas: z.string(),
+  solicitables: z.number().int(),
+  mesesCompletos: z.number().int(),
+  tasaMensual: z.string(),
   saldoInicial: z.string(),
   movimientos: z.string(),
   disponible: z.string(),
@@ -22,6 +27,7 @@ export type Saldo = z.infer<typeof saldoSchema>;
 const comparacion = z.object({
   dias: z.string(),
   disponible: z.string().nullable(),
+  solicitables: z.number().int().nullable(),
   alcanza: z.boolean(),
   puedeAprobar: z.boolean(),
   bloqueo: z.string().nullable(),
@@ -38,6 +44,15 @@ export const filaSchema = comparacion.extend({
   saldoAlResolver: z.string().nullable(),
   estado: z.string(),
   motivo: z.string().nullable(),
+  saldo: saldoSchema.nullable(),
+  puedeCancelar: z.boolean(),
+  solicitadoPor: z.string().nullable(),
+  solicitadoEn: z.string(),
+  aprobadoPor: z.string().nullable(),
+  aprobadoEn: z.string().nullable(),
+  canceladoPor: z.string().nullable(),
+  canceladoEn: z.string().nullable(),
+  motivoCancelacion: z.string().nullable(),
 });
 export type Fila = z.infer<typeof filaSchema>;
 const rango = z.object({ inicio: z.string(), fin: z.string() });
@@ -88,6 +103,13 @@ export const resolver = (id: number, estado: string, motivo: string) =>
   solicitar(`/vacaciones/solicitudes/${id}/resolver`, z.object({ id: z.number() }), {
     method: 'POST',
     body: { estado, motivo, confirmado: true },
+  });
+export const detalle = (id: number, signal?: AbortSignal) =>
+  solicitar(`/vacaciones/solicitudes/${id}`, filaSchema, { signal });
+export const cancelar = (id: number, motivo: string) =>
+  solicitar(`/vacaciones/solicitudes/${id}/cancelar`, z.object({ id: z.number() }), {
+    method: 'POST',
+    body: { motivo, confirmado: true },
   });
 export const cargar = (id: string, body: unknown) =>
   solicitar(`/vacaciones/empleados/${id}/cargar`, saldoSchema, { method: 'POST', body });

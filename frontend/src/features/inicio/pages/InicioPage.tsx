@@ -142,6 +142,7 @@ export function InicioPage() {
   usePageHelp(ayudaInicio, usuario?.rol);
   const q = useQuery({
     queryKey: ['tablero', usuario?.rol],
+    refetchInterval: 60000,
     queryFn: ({ signal }) => consultar(usuario!.rol, signal),
     enabled: !!usuario,
   });
@@ -339,7 +340,8 @@ export function InicioPage() {
                       }
                       icono="calendario"
                       detalle={
-                        d.saldo.mensaje ?? 'Saldo acumulado hasta hoy, menos días utilizados'
+                        d.saldo.mensaje ??
+                        `Acumulados: ${d.saldo.acumulado} · Tomados/aprobados: ${d.saldo.tomados} · Solicitables: ${d.saldo.solicitables} días completos`
                       }
                     />
                     <Indicador

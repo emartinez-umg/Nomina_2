@@ -13,6 +13,7 @@ export const nombresEstado: Record<string, string> = {
   APROBADA: 'Aprobada',
   RECHAZADA: 'Rechazada',
   ENTREGADA: 'Entregada',
+  CANCELADA: 'Cancelada',
 };
 export const criticosSchema = z.object({
   nombres: z.string(),

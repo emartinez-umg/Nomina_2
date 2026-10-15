@@ -429,6 +429,119 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await empleado.close();
     await rh.close();
   });
+  test('FASE V1-8: solicitables enteros, revisión actual y cancelación con devolución', async ({
+    browser,
+  }) => {
+    const ec = await browser.newContext(),
+      rc = await browser.newContext();
+    const p = await ec.newPage(),
+      r = await rc.newPage();
+    await entrar(p, 'EMPLEADO');
+    await entrar(r, 'RH');
+    const saldo = (await (await p.request.get('/api/vacaciones/mi-saldo')).json()).data;
+    const token = (await (await r.request.get('/api/auth/csrf')).json()).data.csrfToken;
+    const quitar = Number(saldo.disponible) - 6.25;
+    expect(quitar).toBeGreaterThan(0);
+    expect(
+      (
+        await r.request.post(`/api/vacaciones/empleados/${saldo.idEmpleado}/cargar`, {
+          headers: { 'X-CSRF-Token': token },
+          data: {
+            tipo: 'TOMADAS',
+            dias: quitar.toFixed(2),
+            referencia: 'E2E_V18',
+            motivo: 'Vacaciones previas verificadas para prueba',
+            confirmado: true,
+          },
+        })
+      ).status(),
+    ).toBe(201);
+    await p.goto('/mis-gestiones/vacaciones');
+    await oferta(p);
+    const tarjeta = p.locator('[data-tour="vacaciones-saldo"]');
+    await expect(tarjeta.getByText('Disponibles').locator('..')).toContainText('6.25');
+    await expect(tarjeta.getByText('Solicitables', { exact: true }).locator('..')).toContainText(
+      '6 días',
+    );
+    const calendario = p.locator('.calendario');
+    await calendario.locator('.rdp-button_next').click();
+    const dia = (fecha: string) => calendario.locator('[data-day="' + fecha + '"] button').first();
+    await dia('2026-11-01').click();
+    await dia('2026-11-15').click();
+    await expect(p.getByText('10.00 días laborales', { exact: true })).toBeVisible();
+    await expect(p.getByRole('button', { name: 'Enviar solicitud', exact: true })).toBeDisabled();
+    await expect(
+      p.getByText(/Puedes solicitar 6 días completos/, { exact: false }).first(),
+    ).toBeVisible();
+    await p.getByRole('button', { name: 'Limpiar rango', exact: true }).click();
+    await dia('2026-11-02').click();
+    await dia('2026-11-09').click();
+    await expect(p.getByText('6.00 días laborales', { exact: true })).toBeVisible();
+    await p.getByRole('button', { name: 'Enviar solicitud', exact: true }).click();
+    await p.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(p.getByText('Solicitud enviada a RRHH.', { exact: true })).toBeVisible();
+    await r.goto('/vacaciones');
+    await oferta(r);
+    const fila = r
+      .getByRole('row')
+      .filter({ hasText: 'Persona E2E' })
+      .filter({ hasText: '02/11/2026' });
+    await fila.getByRole('button', { name: 'Aprobar', exact: true }).click();
+    let modal = r.locator('dialog[open]');
+    await expect(modal.getByText('Solicitables', { exact: true }).locator('..')).toContainText(
+      '6 días',
+    );
+    await tour(r, true);
+    await modal.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(
+      r.getByText('Vacaciones aprobadas; saldo actualizado.', { exact: true }),
+    ).toBeVisible();
+    await p.reload();
+    await oferta(p);
+    await expect(tarjeta.getByText('Disponibles').locator('..')).toContainText('0.25');
+    await expect(tarjeta.getByText('Solicitables', { exact: true }).locator('..')).toContainText(
+      '0 días',
+    );
+    const propia = p.getByRole('row').filter({ hasText: '02/11/2026' });
+    await propia.getByRole('button', { name: 'Cancelar vacaciones', exact: true }).click();
+    modal = p.locator('dialog[open]');
+    await modal.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(
+      modal.getByText('Explica el motivo con al menos 10 caracteres.', { exact: true }).first(),
+    ).toBeVisible();
+    await modal
+      .getByLabel('Motivo de cancelación', { exact: true })
+      .fill('Cambio de fechas solicitado por el empleado');
+    await tour(p, true);
+    await modal.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(
+      p.getByText('Vacaciones canceladas; días devueltos al saldo.', { exact: true }),
+    ).toBeVisible();
+    await expect(tarjeta.getByText('Disponibles').locator('..')).toContainText('6.25');
+    await propia.getByRole('button', { name: 'Ver solicitud', exact: true }).click();
+    await expect(p.locator('dialog[open]').getByText(/Cancelado por:/)).toBeVisible();
+    await expect(p.locator('dialog[open]').getByText(/Resuelto por:/)).toBeVisible();
+    await p
+      .locator('dialog[open]')
+      .getByRole('button', { name: 'Cerrar ventana', exact: true })
+      .click();
+    await p.setViewportSize({ width: 390, height: 844 });
+    await revisarUi(p);
+    await mkdir('tmp/pdfs', { recursive: true });
+    const avisos = p.getByRole('button', { name: 'Cerrar aviso', exact: true });
+    while (await avisos.count()) await avisos.first().click();
+    await p.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      window.scrollTo(0, 0);
+    });
+    await p.screenshot({
+      path: 'tmp/pdfs/vacaciones-v1-8-movil.png',
+      fullPage: true,
+      animations: 'disabled',
+    });
+    await ec.close();
+    await rc.close();
+  });
   test('cálculo, revisión, aprobación y cierre de una quincena', async ({ page }) => {
     await entrar(page, 'RH');
     await page.goto('/planilla');

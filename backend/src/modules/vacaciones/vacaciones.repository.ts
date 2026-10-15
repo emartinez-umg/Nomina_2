@@ -126,10 +126,17 @@ export interface Solicitud {
   saldoAlResolver: string | null;
   estado: string;
   motivo: string | null;
+  solicitadoPor: string | null;
+  solicitadoEn: string;
+  aprobadoPor: string | null;
+  aprobadoEn: string | null;
+  canceladoPor: string | null;
+  canceladoEn: string | null;
+  motivoCancelacion: string | null;
 }
-const select = `V.ID_VACACIONES_SOLICITUD "id",S.CODIGO "codigo",V.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",TO_CHAR(V.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(V.FECHA_FIN,'YYYY-MM-DD') "fin",${str('V.DIAS_SOLICITADOS')} "dias",${str('V.SALDO_AL_SOLICITAR')} "saldoAlSolicitar",${str('V.SALDO_AL_RESOLVER')} "saldoAlResolver",V.ESTADO "estado",V.MOTIVO_RECHAZO "motivo"`;
+const select = `V.ID_VACACIONES_SOLICITUD "id",S.CODIGO "codigo",V.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",TO_CHAR(V.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(V.FECHA_FIN,'YYYY-MM-DD') "fin",${str('V.DIAS_SOLICITADOS')} "dias",${str('V.SALDO_AL_SOLICITAR')} "saldoAlSolicitar",${str('V.SALDO_AL_RESOLVER')} "saldoAlResolver",V.ESTADO "estado",V.MOTIVO_RECHAZO "motivo",U.USUARIO "solicitadoPor",TO_CHAR(V.FECHA_CREACION,'YYYY-MM-DD HH24:MI:SS') "solicitadoEn",R.USUARIO "aprobadoPor",TO_CHAR(V.RESUELTO_EN,'YYYY-MM-DD HH24:MI:SS') "aprobadoEn",C.USUARIO "canceladoPor",TO_CHAR(V.CANCELADO_EN,'YYYY-MM-DD HH24:MI:SS') "canceladoEn",V.MOTIVO_CANCELACION "motivoCancelacion"`;
 const from =
-  'VACACIONES_SOLICITUDES V JOIN SOLICITUDES S ON S.ID_SOLICITUD=V.ID_SOLICITUD JOIN EMPLEADOS E ON E.ID_EMPLEADO=V.ID_EMPLEADO';
+  'VACACIONES_SOLICITUDES V JOIN SOLICITUDES S ON S.ID_SOLICITUD=V.ID_SOLICITUD JOIN EMPLEADOS E ON E.ID_EMPLEADO=V.ID_EMPLEADO LEFT JOIN USUARIOS U ON U.ID_USUARIO=V.CREADO_POR LEFT JOIN USUARIOS R ON R.ID_USUARIO=V.RESUELTO_POR LEFT JOIN USUARIOS C ON C.ID_USUARIO=V.CANCELADO_POR';
 export async function solicitud(c: Connection, id: number) {
   return (
     await c.execute<Solicitud>(
@@ -262,6 +269,36 @@ export async function resolver(
     { tramite, estado, actor, motivo: motivo || null },
   );
 }
+export async function consumoSolicitud(c: Connection, id: number) {
+  return (
+    await c.execute<{ dias: string }>(
+      `SELECT ${str('DIAS')} "dias" FROM VACACIONES_MOVIMIENTOS WHERE ID_VACACIONES_SOLICITUD=:id AND TIPO='DISFRUTE' AND CLAVE_ORIGEN=:clave AND ACTIVO=1`,
+      { id, clave: `SOLICITUD:${id}` },
+      opts,
+    )
+  ).rows?.[0]?.dias;
+}
+export async function cancelar(c: Connection, id: number, motivo: string, actor: number) {
+  await c.execute(
+    `UPDATE VACACIONES_SOLICITUDES SET ESTADO='CANCELADA',MOTIVO_CANCELACION=:motivo,CANCELADO_POR=:actor,CANCELADO_EN=CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE),MODIFICADO_POR=:actor WHERE ID_VACACIONES_SOLICITUD=:id`,
+    { id, motivo, actor },
+  );
+  const tramite = (
+    await c.execute<{ ID: number }>(
+      'SELECT ID_SOLICITUD ID FROM VACACIONES_SOLICITUDES WHERE ID_VACACIONES_SOLICITUD=:id',
+      { id },
+      opts,
+    )
+  ).rows![0]!.ID;
+  await c.execute(
+    "UPDATE SOLICITUDES SET ESTADO='CANCELADA',MODIFICADO_POR=:actor WHERE ID_SOLICITUD=:tramite",
+    { tramite, actor },
+  );
+  await c.execute(
+    "INSERT INTO SOLICITUD_HISTORIAL (ID_SOLICITUD,ESTADO_ANTERIOR,ESTADO_NUEVO,ID_USUARIO,MOTIVO,CREADO_POR) VALUES (:tramite,'APROBADA','CANCELADA',:actor,:motivo,:actor)",
+    { tramite, actor, motivo },
+  );
+}
 export async function notificar(
   c: Connection,
   e: Empleado,
@@ -291,7 +328,7 @@ export async function notificar(
         id,
         usuario,
         tipo: estado === 'EN_PROCESO' ? 'NUEVA_SOLICITUD' : 'CAMBIO_ESTADO',
-        titulo: `Vacaciones · ${estado === 'EN_PROCESO' ? 'Nueva solicitud' : estado === 'APROBADA' ? 'Aprobada' : 'Rechazada'}`,
+        titulo: `Vacaciones · ${estado === 'EN_PROCESO' ? 'Nueva solicitud' : estado === 'APROBADA' ? 'Aprobada' : estado === 'CANCELADA' ? 'Cancelada' : 'Rechazada'}`,
         mensaje,
         clave: `VACACIONES:${id}:${estado}`,
         actor,

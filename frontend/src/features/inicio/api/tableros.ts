@@ -56,7 +56,13 @@ export const empleadoSchema = z.object({
   rol: z.literal('EMPLEADO'),
   ahora: z.string(),
   nombre: z.string(),
-  saldo: z.object({ disponible: z.string().nullable(), mensaje: z.string().nullable() }),
+  saldo: z.object({
+    acumulado: z.string().nullable(),
+    tomados: z.string().nullable(),
+    disponible: z.string().nullable(),
+    solicitables: z.number().int().nullable(),
+    mensaje: z.string().nullable(),
+  }),
   ultimaBoleta: z
     .object({
       id: z.number(),

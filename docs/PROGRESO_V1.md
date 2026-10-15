@@ -728,3 +728,96 @@ Estado: completada el 15/10/2026. Rama `v1`, alcance A8.
 6. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`;
    `npm run db:verify`; `npm run verify:empleados`; `npm run verify:security`;
    `npm run verify:solicitudes`; `npm run verify:prestaciones`; `npm run test:e2e`.
+
+## FASE V1-8 — Vacaciones deterministas y solicitables enteros
+
+Estado: completada el 15/10/2026. Rama v1, alcance A9.
+
+### Hecho
+
+- Leídos AGENTS.md con adendo y PROGRESO_V1.md. Inicio con árbol limpio; V000–V025 intactas.
+- Servicio puro calcula acumulado por meses completos desde contratación y tasa mensual en Oracle
+  (referencia 1.25), tomados/aprobados netos de reversos, previas/ajustes, disponible decimal y
+  solicitables floor(disponible). Cinco meses = 6.25 y seis solicitables; egreso limita el corte.
+  Consultar/listar/valorar finiquito deja de materializar meses o auditar acumulaciones.
+- V026 conserva solicitudes, aprobadores, débitos, aperturas y snapshots v0; compensa diferencias
+  históricas mediante un AJUSTE MIGRACION_V1_8 para mantener el disponible al corte. Agrega
+  cancelador/fecha/motivo sin sobrescribir aprobación y habilita su transición en el historial.
+- Portal de vacaciones, Inicio y RRHH muestran los cuatro saldos. Actualización al abrir/enfocar,
+  cada minuto y tras operaciones. Kardex conserva respaldo histórico y movimientos explícitos.
+  Ver solicitud/Aprobar/Rechazar/Cancelar consultan nuevamente saldo y calendario.
+- Rango reutiliza diasLaboralesRango V1-6, asignaciones vigentes, descansos y feriados. Admite
+  descansos en los extremos; 1–15/11/2026 Lun–Vie = diez días. Enviar requiere días laborales
+  positivos ≤ solicitables. Semáforo/mensaje/tooltip y aprobación bloqueada en rojo.
+- Aprobar revalida calendario, saldo, traslapes, fechas, relación activa y periodos cerrados;
+  conserva solicitante/rango/días/aprobador/fecha y registra débito único, historial, aviso y auditoría.
+  Rechazar exige motivo y no descuenta.
+- Propietario/RH/ADMIN puede cancelar APROBADA antes del día de inicio, con motivo y confirmación.
+  Devuelve exactamente el débito original mediante REVERSO CANCELACION:id, aunque cambie el
+  calendario. Conserva aprobación; guarda cancelación, historial, aviso y auditoría en transacción.
+  Concurrencia/repetición no duplican devolución. Un periodo cerrado bloquea la cancelación.
+- GET detalle y POST cancelar con Zod estricto, propiedad/RBAC/CSRF. Frontend bloquea confirmación
+  durante carga/error/refresco/envío; motivos con borradores. Hints/ayuda por rol actualizados
+  (vacaciones-v1-8 y tableros-v1-8), incluyendo cancelación y decimales, fechas visibles dd/mm/aaaa.
+- README, VACACIONES, FRONTEND y ERD actualizados. verify:vacaciones se incorpora a verify:all;
+  conteos de migraciones de regresiones reflejan V026 sin editar SQL anteriores.
+
+### Decisiones y supuestos
+
+- A9 define acumulado como meses × tasa: se usa VACACIONES_ACUMULACION_MENSUAL vigente al corte,
+  sin hardcodear 1.25 ni sumar snapshots mensuales v0. Se actualiza a propósito la prueba v0 que
+  exigía materializar meses y sumar tasas históricas. Documentos y periodos cerrados siguen intactos.
+- Una apertura certificada se expresa como diferencia en previas/ajustes respecto al acumulado de
+  su fecha, manteniendo exactamente su disponible más meses posteriores. Un crédito certificado
+  puede mostrar previas/ajustes negativos. Si v0 no tenía tasas históricas ni apertura, no existía
+  un disponible verificable que preservar; ahora A9 lo obtiene con la tasa del corte.
+- Se permiten extremos no laborales para soportar rangos naturales como 1–15/11/2026; se rechaza
+  un rango sin trabajo. Feriados parciales siguen excluyendo el día entero como en v0.
+- Cancelar solo antes del día de inicio (inicio > hoy de Guatemala); se devuelve el débito guardado,
+  nunca un recálculo del calendario. Rechazadas/canceladas dejan de bloquear rangos.
+- Las consultas conservan los locks existentes compartidos con catálogos/periodos para consistencia.
+  No se cambia nómina, prestaciones A12 ni novedades A10.
+
+### Validación realizada
+
+- Lint, TypeScript strict (backend/frontend/E2E), builds y Prettier aprobados.
+- Unitarias con Node 20.20.2: 486 aprobadas (271 backend y 215 frontend); casos nuevos de cinco meses, piso/fracción,
+  meses incompletos/bisiestos, reversos, cancelación y rango obligatorio.
+- Oracle: migración de snapshots/débito/aprobación y apertura certificada, dos pruebas aprobadas.
+  db:verify V000–V026 desde cero: 62 tablas, restricciones/identities/FKs/índices, semillas repetibles
+  y cero objetos inválidos. Esquemas temporales retirados.
+- Regresión Oracle/Supertest: 79 aprobadas, con propiedad/CSRF, saldo insuficiente/traslapes,
+  revalidación de feriados al aprobar, devolución original, concurrencia y rollback de cancelación.
+- Veintidós E2E con API/Oracle reales aprobados (2.6 min), incluyendo matriz de páginas/roles,
+  ayuda, hints, teclado, 390 px y axe A/AA sin infracciones. El nuevo flujo prueba 10 días con
+  seis solicitables bloqueados, solicitud/aprobación de seis, saldo 0.25/0 solicitables, devolución
+  a 6.25/seis y conservación de aprobador/cancelador. Dos casos de vacaciones repetidos tras
+  mejorar la captura, ambos aprobados. Imagen móvil inspeccionada en tmp/pdfs/vacaciones-v1-8-movil.png.
+  Un selector de prueba ambiguo se acotó a texto exacto; no alteró la funcionalidad.
+- Regresión Oracle de prestaciones/finiquitos: diez aprobadas, incluido el saldo compartido.
+- Docker reconstruido con Node 20 y V026 aplicada. Antes/después dos empleados y cero solicitudes
+  de vacaciones; huella de solicitudes idéntica, volumen/credenciales conservados y cero objetos
+  inválidos. verify:infra aprobado para Oracle/API/nginx/React/rutas/assets/worker PDF.
+- Supertest requirió puertos locales fuera del sandbox. db:verify pasó con Node 24 local; el runner
+  tsImport de tsx presenta una resolución de módulo incompatible con Node 20 en este host.
+  Las suites Oracle/Supertest y E2E usan Node 20.20.2.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de V1-8. A10–A12 permanecen reservadas.
+
+### Cómo probar
+
+1. docker compose up --build; entrar como EMPLEADO a Vacaciones y como RH/ADMIN a Vacaciones.
+2. Comprobar acumulados/tomados/disponibles/solicitables; con cinco meses deben ser 6.25 y seis.
+   Revisar kardex, Inicio y detalle. La fracción permanece tras consumir días completos.
+3. Seleccionar 1–15/11/2026 con Lun–Vie: diez días sin feriados laborales; si solo hay seis
+   solicitables, Enviar queda bloqueado con explicación. Reducir rango a seis y solicitar.
+4. RH abre Aprobar: comprobar saldo/calendario actuales en verde. Cargar previas o cambiar un
+   feriado antes de aprobar debe revalidar y bloquear o ajustar días. Rechazar exige motivo.
+5. Aprobar, revisar débito/identidad/fecha; antes del inicio cancelar con motivo. Confirmar devuelve
+   exactamente el débito y conserva la aprobación. Repetir o cancelar el día de inicio se bloquea.
+6. npm run lint; npm run typecheck; npm test; npm run build; npm run format:check;
+   npm run db:verify; npm run verify:vacaciones; npm run verify:security;
+   npm run verify:prestaciones; npm run test:e2e -- --grep 'vacaciones|FASE V1-8';
+   npm run verify:infra. Oracle en esquemas temporales, en secuencia.
