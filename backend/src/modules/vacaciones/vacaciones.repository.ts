@@ -1,3 +1,4 @@
+import { distribucionHorarioSql } from '../../shared/horarios/horarios.repository.js';
 import oracledb from 'oracledb';
 import type { Connection } from 'oracledb';
 import { ErrorConflicto } from '../../shared/errors/errors.js';
@@ -79,7 +80,7 @@ export async function horarios(c: Connection, id: number) {
         dia: number;
         laborable: number;
       }>(
-        `SELECT E.ID_EMPLEADO_HORARIO "id",TO_CHAR(E.VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(E.VIGENTE_HASTA,'YYYY-MM-DD') "hasta",D.DIA_SEMANA "dia",D.LABORABLE "laborable" FROM EMPLEADO_HORARIO E JOIN HORARIO_DIAS D ON D.ID_HORARIO=E.ID_HORARIO AND D.ACTIVO=1 WHERE E.ID_EMPLEADO=:id AND E.ACTIVO=1 ORDER BY E.VIGENTE_DESDE,D.DIA_SEMANA`,
+        `SELECT DISTINCT E.ID_EMPLEADO_HORARIO "id",TO_CHAR(E.VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(E.VIGENTE_HASTA,'YYYY-MM-DD') "hasta",D.DIA_SEMANA "dia",D.LABORABLE "laborable" FROM EMPLEADO_HORARIO E JOIN (${distribucionHorarioSql}) D ON D.ID_HORARIO=E.ID_HORARIO AND D.ACTIVO=1 WHERE E.ID_EMPLEADO=:id AND E.ACTIVO=1 ORDER BY "desde","dia"`,
         { id },
         opts,
       )

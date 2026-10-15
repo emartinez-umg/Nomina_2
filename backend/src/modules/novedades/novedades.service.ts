@@ -1,3 +1,4 @@
+import { horasDiariasEnFecha } from '../../shared/horarios/horas.js';
 import { Decimal } from 'decimal.js';
 import { createHash } from 'node:crypto';
 import type { Connection } from 'oracledb';
@@ -106,7 +107,7 @@ async function valorar(
   c: Connection,
   d: { idEmpleado: number; fecha: string; jornada: string; horas: string },
 ) {
-  const p = await repo.parametrosHora(c, d.idEmpleado, d.fecha, d.jornada);
+  const p = await repo.parametrosHora(c, d.idEmpleado, d.fecha);
   const obtener = (codigo: string, unidad: string) => {
     const encontrados = p.parametros.filter((v) => v.CODIGO === codigo && v.UNIDAD === unidad);
     if (encontrados.length !== 1)
@@ -124,7 +125,7 @@ async function valorar(
     p.salario!,
     d.horas,
     obtener('SALARIO_DIAS_MES', 'DIAS'),
-    obtener(`JORNADA_${d.jornada}_HORAS`, 'HORAS'),
+    horasDiariasEnFecha(p.jornadas, d.fecha).toString(),
     obtener('HORAS_EXTRA_RECARGO_PORCENTAJE', 'PORCENTAJE'),
   );
 }

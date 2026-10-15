@@ -42,12 +42,18 @@ export function ayudaEmpleados(
         titulo: s.titulo,
         descripcion: [
           'Ingresa los nombres del DPI. DPI requiere 13 dígitos; NIT incluye verificador y teléfono 8 dígitos. El servidor comprueba unicidad, incluso frente a empleados egresados. El calendario impide fechas futuras y edades fuera de los parámetros vigentes.',
-          'Selecciona primero el departamento: puesto y jefatura deben pertenecer a él. Ingreso debe respetar la edad mínima y no superar 30 días futuros. Se conserva al editar porque inicia el historial. Cambiar horario exige fecha efectiva posterior a su último registro y al último cierre.',
+          'Selecciona primero el departamento: puesto y jefatura deben pertenecer a él. Ingreso debe respetar la edad mínima y no superar 30 días futuros. Se conserva al editar porque inicia el historial. Cambiar horario exige fecha efectiva posterior a su último registro y al último cierre. Crear horario personalizado abre un modal sin perder el expediente: agrega bloques con rangos/chips, horas en desplegables de 30 minutos y descanso de 30 o 60; revisa totales, jornada y límites vigentes. Al guardar se selecciona el nuevo horario. Cada formulario conserva su propio borrador.',
           'El salario es mensual en quetzales. Se crea su historial desde el ingreso. Revisa el aviso del mínimo legal parametrizado. Después del alta utiliza Cambiar salario en la ficha para conservar importe, fecha, motivo y actor de cada modificación.',
           'Registra una persona real de contacto, su parentesco y teléfono de 8 dígitos. El contacto principal se guarda junto al expediente en la misma transacción.',
           'Los datos bancarios son opcionales. Si completas alguno debes indicar banco, cuenta y tipo. Usa letras, números o guiones en la cuenta y verifica el número antes de guardar.',
         ][i]!,
       })),
+      {
+        elemento: 'empleado-crear-horario',
+        titulo: 'Crear un horario sin salir del expediente',
+        descripcion:
+          'Este botón abre el mismo constructor del catálogo en un modal. El código es automático. Selecciona rangos, ajusta los chips y elige horas/descanso de la lista. Revisa jornada, totales y avisos. Guardar crea el patrón y lo selecciona aquí; Cancelar conserva su borrador. Los datos del empleado se mantienen y se guardan después con su propia acción.',
+      },
       {
         elemento: 'empleado-usuario',
         titulo: 'Acceso al portal',
@@ -122,7 +128,10 @@ export function ayudaEmpleados(
       },
     ],
   };
-  return { id: `empleados-${pagina}`, pasos: pasos[pagina] };
+  return {
+    id: `empleados-${pagina}${pagina === 'formulario' ? '-v1-6' : ''}`,
+    pasos: pasos[pagina],
+  };
 }
 
 export function ayudaCambio(tipo: 'salario' | 'baja'): DefinicionAyuda {

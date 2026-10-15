@@ -115,10 +115,21 @@ describe('Motor quincenal: importes exactos y vigencias', () => {
   it.each([
     ['MIXTA', '214.29'],
     ['NOCTURNA', '250.00'],
-  ])('horas de jornada %s desde parámetros', (jornada, monto) => {
+  ])('horas de jornada %s desde el horario', (jornada, monto) => {
     const e = entradaPrueba();
+    e.jornadas = e.jornadas!.map((j) => ({ ...j, horas: jornada === 'MIXTA' ? '7' : '6' }));
     e.horas = [{ id: 1, fecha: '2026-01-06', horas: '10', jornada, estado: 'APROBADA' }];
     expect(linea(calcularNomina(e), 'HORAS_EXTRA')).toBe(monto);
+  });
+  it('valora horas extra con la duración efectiva del horario y promedio en descanso', () => {
+    const e = entradaPrueba();
+    e.jornadas = e.jornadas!.map((j) => ({ ...j, horas: '4' }));
+    e.horas = [{ id: 1, fecha: '2026-01-06', horas: '2', jornada: 'NOCTURNA', estado: 'APROBADA' }];
+    expect(linea(calcularNomina(e), 'HORAS_EXTRA')).toBe('75.00');
+    e.horas[0]!.fecha = '2026-01-11';
+    expect(linea(calcularNomina(e), 'HORAS_EXTRA')).toBe('75.00');
+    e.jornadas = [];
+    expect(() => calcularNomina(e)).toThrow(/horario vigente/);
   });
   it('comisión afecta bases conforme a banderas de BD', () => {
     const e = entradaPrueba();

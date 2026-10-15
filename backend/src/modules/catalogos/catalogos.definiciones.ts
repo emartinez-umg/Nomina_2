@@ -1,3 +1,4 @@
+import type { BloqueHorario } from '../../shared/horarios/modelo.js';
 export type TipoCampo =
   | 'nit'
   | 'correo'
@@ -247,7 +248,7 @@ export const catalogos: Catalogo[] = [
         'JORNADA',
         'Tipo de jornada',
         'opcion',
-        'Jornada del patrón semanal; configura cada día por separado.',
+        'Se calcula automáticamente a partir de las horas de los bloques.',
         { requerido: true, opciones: ['DIURNA', 'MIXTA', 'NOCTURNA'] },
       ),
       descripcion,
@@ -432,5 +433,8 @@ export interface DiaHorario {
   cruzaMedianoche: boolean;
   minutosDescanso: number;
 }
-export type DatosCatalogo = Record<string, string | number | boolean | null | DiaHorario[]>;
+export type DatosCatalogo = Record<
+  string,
+  string | number | boolean | null | DiaHorario[] | BloqueHorario[]
+>;
 export type FilaCatalogo = DatosCatalogo & { id: number; activo: boolean; enUso: boolean };

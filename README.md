@@ -246,3 +246,12 @@ Las constancias de salario conservan su PDF y aprobación en una tabla privada.
 desechable; `npm run verify:solicitudes` cubre firma/entrega/reemisión y `npm run test:e2e -- --grep
 'FASE V1-5'` comprueba configuración, borrador, logo, móvil y entrega con API/Oracle reales.
 La utilidad de credenciales solo trabaja en memoria y queda lista para V1-7, sin endpoint nuevo.
+
+### Horarios por bloques (V1-6)
+
+En **Organización → Horarios**, crea o duplica un patrón con rangos/chips y horas en desplegables.
+El sistema calcula jornada, horas diarias/semanales y descansos; aplica los límites vigentes en
+Parámetros legales. Desde **Empleados**, Crear horario personalizado abre el mismo constructor
+sin perder el expediente. Vacaciones excluye descansos/feriados y horas extra usa las horas efectivas.
+`docker compose up --build` aplica V024 conservando los tiempos y asignaciones anteriores.
+Pruebas específicas: `npm run verify:horarios` y `npm run test:e2e -- --grep 'FASE V1-6'`.

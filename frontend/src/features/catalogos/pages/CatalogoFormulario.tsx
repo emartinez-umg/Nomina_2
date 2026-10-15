@@ -4,12 +4,13 @@ import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Catalogo, Fila } from '../api/catalogos';
-import { guardar } from '../api/catalogos';
-import { valoresIniciales, schemaFormulario, cuerpo } from '../api/validacion';
+import { guardar, restricciones } from '../api/catalogos';
+import { valoresIniciales, schemaFormulario, cuerpo, bloquesDesdeJson } from '../api/validacion';
 import { CampoEditor } from './CampoEditor';
-import { HorarioEditor } from './HorarioEditor';
+import { ConstructorHorario } from '../../horarios/ConstructorHorario';
+import type { BloqueHorario } from '../api/catalogos';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { FormErrorSummary, TextAreaField, UbicacionSelect } from '../../../components/forms';
@@ -48,17 +49,31 @@ export function CatalogoFormulario({
   actual,
   cierre,
   onCerrar,
+  duplicar = false,
+  onGuardado,
 }: {
   cat: Catalogo;
   actual?: Fila | undefined;
   cierre: string | null;
   onCerrar: () => void;
+  duplicar?: boolean;
+  onGuardado?: (fila: Fila) => void;
 }) {
   const cliente = useQueryClient();
   const toast = useToast();
   const [revision, setRevision] = useState<Record<string, string> | null>(null);
   const [motivoError, setMotivoError] = useState<string>();
-  const resolver = useMemo(() => zodResolver(schemaFormulario(cat, cierre)), [cat, cierre]);
+  const reglasHorario = useQuery({
+    queryKey: ['catalogos', 'restricciones'],
+    queryFn: ({ signal }) => restricciones(signal),
+    enabled: cat.slug === 'horarios',
+  });
+  const limites = reglasHorario.data?.limitesHorario ?? null;
+  const anteriores = !duplicar ? (actual?.bloques as BloqueHorario[] | undefined) : undefined;
+  const resolver = useMemo(
+    () => zodResolver(schemaFormulario(cat, cierre, limites, anteriores)),
+    [cat, cierre, limites, anteriores],
+  );
   const form = useForm<Record<string, string>>({
     resolver,
     mode: 'onBlur',
@@ -70,9 +85,9 @@ export function CatalogoFormulario({
     setError,
     formState: { errors },
   } = form;
-  const draft = useFormDraft(`catalogo-${cat.slug}`, actual?.id, {
+  const draft = useFormDraft(`catalogo-${cat.slug}${duplicar ? '-duplicado' : ''}`, actual?.id, {
     form,
-    version: cat.slug === 'centros-trabajo' ? 3 : 2,
+    version: cat.slug === 'horarios' ? 4 : cat.slug === 'centros-trabajo' ? 3 : 2,
     alDescartar: () => {
       setRevision(null);
       setMotivoError(undefined);
@@ -94,16 +109,18 @@ export function CatalogoFormulario({
           ...cuerpo(cat, datos),
           ...(cat.legal ? { motivo: motivo.trim(), confirmado: true } : {}),
         },
-        actual?.id,
+        duplicar ? undefined : actual?.id,
       ),
-    onSuccess: () => {
+    onSuccess: (fila) => {
       draft.limpiar();
       void cliente.invalidateQueries({ queryKey: ['catalogos'] });
+      void cliente.invalidateQueries({ queryKey: ['empleados', 'opciones'] });
+      onGuardado?.(fila);
       toast('Registro guardado y auditado.');
       onCerrar();
     },
     onError: (e) => {
-      mapearErrores(e, setError, [...cat.campos.map((f) => f.nombre), 'dias']);
+      mapearErrores(e, setError, [...cat.campos.map((f) => f.nombre), 'bloques']);
       setRevision(null);
     },
   });
@@ -112,7 +129,11 @@ export function CatalogoFormulario({
   };
   return (
     <>
-      <Modal abierto titulo={`${actual ? 'Editar' : 'Crear'} · ${cat.titulo}`} onCerrar={cerrar}>
+      <Modal
+        abierto
+        titulo={`${duplicar ? 'Duplicar' : actual ? 'Editar' : 'Crear'} · ${cat.titulo}`}
+        onCerrar={cerrar}
+      >
         <form
           noValidate
           className="catalogo-formulario"
@@ -137,7 +158,7 @@ export function CatalogoFormulario({
                 : 'Aún no hay periodos cerrados.'}
             </p>
           )}
-          {actual?.enUso && cat.slug === 'horarios' && (
+          {actual?.enUso && !duplicar && cat.slug === 'horarios' && (
             <p className="alerta">
               El patrón está asignado. Para cambiar días o jornada crea un nuevo horario.
             </p>
@@ -147,8 +168,9 @@ export function CatalogoFormulario({
             {cat.campos
               .filter(
                 (f) =>
-                  cat.slug !== 'centros-trabajo' ||
-                  !['idDepartamentoGt', 'idMunicipioGt'].includes(f.nombre),
+                  (cat.slug !== 'centros-trabajo' ||
+                    !['idDepartamentoGt', 'idMunicipioGt'].includes(f.nombre)) &&
+                  (cat.slug !== 'horarios' || f.nombre !== 'jornada'),
               )
               .map((f) => (
                 <div
@@ -175,7 +197,7 @@ export function CatalogoFormulario({
                     <CampoCodigo
                       entidad={cat.slug}
                       palabra={form.watch('nombre')}
-                      codigo={actual?.codigo ? String(actual.codigo) : undefined}
+                      codigo={!duplicar && actual?.codigo ? String(actual.codigo) : undefined}
                     />
                   ) : (
                     <Controller
@@ -202,7 +224,12 @@ export function CatalogoFormulario({
                               cat.legal &&
                               ['codigo', 'unidad', 'limiteInferior'].includes(f.nombre)
                             ) ||
-                            !!(actual?.enUso && cat.slug === 'horarios' && f.nombre === 'jornada')
+                            !!(
+                              actual?.enUso &&
+                              !duplicar &&
+                              cat.slug === 'horarios' &&
+                              f.nombre === 'jornada'
+                            )
                           }
                           minFecha={
                             f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
@@ -280,13 +307,16 @@ export function CatalogoFormulario({
             {cat.slug === 'horarios' && (
               <Controller
                 control={control}
-                name="dias"
+                name="bloques"
                 render={({ field }) => (
-                  <HorarioEditor
-                    value={field.value ?? '[]'}
-                    onChange={field.onChange}
-                    disabled={mutation.isPending || !!actual?.enUso}
-                    error={errors.dias?.message}
+                  <ConstructorHorario
+                    value={bloquesDesdeJson(field.value ?? '[]')}
+                    onChange={(bloques) => {
+                      field.onChange(JSON.stringify(bloques));
+                      void form.trigger('bloques');
+                    }}
+                    disabled={mutation.isPending || (!!actual?.enUso && !duplicar)}
+                    error={errors.bloques?.message}
                   />
                 )}
               />

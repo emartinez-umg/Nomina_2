@@ -2,7 +2,7 @@ import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 import type { Catalogo } from '../api/catalogos';
 export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyuda {
   return {
-    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}${cat.slug === 'centros-trabajo' ? '-v1-4' : ''}`,
+    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}${cat.slug === 'centros-trabajo' ? '-v1-4' : cat.slug === 'horarios' ? '-v1-6' : ''}`,
     pasos: formulario
       ? [
           {
@@ -33,10 +33,20 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
           ...(cat.slug === 'horarios'
             ? [
                 {
-                  elemento: 'horario-dias',
-                  titulo: 'Cada día tiene su propia distribución',
+                  elemento: 'horario-bloques',
+                  titulo: 'Bloques, rangos y días de descanso',
                   descripcion:
-                    'Selecciona los días laborables y captura sus horas de 24 horas. Entrada y salida pueden variar entre lunes y viernes. El descanso se resta de la duración; para una salida al día siguiente activa Cruza medianoche. Debe existir al menos un día laborable. Un horario ya asignado conserva su patrón: crea otro para cambiarlo.',
+                    'Agrega un bloque por cada grupo que comparte horas. Usa Lun–Vie, Lun–Sáb, Lun–Dom o Fin de semana y ajusta los chips con Personalizado. Elige entrada/salida de media en media hora y descanso de 30 o 60 minutos; no se escribe la hora. Para salir al día siguiente activa Cruza medianoche. Se revisan solapes con el día siguiente y de domingo a lunes. Los días sin bloques son descansos y no consumen vacaciones. El borrador conserva todos los bloques. Un horario asignado se conserva: usa Duplicar en el listado y asigna el nuevo con fecha efectiva.',
+                },
+              ]
+            : []),
+          ...(cat.slug === 'horarios'
+            ? [
+                {
+                  elemento: 'horario-totales',
+                  titulo: 'Horas y jornada calculadas',
+                  descripcion:
+                    'Se suman las horas efectivas diarias y semanales y se detecta jornada diurna, mixta o nocturna a partir de las franjas. Los límites diarios y semanales se leen de Parámetros legales vigentes; los errores explican qué día o bloque debes reducir. El servidor los valida otra vez y asigna el código automático. Horarios históricos conservan sus minutos originales.',
                 },
               ]
             : []),
@@ -71,7 +81,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             elemento: 'catalogo-tabla',
             titulo: 'Orden, páginas y acciones',
             descripcion:
-              'Los encabezados ordenan todas las filas desde el servidor. Anterior y Siguiente cambian de página. Ver muestra el detalle, Editar abre el formulario y Desactivar conserva el historial. Eliminar se bloquea cuando existen referencias; en ese caso usa Desactivar.',
+              'Los encabezados ordenan todas las filas desde el servidor. Anterior y Siguiente cambian de página. Ver muestra el detalle, Editar abre el formulario y Desactivar conserva el historial. En horarios, Duplicar copia los bloques a un alta con código nuevo; revisa nombre y distribución antes de guardar. Eliminar se bloquea cuando existen referencias; en ese caso usa Desactivar.',
           },
           {
             elemento: 'catalogo-exportar',

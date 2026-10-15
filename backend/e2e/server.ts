@@ -87,16 +87,14 @@ await enTransaccion(db, async (c) => {
     ),
     horario = await scalar("SELECT ID_HORARIO FROM HORARIOS WHERE CODIGO_ANTERIOR='E2E'"),
     contrato = await scalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO');
-  for (let dia = 1; dia <= 7; dia++)
+  await c.execute(
+    'INSERT INTO HORARIO_BLOQUES(ID_HORARIO,MINUTO_ENTRADA,MINUTO_SALIDA,MINUTOS_DESCANSO) VALUES(:id,480,1020,60)',
+    { id: horario },
+  );
+  for (let dia = 1; dia <= 5; dia++)
     await c.execute(
-      'INSERT INTO HORARIO_DIAS (ID_HORARIO,DIA_SEMANA,LABORABLE,MINUTO_ENTRADA,MINUTO_SALIDA) VALUES (:id,:dia,:laborable,:entrada,:salida)',
-      {
-        id: horario,
-        dia,
-        laborable: dia <= 5 ? 1 : 0,
-        entrada: dia <= 5 ? 480 : null,
-        salida: dia <= 5 ? 960 : null,
-      },
+      'INSERT INTO HORARIO_BLOQUE_DIAS(ID_HORARIO_BLOQUE,DIA_SEMANA) SELECT ID_HORARIO_BLOQUE,:dia FROM HORARIO_BLOQUES WHERE ID_HORARIO=:id',
+      { id: horario, dia },
     );
   await c.execute(
     "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,TELEFONO,CORREO) VALUES ('Empresa E2E','1234567-9','Dirección E2E','55551234','empresa@example.test')",

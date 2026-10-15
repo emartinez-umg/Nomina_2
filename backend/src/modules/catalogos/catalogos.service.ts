@@ -1,3 +1,5 @@
+import { analizarHorario, normalizarBloques } from '../../shared/horarios/modelo.js';
+import type { BloqueHorario } from '../../shared/horarios/modelo.js';
 import { municipio } from '../ubicaciones/ubicaciones.repository.js';
 import { limpiarPalabra } from '../codigos/codigos.generador.js';
 import type { Connection } from 'oracledb';
@@ -65,20 +67,30 @@ export function crearCatalogosService(db: BaseDatos) {
       if (f.referencia === 'empleados' && ref?.DEPARTAMENTO !== d.idDepartamento)
         conflicto(f.nombre, 'El jefe responsable debe pertenecer al departamento seleccionado.');
     }
-    if (
-      cat.slug === 'horarios' &&
-      antes?.enUso &&
-      JSON.stringify(antes.dias) !== JSON.stringify(d.dias)
-    )
-      conflicto(
-        'dias',
-        'Este horario tiene asignaciones. Crea otro patrón para conservar el historial de los empleados.',
-      );
-    if (cat.slug === 'horarios' && antes?.enUso && antes.jornada !== d.jornada)
-      conflicto(
-        'jornada',
-        'Este horario tiene asignaciones. Crea otro patrón con la nueva jornada.',
-      );
+    if (cat.slug === 'horarios') {
+      const bloques = d.bloques as BloqueHorario[];
+      const iguales =
+        antes &&
+        JSON.stringify(normalizarBloques(antes.bloques as BloqueHorario[])) ===
+          JSON.stringify(normalizarBloques(bloques));
+      if (antes?.enUso && !iguales)
+        conflicto(
+          'bloques',
+          'Este horario tiene asignaciones. Duplícalo para conservar el historial de los empleados.',
+        );
+      if (iguales) d.jornada = antes!.jornada ?? analizarHorario(bloques, undefined, false).jornada;
+      else {
+        const limites = await repository.limitesHorario(c);
+        if (!limites)
+          conflicto(
+            'bloques',
+            'Configura una vigencia única de los límites diarios y semanales de las tres jornadas en Parámetros legales.',
+          );
+        const resultado = analizarHorario(bloques, limites!);
+        if (resultado.errores.length) conflicto('bloques', resultado.errores.join(' '));
+        d.jornada = resultado.jornada;
+      }
+    }
     if (cat.slug === 'feriados' && (await repository.conflictoFeriado(c, d, id)))
       conflicto(
         'fecha',
@@ -90,6 +102,8 @@ export function crearCatalogosService(db: BaseDatos) {
       const max = clave.endsWith('_DIA') ? 31 : clave.endsWith('_MES') ? 12 : null;
       if (max !== null && (!Number.isInteger(valor) || valor < 1 || valor > max))
         conflicto('valor', `Ingresa un entero entre 1 y ${max} para esta posición del calendario.`);
+      if (/^JORNADA_.*_HORAS_SEMANA$/.test(clave) && (valor <= 0 || valor > 168))
+        conflicto('valor', 'Las horas semanales deben superar 0 y no exceder 168.');
       if (/^JORNADA_.*_HORAS$/.test(clave) && (valor <= 0 || valor > 24))
         conflicto('valor', 'La duración de una jornada debe superar 0 y no exceder 24 horas.');
     }
@@ -171,7 +185,10 @@ export function crearCatalogosService(db: BaseDatos) {
       pagina: number,
     ) => db.conConexion((c) => repository.opcionesReferencia(c, ref, buscar, pagina)),
     restricciones: () =>
-      db.conConexion(async (c) => ({ ultimoCierre: await repository.ultimoCierre(c) })),
+      db.conConexion(async (c) => ({
+        ultimoCierre: await repository.ultimoCierre(c),
+        limitesHorario: await repository.limitesHorario(c),
+      })),
     guardar: (auth: Autenticacion, ip: string, cat: Catalogo, d: DatosCatalogo, id?: number) =>
       transaccion(auth, cat, async (c, actor) => {
         const antes = id ? await buscar(c, cat, id) : null;
@@ -244,7 +261,7 @@ export function crearCatalogosService(db: BaseDatos) {
             if (cat.slug === 'tramos-isr' && (await repository.conflictosTramos(c, antes, id)))
               conflicto('limiteSuperior', 'La activación traslaparía otro tramo vigente.');
           }
-        } else if (activo) await validar(c, cat, antes, id, null);
+        } else if (activo) await validar(c, cat, antes, id, cat.slug === 'horarios' ? antes : null);
         await repository.cambiarEstado(c, cat, id, activo, actor.idUsuario);
         const despues = await buscar(c, cat, id);
         await registrarAuditoria(c, {

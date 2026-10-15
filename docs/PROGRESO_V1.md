@@ -516,3 +516,111 @@ Estado: completada el 14/10/2026. Rama `v1`, alcance A6 solicitado.
    `npm run db:verify`; `npm run verify:empresa`; `npm run verify:solicitudes`;
    `npm run verify:prestaciones`; `npm run verify:security`; `npm run test:e2e`;
    `npm run verify:infra`.
+
+## FASE V1-6 — Horarios por bloques y rangos
+
+Estado: completada el 15/10/2026. Rama `v1`, alcance A7 solicitado.
+
+### Hecho
+
+- Releídos AGENTS.md con adendo y progreso v1. V000–V023 intactas; no se adelantaron A8–A12.
+- V024 crea HORARIO_BLOQUES/HORARIO_BLOQUE_DIAS con identities ALWAYS, auditoría, CHECK,
+  UNIQUE bloque/día e índices. Agrupa los días v0 con entrada/salida/descanso/cruce idénticos;
+  conserva todos sus minutos exactos, incluso horarios inactivos, y la jornada histórica.
+  HORARIO_DIAS queda como archivo; asignaciones, códigos y snapshots no se modifican.
+- Catálogo de horarios con ConstructorHorario reutilizable: varios bloques, atajos Lun–Vie,
+  Lun–Sáb, Lun–Dom, Fin de semana y Personalizado, chips accesibles y duplicación de patrones.
+  Entrada/salida usan 48 opciones de 30 en 30 minutos; descanso 30/60 y cruce explícito.
+  Ninguna hora nueva se escribe como texto libre. Código automático existente de V1-3.
+- Cálculos compartidos de horas efectivas por bloque/día, semana, jornada y descansos.
+  La API deriva jornada y valida límites diarios acumulados/semanales vigentes en Oracle;
+  V024 añade límites semanales iniciales 44/42/36, conservando parámetros diarios existentes.
+  Rechaza solapes del mismo día, día siguiente y domingo→lunes, días repetidos y bloques vacíos.
+- Patrones asignados siguen siendo inmutables. Duplicar crea un alta con código propio;
+  Empleados permite elegirla con fecha efectiva. Metadatos históricos conservan tiempos/jornada.
+- CrearHorarioModal incorpora el mismo formulario desde nuevo/edición de empleado, con ayuda
+  propia. Guardar selecciona el ID real y refresca opciones sin enviar ni perder el expediente.
+- RHF/borrador de horarios versión 4, clave separada de duplicación, recuperación explícita,
+  descarte confirmado y limpieza tras éxito. JSON inválido no rompe el constructor.
+  Hints, resumen de errores, estados de carga/error y recorridos actualizados, incluido empleado
+  y horas extra; opciones/horas y límites se consultan en API real.
+- `diasLaboralesRango` centraliza calendario por asignación vigente, descansos y feriados;
+  vacaciones usa esa función y conserva el alias anterior para regresiones. Días de varios
+  bloques se deduplican. Nómina/IGSS leen las horas efectivas sumadas del nuevo modelo.
+- `jornadasEmpleado` y `horasDiariasEnFecha` se comparten entre vista previa/alta/detalle de
+  horas extra y planilla. El valor hora deja de depender de la etiqueta manual de jornada.
+  Divisor mensual/recargo permanecen parametrizados; dinero se calcula con Decimal.
+- README, CATALOGOS, FRONTEND, ERD y manifiesto de filtros actualizados. verify:horarios se
+  incorpora a verify:all. Se retiró el editor anterior que configuraba días con hora libre.
+
+### Validación realizada
+
+- Lint, TypeScript strict (backend/frontend/E2E), builds y formato aprobados.
+  459 unitarias: 254 backend y 205 frontend. Diez casos backend nuevos cubren cálculo,
+  clasificación, límites variables, bloques acumulados, solapes nocturnos, integridad del rango,
+  descansos entre semana, sábado, feriado y horas extra del patrón. Cuatro casos frontend cubren
+  desplegables cerrados/chips/teclado, errores/nocturno, restauración/limpieza y duplicado asignado.
+- Conservados los resultados de vacaciones existentes; del 1 al 15/11/2026 Lun–Vie son 10 días;
+  Lun–Sáb son 12 y con feriado laboral dentro del rango son 11. Regresión de cambios de vigencia
+  y huecos sigue vigente. Horas extra con 4 horas diarias y salario Q3,000: 2 horas = Q75.00.
+- Seis pruebas Oracle/Supertest de horarios aprobadas: migración exacta/idempotencia, código,
+  jornada derivada, CSRF/acceso, validación de minutos/límites/solapes, parámetros vigentes,
+  sábado/descanso/filtros, calendario real, preview de horas extra, patrón asignado y duplicación.
+  Un trigger de fallo verifica rollback de entidad, bloques, días y reserva de código/auditoría.
+- Regresión Oracle de seguridad/catálogos/empleados/novedades/vacaciones/nómina: 72 casos;
+  prestaciones/finiquitos/constancias: diez. db:verify V000–V024 desde cero aprobado: 61 tablas,
+  objetos válidos, seeds repetibles, auditoría, FKs/índices y restricciones. Esquemas retirados.
+- Veinte E2E cubiertos con API/Oracle reales: 19 pasaron en la regresión completa; tras corregir
+  el rol ARIA de la lista de errores, matriz completa + V1-6 pasaron nuevamente (dos casos).
+  Incluye alta/borrador/duplicado, modal desde empleado conservando datos/selección, ayuda,
+  axe A/AA, teclado, 390 px y ausencia de desbordamiento del documento y del modal.
+- Capturas del constructor en escritorio y móvil inspeccionadas en tmp/pdfs/horarios-*.png,
+  ignoradas por Git. Se reutilizan los tokens extraídos del mockup.
+- Docker reconstruido con Node 20.20.2, V024 aplicada y verify:infra aprobado. Antes/después:
+  dos empleados, un horario y dos asignaciones; huella SHA-256 de distribución idéntica.
+  Cero objetos inválidos. Volumen y credenciales conservados; sin datos de prueba en aplicación.
+
+### Decisiones y supuestos
+
+- Un turno nocturno pertenece al día de entrada para vacaciones y horas diarias, como en v0;
+  el solape sí comprueba su ocupación en el día siguiente y la transición de semana.
+- La clasificación diurna/nocturna/mixta sigue las franjas 06:00–18:00 y su complemento de A7.
+  El descanso no tiene hora de inicio: se resta del total y no divide la ocupación del bloque.
+- En horas extra durante un descanso se usa el promedio de horas diarias de los días laborables
+  del patrón vigente. No se inventa una jornada nominal si falta asignación: la API lo bloquea.
+- Un histórico puede conservar valores fuera de los nuevos pasos sin redondearlos. Editar solo
+  metadatos los conserva; nuevos patrones/duplicados requieren horas 30 en 30 y descanso 30/60.
+- Fixtures HTTP cambian de `dias` a `bloques`; su viernes usa ahora descanso de 30 minutos.
+  La expectativa antigua de cambiar monto al seleccionar MIXTA se actualizó: con el mismo horario
+  de 8 horas se mantiene Q62.50. Las pruebas financieras de 7/6 horas conservan importes usando
+  patrones efectivos de esa duración, y se añadió duración de 4 horas en unitarias/Oracle.
+- Se evitó exigir CREATE VIEW: la distribución es SQL estático compartido entre repositories,
+  con binds, usando los privilegios actuales del usuario de aplicación.
+- Incidencias resueltas: DISTINCT ordena alias seleccionados en Oracle; la ayuda E2E se acota
+  al diálogo activo y espera su apertura. La lista de errores mantiene UL/LI dentro de ALERT.
+  Docker se quedó sin disco durante regresiones; se liberaron 489.1 MB exclusivamente de caché
+  de compilación sin uso de más de 24 h y se repitieron las suites afectadas en secuencia.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de V1-6.
+- RH valida/ajusta límites operativos por vigencia antes del uso real, como en fases previas.
+  A8–A12 quedan reservadas para sus fases; no se cambió periodicidad ni acumulación de vacaciones.
+
+### Cómo probar
+
+1. `docker compose up --build`; ingresar como RH/ADMIN a Organización → Horarios.
+2. Crear: agregar bloque Lun–Vie 08:00–17:00/60; agregar Sábado 08:00–12:30/30.
+   Comprobar 8/4 horas por bloque, 44 semanales, jornada diurna y descanso Domingo.
+3. Probar chips Personalizado, nocturno 22:00–05:00/60 con cruce; solape con el día siguiente
+   y domingo→lunes. Exceder límites muestra explicación y el servidor también lo rechaza.
+4. Esperar Borrador guardado, cancelar/reabrir y Continuar; guardar elimina el borrador.
+   Duplicar un horario, revisar nombre/rangos y comprobar código nuevo. Asignados no se editan.
+5. En Empleados nuevo/edición usar Crear horario personalizado; guardar selecciona el horario
+   conservando el expediente. Asignar con la fecha efectiva solicitada y probar vacaciones con
+   descansos entre semana/sábado/feriado. Vista previa de horas extra usa su duración efectiva.
+6. Repetir Ayuda en catálogo/modal/empleado/horas extra; probar teclado y móvil.
+7. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:horarios`; `npm run verify:security`;
+   `npm run verify:prestaciones`; `npm run test:e2e -- --grep 'FASE V1-6'`;
+   `npm run verify:infra`. Las suites Oracle usan esquemas temporales y conviene correrlas en secuencia.

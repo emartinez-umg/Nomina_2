@@ -6,25 +6,25 @@ Las pantallas consultan Oracle; no contienen datos de ejemplo.
 
 ## Catálogos disponibles
 
-| Ruta `/catalogos/…`  | Datos                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `departamentos`      | Código, nombre, descripción y estado.                                               |
-| `centros-trabajo`    | Código automático, nombre, departamento y municipio del INE, dirección y estado.    |
-| `puestos`            | Departamento, rango salarial referencial opcional y datos generales.                |
-| `jefaturas`          | Unidad, departamento y empleado responsable del mismo departamento.                 |
-| `horarios`           | Jornada y siete días independientes, con entrada/salida, descanso y cruce nocturno. |
-| `feriados`           | Calendario anual, fechas efectiva/nominal, ámbito, localidad, franja y fundamento.  |
-| `tipos-ausencia`     | Efecto con goce, sin goce o subsidio IGSS.                                          |
-| `tipos-descuento`    | Catálogo existente, incluyendo parqueo y consumo en tienda.                         |
-| `tipos-contrato`     | Indica si exige fecha de fin.                                                       |
-| `parametros-legales` | Valores, unidades, fundamento e historial de vigencias.                             |
-| `tramos-isr`         | Límites de renta, tasa, cuota fija e historial de vigencias.                        |
+| Ruta `/catalogos/…`  | Datos                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `departamentos`      | Código, nombre, descripción y estado.                                              |
+| `centros-trabajo`    | Código automático, nombre, departamento y municipio del INE, dirección y estado.   |
+| `puestos`            | Departamento, rango salarial referencial opcional y datos generales.               |
+| `jefaturas`          | Unidad, departamento y empleado responsable del mismo departamento.                |
+| `horarios`           | Bloques por rangos/chips, horas y descanso en desplegables; jornada calculada.     |
+| `feriados`           | Calendario anual, fechas efectiva/nominal, ámbito, localidad, franja y fundamento. |
+| `tipos-ausencia`     | Efecto con goce, sin goce o subsidio IGSS.                                         |
+| `tipos-descuento`    | Catálogo existente, incluyendo parqueo y consumo en tienda.                        |
+| `tipos-contrato`     | Indica si exige fecha de fin.                                                      |
+| `parametros-legales` | Valores, unidades, fundamento e historial de vigencias.                            |
+| `tramos-isr`         | Límites de renta, tasa, cuota fija e historial de vigencias.                       |
 
 Los rangos salariales no cambian el salario de ningún empleado. Jefaturas permite dejar pendiente
 el responsable hasta disponer de empleados reales; no se adelanta su CRUD de fase 5.
 Las horas efectivas se derivan de la salida menos entrada menos descanso, con cruce opcional de
-medianoche. El detalle conserva siete días y los horarios pueden variar entre lunes y viernes.
-Un patrón asignado conserva días/jornada; se crea otro para cambiar las asignaciones futuras.
+medianoche. Cada bloque comparte horas entre varios días y los días sin bloque son descansos.
+Un patrón asignado conserva su distribución; Duplicar crea otro para las asignaciones futuras.
 
 ## API
 
@@ -158,3 +158,21 @@ tres roles conocer si se puede emitir PDF, sin entregar datos ni logo al emplead
 El antiguo CRUD de empresa sigue disponible para consultas compatibles; las mutaciones explican
 que debe usarse Configuración de empresa. FORMATO_IGSS permanece separado de la identidad visual.
 La firma procede del expediente/puesto del aprobador y se guarda al aprobar, sin un campo manual.
+
+## Horarios por bloques — V1-6
+
+`HORARIO_BLOQUES` guarda entrada/salida/descanso/cruce y `HORARIO_BLOQUE_DIAS` sus días (1=lunes).
+V024 agrupa los días v0 con idénticos minutos, sin redondear ni cambiar la jornada histórica.
+`HORARIO_DIAS` queda como archivo histórico; ningún cálculo operativo lee esa tabla.
+POST/PATCH de horarios usa `bloques: [{ dias, entrada, salida, cruzaMedianoche, minutosDescanso }]`;
+`jornada` se deriva en el servidor. Código automático e inmutable, RBAC/CSRF y auditoría transaccional.
+
+Las nuevas horas son de media en media hora; descanso 30/60. La API rechaza pasos libres, solapes
+(incluso domingo→lunes), jornadas vacías y excesos diarios acumulados/semanales. Límites vigentes:
+`JORNADA_{DIURNA|MIXTA|NOCTURNA}_HORAS` y `_HORAS_SEMANA`, consultables en `/restricciones`.
+V024 incorpora solo límites semanales iniciales 44/42/36; los diarios conservan la configuración existente.
+Cambiar límites utiliza el flujo motivado/confirmado por vigencia de Parámetros legales.
+
+Los metadatos de un histórico pueden editarse conservando sus minutos exactos. Un duplicado debe
+ajustarse a las nuevas opciones antes de guardarse. Los patrones asignados siguen siendo inmutables;
+selecciona un nuevo horario desde Empleados con la fecha efectiva requerida.

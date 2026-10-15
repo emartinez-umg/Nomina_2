@@ -1,3 +1,4 @@
+import { jornadasEmpleado } from '../../shared/horarios/horarios.repository.js';
 import oracledb from 'oracledb';
 import type { Connection, BindParameter } from 'oracledb';
 import type {
@@ -171,11 +172,7 @@ export async function fuentes(c: Connection, p: Periodo, idFiltro?: number): Pro
       parametros,
       conceptos,
       tramos,
-      jornadas: await filas<NonNullable<Entrada['jornadas']>[number]>(
-        c,
-        `SELECT TO_CHAR(H.VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(H.VIGENTE_HASTA,'YYYY-MM-DD') "hasta",D.DIA_SEMANA "dia",${str('(D.MINUTO_SALIDA+D.CRUZA_MEDIANOCHE*1440-D.MINUTO_ENTRADA-D.MINUTOS_DESCANSO)/60')} "horas" FROM EMPLEADO_HORARIO H JOIN HORARIO_DIAS D ON D.ID_HORARIO=H.ID_HORARIO AND D.ACTIVO=1 WHERE H.ID_EMPLEADO=:id AND H.ACTIVO=1 AND D.LABORABLE=1 ORDER BY H.VIGENTE_DESDE,D.DIA_SEMANA`,
-        { id },
-      ),
+      jornadas: await jornadasEmpleado(c, id),
       horarios: await vacaciones.horarios(c, id),
       feriados: (await vacaciones.feriados(c, empleado.localidad, p.inicio, p.fin)).sort(),
       ausencias,

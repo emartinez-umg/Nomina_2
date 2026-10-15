@@ -1,7 +1,9 @@
+export { diasLaboralesRango as calendarioLaboral } from '../../shared/horarios/calendario.js';
+export type { Asignacion } from '../../shared/horarios/calendario.js';
 import { Decimal } from 'decimal.js';
 import { ErrorConflicto } from '../../shared/errors/errors.js';
 import { dinero } from '../../shared/utils/dinero.js';
-import { sumarDias, traslapan } from '../novedades/novedades.reglas.js';
+import { traslapan } from '../novedades/novedades.reglas.js';
 export { traslapan };
 export interface Vigencia {
   desde: string;
@@ -13,11 +15,6 @@ export interface Movimiento {
   tipo: string;
   dias: string;
   clave: string;
-}
-export interface Asignacion {
-  desde: string;
-  hasta: string | null;
-  dias: number[];
 }
 export function aniversarios(ingreso: string, corte: string) {
   const [y, m, d] = ingreso.split('-').map(Number) as [number, number, number];
@@ -75,28 +72,6 @@ export function calcularSaldo(
     movimientos: dinero(disponible.minus(acumulado)),
     disponible: dinero(disponible),
   };
-}
-export function calendarioLaboral(
-  inicio: string,
-  fin: string,
-  horarios: Asignacion[],
-  feriados: string[],
-) {
-  const dias: { fecha: string; laborable: boolean; motivo: string | null }[] = [];
-  for (let fecha = inicio; fecha <= fin; fecha = sumarDias(fecha, 1)) {
-    const h = horarios.filter((h) => h.desde <= fecha && (!h.hasta || h.hasta >= fecha));
-    const semana = new Date(`${fecha}T12:00:00Z`).getUTCDay() || 7;
-    const motivo =
-      h.length !== 1
-        ? 'Sin horario vigente'
-        : feriados.includes(fecha)
-          ? 'Feriado'
-          : !h[0]!.dias.includes(semana)
-            ? 'Día de descanso'
-            : null;
-    dias.push({ fecha, laborable: !motivo, motivo });
-  }
-  return dias;
 }
 export function exigirSaldo(saldo: string, dias: string) {
   if (!new Decimal(dias).gt(0) || new Decimal(dias).gt(saldo))

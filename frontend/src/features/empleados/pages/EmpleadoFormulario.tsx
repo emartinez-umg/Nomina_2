@@ -1,3 +1,4 @@
+import { CrearHorarioModal } from '../../horarios/CrearHorarioModal';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -73,6 +74,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
   const [error, setErrorGeneral] = useState(''),
     [credenciales, setCredenciales] = useState<Credencial[] | null>(null);
   const [destino, setDestino] = useState('');
+  const [crearHorario, setCrearHorario] = useState(false);
   const [seccionActual, setSeccionActual] = useState(0);
   const resolver = useMemo(() => zodResolver(schemaFormulario(r, !!actual)), [r, actual]);
   const form = useForm<Record<string, string>>({
@@ -115,6 +117,14 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
     new Decimal(vals.salarioBase!.replace(/,/g, '')).lt(minimo!);
   return (
     <>
+      {crearHorario && (
+        <CrearHorarioModal
+          onCerrar={() => setCrearHorario(false)}
+          onCreado={(id) =>
+            form.setValue('idHorario', id, { shouldDirty: true, shouldValidate: true })
+          }
+        />
+      )}
       <div className="my-4 flex justify-between gap-3">
         <h1>{actual ? 'Editar empleado' : 'Nuevo empleado'}</h1>
         <Link className="enlace-icono" to={actual ? `/empleados/${actual.id}` : '/empleados'}>
@@ -230,6 +240,18 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                           />
                         )}
                       />
+                    )}
+                    {f.nombre === 'idHorario' && (
+                      <Button
+                        className="mt-2"
+                        icono="crear"
+                        variante="secundario"
+                        data-tour="empleado-crear-horario"
+                        disabled={isSubmitting}
+                        onClick={() => setCrearHorario(true)}
+                      >
+                        Crear horario personalizado
+                      </Button>
                     )}
                   </div>
                 ))}

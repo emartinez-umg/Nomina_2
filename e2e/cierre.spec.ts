@@ -4,7 +4,9 @@ import { AxeBuilder } from '@axe-core/playwright';
 const hoy = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Guatemala' }).format(new Date());
 const visible = (iso: string) => iso.split('-').reverse().join('/');
 async function oferta(page: Page) {
-  const b = page.getByRole('button', { name: 'Ahora no', exact: true }).last();
+  const dialogos = page.locator('dialog[open]');
+  const alcance = (await dialogos.count()) ? dialogos.last() : page;
+  const b = alcance.getByRole('button', { name: 'Ahora no', exact: true }).last();
   if (await b.isVisible()) await b.click();
 }
 async function entrar(page: Page, rol: 'ADMIN' | 'RH' | 'EMPLEADO') {
@@ -881,4 +883,113 @@ test.describe('FASE V1-4: ubicaciones oficiales', () => {
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(fila).toContainText('Mixco');
   });
+});
+
+test('FASE V1-6: bloques, borrador, duplicado y horario desde empleado', async ({ page }) => {
+  await entrar(page, 'RH');
+  await page.goto('/catalogos/horarios');
+  await oferta(page);
+  await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+  await oferta(page);
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill('Horario por bloques');
+  await page.getByRole('button', { name: 'Agregar bloque', exact: true }).click();
+  await page.getByRole('button', { name: 'Agregar bloque', exact: true }).click();
+  const segundo = page.getByRole('region', { name: 'Bloque 2', exact: true });
+  await segundo.getByRole('button', { name: 'Fin de semana', exact: true }).click();
+  await segundo.getByRole('button', { name: 'Domingo', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'Salida · bloque 2', exact: true })
+    .selectOption('12:30');
+  await page.getByRole('combobox', { name: 'Descanso · bloque 2', exact: true }).selectOption('30');
+  await expect(page.getByText('Horas semanales: 44.00 · Jornada diurna')).toBeVisible();
+  await expect(page.locator('[data-tour="horario-totales"]')).toContainText('Domingo');
+  expect(
+    await page
+      .getByRole('combobox', { name: 'Entrada · bloque 1', exact: true })
+      .locator('option')
+      .count(),
+  ).toBe(48);
+  await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(page.getByText('Horas semanales: 44.00 · Jornada diurna')).toBeVisible();
+  await oferta(page);
+  await tour(page, true);
+  const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  expect(axe.violations.map((v) => ({ id: v.id, nodos: v.nodes.map((n) => n.target) }))).toEqual(
+    [],
+  );
+  await mkdir('tmp/pdfs', { recursive: true });
+  await page.screenshot({ path: 'tmp/pdfs/horarios-bloques.png', fullPage: true });
+  await page.locator('[data-tour="horario-totales"]').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'tmp/pdfs/horarios-constructor.png' });
+  const respuesta = page.waitForResponse(
+    (r) => r.url().endsWith('/api/catalogos/horarios') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  const guardado = await respuesta;
+  expect(guardado.status()).toBe(201);
+  const horario = (await guardado.json()).data;
+  expect(horario.bloques).toHaveLength(2);
+  expect((await clavesBorradores(page)).filter((k) => k.includes('catalogo-horarios'))).toEqual([]);
+  const fila = page.getByRole('row').filter({ hasText: 'Horario por bloques' });
+  await fila.getByRole('button', { name: `Duplicar horario ${horario.id}`, exact: true }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Duplicar · Horarios laborales', exact: true }),
+  ).toBeVisible();
+  await oferta(page);
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill('Horario duplicado');
+  const copia = page.waitForResponse(
+    (r) => r.url().endsWith('/api/catalogos/horarios') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  const duplicado = await copia;
+  expect(duplicado.status()).toBe(201);
+  expect((await duplicado.json()).data.codigo).not.toBe(horario.codigo);
+  await page.goto('/empleados/nuevo');
+  await oferta(page);
+  await page.getByRole('textbox', { name: 'Nombres', exact: true }).fill('Ficha en progreso');
+  await page.getByRole('button', { name: 'Crear horario personalizado', exact: true }).click();
+  const modal = page.getByRole('dialog', { name: 'Crear · Horarios laborales', exact: true });
+  await expect(modal).toBeVisible();
+  await oferta(page);
+  await modal
+    .getByRole('textbox', { name: 'Nombre', exact: true })
+    .fill('Horario dentro expediente');
+  await modal.getByRole('button', { name: 'Agregar bloque', exact: true }).click();
+  await tour(page, true);
+  const desdeFicha = page.waitForResponse(
+    (r) => r.url().endsWith('/api/catalogos/horarios') && r.request().method() === 'POST',
+  );
+  await modal.getByRole('button', { name: 'Guardar', exact: true }).click();
+  expect((await desdeFicha).status()).toBe(201);
+  await expect(modal).not.toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Nombres', exact: true })).toHaveValue(
+    'Ficha en progreso',
+  );
+  await expect(page.getByRole('combobox', { name: 'Horario', exact: true })).toHaveValue(
+    'Horario dentro expediente',
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Crear horario personalizado', exact: true }).click();
+  await oferta(page);
+  await page.getByRole('button', { name: 'Agregar bloque', exact: true }).click();
+  const ancho = await page.evaluate(() => ({
+    pagina: document.documentElement.scrollWidth,
+    pantalla: innerWidth,
+  }));
+  expect(ancho.pagina).toBeLessThanOrEqual(ancho.pantalla);
+  await page
+    .getByRole('combobox', { name: 'Entrada · bloque 1', exact: true })
+    .scrollIntoViewIfNeeded();
+  const anchoModal = await page
+    .locator('dialog[open]')
+    .evaluate((d) => ({ contenido: d.scrollWidth, visible: d.clientWidth }));
+  expect(anchoModal.contenido).toBeLessThanOrEqual(anchoModal.visible);
+  await page.screenshot({ path: 'tmp/pdfs/horarios-bloques-movil.png' });
+  const axeMovil = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(axeMovil.violations.map((v) => v.id)).toEqual([]);
 });

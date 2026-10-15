@@ -559,14 +559,16 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
 
   describe('FASE 4: catálogos Oracle/HTTP', () => {
     const base = { codigo: 'F4_PRUEBA', nombre: 'Catálogo fase 4', descripcion: null };
-    const dias = Array.from({ length: 7 }, (_, i) => ({
-      diaSemana: i + 1,
-      laborable: i < 5,
-      entrada: i < 5 ? '08:00' : null,
-      salida: i < 5 ? (i === 4 ? '14:00' : '17:00') : null,
-      cruzaMedianoche: false,
-      minutosDescanso: i < 4 ? 60 : 0,
-    }));
+    const bloques = [
+      {
+        dias: [1, 2, 3, 4],
+        entrada: '08:00',
+        salida: '17:00',
+        cruzaMedianoche: false,
+        minutosDescanso: 60,
+      },
+      { dias: [5], entrada: '08:00', salida: '14:00', cruzaMedianoche: false, minutosDescanso: 30 },
+    ];
     it('permite solo RH y ADMIN, exige CSRF y lista definiciones sin SQL', async () => {
       const empleado = await entrarCuenta();
       await empleado.agent.get('/api/catalogos').expect(403);
@@ -674,7 +676,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           codigo: `F4_${slug.toUpperCase().replace(/-/g, '_')}`,
           ...(slug === 'tipos-ausencia' ? { efecto: 'SIN_GOCE' } : {}),
           ...(slug === 'tipos-contrato' ? { requiereFin: true } : {}),
-          ...(slug === 'horarios' ? { jornada: 'DIURNA', dias } : {}),
+          ...(slug === 'horarios' ? { jornada: 'DIURNA', bloques } : {}),
           ...(slug === 'feriados'
             ? {
                 fecha: '2027-05-05',
@@ -704,7 +706,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
                 entradaMax: '480',
                 salidaMin: '840',
                 salidaMax: '840',
-                descansoMax: '0',
+                descansoMax: '30',
                 cruzaMedianoche: '0',
               }
             : slug === 'feriados'
@@ -731,8 +733,8 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .expect(200)
           .then((r) => {
             if (slug === 'horarios') {
-              expect(r.body.data.dias).toHaveLength(7);
-              expect(r.body.data.dias[4].salida).toBe('14:00');
+              expect(r.body.data.bloques).toHaveLength(2);
+              expect(r.body.data.bloques[1].salida).toBe('14:00');
             }
           });
         await agent
@@ -807,7 +809,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           idEmpleadoResponsable: empleado,
         })
         .expect(409);
-      const body = { ...base, codigo: 'F4_ASIGNADO', jornada: 'DIURNA', dias };
+      const body = { ...base, codigo: 'F4_ASIGNADO', jornada: 'DIURNA', bloques };
       const h = await crear('horarios', body);
       const id = h.body.data.id as number;
       await ejecutar(
@@ -817,7 +819,10 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await agent
         .patch(`/api/catalogos/horarios/${id}`)
         .set('X-CSRF-Token', csrf)
-        .send({ ...body, dias: dias.map((d, i) => (i === 0 ? { ...d, salida: '16:00' } : d)) })
+        .send({
+          ...body,
+          bloques: bloques.map((b, i) => (i === 0 ? { ...b, salida: '16:00' } : b)),
+        })
         .expect(409);
       await agent
         .delete(`/api/catalogos/horarios/${id}`)
@@ -1087,14 +1092,15 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       const idHorario = await crear('horarios', {
         ...base,
         jornada: 'DIURNA',
-        dias: Array.from({ length: 7 }, (_, i) => ({
-          diaSemana: i + 1,
-          laborable: i < 5,
-          entrada: i < 5 ? '08:00' : null,
-          salida: i < 5 ? '17:00' : null,
-          cruzaMedianoche: false,
-          minutosDescanso: i < 5 ? 60 : 0,
-        })),
+        bloques: [
+          {
+            dias: [1, 2, 3, 4, 5],
+            entrada: '08:00',
+            salida: '17:00',
+            cruzaMedianoche: false,
+            minutosDescanso: 60,
+          },
+        ],
       });
       refs = {
         idDepartamento,
@@ -2012,7 +2018,8 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .set('X-CSRF-Token', csrf)
           .send({ ...d, jornada: 'MIXTA' })
           .expect(200);
-        expect(p.body.data.calculo.monto).toBe('71.43');
+        // La etiqueta de jornada no sustituye las 8 horas efectivas del patrón asignado.
+        expect(p.body.data.calculo.monto).toBe('62.50');
       });
       it('rechaza traslapes inclusivos y serializa dos capturas concurrentes', async () => {
         const { agent, csrf } = await entrarAdmin();

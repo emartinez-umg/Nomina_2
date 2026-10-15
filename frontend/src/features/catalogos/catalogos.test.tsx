@@ -230,19 +230,9 @@ describe('Catálogos: validación y formularios', () => {
       d = valoresIniciales(c);
     Object.assign(d, { codigo: 'NOCHE', nombre: 'Horario', jornada: 'NOCTURNA' });
     expect(schemaFormulario(c, null).safeParse(d).success).toBe(false);
-    const dias = JSON.parse(d.dias!) as {
-      laborable: boolean;
-      entrada: string;
-      salida: string;
-      cruzaMedianoche: boolean;
-    }[];
-    Object.assign(dias[0]!, {
-      laborable: true,
-      entrada: '22:00',
-      salida: '05:00',
-      cruzaMedianoche: true,
-    });
-    d.dias = JSON.stringify(dias);
+    d.bloques = JSON.stringify([
+      { dias: [1], entrada: '22:00', salida: '05:00', cruzaMedianoche: true, minutosDescanso: 60 },
+    ]);
     expect(schemaFormulario(c, null).safeParse(d).success).toBe(true);
   });
   it('muestra anterior/nuevo y exige motivo antes de confirmar el cambio legal', async () => {

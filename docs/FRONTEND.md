@@ -239,3 +239,18 @@ Los botones de aprobación se deshabilitan con explicación cuando se conoce un 
 el backend revalida siempre. Los recorridos de las tres pantallas y de Usuarios fueron actualizados.
 ADMIN puede usar Vincular ficha de firmante desde Usuarios, con búsqueda, motivo, confirmación
 y borrador. No reemplaza una cuenta o expediente que ya tenga otro vínculo.
+
+## Constructor de horarios — V1-6
+
+`features/horarios/ConstructorHorario` es controlado y reutilizable: recibe bloques y onChange.
+Rangos Lun–Vie/Lun–Sáb/Lun–Dom/Fin de semana, Personalizado y chips accesibles; selectores nativos
+cerrados de 48 horas, descanso 30/60 y cruce explícito. Muestra horas por bloque, semana, jornada,
+descansos y límites vigentes de la API. Reutiliza los tokens/componentes existentes del mockup.
+Las reglas puras de `backend/src/shared/horarios/modelo.ts` se importan también en frontend;
+no contienen Node, SQL ni dependencias de servidor. Docker web copia únicamente esa carpeta compartida.
+
+Catálogo usa RHF y borrador versión 4; duplicar tiene clave independiente por horario original.
+`CrearHorarioModal` incorpora el mismo formulario dentro del expediente, con su propio proveedor
+de ayuda. Crear selecciona el ID retornado y refresca opciones sin enviar ni perder el empleado.
+La ayuda del empleado y de horas extra explica el flujo y las horas efectivas del patrón.
+El borrador valida su JSON antes de renderizar el constructor y descarta versiones anteriores.

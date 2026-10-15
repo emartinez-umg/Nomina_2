@@ -1,3 +1,4 @@
+import { jornadasEmpleado } from '../../shared/horarios/horarios.repository.js';
 import oracledb from 'oracledb';
 import type { Connection, BindParameters, BindParameter, Lob } from 'oracledb';
 import type { Datos, Tipo, Query } from './novedades.schemas.js';
@@ -246,12 +247,7 @@ export async function periodo(
     )
   ).rows![0]!.ID;
 }
-export async function parametrosHora(
-  c: Connection,
-  idEmpleado: number,
-  desde: string,
-  jornada: string,
-) {
+export async function parametrosHora(c: Connection, idEmpleado: number, desde: string) {
   const salario = (
     await c.execute<{ VALOR: string }>(
       `SELECT ${textoNumero('SALARIO_BASE')} VALOR FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:idEmpleado AND ACTIVO=1 AND VIGENTE_DESDE<=${fecha('desde')} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${fecha('desde')})`,
@@ -260,11 +256,11 @@ export async function parametrosHora(
     )
   ).rows?.[0]?.VALOR;
   const r = await c.execute<{ CODIGO: string; VALOR: string; UNIDAD: string }>(
-    `SELECT CLAVE_INTERNA CODIGO,${textoNumero('VALOR')} VALOR,UNIDAD FROM PARAMETROS_LEGALES WHERE ACTIVO=1 AND CLAVE_INTERNA IN ('SALARIO_DIAS_MES','HORAS_EXTRA_RECARGO_PORCENTAJE',:jornada) AND VIGENTE_DESDE<=${fecha('desde')} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${fecha('desde')})`,
-    { desde, jornada: `JORNADA_${jornada}_HORAS` },
+    `SELECT CLAVE_INTERNA CODIGO,${textoNumero('VALOR')} VALOR,UNIDAD FROM PARAMETROS_LEGALES WHERE ACTIVO=1 AND CLAVE_INTERNA IN ('SALARIO_DIAS_MES','HORAS_EXTRA_RECARGO_PORCENTAJE') AND VIGENTE_DESDE<=${fecha('desde')} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${fecha('desde')})`,
+    { desde },
     opts,
   );
-  return { salario, parametros: r.rows ?? [] };
+  return { salario, parametros: r.rows ?? [], jornadas: await jornadasEmpleado(c, idEmpleado) };
 }
 export async function guardar(
   c: Connection,

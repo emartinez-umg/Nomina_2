@@ -1,3 +1,4 @@
+import { diasLaboralesRango } from '../../shared/horarios/calendario.js';
 import type { Connection } from 'oracledb';
 import { Decimal } from 'decimal.js';
 import type { BaseDatos } from '../../shared/db/pool.js';
@@ -19,7 +20,6 @@ import { dinero } from '../../shared/utils/dinero.js';
 import {
   acumulaciones,
   calcularSaldo,
-  calendarioLaboral,
   exigirSaldo,
   traslapan,
   valorarPendientes,
@@ -122,7 +122,7 @@ export function crearVacacionesService(db: BaseDatos) {
     excluir = 0,
   ) {
     const bloqueos = await repo.bloqueos(c, e.id, excluir);
-    const dias = calendarioLaboral(
+    const dias = diasLaboralesRango(
       inicio,
       fin,
       await repo.horarios(c, e.id),

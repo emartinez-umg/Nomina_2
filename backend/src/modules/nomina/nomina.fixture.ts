@@ -89,6 +89,7 @@ export function entradaPrueba(salario = '3000'): Entrada {
       },
     ],
     horarios: [{ desde: '2026-01-01', hasta: null, dias: [1, 2, 3, 4, 5] }],
+    jornadas: [1, 2, 3, 4, 5].map((dia) => ({ desde: '2026-01-01', hasta: null, dia, horas: '8' })),
     feriados: [],
     ausencias: [],
     comisiones: [],

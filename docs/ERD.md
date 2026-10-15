@@ -1072,3 +1072,34 @@ Las plantillas activas se versionan, preservando originales y archivos emitidos.
 antiguas de firma quedan únicamente como datos históricos de la configuración; la aplicación ya
 no las consulta ni las ofrece para captura. Las constancias de salario guardan archivo/huella y
 aprobación en la misma transacción de auditoría. Los PDFs de solicitudes se versionan al reemitir.
+
+## V1-6 — Horarios por bloques (V024)
+
+```mermaid
+erDiagram
+    HORARIOS ||--o{ HORARIO_BLOQUES : contiene
+    HORARIO_BLOQUES ||--|{ HORARIO_BLOQUE_DIAS : trabaja
+    HORARIOS ||--o{ EMPLEADO_HORARIO : asignado
+    EMPLEADOS ||--o{ EMPLEADO_HORARIO : conserva_vigencias
+    HORARIO_BLOQUES {
+        NUMBER ID_HORARIO_BLOQUE PK
+        NUMBER ID_HORARIO FK
+        NUMBER MINUTO_ENTRADA
+        NUMBER MINUTO_SALIDA
+        NUMBER CRUZA_MEDIANOCHE
+        NUMBER MINUTOS_DESCANSO
+    }
+    HORARIO_BLOQUE_DIAS {
+        NUMBER ID_HORARIO_BLOQUE_DIA PK
+        NUMBER ID_HORARIO_BLOQUE FK
+        NUMBER DIA_SEMANA
+    }
+```
+
+Ambas tablas incluyen auditoría, ACTIVO, identities ALWAYS, CHECK e índices de FK/filtros.
+UNIQUE bloque/día evita repetidos. V024 agrupa tiempos v0 idénticos y mantiene `HORARIO_DIAS`
+como archivo; no cambia códigos, asignaciones, tiempos exactos, jornada histórica ni snapshots.
+Las lecturas operativas expanden bloques/días y generan los descansos que no tienen bloque.
+Para horas extra se suman los minutos efectivos de todos los bloques de cada día de entrada.
+Los solapes y límites vigentes se verifican en servicio dentro del bloqueo común de catálogos y empleados.
+Las 61 tablas de negocio quedan cubiertas por `db/filtros.json` y `db:verify`.

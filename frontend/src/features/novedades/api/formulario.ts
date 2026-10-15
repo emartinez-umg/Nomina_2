@@ -143,7 +143,7 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
         nombre: 'jornada',
         label: 'Tipo de jornada',
         tipo: 'opcion',
-        hint: 'Usa la jornada de la labor realizada. Horas diarias y recargo provienen de parámetros vigentes.',
+        hint: 'Clasifica la labor realizada. El valor hora usa las horas efectivas del horario asignado; el recargo proviene de parámetros vigentes.',
         opciones: ['DIURNA', 'MIXTA', 'NOCTURNA'],
       },
       estado,
