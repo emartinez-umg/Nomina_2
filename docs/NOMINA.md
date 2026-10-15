@@ -1,5 +1,8 @@
 # FASE 8 — Motor quincenal de nómina
 
+> Referencia del motor histórico V0. Las altas operativas V1 usan
+> [Anticipo, Pago y Simular pago](NOMINA_V1.md); los periodos históricos conservan este flujo.
+
 ## Operación
 
 RH/ADMIN abre `/planilla`, crea una quincena o abre la que ya generaron las novedades.

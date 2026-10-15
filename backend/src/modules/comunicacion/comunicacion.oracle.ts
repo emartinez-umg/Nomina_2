@@ -469,7 +469,7 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
   it('admin refleja usuarios/sesiones/estado sin hashes y filtra auditoría', async () => {
     const r = await administrador.agent.get('/api/tableros/admin').expect(200);
     expect(r.body.data.usuarios.find((u: { rol: string }) => u.rol === 'EMPLEADO').activos).toBe(2);
-    expect(r.body.data.sistema.version).toBe(28);
+    expect(r.body.data.sistema.version).toBe(29);
     expect(r.body.data.sistema.objetosInvalidos).toBe(0);
     expect(r.body.data.sistema.sesionesActivas).toBe(4);
     expect(JSON.stringify(r.body.data)).not.toMatch(/TOKEN_HASH|CSRF_HASH|argon2id/);

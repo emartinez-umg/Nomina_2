@@ -1,6 +1,6 @@
 # nomina2
 
-Sistema de nómina quincenal para Guatemala, con administración, Recursos Humanos y portal del
+Sistema de nómina con anticipo y pago mensual para Guatemala, con administración, Recursos Humanos y portal del
 empleado. Express/TypeScript strict, React 18, Oracle 21c XE y node-oracledb thin. Incluye expedientes,
 catálogos y vigencias, novedades, ISR/IGSS, vacaciones, prestaciones/finiquitos, boletas y documentos,
 anuncios/eventos, notificaciones, tableros, usuarios y bitácora. Todas las pantallas consultan la API.
@@ -68,8 +68,12 @@ TLS en un proxy administrado; renueva el certificado antes de su vencimiento. La
 5. RH valida parámetros y conceptos legales con vigencia, feriados y configuración IGSS patronal.
    Las referencias iniciales corresponden a 2026; otros ejercicios requieren sus vigencias/calendarios.
    Para implantar con historia anterior, registra aperturas fiscales y de vacaciones certificadas.
-6. **Planilla:** crear quincena → calcular → revisar → aprobar → cerrar. Corrige alertas antes de
-   cerrar. ADMIN puede reabrir con motivo y reversión de cobros. El portal muestra boletas cerradas.
+6. **Planilla v1:** Nómina → Simular pago → revisar tabla/lista de novedades → confirmar y pagar.
+   Anticipo (día 15) sin descuentos; Pago (fin de mes) liquida IGSS, ISR y cuotas mensuales. Las boletas
+   membretadas quedan en el portal desde la confirmación y se descargan individualmente o en ZIP.
+   Planilla conserva revisar → aprobar → cerrar. ADMIN revierte pagos con motivo antes del cierre;
+   reabrir un cierre v1 conserva los pagos. Los periodos históricos v0 mantienen su flujo original.
+   Consulta [el flujo y fórmulas de A11](docs/NOMINA_V1.md).
 
 La revisión legal/operativa de parámetros y documentos corresponde a RH antes del uso real.
 Los pagos registrados no realizan transferencias bancarias ni presentan declaraciones a SAT/IGSS.

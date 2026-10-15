@@ -33,7 +33,7 @@ const vigencia = `TO_CHAR(VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(VIGENTE_HA
 async function filas<T>(c: Connection, sql: string, b: Binds = {}) {
   return (await c.execute<T>(sql, b, opts)).rows ?? [];
 }
-const periodoSelect = `P.ID_PERIODO_NOMINA "id",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",P.VERSION_CALCULO "version",P.HASH_FUENTES "hash",P.ALERTAS "alertas",(SELECT COUNT(*) FROM NOMINA_EMPLEADO N WHERE N.ID_PERIODO_NOMINA=P.ID_PERIODO_NOMINA AND N.VERSION_CALCULO=P.VERSION_CALCULO) "empleados"`;
+const periodoSelect = `P.ID_PERIODO_NOMINA "id",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",P.MOTOR "motor",P.VERSION_CALCULO "version",P.HASH_FUENTES "hash",P.ALERTAS "alertas",(SELECT COUNT(*) FROM NOMINA_EMPLEADO N WHERE N.ID_PERIODO_NOMINA=P.ID_PERIODO_NOMINA AND ((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO')))) "empleados"`;
 export async function periodo(c: Connection, id: number) {
   return (
     await filas<Periodo>(
@@ -60,7 +60,7 @@ export async function crear(
       'Ya existe una quincena que cruza estas fechas. Abre el periodo existente.',
     );
   const r = await c.execute(
-    `INSERT INTO PERIODOS_NOMINA (FECHA_INICIO,FECHA_FIN,QUINCENA,CREADO_POR) VALUES (${fecha('inicio')},${fecha('fin')},:numero,:actor) RETURNING ID_PERIODO_NOMINA INTO :id`,
+    `INSERT INTO PERIODOS_NOMINA (FECHA_INICIO,FECHA_FIN,QUINCENA,MOTOR,CREADO_POR) VALUES (${fecha('inicio')},${fecha('fin')},:numero,'V1',:actor) RETURNING ID_PERIODO_NOMINA INTO :id`,
     { inicio, fin, numero, actor, id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } },
   );
   return (r.outBinds as { id: number[] }).id[0]!;
@@ -70,7 +70,7 @@ export async function posteriores(c: Connection, p: Periodo) {
     (
       await filas(
         c,
-        `SELECT 1 FROM PERIODOS_NOMINA WHERE FECHA_INICIO>${fecha('inicio')} AND ESTADO IN ('APROBADO','CERRADO')`,
+        `SELECT 1 FROM PERIODOS_NOMINA P WHERE P.FECHA_INICIO>${fecha('inicio')} AND (P.ESTADO IN ('APROBADO','CERRADO') OR EXISTS(SELECT 1 FROM PAGOS_NOMINA PN JOIN NOMINA_EMPLEADO N ON N.ID_NOMINA_EMPLEADO=PN.ID_NOMINA_EMPLEADO WHERE N.ID_PERIODO_NOMINA=P.ID_PERIODO_NOMINA AND PN.ESTADO='PAGADO'))`,
         { inicio: p.inicio },
       )
     ).length > 0
@@ -87,7 +87,12 @@ export async function anteriores(c: Connection, p: Periodo) {
     ).length > 0
   );
 }
-export async function fuentes(c: Connection, p: Periodo, idFiltro?: number): Promise<Entrada[]> {
+export async function fuentes(
+  c: Connection,
+  p: Periodo,
+  idFiltro?: number,
+  idDepartamento?: number,
+): Promise<Entrada[]> {
   const parametros = await filas<Parametro>(
     c,
     `SELECT ID_PARAMETRO_LEGAL "id",CLAVE_INTERNA "codigo",${str('VALOR')} "valor",UNIDAD "unidad",${vigencia} FROM PARAMETROS_LEGALES WHERE ACTIVO=1 ORDER BY CODIGO,VIGENTE_DESDE`,
@@ -102,8 +107,13 @@ export async function fuentes(c: Connection, p: Periodo, idFiltro?: number): Pro
   );
   const empleados = await filas<Empleado>(
     c,
-    `SELECT E.ID_EMPLEADO "id",E.ID_USUARIO "usuario",E.CODIGO "codigo",E.NOMBRES "nombres",E.APELLIDOS "apellidos",TO_CHAR(E.FECHA_INGRESO,'YYYY-MM-DD') "ingreso",TO_CHAR(E.FECHA_EGRESO,'YYYY-MM-DD') "egreso",E.ID_DEPARTAMENTO "idDepartamento",D.NOMBRE "departamento",P.NOMBRE "puesto",E.ID_CENTRO_TRABAJO "centro",C.LOCALIDAD "localidad",E.NIT "nit",E.AFILIACION_IGSS "afiliacion" FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO JOIN CENTROS_TRABAJO C ON C.ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO WHERE E.FECHA_INGRESO<=${fecha('fin')} AND ((E.ACTIVO=1 AND E.FECHA_EGRESO IS NULL) OR E.FECHA_EGRESO>=${fecha('inicio')}) AND (:idFiltro IS NULL OR E.ID_EMPLEADO=:idFiltro) ORDER BY E.ID_EMPLEADO`,
-    { inicio: p.inicio, fin: p.fin, idFiltro: idFiltro ?? null },
+    `SELECT E.ID_EMPLEADO "id",E.ID_USUARIO "usuario",E.CODIGO "codigo",E.NOMBRES "nombres",E.APELLIDOS "apellidos",TO_CHAR(E.FECHA_INGRESO,'YYYY-MM-DD') "ingreso",TO_CHAR(E.FECHA_EGRESO,'YYYY-MM-DD') "egreso",E.ID_DEPARTAMENTO "idDepartamento",D.NOMBRE "departamento",P.NOMBRE "puesto",E.ID_CENTRO_TRABAJO "centro",C.LOCALIDAD "localidad",E.NIT "nit",E.AFILIACION_IGSS "afiliacion" FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO JOIN CENTROS_TRABAJO C ON C.ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO WHERE E.FECHA_INGRESO<=${fecha('fin')} AND ((E.ACTIVO=1 AND E.FECHA_EGRESO IS NULL) OR E.FECHA_EGRESO>=${fecha('inicio')}) AND (:idFiltro IS NULL OR E.ID_EMPLEADO=:idFiltro) AND (:departamento IS NULL OR E.ID_DEPARTAMENTO=:departamento) ORDER BY E.ID_EMPLEADO`,
+    {
+      inicio: p.inicio,
+      fin: p.fin,
+      idFiltro: idFiltro ?? null,
+      departamento: idDepartamento ?? null,
+    },
   );
   const entradas: Entrada[] = [];
   for (const empleado of empleados) {
@@ -154,7 +164,7 @@ export async function fuentes(c: Connection, p: Periodo, idFiltro?: number): Pro
       isr: string;
     }>(
       c,
-      `SELECT TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",${str("SUM(CASE WHEN D.AFECTA_ISR=1 AND D.NATURALEZA='INGRESO' THEN D.MONTO WHEN C.CODIGO='AUSENCIA_SIN_GOCE' AND D.AFECTA_ISR=1 THEN -D.MONTO ELSE 0 END)")} "renta",${str("SUM(CASE WHEN C.CODIGO='IGSS_LABORAL' THEN D.MONTO ELSE 0 END)")} "igss",${str("SUM(CASE WHEN C.CODIGO='ISR' THEN D.MONTO WHEN C.CODIGO='ISR_DEVOLUCION' THEN -D.MONTO ELSE 0 END)")} "isr" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA JOIN NOMINA_DETALLE D ON D.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO JOIN CONCEPTOS_NOMINA C ON C.ID_CONCEPTO_NOMINA=D.ID_CONCEPTO_NOMINA WHERE N.ID_EMPLEADO=:id AND N.VERSION_CALCULO=P.VERSION_CALCULO AND P.ESTADO='CERRADO' AND P.FECHA_FIN<${fecha('inicio')} AND EXTRACT(YEAR FROM P.FECHA_INICIO)=:anio GROUP BY P.FECHA_INICIO,P.FECHA_FIN ORDER BY P.FECHA_INICIO`,
+      `SELECT TO_CHAR(CASE WHEN P.MOTOR='V1' THEN TRUNC(P.FECHA_INICIO,'MM') ELSE P.FECHA_INICIO END,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",${str("SUM(CASE WHEN D.AFECTA_ISR=1 AND D.NATURALEZA='INGRESO' THEN D.MONTO WHEN C.CODIGO='AUSENCIA_SIN_GOCE' AND D.AFECTA_ISR=1 THEN -D.MONTO ELSE 0 END)")} "renta",${str("SUM(CASE WHEN C.CODIGO='IGSS_LABORAL' THEN D.MONTO ELSE 0 END)")} "igss",${str("SUM(CASE WHEN C.CODIGO='ISR' THEN D.MONTO WHEN C.CODIGO='ISR_DEVOLUCION' THEN -D.MONTO ELSE 0 END)")} "isr" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA JOIN NOMINA_DETALLE D ON D.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO JOIN CONCEPTOS_NOMINA C ON C.ID_CONCEPTO_NOMINA=D.ID_CONCEPTO_NOMINA WHERE N.ID_EMPLEADO=:id AND ((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO'))) AND ((P.MOTOR='V0' AND P.ESTADO='CERRADO') OR (P.MOTOR='V1' AND P.QUINCENA=2)) AND P.FECHA_FIN<${fecha('inicio')} AND EXTRACT(YEAR FROM P.FECHA_INICIO)=:anio GROUP BY P.FECHA_INICIO,P.FECHA_FIN,P.MOTOR ORDER BY P.FECHA_INICIO`,
       { id, inicio: p.inicio, anio },
     );
     const acumulado = { renta: '0', igss: '0', isr: '0' };
@@ -199,7 +209,12 @@ export async function guardarResultado(
   actor: number,
   empresa: unknown,
 ) {
-  const datos = JSON.stringify({ versionMotor: '8.0.0', entrada: e, resultado: r, empresa });
+  const datos = JSON.stringify({
+    versionMotor: 'tipoPago' in e ? 'v1-10' : '8.0.0',
+    entrada: e,
+    resultado: r,
+    empresa,
+  });
   const ins = await c.execute(
     `INSERT INTO NOMINA_EMPLEADO (ID_PERIODO_NOMINA,ID_EMPLEADO,ID_HISTORIAL_SALARIAL,VERSION_CALCULO,DIAS_PAGADOS,SALARIO_BASE,TOTAL_INGRESOS,TOTAL_DESCUENTOS,NETO,COSTO_PATRONAL,DATOS_EMPLEADO,CREADO_POR) VALUES (:periodo,:empleado,:salario,:version,${num('dias')},${num('base')},${num('ingresos')},${num('descuentos')},${num('neto')},${num('patronal')},:datos,:actor) RETURNING ID_NOMINA_EMPLEADO INTO :id`,
     {
@@ -314,20 +329,21 @@ export interface Guardado {
 export async function resultados(c: Connection, periodo: number) {
   return filas<Guardado>(
     c,
-    `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",N.VERSION_CALCULO "version",N.DATOS_EMPLEADO "snapshot" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE N.ID_PERIODO_NOMINA=:periodo AND N.VERSION_CALCULO=P.VERSION_CALCULO ORDER BY N.ID_EMPLEADO`,
+    `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",N.VERSION_CALCULO "version",N.DATOS_EMPLEADO "snapshot" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE N.ID_PERIODO_NOMINA=:periodo AND ((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO'))) ORDER BY N.ID_EMPLEADO`,
     { periodo },
   );
 }
 export async function resultado(c: Connection, id: number) {
   return (
-    await filas<Guardado & { usuario: number | null; actual: number }>(
+    await filas<Guardado & { usuario: number | null; actual: number; pagado: number }>(
       c,
-      `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",N.VERSION_CALCULO "version",P.VERSION_CALCULO "actual",E.ID_USUARIO "usuario",N.DATOS_EMPLEADO "snapshot" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA JOIN EMPLEADOS E ON E.ID_EMPLEADO=N.ID_EMPLEADO WHERE N.ID_NOMINA_EMPLEADO=:id`,
+      `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",N.VERSION_CALCULO "version",CASE WHEN P.MOTOR='V0' THEN P.VERSION_CALCULO WHEN EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO') THEN N.VERSION_CALCULO ELSE 0 END "actual",CASE WHEN EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO') THEN 1 ELSE 0 END "pagado",E.ID_USUARIO "usuario",N.DATOS_EMPLEADO "snapshot" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA JOIN EMPLEADOS E ON E.ID_EMPLEADO=N.ID_EMPLEADO WHERE N.ID_NOMINA_EMPLEADO=:id`,
       { id },
     )
   )[0];
 }
 export interface FilaNomina {
+  tipoPago?: string | null;
   id: number;
   idEmpleado: number;
   empleado: string;
@@ -343,10 +359,14 @@ export interface FilaNomina {
   alertas: string;
 }
 function filtros(q: Query, usuario?: number, periodo?: number) {
-  const w = ['N.VERSION_CALCULO=P.VERSION_CALCULO'],
+  const w = [
+      "((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO')))",
+    ],
     b: Binds = {};
   if (usuario !== undefined) {
-    w.push("E.ID_USUARIO=:usuario AND P.ESTADO='CERRADO'");
+    w.push(
+      "E.ID_USUARIO=:usuario AND (P.ESTADO='CERRADO' OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO')))",
+    );
     b.usuario = usuario;
   }
   if (periodo) {
@@ -362,6 +382,7 @@ function filtros(q: Query, usuario?: number, periodo?: number) {
       "JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.idDepartamento' RETURNING NUMBER)",
     ],
     ['estado', 'P.ESTADO'],
+    ['tipoPago', "JSON_VALUE(N.DATOS_EMPLEADO,'$.resultado.tipoPago')"],
   ] as const)
     if (q[k] !== undefined) {
       w.push(`${col}=:${k}`);
@@ -409,7 +430,7 @@ export async function listar(c: Connection, q: Query, usuario?: number, periodo?
     dir = q.direccion === 'asc' ? 'ASC' : 'DESC';
   const registros = await filas<FilaNomina>(
     c,
-    `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.codigo')||' · '||JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.nombres')||' '||JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.apellidos') "empleado",JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.departamento') "departamento",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",N.VERSION_CALCULO "version",${str('N.TOTAL_INGRESOS')} "ingresos",${str('N.TOTAL_DESCUENTOS')} "descuentos",${str('N.NETO')} "neto",${str('N.COSTO_PATRONAL')} "patronal",JSON_QUERY(N.DATOS_EMPLEADO,'$.resultado.alertas' RETURNING VARCHAR2(4000)) "alertas" FROM ${from} WHERE ${w} ORDER BY ${orden} ${dir},N.ID_NOMINA_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+    `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.codigo')||' · '||JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.nombres')||' '||JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.apellidos') "empleado",JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.departamento') "departamento",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",N.VERSION_CALCULO "version",${str('N.TOTAL_INGRESOS')} "ingresos",${str('N.TOTAL_DESCUENTOS')} "descuentos",${str('N.NETO')} "neto",${str('N.COSTO_PATRONAL')} "patronal",JSON_VALUE(N.DATOS_EMPLEADO,'$.resultado.tipoPago') "tipoPago",JSON_QUERY(N.DATOS_EMPLEADO,'$.resultado.alertas' RETURNING VARCHAR2(4000)) "alertas" FROM ${from} WHERE ${w} ORDER BY ${orden} ${dir},N.ID_NOMINA_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
     { ...b, offset: (q.pagina - 1) * q.limite, limite: q.limite },
   );
   return {
@@ -500,7 +521,7 @@ export async function aplicarFijo(
     { nomina, empleado, periodo: p.id, descuento, monto, actor },
   );
 }
-export async function revertir(c: Connection, p: Periodo, actor: number) {
+export async function revertir(c: Connection, p: Periodo, actor: number, nomina?: number) {
   const aplicaciones = await filas<{
     id: number;
     descuento: number;
@@ -510,8 +531,8 @@ export async function revertir(c: Connection, p: Periodo, actor: number) {
     c,
     'SELECT ID_DESCUENTO_APLICACION "id",ID_DESCUENTO_EMPLEADO "descuento",ID_DESCUENTO_CUOTA "cuota",' +
       str('MONTO') +
-      ' "monto" FROM DESCUENTOS_APLICACIONES WHERE ID_PERIODO_NOMINA=:id AND ESTADO=\'APLICADA\' ORDER BY ID_DESCUENTO_APLICACION DESC',
-    { id: p.id },
+      ' "monto" FROM DESCUENTOS_APLICACIONES WHERE ID_PERIODO_NOMINA=:id AND ESTADO=\'APLICADA\' AND (:nomina IS NULL OR ID_NOMINA_EMPLEADO=:nomina) ORDER BY ID_DESCUENTO_APLICACION DESC',
+    { id: p.id, nomina: nomina ?? null },
   );
   for (const a of aplicaciones) {
     if (a.cuota) {

@@ -542,27 +542,71 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await ec.close();
     await rc.close();
   });
-  test('cálculo, revisión, aprobación y cierre de una quincena', async ({ page }) => {
+  test('FASE V1-10: simulación, pago mensual, PDF, portal y cierre', async ({ page }) => {
     await entrar(page, 'RH');
-    await page.goto('/planilla');
-    await oferta(page);
-    await page.getByLabel('Fecha de la quincena', { exact: true }).fill('02/01/2026');
-    await page.getByRole('button', { name: 'Crear periodo', exact: true }).click();
-    await expect(page).toHaveURL(/periodo=/);
-    for (const [boton, accion] of [
-      ['Calcular', 'calcular'],
-      ['Marcar revisada', 'revisar'],
-      ['Aprobar', 'aprobar'],
-      ['Cerrar', 'cerrar'],
-    ] as const) {
-      await page.getByRole('button', { name: boton, exact: true }).click();
-      await page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }).click();
+    for (const tipo of ['Anticipo', 'Pago del mes']) {
+      await page.goto('/nomina/simular');
+      await oferta(page);
+      await page.getByRole('combobox', { name: 'Mes del pago', exact: true }).selectOption('01');
+      if (tipo === 'Pago del mes') await elegir(page, 'Tipo de pago', tipo);
+      await page.getByRole('button', { name: 'Simular', exact: true }).click();
+      await expect(page.getByRole('table')).toContainText('Persona E2E');
+      await expect(page.getByRole('table')).toContainText(
+        tipo === 'Anticipo' ? '2,750.00' : '2,208.07',
+      );
       await expect(
-        page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }),
-      ).toHaveCount(0);
+        page.getByRole('button', { name: 'Confirmar y pagar', exact: true }),
+      ).toBeDisabled();
+      if (tipo === 'Anticipo') {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await revisarUi(page);
+        await mkdir('tmp/pdfs', { recursive: true });
+        await page.screenshot({ path: 'tmp/pdfs/pago-v1-10-movil.png', fullPage: true });
+        await page.setViewportSize({ width: 1440, height: 1000 });
+      }
+      await page
+        .getByRole('checkbox', { name: 'Confirmo que las novedades del mes están completas' })
+        .check();
+      await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+      const respuesta = page.waitForResponse(
+        (r) => r.url().endsWith('/api/nomina/pagar') && r.request().method() === 'POST',
+      );
+      await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const respuestaPago = await respuesta;
+      expect(respuestaPago.status()).toBe(201);
+      const pago = (await respuestaPago.json()).data;
+      await expect(page.getByText('Pagados: 2.', { exact: false })).toBeVisible();
+      const descarga = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'ZIP de boletas por departamento' }).click();
+      expect((await descarga).suggestedFilename()).toBe('boletas-2026-01.zip');
+      const estadoPeriodo = await page.request.get(`/api/nomina/periodos/${pago.idPeriodo}`);
+      expect(estadoPeriodo.status()).toBe(200);
+      const filasPeriodo = await page.request.get(
+        `/api/nomina/periodos/${pago.idPeriodo}/planilla`,
+      );
+      expect(filasPeriodo.status()).toBe(200);
+      await page.goto(`/planilla?periodo=${pago.idPeriodo}`);
+      await oferta(page);
+      for (const [boton, accion] of [
+        ['Marcar revisada', 'revisar'],
+        ['Aprobar', 'aprobar'],
+        ['Cerrar', 'cerrar'],
+      ] as const) {
+        await page.getByRole('button', { name: boton, exact: true }).click();
+        await page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }).click();
+        await expect(
+          page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }),
+        ).toHaveCount(0);
+      }
+      await expect(page.getByRole('heading', { name: /· CERRADO$/ })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Recalcular', exact: true })).toHaveCount(0);
     }
-    await expect(page.getByRole('heading', { name: /· CERRADO$/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Recalcular', exact: true })).toBeDisabled();
+    await salir(page);
+    await entrar(page, 'EMPLEADO');
+    await page.goto('/mis-gestiones/boletas');
+    await oferta(page);
+    await expect(page.getByRole('table')).toContainText('2,750.00');
+    await expect(page.getByRole('table')).toContainText('2,208.07');
   });
   test('constancia laboral: solicitud, vista previa, entrega y descarga propia', async ({
     browser,
@@ -881,6 +925,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
               '/empleados/carga-masiva',
               '/novedades',
               '/planilla',
+              '/nomina/simular',
               '/prestaciones',
               '/vacaciones',
               '/solicitudes',
@@ -1372,4 +1417,68 @@ test('FASE V1-9: novedades mensuales, tarifas y ciclo de parqueo con ayuda y mó
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Dar de baja', exact: true })).toBeDisabled();
   await revisarUi(page);
+});
+
+test('FASE V1-10: pagar departamento, revertir como ADMIN y volver a pagar empleado', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  await page.goto('/nomina/simular');
+  await oferta(page);
+  await page.getByRole('combobox', { name: 'Mes del pago', exact: true }).selectOption('02');
+  await elegir(page, 'Objetivo', 'Un departamento');
+  await elegir(page, 'Departamento', 'Departamento E2E');
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(page.getByRole('table')).toContainText('Persona E2E');
+  await page
+    .getByRole('checkbox', { name: 'Confirmo que las novedades del mes están completas' })
+    .check();
+  await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+  const respuesta = page.waitForResponse(
+    (r) => r.url().endsWith('/api/nomina/pagar') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  const rp = await respuesta;
+  expect(rp.status()).toBe(201);
+  const pago = (await rp.json()).data;
+  await salir(page);
+  await entrar(page, 'ADMIN');
+  const cargaPlanilla = page.waitForResponse(
+    (r) =>
+      r.url().includes(`/api/nomina/periodos/${pago.idPeriodo}/planilla`) &&
+      r.request().method() === 'GET',
+  );
+  await page.goto(`/planilla?periodo=${pago.idPeriodo}`);
+  const tablaPago = await cargaPlanilla;
+  expect(tablaPago.status()).toBe(200);
+  await oferta(page);
+  const fila = page.getByRole('row').filter({ hasText: 'Ajeno E2E' });
+  await fila.getByRole('button', { name: 'Revertir', exact: true }).click();
+  const modal = page.locator('dialog[open]');
+  await expect(
+    modal.getByRole('button', { name: 'Confirmar reversión', exact: true }),
+  ).toBeDisabled();
+  await modal
+    .getByLabel('Motivo de reversión', { exact: true })
+    .fill('Corrección de novedades antes del cierre');
+  await tour(page, true);
+  await modal.getByRole('button', { name: 'Confirmar reversión', exact: true }).click();
+  await expect(
+    page.getByText('Pago revertido; cuotas y novedades devueltas.', { exact: true }),
+  ).toBeVisible();
+  await page.goto('/nomina/simular');
+  await oferta(page);
+  await page.getByRole('combobox', { name: 'Mes del pago', exact: true }).selectOption('02');
+  await elegir(page, 'Objetivo', 'Un empleado');
+  const campo = page.getByRole('combobox', { name: 'Empleado', exact: true });
+  await campo.fill('Ajeno E2E');
+  await page.getByRole('option').filter({ hasText: 'Ajeno E2E' }).click();
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(page.getByRole('table').getByRole('row')).toHaveCount(2);
+  await page
+    .getByRole('checkbox', { name: 'Confirmo que las novedades del mes están completas' })
+    .check();
+  await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByText('Pagados: 1.', { exact: false })).toBeVisible();
 });

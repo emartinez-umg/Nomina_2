@@ -14,7 +14,7 @@ export const filas = async <T>(c: Connection, sql: string, binds: BindParameters
 export const num = (col: string) => `TO_CHAR(${col},'TM9','NLS_NUMERIC_CHARACTERS=''.,''')`;
 export const n = (bind: string) =>
   `TO_NUMBER(:${bind},'999999999999999999D99999999','NLS_NUMERIC_CHARACTERS=''.,''')`;
-const bloqueo = `CASE WHEN M.ESTADO='APLICADA' OR EXISTS(SELECT 1 FROM PERIODOS_NOMINA P WHERE P.ESTADO='CERRADO' AND P.FECHA_INICIO<=LAST_DAY(M.MES) AND P.FECHA_FIN>=M.MES) THEN 1 ELSE 0 END`;
+const bloqueo = `CASE WHEN M.ESTADO='APLICADA' OR EXISTS(SELECT 1 FROM PERIODOS_NOMINA P WHERE P.ESTADO='CERRADO' AND (P.MOTOR='V0' OR P.QUINCENA=2) AND P.FECHA_INICIO<=LAST_DAY(M.MES) AND P.FECHA_FIN>=M.MES) THEN 1 ELSE 0 END`;
 const select = `M.ID_NOVEDAD_MENSUAL "id",NULL "codigo",M.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",M.ACTIVO "activo",${bloqueo} "bloqueada",TO_CHAR(M.MES,'YYYY-MM-DD') "fechaInicio",TO_CHAR(LAST_DAY(M.MES),'YYYY-MM-DD') "fechaFin",TO_CHAR(M.MES,'YYYY-MM') "mes",M.ESTADO "estado",M.ESTADO "estadoAplicacion",M.ID_NOMINA_EMPLEADO "idPago",M.AUTORIZACION "autorizacion",M.DESCRIPCION "motivo",M.REFERENCIA "referencia",${num('M.MONTO')} "monto",NULL "saldo",CASE WHEN M.TIPO='HORAS_EXTRA' THEN ${num('M.CANTIDAD')} END "horas",${num('M.VALOR_UNITARIO')} "valorUnitario",${num('M.RECARGO')} "recargo"`;
 export async function listarMensuales(c: Connection, tipo: TipoMensual, q: Query, id?: number) {
   const binds: BindParameters = { tipo: tiposMensuales[tipo] },

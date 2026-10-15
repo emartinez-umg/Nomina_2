@@ -210,6 +210,14 @@ const compartidos: GrupoNavegacion[] = [
     icono: 'planilla',
     items: [
       acceso(
+        'simular-pago',
+        'Simular pago',
+        '/nomina/simular',
+        'planilla',
+        'Simula anticipo o pago mensual y confirma boletas.',
+        ['anticipo', 'simulación', 'pago mensual'],
+      ),
+      acceso(
         'planilla',
         'Planilla y boletas',
         '/planilla',

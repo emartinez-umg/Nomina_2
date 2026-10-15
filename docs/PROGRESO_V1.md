@@ -920,3 +920,117 @@ Estado: completada el 15/10/2026. Rama v1, alcance A10.
    npm run db:verify; npm run verify:novedades; npm run verify:solicitudes;
    npm run verify:horarios; npm run verify:security; npm run verify:prestaciones;
    npm run test:e2e; npm run verify:infra. Oracle en esquemas temporales y en secuencia.
+
+## FASE V1-10 — Motor mensual, simulación y pago
+
+Estado: completada el 15/10/2026. Rama v1, alcance A11.
+
+### Hecho
+
+- Leídos AGENTS.md/adendo y progreso v1; inicio limpio. V000–V028 intactas. V029 agrega
+  MOTOR, identidad UNIQUE empleado/mes/tipo y PDF BLOB/SHA-256, conservando resultados históricos.
+- Motor A11 con Decimal/half-up único: SB por contrato y vigencias, AUS/BI, COM/HE mensuales y
+  retroactivas. Anticipo sin descuentos, BI completa ajustada por AUS; Pago descuenta el anticipo
+  real y concentra IGSS, ISR, parqueo, tienda y cuotas. HE revalorada con horario/recargo vigentes.
+- Tasas, BI, divisor, porcentaje de anticipo, deducción personal/topes y tramos provienen de Oracle.
+  Vigencias del Anticipo al día 15 y del Pago al último día; IGSS sobre toda la base mensual.
+  Proyección ISR mensual con renta/IGSS/retención efectivamente pagados; diciembre/egreso ajusta
+  saldo/devolución. Aguinaldo/Bono 14 conservan exenciones existentes sin adelantar A12.
+- Simular pago para empleado/departamento/todos, mes y Anticipo/Pago. Prestaciones futuras visibles
+  deshabilitadas. Consulta sin escrituras, tabla/totales/alertas, preview PDF «SIMULACIÓN» y checklist
+  con contadores por empleado de HE, comisiones, consumos, ausencias, retroactivas y alertas.
+- Confirmación de novedades y diálogo final obligatorios; servidor revalida fuentes/pagos con hash.
+  UNIQUE y locks impiden doble pago/concurrencia; el neto negativo bloquea solo a ese empleado.
+  Lote habilitado guarda resultado, parámetros, proyección, novedades, cuotas, firma, PDF, aviso y
+  auditoría en transacción; fallar cualquiera revierte todo. No realiza transferencias bancarias.
+- Boletas archivadas e inmutables, individuales/ZIP por objetivo con carpetas de departamento.
+  Boletas masivas de Planilla usa ZIP para v1; históricos v0 conservan PDF. Portal/campana/Inicio
+  publican desde confirmar pago. Boleta de anticipo titulada «Anticipo quincenal»; pago contiene
+  todas las categorías A11 y cantidades de HE/ausencias, devengado, anticipo, deducciones y neto.
+- ADMIN revierte con motivo antes del cierre y en orden inverso de dependencias. Devuelve exactamente
+  cuotas/saldos/novedades, retira la boleta del portal, notifica y conserva cálculo/PDF/auditoría.
+  Volver a pagar genera versión individual nueva, sin ocultar pagos de otros empleados.
+- Revisar/aprobar/cerrar exige completar periodo y resolver pendientes; cerrar no cobra de nuevo.
+  Reabrir v1 conserva pagos para reversión explícita. Cierre del anticipo permite capturar novedades
+  del pago; aplicadas protegidas. IGSS usa solo devengado mensual; historial filtra tipo de pago.
+  Fuente de prestaciones excluye anticipo para mantener compatibilidad de promedios, sin A12.
+- Hints, ayudas v1-10, navegación, confirmaciones/borrador de reversión y controles de doble envío.
+  README, NOMINA_V1, ERD y manifiesto de filtros actualizados; verify:pagos incorporado a verify:all.
+
+### Decisiones y supuestos
+
+- Cuotas v0 pasan a mensuales **sin duplicar/dividir el importe ni cambiar número de cuotas, capital
+  o saldo**. V029 conserva vencimientos/fin anteriores. Solo pendientes/parciales se reprograman al
+  último día de meses sucesivos desde el mes más antiguo pendiente; cobradas intactas. Nuevos planes
+  mensuales conservan centavos/residuo final. MONTO_QUINCENA sigue como nombre interno compatible;
+  la UI/CSV lo presentan como cuota mensual. No se editan migraciones previas.
+- BI aplica literalmente A11: completa salvo reducción por AUS, incluso con contrato parcial; SB sí
+  se prorratea. AUS usa el SB ya prorrateado según la notación A11; la captura A10 conserva su
+  referencia nominal y el pago aplica/archiva el importe recalculado. Retroactivas usan su mes de origen. Mes completo, incluso febrero, reconoce salario mensual completo.
+- Se puede pagar el mes sin anticipo registrado (resta cero); después no se agrega anticipo.
+  Las novedades aplicadas al anticipo integran DEV/IGSS del pago, sin aplicarlas dos veces.
+  Retroactivas pendientes se consumen en el pago actual sin modificar boletas/cierres originales.
+- Periodos con resultados v0 mantienen su motor. Los abiertos sin resultados y nuevas altas operativas
+  son V1. No se mezclan motores en un periodo: completar el histórico y empezar un mes entero nuevo;
+  si falta historia anual, usar apertura certificada. El pago mensual cuenta para ISR aunque falte
+  cerrar administrativamente el periodo; dependencias posteriores impiden reversión fuera de orden.
+- Cerrar exige completar todos los empleados del periodo, aunque se paguen por objetivos separados.
+  Los bloqueados no impiden pagar a los habilitados; sí deben resolverse antes del cierre total.
+- Actualizadas intencionalmente fechas esperadas de amortización a fin mensual. Fixtures de regresión
+  histórica v0 declaran su motor y vencimientos quincenales originales: se mantiene su cobertura
+  financiera/RBAC/rollback. Conteos de versiones incluyen V029; prueba de reparación V027/V028
+  acota esas versiones. El E2E de cálculo v0 se actualiza al flujo operativo A11.
+- Oracle ORA-01466 apareció al leer inmediatamente después del DDL (granularidad temporal del motor).
+  Lecturas consistentes de nómina reintentan hasta dos veces con pausa de un segundo; pagos/escrituras
+  jamás se reintentan automáticamente. Tres unitarias cubren límite, selección del error y resultado.
+
+### Validación realizada
+
+- Node 20.20.2: 548 unitarias aprobadas (322 backend, 226 frontend), incluidos 24 casos del motor
+  A11 con esperados independientes y tres del reintento de lectura. Lint, TypeScript strict
+  backend/frontend/E2E, builds, formato, revisión de secretos y git diff --check aprobados.
+- Oracle con Node 20.20.2: doce casos nuevos de migración, ausencia de escrituras, RBAC/CSRF,
+  preview, cambios de fuentes, doble pago concurrente, bloqueo individual, publicación/propiedad,
+  ZIP, PDF inmutable, reversión/dependencias, rollback por fallo real de auditoría, cierre,
+  IGSS sin doble anticipo, continuidad fiscal, última cuota y retroactivas. Esquemas retirados.
+- Regresiones Oracle Node 20: seguridad/catálogos/empleados/novedades/vacaciones/v0 79;
+  prestaciones diez; comunicación/tableros 16 y novedades 14, aprobadas. Datos de aplicación no usados.
+- db:verify V000–V029 desde cero aprobado: 68 tablas, identities, CHECK, UNIQUE/FKs indexadas,
+  semillas repetibles, cero objetos inválidos y esquema temporal retirado.
+- 24 E2E aprobados con Node 20 y API/Oracle reales (2.8 min): simular, confirmar, ZIP, portal,
+  cierre, pago por departamento, reversión ADMIN y nuevo pago individual. Dos casos A11 repetidos
+  al retirar la instrumentación, ambos aprobados. Matriz por rol, ayuda, hints, teclado, 390 px y
+  axe A/AA sin infracciones. La fixture previa de matriz deja una ausencia pendiente en febrero;
+  la prueba de reversión selecciona al empleado habilitado, conservando ese bloqueo correcto.
+  Se descartaron bloqueos/fugas Oracle mediante estadísticas del pool y sesiones; diagnóstico retirado.
+- PDFs de simulación/anticipo y pago firmados renderizados e inspeccionados: membrete, cantidad
+  de HE/ausencias, totales, firma y pie sin cortes. Captura móvil inspeccionada. Artefactos QA
+  en tmp/pdfs, ignorados por Git; no se incorporan datos ficticios a pantallas ni aplicación.
+- Docker API/web reconstruidos con Node 20 y V029 aplicada. Antes/después: dos empleados, cuatro
+  usuarios, dos salarios, una solicitud y cero novedades/préstamos/descuentos/pagos. Conteos y
+  huellas de registros originales idénticos, cero objetos inválidos y cero pagos de prueba.
+  Contenedor/volumen Oracle y credenciales conservados. verify:infra aprobado para API/Oracle,
+  nginx, rutas/assets React y worker PDF. db:verify usa Node 24 del host por la incompatibilidad
+  tsImport documentada en V1-8; unitarias, suites Oracle, builds y E2E usan Node 20.20.2.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación V1-10. A12, Bono 14 y Aguinaldo automáticos
+  permanecen reservados para V1-11. Operación: RH valida vigencias reales, completa empresa/firmante
+  y resuelve alertas o historia fiscal antes de confirmar pagos.
+
+### Cómo probar
+
+1. docker compose up --build; ingresar como RH/ADMIN → Nómina → Simular pago.
+2. Elegir Anticipo/mes/empleado o departamento; simular, abrir preview, revisar checklist y confirmar.
+   Q10,000 sin extras: Q5,250 anticipo. Cargar COM/HE después y simular Pago: IGSS incluye todas.
+3. Pago Q10,000 sin extras: DEV Q10,250; IGSS Q483; ISR Q288.35 con año completo de referencia;
+   después de anticipo, Q4,228.65. Neto mensual Q9,478.65. Revisar boleta individual/ZIP y portal.
+4. Un neto negativo bloquea solo su fila. Repetir el mismo pago se bloquea; cambiar fuentes exige
+   simular nuevamente. Probar parqueo/tienda, cuota final, AUS, ingreso parcial y retroactivas.
+5. ADMIN → Planilla → Revertir con motivo, antes del cierre; verificar saldos/novedades y volver
+   a simular/pagar. Pago depende de Anticipo; revertir primero Pago. Revisar/aprobar/cerrar no cobra
+   nuevamente. Exportar IGSS del mes cerrado y filtrar historial por tipo.
+6. npm run lint; npm run typecheck; npm test; npm run build; npm run format:check;
+   npm run db:verify; npm run verify:pagos; npm run verify:security; npm run verify:prestaciones;
+   npm run verify:novedades; npm run verify:comunicacion; npm run test:e2e; npm run verify:infra.

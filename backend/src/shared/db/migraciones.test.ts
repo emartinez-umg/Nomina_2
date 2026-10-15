@@ -115,7 +115,7 @@ describe('historial de migraciones', () => {
     const todas = await cargarMigraciones(
       fileURLToPath(new URL('../../../../db/migrations/', import.meta.url)),
     );
-    const pendientes = todas.filter((m) => m.version >= 27);
+    const pendientes = todas.filter((m) => m.version >= 27 && m.version <= 28);
     const bloque = pendientes[0]!.sentencias.find((sql) =>
       sql.includes('FOR G IN (SELECT C.*,TRUNC(P.FECHA_INICIO'),
     )!;

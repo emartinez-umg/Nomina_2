@@ -13,6 +13,33 @@ export function crearNominaController(s: ReturnType<typeof crearNominaService>) 
     ip = (r: Request) => contextoDe(r).ip;
   const ok = (r: Response, d: unknown, status = 200) => r.status(status).json(respuestaOk(d));
   return {
+    simular: async (r: Request, res: Response) => {
+      sinDatos.parse(r.query);
+      ok(res, await s.simular(r.body));
+    },
+    pagar: async (r: Request, res: Response) => {
+      sinDatos.parse(r.query);
+      ok(res, await s.pagar(auth(r), ip(r), r.body), 201);
+    },
+    previewPago: async (r: Request, res: Response) => {
+      sinDatos.parse(r.query);
+      ok(res, await s.previewPago(r.body, id(r)));
+    },
+    revertirPago: async (r: Request, res: Response) => {
+      sinDatos.parse(r.query);
+      ok(res, await s.revertirPago(auth(r), ip(r), id(r), r.body));
+    },
+    zipPagos: async (r: Request, res: Response) => {
+      const q = z
+        .object({
+          mes: z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/),
+          idDepartamento: idSchema.optional(),
+          idEmpleado: idSchema.optional(),
+        })
+        .strict()
+        .parse(r.query);
+      ok(res, await s.zipPagos(q));
+    },
     periodos: async (r: Request, res: Response) =>
       ok(res, await s.periodos(querySchema.parse(r.query))),
     crear: async (r: Request, res: Response) => {

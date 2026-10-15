@@ -3,7 +3,7 @@ import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { Decimal } from 'decimal.js';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../../app/session';
 import { usePageHelp } from '../../../components/help/HelpProvider';
@@ -58,41 +58,44 @@ export function AccionesPeriodo({
   ];
   return (
     <div className="flex flex-wrap gap-2" data-tour="nomina-flujo">
-      {opciones.map(([a, label, estados]) => {
-        const bloqueada =
-          ocupado ||
-          (a === 'aprobar' && !!bloqueoFirma) ||
-          !(estados as readonly string[]).includes(p.estado) ||
-          (!['calcular', 'reabrir', 'devolver'].includes(a) && api.alertasDe(p).length > 0);
-        return (
-          <Button
-            key={a}
-            icono={
-              a === 'calcular'
-                ? 'actualizar'
-                : a === 'reabrir' || a === 'devolver'
-                  ? 'editar'
-                  : 'aprobar'
-            }
-            variante={a === 'cerrar' || a === 'reabrir' ? 'peligro' : 'secundario'}
-            disabled={bloqueada}
-            motivoDeshabilitado={
-              a === 'aprobar' && bloqueoFirma
-                ? bloqueoFirma
-                : api.alertasDe(p).length && !['calcular', 'reabrir', 'devolver'].includes(a)
-                  ? 'Resuelve las alertas y recalcula.'
-                  : `Acción disponible en: ${estados.join(', ')}.`
-            }
-            onClick={() => onAccion(a)}
-          >
-            {label}
-          </Button>
-        );
-      })}
+      {opciones
+        .filter(([a]) => p.motor !== 'V1' || a !== 'calcular')
+        .map(([a, label, estados]) => {
+          const bloqueada =
+            ocupado ||
+            (a === 'aprobar' && !!bloqueoFirma) ||
+            !(estados as readonly string[]).includes(p.estado) ||
+            (!['calcular', 'reabrir', 'devolver'].includes(a) && api.alertasDe(p).length > 0);
+          return (
+            <Button
+              key={a}
+              icono={
+                a === 'calcular'
+                  ? 'actualizar'
+                  : a === 'reabrir' || a === 'devolver'
+                    ? 'editar'
+                    : 'aprobar'
+              }
+              variante={a === 'cerrar' || a === 'reabrir' ? 'peligro' : 'secundario'}
+              disabled={bloqueada}
+              motivoDeshabilitado={
+                a === 'aprobar' && bloqueoFirma
+                  ? bloqueoFirma
+                  : api.alertasDe(p).length && !['calcular', 'reabrir', 'devolver'].includes(a)
+                    ? 'Resuelve las alertas y recalcula.'
+                    : `Acción disponible en: ${estados.join(', ')}.`
+              }
+              onClick={() => onAccion(a)}
+            >
+              {label}
+            </Button>
+          );
+        })}
     </div>
   );
 }
 export function NominaPage() {
+  const nav = useNavigate();
   const { usuario } = useSession(),
     propio = usuario?.rol === 'EMPLEADO';
   usePageHelp(ayudaNomina, usuario?.rol);
@@ -107,12 +110,15 @@ export function NominaPage() {
       <h1>{propio ? 'Mis boletas de pago' : 'Planilla de nómina'}</h1>
       <p className="text-secundario mb-5">
         {propio
-          ? 'Consulta el detalle y descarga tus boletas de periodos cerrados.'
-          : 'Calcula cada quincena, revisa los conceptos y conserva el historial de tus pagos.'}
+          ? 'Consulta el detalle y descarga tus boletas pagadas.'
+          : 'Simula y confirma anticipos y pagos mensuales; revisa y cierra aquí cada periodo.'}
       </p>
       {!propio && (
         <>
           <div className="flex flex-wrap gap-2 mb-5">
+            <Button icono="buscar" onClick={() => nav('/nomina/simular')}>
+              Simular pago
+            </Button>
             <Button
               icono="calendario"
               variante="secundario"
@@ -184,13 +190,13 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
   });
   return (
     <Card data-tour="nomina-periodos">
-      <h2>Periodos quincenales</h2>
+      <h2>Periodos de anticipo y pago</h2>
       <FormDraftNotice draft={draft} />
       <div className="form-grid my-4">
         <DateField
           name="fecha"
           label="Fecha de la quincena"
-          hint="Cualquier día del intervalo; se crean los límites exactos sin solaparse."
+          hint="Del 1 al 15 abre Anticipo; del 16 al fin de mes abre Pago. Para calcular usa Simular pago."
           value={fecha}
           onValueChange={setFecha}
           required
@@ -238,7 +244,7 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
         Limpiar filtros
       </Button>
       <Table
-        titulo="Quincenas de nómina"
+        titulo="Periodos de nómina"
         orden={{
           campo: q.ordenarPor ?? 'inicio',
           direccion: (q.direccion as 'asc' | 'desc') ?? 'desc',
@@ -258,8 +264,9 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
         columnas={[
           {
             id: 'inicio',
-            titulo: 'Quincena',
-            render: (p) => `${fechaVisible(p.inicio)} al ${fechaVisible(p.fin)}`,
+            titulo: 'Periodo',
+            render: (p) =>
+              `${p.motor === 'V1' ? (p.inicio.endsWith('-01') ? 'Anticipo · ' : 'Pago · ') : ''}${fechaVisible(p.inicio)} al ${fechaVisible(p.fin)}`,
           },
           { id: 'estado', titulo: 'Estado', render: (p) => <Badge>{p.estado}</Badge> },
           { id: 'version', titulo: 'Versión', render: (p) => p.version },
@@ -370,6 +377,7 @@ function Planilla({
     idEmpleado: 'Empleado',
     idDepartamento: 'Departamento',
     alertas: 'Con alertas',
+    tipoPago: 'Tipo de pago',
   };
   return (
     <>
@@ -473,7 +481,7 @@ function Planilla({
                 icono="exportar"
                 variante="secundario"
                 disabled={!q.anio || !q.mes || descarga.isPending}
-                motivoDeshabilitado="Selecciona mes y año. Las dos quincenas deben estar cerradas."
+                motivoDeshabilitado="Selecciona mes y año. Anticipo y pago deben estar cerrados."
                 onClick={() => descarga.mutate({ tipo: 'igss' })}
               >
                 Reporte IGSS mensual
@@ -541,6 +549,17 @@ function Planilla({
                     ]}
                   />
                   <SelectField
+                    name="tipoPago"
+                    label="Tipo de pago"
+                    hint="Filtra anticipo o pago mensual; vacío incluye también históricos v0."
+                    value={q.tipoPago ?? ''}
+                    onValueChange={(v) => cambiar('tipoPago', v)}
+                    opciones={[
+                      { value: 'ANTICIPO', label: 'Anticipo' },
+                      { value: 'PAGO', label: 'Pago del mes' },
+                    ]}
+                  />
+                  <SelectField
                     name="estado"
                     label="Estado"
                     hint="Paso actual del periodo."
@@ -592,7 +611,7 @@ function Planilla({
               ) : !datos.data?.total ? (
                 <EmptyState
                   titulo="Aún no tienes boletas"
-                  descripcion="Cuando RRHH cierre tu primera quincena aparecerá aquí. Si aplicaste filtros, prueba limpiarlos."
+                  descripcion="Cuando RRHH confirme tu primer pago aparecerá aquí. Si aplicaste filtros, prueba limpiarlos."
                 />
               ) : (
                 <>
@@ -683,6 +702,7 @@ function Planilla({
                     <>
                       {fechaVisible(f.inicio)} al {fechaVisible(f.fin)}
                       <p className="campo-hint">
+                        {f.tipoPago ? `${f.tipoPago} · ` : ''}
                         {f.estado} · v{f.version}
                       </p>
                     </>
@@ -708,6 +728,9 @@ function Planilla({
                   titulo: 'Boleta',
                   render: (f) => (
                     <div className="flex flex-wrap gap-2">
+                      {admin && f.tipoPago && f.estado !== 'CERRADO' && (
+                        <RevertirPagoControl id={f.id} />
+                      )}
                       <Button icono="ver" variante="secundario" onClick={() => setVer(f.id)}>
                         Detalle
                       </Button>
@@ -736,9 +759,9 @@ function Planilla({
         {['reabrir', 'devolver'].includes(accion) && <FormDraftNotice draft={draft} />}
         <p className="my-4" data-tour="nomina-confirmar">
           {accion === 'cerrar'
-            ? 'Se aplicarán los descuentos, se publicarán las boletas y el periodo quedará bloqueado.'
+            ? 'El periodo quedará bloqueado. En v1, los descuentos y boletas se aplican al confirmar y pagar.'
             : accion === 'reabrir'
-              ? 'Se revertirán los cobros de esta versión. Debes recalcular, revisar, aprobar y cerrar de nuevo. Las versiones anteriores se conservarán.'
+              ? 'En v1 se reabre el periodo conservando los pagos. Para corregirlos, ADMIN debe revertir cada pago antes de volver a pagar. En v0 se revierten los cobros y se conserva la versión.'
               : accion === 'calcular'
                 ? 'Se calculará una nueva versión con las fuentes y vigencias actuales; tendrás que revisarla otra vez.'
                 : accion === 'devolver'
@@ -871,7 +894,7 @@ function DetalleBoleta({
                           anual: 'ISR anual',
                           retenido: 'Retenido acumulado',
                           restantes: 'Periodos restantes',
-                          retencion: 'Retención de esta quincena',
+                          retencion: 'Retención del pago',
                           exceso: 'Retenido en exceso',
                           futuro: 'Renta futura proyectada',
                         } as Record<string, string>
@@ -919,6 +942,7 @@ export function BoletaMovil({
         {fechaVisible(f.inicio)} al {fechaVisible(f.fin)}
       </h3>
       <p className="campo-hint">
+        {f.tipoPago ? `${f.tipoPago} · ` : ''}
         {f.estado} · Versión {f.version}
       </p>
       <p className="my-3">
@@ -935,5 +959,78 @@ export function BoletaMovil({
         </Button>
       </div>
     </article>
+  );
+}
+function RevertirPagoControl({ id }: { id: number }) {
+  const client = useQueryClient(),
+    toast = useToast();
+  const [abierto, setAbierto] = useState(false),
+    [error, setError] = useState('');
+  const d = useDraftValues('reversion-pago', id, { motivo: '' }, abierto);
+  const [motivo, setMotivo] = d.campo('motivo');
+  const draft = d.draft;
+  const m = useMutation({
+    mutationFn: () => api.revertirPago(id, motivo),
+    onSuccess: () => {
+      draft.limpiar();
+      setAbierto(false);
+      toast('Pago revertido; cuotas y novedades devueltas.');
+      void client.invalidateQueries({ queryKey: ['nomina'] });
+    },
+    onError: (e) => setError(e.message),
+  });
+  return (
+    <>
+      <Button icono="cancelar" variante="peligro" onClick={() => setAbierto(true)}>
+        Revertir
+      </Button>
+      <Modal
+        abierto={abierto}
+        titulo="Revertir pago"
+        onCerrar={() => {
+          if (!m.isPending) setAbierto(false);
+        }}
+      >
+        <section data-tour="nomina-revertir">
+          <p className="my-4">
+            Se retirará esta boleta del portal y se devolverán sus cuotas y novedades. El PDF
+            original se conserva. Primero deben revertirse los pagos posteriores que dependan de
+            este.
+          </p>
+          <FormDraftNotice draft={draft} />
+          <div className="form-grid">
+            <TextAreaField
+              name="motivoReversion"
+              label="Motivo de reversión"
+              hint="Explica qué debe corregirse; al menos 10 caracteres. Solo ADMIN, antes del cierre."
+              value={motivo}
+              required
+              maxLength={500}
+              onValueChange={setMotivo}
+            />
+          </div>
+          <FormErrorSummary mensajes={[error]} />
+          <div className="flex justify-end gap-3 mt-4">
+            <Button
+              icono="cancelar"
+              variante="secundario"
+              disabled={m.isPending}
+              onClick={() => setAbierto(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              icono="aprobar"
+              variante="peligro"
+              cargando={m.isPending}
+              disabled={motivo.trim().length < 10}
+              onClick={() => m.mutate()}
+            >
+              Confirmar reversión
+            </Button>
+          </div>
+        </section>
+      </Modal>
+    </>
   );
 }

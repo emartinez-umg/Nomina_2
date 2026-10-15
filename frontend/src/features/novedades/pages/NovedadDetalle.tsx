@@ -93,7 +93,7 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
               Fin: finVisible(d.fechaFin),
               Modalidad: d.modalidad,
               Monto: d.monto ? moneda(d.monto) : undefined,
-              'Cuota quincenal': d.montoQuincena ? moneda(d.montoQuincena) : undefined,
+              'Cuota mensual': d.montoQuincena ? moneda(d.montoQuincena) : undefined,
               'Saldo pendiente': d.saldo != null ? moneda(d.saldo) : undefined,
               Cuotas: d.cuotas,
               Referencia: d.referencia,

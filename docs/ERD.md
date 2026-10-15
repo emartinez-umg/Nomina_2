@@ -1228,3 +1228,35 @@ compuesta (pago, empleado) impide aplicar una novedad a otra persona. Estado/pag
 coherente. SOLICITUDES añade VEHICULO/PLACA. Se agrega HORAS_EXTRA_TOPE_MENSUAL como parámetro
 operativo vigente. V027 migra orígenes y snapshots sin alterar las tablas/migraciones anteriores;
 los cobros de parqueo v0 conservan todas sus aplicaciones a través de NOVEDADES_ORIGEN.
+
+## V1-10: identidad del pago y boleta archivada
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ PAGOS_NOMINA : recibe
+  PERIODOS_NOMINA ||--o{ NOMINA_EMPLEADO : contiene
+  NOMINA_EMPLEADO ||--o| PAGOS_NOMINA : referencia_vigente
+  NOMINA_EMPLEADO ||--o| BOLETAS_PAGO : archiva
+  NOMINA_EMPLEADO ||--o{ NOVEDADES_MENSUALES : aplica
+  PAGOS_NOMINA {
+    number ID_PAGO_NOMINA PK
+    number ID_EMPLEADO FK
+    date MES "UNIQUE empleado-mes-tipo"
+    string TIPO_PAGO "ANTICIPO o PAGO"
+    number ID_NOMINA_EMPLEADO FK
+    string ESTADO "PAGADO o REVERTIDO"
+    string MOTIVO_REVERSION
+    number REVERTIDO_POR
+    date REVERTIDO_EN
+  }
+  BOLETAS_PAGO {
+    number ID_BOLETA_PAGO PK
+    number ID_NOMINA_EMPLEADO FK "UNIQUE"
+    blob CONTENIDO_PDF
+    string SHA256
+  }
+```
+
+V029 agrega MOTOR V0/V1 a PERIODOS_NOMINA, PERIODICIDAD mensual/FECHA_FIN_ANTERIOR a descuentos
+(incluidos préstamos) y FECHA_VENCIMIENTO_ANTERIOR a cuotas. Guarda PDFs y versiones anteriores al
+revertir/reemitir un pago; la referencia UNIQUE se actualiza al volver a pagar. No altera snapshots v0.

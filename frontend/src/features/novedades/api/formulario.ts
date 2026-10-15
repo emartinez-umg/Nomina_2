@@ -30,14 +30,14 @@ const cuotas: Campo = {
   nombre: 'cuotas',
   label: 'Número de cuotas',
   tipo: 'numero',
-  hint: 'Entre 1 y 600. Se distribuyen por quincena; la última ajusta los centavos.',
+  hint: 'Entre 1 y 600. Se distribuyen por mes; la última ajusta los centavos.',
   ancho: 'corto',
 };
 const inicio: Campo = {
   nombre: 'fechaInicio',
   label: 'Fecha de inicio',
   tipo: 'fecha',
-  hint: 'El descuento comienza en esta fecha; las cuotas vencen al cierre de cada quincena.',
+  hint: 'El descuento comienza en esta fecha; las cuotas vencen al cierre de cada mes.',
   ancho: 'corto',
 };
 const mes: Campo = {
@@ -84,10 +84,10 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
         nombre: 'modalidad',
         label: 'Modalidad',
         tipo: 'opcion',
-        hint: 'Fijo se repite cada quincena; cuotas distribuye un total; único se cobra una vez.',
+        hint: 'Fijo se repite cada mes; cuotas distribuye un total; único se cobra una vez.',
         opciones: ['FIJO', 'CUOTAS', 'UNICO'],
       },
-      { ...monto, label: modalidad === 'FIJO' ? 'Monto por quincena' : 'Monto total' },
+      { ...monto, label: modalidad === 'FIJO' ? 'Monto por mes' : 'Monto total' },
       ...(modalidad === 'CUOTAS' ? [cuotas] : []),
       inicio,
       ...(modalidad === 'FIJO'
@@ -110,7 +110,7 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
       {
         ...inicio,
         label: 'Primera cuota',
-        hint: 'Hoy o una fecha futura. Vence al final de la quincena elegida.',
+        hint: 'Hoy o una fecha futura. Vence al final de la mes elegido.',
       },
       {
         nombre: 'fechaDesembolso',

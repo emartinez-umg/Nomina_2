@@ -36,18 +36,35 @@ export function boletasPdf(
         e = s.entrada.empleado,
         r = s.resultado;
       const cabecera = () => {
-        encabezado(doc, 'Boleta de pago', empresa.razonSocial);
+        encabezado(
+          doc,
+          (r as Resultado & { tipoPago?: string }).tipoPago === 'ANTICIPO'
+            ? 'Anticipo quincenal'
+            : 'Boleta de pago',
+          empresa.razonSocial,
+        );
         doc.text(`${e.codigo} · ${e.nombres} ${e.apellidos}`);
         doc.text(`${e.departamento} · ${e.puesto}`);
         doc.text(`${visible(fila.inicio)} al ${visible(fila.fin)} · Versión ${fila.version}`);
-        doc.text(`Salario mensual: ${q(r.salario)} · Días pagados: ${r.dias}`);
+        const mensual = r as Resultado & { tipoPago?: string; mes?: string };
+        if (mensual.tipoPago)
+          doc.text(
+            `Mes: ${mensual.mes} · ${mensual.tipoPago === 'ANTICIPO' ? 'Anticipo del día 15' : 'Pago del último día calendario'}`,
+          );
+        doc.text(
+          `Salario mensual: ${q(r.salario)}${mensual.tipoPago === 'ANTICIPO' ? '' : ` · ${mensual.tipoPago ? 'Días del mes a liquidar' : 'Días pagados'}: ${r.dias}`}`,
+        );
         doc.moveDown();
       };
       cabecera();
-      if (fila.estado !== 'CERRADO')
+      if (!['CERRADO', 'PAGADO'].includes(fila.estado))
         doc
           .fillColor('#8A4617')
-          .text('VISTA PREVIA · Periodo pendiente de cierre')
+          .text(
+            fila.estado === 'SIMULACION'
+              ? 'SIMULACIÓN · Sin validez de pago'
+              : 'VISTA PREVIA · Periodo pendiente de cierre',
+          )
           .fillColor('#25303B')
           .moveDown();
       for (const naturaleza of ['INGRESO', 'DESCUENTO'] as const) {
@@ -79,6 +96,11 @@ export function boletasPdf(
         .font('Helvetica-Bold')
         .text(`Total ingresos: ${q(r.ingresos)}`)
         .text(`Total descuentos: ${q(r.descuentos)}`)
+        .text(
+          (r as Resultado & { devengado?: string }).devengado
+            ? `Total devengado: ${q((r as Resultado & { devengado: string }).devengado)}`
+            : '',
+        )
         .fillColor('#365D35')
         .fontSize(15)
         .text(`Neto a recibir: ${q(r.neto)}`)
@@ -268,7 +290,11 @@ export function reporteIgss(
   f.tipos.forEach((t, i) => linea([i + 1, t.codigo, visible(inicio), visible(fin), 'O', '']));
   out.push('[Empleados]');
   const grupos = new Map<number, Guardado[]>();
-  for (const n of filas) grupos.set(n.idEmpleado, [...(grupos.get(n.idEmpleado) ?? []), n]);
+  for (const n of filas) {
+    if ((snapshot(n).resultado as Resultado & { tipoPago?: string }).tipoPago === 'ANTICIPO')
+      continue;
+    grupos.set(n.idEmpleado, [...(grupos.get(n.idEmpleado) ?? []), n]);
+  }
   const extras: { etiqueta: string; linea: unknown[] }[] = [];
   for (const [id, ns] of grupos) {
     const s = snapshot(ns.at(-1)!),
@@ -299,7 +325,7 @@ export function reporteIgss(
       let totalHoras = new Decimal(0);
       for (const n of ns) {
         const entrada = snapshot(n).entrada;
-        for (const fecha of fechas(n.inicio, n.fin).filter(
+        for (const fecha of fechas(entrada.inicio, entrada.fin).filter(
           (d) => d >= e.ingreso && (!e.egreso || d <= e.egreso) && !entrada.feriados.includes(d),
         )) {
           const dia = new Date(`${fecha}T00:00:00Z`).getUTCDay() || 7;
@@ -326,6 +352,13 @@ export function reporteIgss(
           );
           totalHoras = totalHoras.plus(patron.horas);
         }
+        const mensual = entrada as Entrada & { novedades?: { tipo: string; cantidad: string }[] };
+        if (mensual.novedades)
+          totalHoras = totalHoras.plus(
+            mensual.novedades
+              .filter((v) => v.tipo === 'HORAS_EXTRA')
+              .reduce((s, v) => s.plus(v.cantidad), new Decimal(0)),
+          );
         totalHoras = totalHoras.plus(
           entrada.horas
             .filter((h) => h.estado === 'APROBADA')

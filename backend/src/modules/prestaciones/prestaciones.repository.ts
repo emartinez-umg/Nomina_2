@@ -277,7 +277,7 @@ export async function exencionUsada(
 export async function historialPagos(c: Connection, id: number, inicio: string, fin: string) {
   const ns = await filas<{ id: number; snapshot: string; fecha: string }>(
     c,
-    `SELECT N.ID_NOMINA_EMPLEADO "id",N.DATOS_EMPLEADO "snapshot",TO_CHAR(N.FECHA_PAGO,'YYYY-MM-DD') "fecha" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE N.ID_EMPLEADO=:id AND P.ESTADO='CERRADO' AND N.VERSION_CALCULO=P.VERSION_CALCULO AND N.FECHA_PAGO BETWEEN ${fecha('inicio')} AND ${fecha('fin')} ORDER BY N.FECHA_PAGO,N.ID_NOMINA_EMPLEADO`,
+    `SELECT N.ID_NOMINA_EMPLEADO "id",N.DATOS_EMPLEADO "snapshot",TO_CHAR(N.FECHA_PAGO,'YYYY-MM-DD') "fecha" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE N.ID_EMPLEADO=:id AND P.ESTADO='CERRADO' AND ((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND P.QUINCENA=2 AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO'))) AND N.FECHA_PAGO BETWEEN ${fecha('inicio')} AND ${fecha('fin')} ORDER BY N.FECHA_PAGO,N.ID_NOMINA_EMPLEADO`,
     { id, inicio, fin },
   );
   const pagos = await filas<{ fecha: string; concepto: string; monto: string }>(

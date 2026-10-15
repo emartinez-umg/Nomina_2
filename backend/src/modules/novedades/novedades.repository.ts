@@ -81,7 +81,7 @@ function config(tipo: Tipo) {
   const uso = desc
     ? 'EXISTS (SELECT 1 FROM DESCUENTOS_APLICACIONES A WHERE A.ID_DESCUENTO_EMPLEADO=T.ID_DESCUENTO_EMPLEADO) OR EXISTS (SELECT 1 FROM DESCUENTOS_CUOTAS C WHERE C.ID_DESCUENTO_EMPLEADO=T.ID_DESCUENTO_EMPLEADO AND C.MONTO_PAGADO>0)'
     : `EXISTS (SELECT 1 FROM NOMINA_DETALLE N WHERE N.${tipo === 'comisiones' ? 'ID_COMISION' : tipo === 'horas-extra' ? 'ID_HORA_EXTRA' : 'ID_AUSENCIA'}=T.${tablas[tipo][1]})`;
-  const bloqueada = `CASE WHEN EXISTS (SELECT 1 FROM PERIODOS_NOMINA C WHERE C.ESTADO='CERRADO' AND C.FECHA_INICIO<=${fin} AND C.FECHA_FIN>=${inicio}) OR ${uso}${tipo === 'ausencias' ? " OR EXISTS(SELECT 1 FROM NOVEDADES_MENSUALES M WHERE M.ID_AUSENCIA=T.ID_AUSENCIA AND M.ESTADO='APLICADA')" : ''} THEN 1 ELSE 0 END`;
+  const bloqueada = `CASE WHEN EXISTS (SELECT 1 FROM PERIODOS_NOMINA C WHERE C.ESTADO='CERRADO' AND (C.MOTOR='V0' OR C.QUINCENA=2) AND C.FECHA_INICIO<=${fin} AND C.FECHA_FIN>=${inicio}) OR ${uso}${tipo === 'ausencias' ? " OR EXISTS(SELECT 1 FROM NOVEDADES_MENSUALES M WHERE M.ID_AUSENCIA=T.ID_AUSENCIA AND M.ESTADO='APLICADA')" : ''} THEN 1 ELSE 0 END`;
   return {
     inicio,
     fin,
@@ -215,7 +215,7 @@ export async function cuotas(c: Connection, id: number) {
 export async function cerrados(c: Connection, inicio: string, fin: string) {
   return !!(
     await c.execute(
-      `SELECT 1 FROM PERIODOS_NOMINA WHERE ESTADO='CERRADO' AND FECHA_INICIO<=${fecha('fin')} AND FECHA_FIN>=${fecha('inicio')}`,
+      `SELECT 1 FROM PERIODOS_NOMINA WHERE ESTADO='CERRADO' AND (MOTOR='V0' OR QUINCENA=2) AND FECHA_INICIO<=${fecha('fin')} AND FECHA_FIN>=${fecha('inicio')}`,
       { inicio, fin },
     )
   ).rows?.length;

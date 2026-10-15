@@ -2523,6 +2523,11 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .send({ ...dPrestamo(), cuotas: 1 })
           .expect(201);
         const idCuota = r.body.data.cuotasDetalle[0].id as number;
+        // Cobro de una cuota histórica v0; el calendario nuevo mensual se prueba en V1-10.
+        await ejecutar(
+          "UPDATE DESCUENTOS_CUOTAS SET FECHA_VENCIMIENTO=DATE '2090-01-15' WHERE ID_DESCUENTO_CUOTA=:id",
+          { id: idCuota },
+        );
         const periodo = Number(
           await escalar(
             "SELECT ID_PERIODO_NOMINA FROM PERIODOS_NOMINA WHERE FECHA_INICIO=DATE '2090-01-01'",
@@ -2788,6 +2793,11 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         })
         .expect(201);
       descuentoId = prestamo.body.data.id;
+      // Reconstruye los vencimientos del histórico v0 para conservar su regresión financiera.
+      await ejecutar(
+        "UPDATE DESCUENTOS_CUOTAS SET FECHA_VENCIMIENTO=CASE WHEN NUMERO_CUOTA=1 THEN DATE '2099-01-15' ELSE DATE '2099-01-31' END WHERE ID_DESCUENTO_EMPLEADO=:id",
+        { id: descuentoId },
+      );
       await prepararFirmantePrueba(db, admin.idUsuario);
     });
     it('RBAC, CSRF y periodo exacto sin duplicados', async () => {
@@ -2797,6 +2807,10 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await adminF8.agent.post('/api/nomina/periodos').send({ fecha: '2099-01-02' }).expect(403);
       const r = await post('/periodos', { fecha: '2099-01-02' }, 201);
       periodoId = r.body.data.id;
+      // Regresión explícita de un periodo histórico v0; las altas operativas usan el motor v1.
+      await ejecutar("UPDATE PERIODOS_NOMINA SET MOTOR='V0' WHERE ID_PERIODO_NOMINA=:id", {
+        id: periodoId,
+      });
       await post('/periodos', { fecha: '2099-01-14' }, 409);
       const p = await adminF8.agent.get(`/api/nomina/periodos/${periodoId}`).expect(200);
       expect(p.body.data).toMatchObject({
@@ -2961,6 +2975,10 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
     it('cambio de fuente invalida revisión y neto negativo bloquea aprobación', async () => {
       const r = await post('/periodos', { fecha: '2099-01-20' }, 201);
       periodoId = r.body.data.id;
+      // Regresión explícita de un periodo histórico v0; las altas operativas usan el motor v1.
+      await ejecutar("UPDATE PERIODOS_NOMINA SET MOTOR='V0' WHERE ID_PERIODO_NOMINA=:id", {
+        id: periodoId,
+      });
       await actuar('calcular', 0);
       await ejecutar(
         "INSERT INTO COMISIONES (ID_EMPLEADO,ID_PERIODO_NOMINA,MONTO,REFERENCIA,DESCRIPCION) VALUES (:id,:periodo,100,'F8_COMISION','Comisión de prueba')",
@@ -3086,6 +3104,10 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       const anterior = periodoId;
       const r = await post('/periodos', { fecha: '2099-02-01' }, 201);
       periodoId = r.body.data.id;
+      // Regresión explícita de un periodo histórico v0; las altas operativas usan el motor v1.
+      await ejecutar("UPDATE PERIODOS_NOMINA SET MOTOR='V0' WHERE ID_PERIODO_NOMINA=:id", {
+        id: periodoId,
+      });
       await actuar('calcular', 0);
       await actuar('revisar');
       await actuar('aprobar');

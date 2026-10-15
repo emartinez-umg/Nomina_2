@@ -67,7 +67,7 @@ export async function aplicarNovedades(
         'La novedad no está lista, pertenece a otro empleado/mes o ya fue aplicada.',
       );
     const r = rangoMes(d.mes);
-    if (await cerrados(c, r.inicio, r.fin))
+    if (d.mes === pago.mes && (await cerrados(c, r.inicio, r.fin)))
       throw new ErrorConflicto('La novedad pertenece a un mes cerrado.');
     await c.execute(
       "UPDATE NOVEDADES_MENSUALES SET ESTADO='APLICADA',ID_NOMINA_EMPLEADO=:pago,MODIFICADO_POR=:actor WHERE ID_NOVEDAD_MENSUAL=:id",

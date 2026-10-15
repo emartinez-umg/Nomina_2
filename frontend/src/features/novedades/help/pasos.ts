@@ -3,9 +3,9 @@ import type { Tipo } from '../api/novedades';
 import { titulos } from '../api/novedades';
 const explicaciones: Record<Tipo, string> = {
   descuentos:
-    'El monto fijo se repite cada quincena y no tiene saldo total. Cuotas distribuye el total entre quincenas; único crea una cuota. Parqueo se administra como suscripción y consumo en tienda se carga por mes en su propia pantalla. El neto se comprobará al calcular planilla.',
+    'El monto fijo se repite cada mes y no tiene saldo total. Cuotas distribuye el total entre meses; único crea una cuota. Parqueo se administra como suscripción y consumo en tienda se carga por mes en su propia pantalla. El neto se comprobará al calcular planilla.',
   prestamos:
-    'Selecciona préstamo o anticipo, capital y número de cuotas. La primera cuota debe ser hoy o futura. No se calculan intereses: el capital se distribuye en centavos y el residuo se suma a la última cuota. Revisa la amortización antes de guardar.',
+    'Selecciona préstamo o anticipo, capital y número de cuotas. La primera cuota debe ser hoy o futura. No se calculan intereses: el capital se distribuye en centavos y el residuo se suma a la última cuota. Las cuotas vencen una vez por mes, al último día calendario. Revisa la amortización antes de guardar.',
   comisiones:
     'Carga manual por empleado y mes, con importe, descripción y referencia única para ese empleado y mes. Solo meses actuales o anteriores sin periodos cerrados. Una vez aplicada muestra el pago y queda protegida.',
   'consumo-tienda':
@@ -20,7 +20,7 @@ export function ayudaNovedades(
   pagina: 'listado' | 'formulario' | 'detalle',
 ): DefinicionAyuda {
   return {
-    id: `novedades-${tipo}-${pagina}-v1-9`,
+    id: `novedades-${tipo}-${pagina}-v1-10`,
     pasos: [
       {
         elemento: 'codigo-automatico',

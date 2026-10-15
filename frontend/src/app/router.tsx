@@ -1,3 +1,4 @@
+import { SimularPagoPage } from '../features/nomina/pages/SimularPagoPage';
 import { EmpresaPage } from '../features/empresa/pages/EmpresaPage';
 import { lazy, Suspense } from 'react';
 const PendientesPage = lazy(() =>
@@ -164,6 +165,7 @@ export const rutas = [
             children: [
               { path: '/comunicacion/:tipo', element: comunicacionPage },
               { path: '/planilla', element: <NominaPage /> },
+              { path: '/nomina/simular', element: <SimularPagoPage /> },
               {
                 path: '/prestaciones',
                 element: (

@@ -505,7 +505,7 @@ export function crearNovedadesService(db: BaseDatos) {
             'Pago aplicado',
             'Referencia',
             'Monto',
-            'Cuota quincenal',
+            'Cuota mensual',
             'Saldo',
             'Horas',
             'Jornada',
