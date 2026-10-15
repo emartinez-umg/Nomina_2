@@ -3,7 +3,7 @@ import { idSchema } from '../auditoria/auditoria.schemas.js';
 export const objetivoPagoSchema = z
   .object({
     mes: z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/),
-    tipoPago: z.enum(['ANTICIPO', 'PAGO']),
+    tipoPago: z.enum(['ANTICIPO', 'PAGO', 'BONO_14', 'AGUINALDO']),
     objetivo: z.enum(['EMPLEADO', 'DEPARTAMENTO', 'TODOS']),
     idEmpleado: idSchema.optional(),
     idDepartamento: idSchema.optional(),

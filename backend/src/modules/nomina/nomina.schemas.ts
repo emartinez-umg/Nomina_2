@@ -32,7 +32,7 @@ export const querySchema = z
     idEmpleado: idSchema.optional(),
     idDepartamento: idSchema.optional(),
     alertas: z.enum(['1', '0']).optional(),
-    tipoPago: z.enum(['ANTICIPO', 'PAGO']).optional(),
+    tipoPago: z.enum(['ANTICIPO', 'PAGO', 'BONO_14', 'AGUINALDO']).optional(),
     ordenarPor: z
       .enum(['inicio', 'empleado', 'ingresos', 'descuentos', 'neto', 'estado'])
       .default('inicio'),

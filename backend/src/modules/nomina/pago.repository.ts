@@ -11,7 +11,7 @@ export async function periodoMes(c: Connection, mes: string, tipo: TipoPago) {
     await filas<Periodo>(
       c,
       `SELECT ID_PERIODO_NOMINA "id",TO_CHAR(FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(FECHA_FIN,'YYYY-MM-DD') "fin",ESTADO "estado",MOTOR "motor",VERSION_CALCULO "version",DBMS_LOB.SUBSTR(ALERTAS,4000,1) "alertas",HASH_FUENTES "hash" FROM PERIODOS_NOMINA WHERE FECHA_INICIO=TO_DATE(:mes||:dia,'YYYY-MM-DD') AND ACTIVO=1`,
-      { mes, dia: tipo === 'ANTICIPO' ? '-01' : '-16' },
+      { mes, dia: tipo === 'PAGO' ? '-16' : '-01' },
     )
   )[0];
 }
@@ -125,7 +125,7 @@ export async function dependenciaPosterior(
     (
       await filas(
         c,
-        `SELECT 1 FROM PAGOS_NOMINA WHERE ID_EMPLEADO=:empleado AND ESTADO='PAGADO' AND (MES>TO_DATE(:mes||'-01','YYYY-MM-DD') OR (MES=TO_DATE(:mes||'-01','YYYY-MM-DD') AND TIPO_PAGO='PAGO' AND :tipo='ANTICIPO'))`,
+        `SELECT 1 FROM PAGOS_NOMINA WHERE ID_EMPLEADO=:empleado AND ESTADO='PAGADO' AND (MES>TO_DATE(:mes||'-01','YYYY-MM-DD') OR (MES=TO_DATE(:mes||'-01','YYYY-MM-DD') AND TIPO_PAGO='PAGO' AND :tipo IN ('ANTICIPO','BONO_14','AGUINALDO')))`,
         { empleado, mes, tipo },
       )
     ).length > 0

@@ -1,6 +1,6 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaNomina: DefinicionAyuda = {
-  id: 'nomina-v1-10',
+  id: 'nomina-v1-11',
   pasos: [
     {
       elemento: 'nomina-revertir',

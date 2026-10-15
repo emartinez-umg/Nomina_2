@@ -24,7 +24,7 @@ function administrar(sql) {
     {
       input: `WHENEVER SQLERROR EXIT FAILURE\nALTER SESSION SET CONTAINER = XEPDB1;\n${sql}\nEXIT;\n`,
       encoding: 'utf8',
-      timeout: 60000,
+      timeout: 120000,
     },
   );
   if (resultado.error || resultado.status !== 0) {
@@ -75,7 +75,7 @@ try {
       DB_POOL_MAX: '1',
     }),
   );
-  assert.equal(await ejecutarMigraciones(db, logger), 30, 'Deben aplicar V000–V029 desde cero.');
+  assert.equal(await ejecutarMigraciones(db, logger), 31, 'Deben aplicar V000–V030 desde cero.');
   assert.equal(
     await ejecutarMigraciones(db, logger),
     0,
@@ -93,7 +93,7 @@ try {
     );
     assert.equal(
       await escalar("SELECT COUNT(*) FROM VERSION_ESQUEMA WHERE ESTADO = 'APLICADA'"),
-      30,
+      31,
     );
     assert.equal(
       await escalar(`SELECT COUNT(*) FROM USER_CONSTRAINTS
@@ -225,7 +225,7 @@ try {
     antes === (await snapshot()),
     'Seeds idempotentes: conservar filas, valores, hash y fechas.',
   );
-  console.log('✓ V000–V029 desde cero; 68 tablas, identities, auditoría, CHECK y FKs indexadas.');
+  console.log('✓ V000–V030 desde cero; 68 tablas, identities, auditoría, CHECK y FKs indexadas.');
   console.log('✓ Seeds repetibles; parámetros, feriados, plantillas y ADMIN argon2id verificados.');
 
   await db.conConexion(async (conexion) => {

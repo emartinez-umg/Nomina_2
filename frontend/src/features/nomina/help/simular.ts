@@ -1,12 +1,12 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaSimular: DefinicionAyuda = {
-  id: 'simular-pago-v1-10',
+  id: 'simular-pago-v1-11',
   pasos: [
     {
       elemento: 'pago-objetivo',
       titulo: 'Elige qué pago revisar',
       descripcion:
-        'Anticipo corresponde al día 15 e incluye la mitad del salario mensual prorrateado, la bonificación completa ajustada por ausencias y las comisiones y horas extra cargadas. No retiene descuentos. Pago del mes corresponde al último día calendario: devengado completo menos anticipo, IGSS, ISR y descuentos mensuales. La fecha es informativa y no se mueve por feriados. Bono 14 y Aguinaldo estarán disponibles en V1-11.',
+        'Anticipo corresponde al día 15 e incluye la mitad del salario mensual prorrateado, la bonificación completa ajustada por ausencias y las comisiones y horas extra cargadas. No retiene descuentos. Pago del mes corresponde al último día calendario: devengado completo menos anticipo, IGSS, ISR y descuentos mensuales. La fecha es informativa y no se mueve por feriados. Bono 14 se paga en julio y Aguinaldo en diciembre. Se calculan desde contratación con promedio de salario, comisiones y horas extra del ciclo, proporcional por días / 365 hasta completar un año. La indemnización individual está en Prestaciones.',
     },
     {
       elemento: 'pago-simular',
@@ -24,7 +24,7 @@ export const ayudaSimular: DefinicionAyuda = {
       elemento: 'pago-verificacion',
       titulo: 'Completa las novedades antes de confirmar',
       descripcion:
-        'Los contadores indican empleados con horas extra, comisiones, consumo, ausencias, retroactivas y alertas. Compara con tus respaldos; cero significa que no hay cargas de ese tipo. Marca obligatoriamente que las novedades están completas. Cambiar datos o simular de nuevo retira esa confirmación.',
+        'Los contadores indican empleados con horas extra, comisiones, consumo, ausencias, retroactivas y alertas. Compara con tus respaldos; cero significa que no hay cargas de ese tipo. Para prestaciones, revisa la historia salarial completa del ciclo, su proporción y las bases exenta y gravada. El excedente se incorpora al ISR mensual; la prestación no consume cuotas ni novedades. Marca obligatoriamente que las fuentes están completas. Cambiar datos o simular de nuevo retira esa confirmación.',
     },
     {
       elemento: 'pago-confirmar',

@@ -94,14 +94,16 @@ beforeEach(() => {
   vi.mocked(api.simular).mockResolvedValue(resultado as api.Simulacion);
 });
 describe('A11: simulación guiada y confirmación', () => {
-  it('prestaciones futuras visibles pero bloqueadas por clic y teclado', () => {
+  it('Bono 14 está habilitado y selecciona julio antes de simular', async () => {
     montar();
     fireEvent.focus(screen.getByRole('combobox', { name: 'Tipo de pago' }));
-    const bono = screen.getByRole('option', { name: 'Bono 14 · V1-11' });
-    expect(bono).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(bono);
-    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Tipo de pago' }), { key: 'Escape' });
-    expect(screen.getByRole('combobox', { name: 'Tipo de pago' })).toHaveValue('Anticipo');
+    fireEvent.click(screen.getByRole('option', { name: 'Bono 14' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Simular' }));
+    await waitFor(() =>
+      expect(api.simular).toHaveBeenCalledWith(
+        expect.objectContaining({ tipoPago: 'BONO_14', mes: '2026-07' }),
+      ),
+    );
   });
   it('muestra alertas y totales reales y exige la casilla antes de pagar', async () => {
     montar();

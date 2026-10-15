@@ -1260,3 +1260,18 @@ erDiagram
 V029 agrega MOTOR V0/V1 a PERIODOS_NOMINA, PERIODICIDAD mensual/FECHA_FIN_ANTERIOR a descuentos
 (incluidos préstamos) y FECHA_VENCIMIENTO_ANTERIOR a cuotas. Guarda PDFs y versiones anteriores al
 revertir/reemitir un pago; la referencia UNIQUE se actualiza al volver a pagar. No altera snapshots v0.
+
+## V1-11 — Prestaciones automáticas (V030)
+
+```mermaid
+erDiagram
+  NOMINA_EMPLEADO ||--o| PRESTACIONES : acredita_pago_anual
+  PRESTACIONES {
+    number ID_PRESTACION PK
+    number ID_NOMINA_EMPLEADO FK "nullable, UNIQUE; históricos conservados"
+  }
+```
+
+PAGOS_NOMINA admite ANTICIPO, PAGO, BONO_14 y AGUINALDO conservando UNIQUE empleado/mes/tipo.
+Las prestaciones anuales conservan fuente/detalle/exención y enlazan su boleta BLOB inmutable.
+PRESTACIONES_DIAS_ANIO parametriza el divisor de proporcionalidad. No se modifica V000–V029.

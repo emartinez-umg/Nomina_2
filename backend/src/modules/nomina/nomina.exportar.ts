@@ -1,3 +1,4 @@
+import type { Componente } from '../prestaciones/prestaciones.calculo.js';
 import { fechas, vigente } from './nomina.calculo.js';
 import { generarPdf, bloqueFirma } from '../../shared/pdf/documento.js';
 import type { IdentidadEmpresa, FirmaDocumento } from '../../shared/pdf/documento.js';
@@ -40,7 +41,12 @@ export function boletasPdf(
           doc,
           (r as Resultado & { tipoPago?: string }).tipoPago === 'ANTICIPO'
             ? 'Anticipo quincenal'
-            : 'Boleta de pago',
+            : ((
+                { BONO_14: 'Boleta de Bono 14', AGUINALDO: 'Boleta de Aguinaldo' } as Record<
+                  string,
+                  string
+                >
+              )[(r as Resultado & { tipoPago: string }).tipoPago] ?? 'Boleta de pago'),
           empresa.razonSocial,
         );
         doc.text(`${e.codigo} · ${e.nombres} ${e.apellidos}`);
@@ -49,11 +55,12 @@ export function boletasPdf(
         const mensual = r as Resultado & { tipoPago?: string; mes?: string };
         if (mensual.tipoPago)
           doc.text(
-            `Mes: ${mensual.mes} · ${mensual.tipoPago === 'ANTICIPO' ? 'Anticipo del día 15' : 'Pago del último día calendario'}`,
+            `Mes: ${mensual.mes} · ${mensual.tipoPago === 'ANTICIPO' ? 'Anticipo del día 15' : mensual.tipoPago === 'PAGO' ? 'Pago del último día calendario' : 'Prestación anual'}`,
           );
-        doc.text(
-          `Salario mensual: ${q(r.salario)}${mensual.tipoPago === 'ANTICIPO' ? '' : ` · ${mensual.tipoPago ? 'Días del mes a liquidar' : 'Días pagados'}: ${r.dias}`}`,
-        );
+        if (!['BONO_14', 'AGUINALDO'].includes(mensual.tipoPago ?? ''))
+          doc.text(
+            `Salario mensual: ${q(r.salario)}${mensual.tipoPago === 'ANTICIPO' ? '' : ` · ${mensual.tipoPago ? 'Días del mes a liquidar' : 'Días pagados'}: ${r.dias}`}`,
+          );
         doc.moveDown();
       };
       cabecera();
@@ -67,6 +74,12 @@ export function boletasPdf(
           )
           .fillColor('#25303B')
           .moveDown();
+      for (const c of (r as Resultado & { componentes?: Componente[] }).componentes ?? []) {
+        doc.text(`Periodo base: ${visible(c.inicio)} al ${visible(c.fin)} - ${c.dias} días`);
+        doc.text(`Promedio: ${q(c.promedio)} - ${c.meses} meses equivalentes`);
+        doc.text(`Exento ISR: ${q(c.exento)} - Gravado: ${q(c.gravado)}`);
+        doc.text('El excedente se incorpora al ISR del pago mensual.').moveDown();
+      }
       for (const naturaleza of ['INGRESO', 'DESCUENTO'] as const) {
         doc.x = 42;
         doc
@@ -291,8 +304,8 @@ export function reporteIgss(
   out.push('[Empleados]');
   const grupos = new Map<number, Guardado[]>();
   for (const n of filas) {
-    if ((snapshot(n).resultado as Resultado & { tipoPago?: string }).tipoPago === 'ANTICIPO')
-      continue;
+    const tipo = (snapshot(n).resultado as Resultado & { tipoPago?: string }).tipoPago;
+    if (tipo && tipo !== 'PAGO') continue;
     grupos.set(n.idEmpleado, [...(grupos.get(n.idEmpleado) ?? []), n]);
   }
   const extras: { etiqueta: string; linea: unknown[] }[] = [];

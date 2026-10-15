@@ -557,6 +557,8 @@ function Planilla({
                     opciones={[
                       { value: 'ANTICIPO', label: 'Anticipo' },
                       { value: 'PAGO', label: 'Pago del mes' },
+                      { value: 'BONO_14', label: 'Bono 14' },
+                      { value: 'AGUINALDO', label: 'Aguinaldo' },
                     ]}
                   />
                   <SelectField

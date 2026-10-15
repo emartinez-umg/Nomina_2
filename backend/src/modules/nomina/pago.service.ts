@@ -1,3 +1,10 @@
+import { anual } from '../prestaciones/prestaciones.service.js';
+import { ciclo } from '../prestaciones/prestaciones.calculo.js';
+import {
+  resultadoPrestacion,
+  registrarPrestacionPagada,
+} from '../prestaciones/prestaciones.pago.js';
+import * as prestaciones from '../prestaciones/prestaciones.repository.js';
 import { conLecturaConsistente } from '../../shared/db/lectura.js';
 import type { Periodo } from './nomina.types.js';
 import { createHash } from 'node:crypto';
@@ -49,11 +56,23 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     throw new ErrorConflicto(
       'El periodo está aprobado/cerrado o conserva un cálculo v0. Abre el periodo y revisa su estado antes de simular.',
     );
+  const esAnual = d.tipoPago === 'BONO_14' || d.tipoPago === 'AGUINALDO';
+  const cicloAnual = esAnual
+    ? ciclo(
+        d.tipoPago as 'BONO_14' | 'AGUINALDO',
+        Number(d.mes.slice(0, 4)),
+        await prestaciones.parametros(c),
+      )
+    : null;
+  if (cicloAnual && cicloAnual.limitePago.slice(0, 7) !== d.mes)
+    throw new ErrorConflicto(
+      'Selecciona julio para Bono 14 o diciembre para Aguinaldo según la fecha de pago configurada.',
+    );
   const fuentes = await repo.fuentes(
     c,
     {
       id: periodo?.id ?? 0,
-      ...rango,
+      ...(cicloAnual ? { inicio: cicloAnual.inicio, fin: cicloAnual.fin } : rango),
       estado: 'ABIERTO',
       version: 0,
       hash: null,
@@ -80,7 +99,7 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     entradas: EntradaPago[] = [],
     registros: FilaSimulacion[] = [];
   for (const e of objetivo) {
-    const novedades = await pago.novedades(c, d.mes, e.empleado.id);
+    const novedades = esAnual ? [] : await pago.novedades(c, d.mes, e.empleado.id);
     const entrada: EntradaPago = {
       ...e,
       mes: d.mes,
@@ -115,6 +134,10 @@ async function preparar(c: Connection, d: ObjetivoPago) {
         throw new ErrorConflicto(
           'El pago del mes ya está registrado. No puedes añadir un anticipo después.',
         );
+      if (esAnual && pagos.some((p) => p.empleado === e.empleado.id && p.tipo === 'PAGO'))
+        throw new ErrorConflicto(
+          'El pago mensual ya incorporó sus bases fiscales. Revierte ese pago antes de registrar la prestación.',
+        );
       if (await pago.dependenciaPosterior(c, e.empleado.id, d.mes, 'PAGO'))
         throw new ErrorConflicto(
           'Hay pagos posteriores de este empleado. Reviértelos en orden inverso antes de pagar este mes.',
@@ -123,6 +146,22 @@ async function preparar(c: Connection, d: ObjetivoPago) {
         throw new ErrorConflicto(
           'Vincula el usuario del empleado para publicar y notificar su boleta.',
         );
+      if (esAnual) {
+        entrada.prestacion = await anual(c, (await prestaciones.empleado(c, e.empleado.id))!, {
+          tipo: d.tipoPago as 'BONO_14' | 'AGUINALDO',
+          anio: Number(d.mes.slice(0, 4)),
+          idEmpleado: e.empleado.id,
+        });
+        entrada.verificacionPrestacion = await prestaciones.resumenFuentes(
+          c,
+          e.empleado.id,
+          entrada.prestacion.componentes[0]!.inicio,
+          entrada.prestacion.componentes[0]!.fin,
+        );
+        fila.resultado = resultadoPrestacion(entrada);
+        registros.push(fila);
+        continue;
+      }
       const completa = d.tipoPago === 'PAGO' ? completarHistoria(entrada) : entrada;
       Object.assign(entrada, completa);
       fila.resultado = calcularPago(entrada);
@@ -145,6 +184,11 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     conAlertas: registros.filter((f) => f.alertas.length).length,
   };
   for (const e of entradas) {
+    if (e.verificacionPrestacion) {
+      for (const campo of ['horasExtra', 'comisiones', 'ausencias'] as const)
+        if (e.verificacionPrestacion[campo] > 0) verificacion[campo]++;
+      continue;
+    }
     for (const [campo, tipo] of [
       ['horasExtra', 'HORAS_EXTRA'],
       ['comisiones', 'COMISION'],
@@ -159,7 +203,7 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     periodo,
     mes: d.mes,
     tipoPago: d.tipoPago,
-    fechaPago: d.tipoPago === 'ANTICIPO' ? `${d.mes}-15` : rango.fin,
+    fechaPago: cicloAnual?.limitePago ?? (d.tipoPago === 'ANTICIPO' ? `${d.mes}-15` : rango.fin),
     registros,
     totales,
     verificacion,
@@ -248,15 +292,9 @@ export function crearPagosService(db: BaseDatos) {
           firma = await firmante(c, a.idUsuario);
         let p = r.periodo;
         if (!p) {
-          const inicio = d.tipoPago === 'ANTICIPO' ? `${d.mes}-01` : `${d.mes}-16`,
-            fin = r.fechaPago;
-          const id = await repo.crear(
-            c,
-            inicio,
-            fin,
-            d.tipoPago === 'ANTICIPO' ? 1 : 2,
-            a.idUsuario,
-          );
+          const inicio = d.tipoPago === 'PAGO' ? `${d.mes}-16` : `${d.mes}-01`,
+            fin = d.tipoPago === 'PAGO' ? r.fechaPago : `${d.mes}-15`;
+          const id = await repo.crear(c, inicio, fin, d.tipoPago === 'PAGO' ? 2 : 1, a.idUsuario);
           p = (await repo.periodo(c, id))!;
         }
         const ids: number[] = [];
@@ -273,8 +311,11 @@ export function crearPagosService(db: BaseDatos) {
             empresa,
           );
           await pago.registrarPago(c, id, e.empleado.id, d.mes, d.tipoPago, a.idUsuario);
+          if (e.prestacion) await registrarPrestacionPagada(c, e, id, r.fechaPago, a, firma);
           if (d.tipoPago === 'PAGO') await materializarParqueo(c, a, d.mes, e.empleado.id);
-          const pendientes = await prepararNovedadesParaAplicar(c, e, d.tipoPago);
+          const pendientes = e.prestacion
+            ? []
+            : await prepararNovedadesParaAplicar(c, e, d.tipoPago);
           for (const l of resultado.lineas)
             if (
               l.novedad &&
@@ -381,6 +422,7 @@ export function crearPagosService(db: BaseDatos) {
           );
         await repo.revertir(c, p, a.idUsuario, id);
         await pago.revertir(c, id, a.idUsuario, d.motivo);
+        await prestaciones.anularPorBoleta(c, id, a.idUsuario);
         await repo.estado(c, p.id, 'CALCULADO', a.idUsuario, p.version, null, [], d.motivo);
         const n = await repo.resultado(c, id);
         if (n?.usuario) await pago.notificar(c, id, n.usuario, a.idUsuario, true);
@@ -476,12 +518,27 @@ export async function accionPeriodoMensual(
       tipo = p.inicio.endsWith('-01') ? 'ANTICIPO' : 'PAGO';
     const rango = rangoMes(mes),
       fuentes = await repo.fuentes(c, { ...p, ...rango });
-    if (fuentes.some((e) => !rs.some((n) => n.idEmpleado === e.empleado.id)))
+    const tienePagoSalarial = rs.some((n) =>
+      ['ANTICIPO', 'PAGO'].includes(
+        (JSON.parse(n.snapshot) as { resultado: ResultadoPago }).resultado.tipoPago,
+      ),
+    );
+    if (
+      tienePagoSalarial &&
+      fuentes.some(
+        (e) =>
+          !rs.some(
+            (n) =>
+              n.idEmpleado === e.empleado.id &&
+              (JSON.parse(n.snapshot) as { resultado: ResultadoPago }).resultado.tipoPago === tipo,
+          ),
+      )
+    )
       throw new ErrorConflicto(
         'Faltan empleados por pagar. Resuelve sus alertas y confirma sus pagos antes del cierre.',
       );
     const { prepararNovedadesParaPago } = await import('../novedades/consumo.service.js');
-    for (const e of fuentes)
+    for (const e of tienePagoSalarial ? fuentes : [])
       if (
         (await prepararNovedadesParaPago(c, mes, e.empleado.id)).some(
           (n) => tipo === 'PAGO' || ['COMISION', 'HORAS_EXTRA'].includes(n.tipo),

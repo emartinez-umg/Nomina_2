@@ -1,3 +1,5 @@
+import type { Vista } from '../prestaciones/prestaciones.service.js';
+import type { Componente } from '../prestaciones/prestaciones.calculo.js';
 import { horasDiariasEnFecha } from '../../shared/horarios/horas.js';
 import { Decimal } from 'decimal.js';
 import { dinero } from '../../shared/utils/dinero.js';
@@ -6,11 +8,13 @@ import { fechas, parametro, vigente, validarTramos } from './nomina.calculo.js';
 import type { Entrada, Linea, Parametro, Resultado } from './nomina.types.js';
 import type { Pendiente } from '../novedades/pendientes.repository.js';
 
-export type TipoPago = 'ANTICIPO' | 'PAGO';
+export type TipoPago = 'ANTICIPO' | 'PAGO' | 'BONO_14' | 'AGUINALDO';
 export interface EntradaPago extends Entrada {
   mes: string;
   tipoPago: TipoPago;
   anticipo: string;
+  prestacion?: Vista;
+  verificacionPrestacion?: { horasExtra: number; comisiones: number; ausencias: number };
   novedades: (Pendiente & { advertencia?: string | null })[];
 }
 export interface ResultadoPago extends Resultado {
@@ -18,6 +22,7 @@ export interface ResultadoPago extends Resultado {
   mes: string;
   devengado: string;
   anticipo: string;
+  componentes?: Componente[];
 }
 // Motor A11: las novedades aplicadas al anticipo también integran el devengado mensual.
 export function calcularPago(e: EntradaPago): ResultadoPago {

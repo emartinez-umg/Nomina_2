@@ -1,7 +1,8 @@
 import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { SimuladorPago } from '../../nomina/pages/SimularPagoPage';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
@@ -45,7 +46,12 @@ export function DetalleCalculo({ v }: { v: Vista }) {
         </p>
       ) : (
         <>
-          <div className="table-scroll">
+          <div
+            className="table-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Desglose del cálculo de prestaciones"
+          >
             <table>
               <caption className="sr-only">Componentes de la prestación</caption>
               <thead>
@@ -63,6 +69,7 @@ export function DetalleCalculo({ v }: { v: Vista }) {
                   <tr key={l.concepto}>
                     <td>
                       {l.concepto.replace(/_/g, ' ')}
+                      {l.formula && <p className="campo-hint">{l.formula}</p>}
                       <br />
                       {fechaVisible(l.inicio)} al {fechaVisible(l.fin)}
                     </td>
@@ -159,7 +166,11 @@ export function PrestacionesPage() {
           </Button>
         ))}
       </div>
-      <Calculo key={tab} modo={tab} empleadoInicial={params.get('empleado') ?? ''} />
+      {tab === 'anual' ? (
+        <SimuladorPago prestaciones />
+      ) : (
+        <Calculo key={tab} modo={tab} empleadoInicial={params.get('empleado') ?? ''} />
+      )}
       <Historial onDetalle={setId} params={params} cambiar={setParams} />
       {id && <Detalle id={id} cerrar={() => setId(undefined)} />}
     </>
@@ -180,7 +191,8 @@ type Form = z.infer<typeof formSchema>;
 function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: string }) {
   const hoy = hoyGuatemala(),
     toast = useToast(),
-    qc = useQueryClient();
+    qc = useQueryClient(),
+    bloqueoFirma = useBloqueoFirma();
   const form = useForm<Form>({
     resolver: zodResolver(formSchema),
     mode: 'onBlur',
@@ -323,6 +335,41 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
           if (k in form.getValues()) form.setError(k as keyof Form, { message: v[0] ?? e.message });
     },
   });
+  const corteAutomatico = form.watch('corte'),
+    causaAutomatica = form.watch('causa');
+  useEffect(() => {
+    setPrev(undefined);
+    setConfirmar(false);
+    form.clearErrors('corte');
+    if (
+      modo !== 'finiquito' ||
+      !idSeleccionado ||
+      !fechaValida(corteAutomatico) ||
+      corteAutomatico > hoy ||
+      corteAutomatico < ingreso
+    )
+      return;
+    let vigente = true;
+    const timer = window.setTimeout(() => {
+      const seleccion = {
+        idEmpleado: Number(idSeleccionado),
+        corte: corteAutomatico,
+        causa: causaAutomatica,
+      };
+      void api
+        .simular(seleccion)
+        .then((r) => {
+          if (vigente) setPrev({ filas: [r], hash: r.hash, seleccion });
+        })
+        .catch((e) => {
+          if (vigente) form.setError('corte', { message: (e as Error).message });
+        });
+    }, 400);
+    return () => {
+      vigente = false;
+      window.clearTimeout(timer);
+    };
+  }, [modo, idSeleccionado, corteAutomatico, causaAutomatica, ingreso, hoy, form]);
   const guardar = useMutation({
     onError: () => setConfirmar(false),
     mutationFn: async () => {
@@ -397,7 +444,7 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
             {campos(
               'corte',
               'Fecha de egreso',
-              'Fecha real no futura. Resuelve reservas posteriores.',
+              'Hoy por defecto. Al cambiar la fecha se recalculan indemnización, vacaciones y prestaciones; no puede ser anterior al ingreso ni futura.',
               'fecha',
               {
                 max: hoy,
@@ -461,6 +508,20 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
           {prev.filas.map((v) => (
             <DetalleCalculo key={v.idEmpleado} v={v} />
           ))}
+          {modo === 'finiquito' && (
+            <Button
+              icono="ver"
+              variante="secundario"
+              onClick={() =>
+                void api
+                  .previewFiniquito(prev.seleccion)
+                  .then((r) => descargar(r, true))
+                  .catch((e) => toast((e as Error).message, 'peligro'))
+              }
+            >
+              Vista previa del finiquito PDF
+            </Button>
+          )}
           <div data-tour="prestaciones-confirmar">
             <TextAreaField
               name="motivo"
@@ -477,9 +538,13 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
                 !prev.filas.length ||
                 prev.filas.some((f) => f.error) ||
                 motivo.trim().length < 10 ||
-                guardar.isPending
+                guardar.isPending ||
+                (modo === 'finiquito' && !!bloqueoFirma)
               }
-              motivoDeshabilitado="Resuelve los errores y escribe un motivo de al menos diez caracteres."
+              motivoDeshabilitado={
+                bloqueoFirma ||
+                'Resuelve los errores y escribe un motivo de al menos diez caracteres.'
+              }
               onClick={() => setConfirmar(true)}
             >
               {modo === 'anual' ? 'Guardar cálculos' : 'Confirmar liquidación y baja'}

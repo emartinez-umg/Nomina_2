@@ -1482,3 +1482,87 @@ test('FASE V1-10: pagar departamento, revertir como ADMIN y volver a pagar emple
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
   await expect(page.getByText('Pagados: 1.', { exact: false })).toBeVisible();
 });
+
+test('FASE V1-11: Bono 14 automático, confirmación, boleta y precálculo propio', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  await page.goto('/prestaciones');
+  await oferta(page);
+  await expect(
+    page.getByRole('heading', { name: 'Prestaciones automáticas · revisión y pago' }),
+  ).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Resultados de simulación' })).toBeVisible();
+  await page.getByRole('button', { name: 'Indemnización y finiquito', exact: true }).click();
+  await tour(page);
+  await page.getByRole('button', { name: 'Bono 14 y aguinaldo', exact: true }).click();
+  await tour(page);
+  await page.goto('/nomina/simular');
+  await oferta(page);
+  await elegir(page, 'Tipo de pago', 'Bono 14');
+  await elegir(page, 'Objetivo', 'Un empleado');
+  await page.getByRole('combobox', { name: 'Empleado', exact: true }).fill('Ajeno E2E');
+  await page.getByRole('option').filter({ hasText: 'Ajeno E2E' }).click();
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(page.getByRole('table')).toContainText('2,479.45');
+  await expect(page.getByRole('table')).toContainText('181 / 365');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await revisarUi(page);
+  await mkdir('tmp/pdfs', { recursive: true });
+  await page.screenshot({ path: 'tmp/pdfs/prestaciones-v1-11-movil.png', fullPage: true });
+  await page
+    .getByRole('checkbox', {
+      name: 'Confirmo que la historia salarial, comisiones y horas extra del ciclo están completas',
+    })
+    .check();
+  await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+  const response = page.waitForResponse((r) => r.url().endsWith('/api/nomina/pagar'));
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  const r = await response;
+  expect(r.status()).toBe(201);
+  const data = (await r.json()).data;
+  const descarga = page.waitForEvent('download');
+  await page.getByRole('button', { name: `Boleta ${data.pagados[0]}`, exact: true }).click();
+  expect((await descarga).suggestedFilename()).toMatch(/\.pdf$/);
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(page.getByRole('table')).toContainText('ya tiene este pago registrado');
+});
+
+test('FASE V1-11: finiquito al elegir empleado y cambiar egreso, PDF y baja confirmada', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  // Corte anterior a julio: no requiere un Bono 14 anterior, incluso al ejecutar aisladamente.
+  await page.goto('/prestaciones?empleado=2');
+  await oferta(page);
+  await page.getByRole('textbox', { name: 'Fecha de egreso', exact: true }).fill('30/06/2026');
+  await expect(page.getByText('Total:', { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole('table').first()).toContainText('INDEMNIZACION');
+  await expect(page.getByRole('table').first()).toContainText('VACACIONES PENDIENTES');
+  const antes = await page.getByText('Total:', { exact: false }).first().textContent();
+  await elegir(page, 'Causa del egreso', 'Renuncia');
+  await expect
+    .poll(() => page.getByText('Total:', { exact: false }).first().textContent())
+    .not.toBe(antes);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await revisarUi(page);
+  await page.screenshot({ path: 'tmp/pdfs/finiquito-v1-11-movil.png', fullPage: true });
+  const nueva = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Vista previa del finiquito PDF', exact: true }).click();
+  await (await nueva).close();
+  await page
+    .getByRole('textbox', { name: 'Motivo', exact: true })
+    .first()
+    .fill('Liquidación revisada y confirmada por recursos humanos');
+  await page.getByRole('button', { name: 'Confirmar liquidación y baja', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).last().click();
+  await expect(
+    page.getByRole('button', { name: 'Confirmar liquidación y baja', exact: true }),
+  ).toBeEnabled();
+  await page.getByRole('button', { name: 'Confirmar liquidación y baja', exact: true }).click();
+  const liquidacion = page.waitForResponse((r) => r.url().endsWith('/api/prestaciones/liquidar'));
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).last().click();
+  expect((await liquidacion).status()).toBe(201);
+  const ficha = await page.request.get('/api/empleados/2');
+  expect((await ficha.json()).data.estado).toBe('EGRESADO');
+});

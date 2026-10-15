@@ -46,10 +46,10 @@ describe('Fase 9: cálculos con Decimal y casos borde', () => {
       calcularAnual('BONO_14', '2026-01-01', '2026-06-30', meses(1, 6), ps, '3000'),
     ).toMatchObject({
       promedio: '3000.00',
-      monto: '1500.00',
-      exento: '1500.00',
+      monto: '1487.67',
+      exento: '1487.67',
       gravado: '0.00',
-      tiempo: '0.500000',
+      tiempo: '0.495890',
     });
   });
   it('aguinaldo de año completo con aumento intermedio', () => {
@@ -69,7 +69,7 @@ describe('Fase 9: cálculos con Decimal y casos borde', () => {
     }));
     expect(
       calcularAnual('BONO_14', '2026-01-01', '2026-06-30', ingresos, ps, '3000'),
-    ).toMatchObject({ promedio: '3600.00', monto: '1800.00' });
+    ).toMatchObject({ promedio: '3600.00', monto: '1785.21' });
     expect(
       calcularAnual(
         'AGUINALDO',
@@ -79,12 +79,12 @@ describe('Fase 9: cálculos con Decimal y casos borde', () => {
         ps,
         '3000',
       ),
-    ).toMatchObject({ monto: '4000.00', exento: '3000.00', gravado: '1000.00' });
+    ).toMatchObject({ monto: '4076.71', exento: '3000.00', gravado: '1076.71' });
   });
   it('límite fiscal consumido por otro pago del mismo tipo', () => {
     expect(
       calcularAnual('BONO_14', '2026-01-01', '2026-06-30', meses(1, 6), ps, '3000', '2900'),
-    ).toMatchObject({ exento: '100.00', gravado: '1400.00' });
+    ).toMatchObject({ exento: '100.00', gravado: '1387.67' });
   });
   it('ingreso de un día y fracciones en febrero bisiesto', () => {
     const r = calcularAnual(
@@ -95,7 +95,7 @@ describe('Fase 9: cálculos con Decimal y casos borde', () => {
       ps,
       '3000',
     );
-    expect(r.monto).toBe('8.33');
+    expect(r.monto).toBe('7.95');
     expect(mesesEquivalentes('2024-02-01', '2024-02-29').toString()).toBe('1');
   });
   it('historia faltante, traslapada o cortada nunca se rellena con cero', () => {
@@ -114,7 +114,7 @@ describe('Fase 9: cálculos con Decimal y casos borde', () => {
     );
     expect(i.monto).toBe('1487.67');
     const b = calcularAnual('BONO_14', '2026-01-01', '2026-06-30', meses(1, 6), ps, '3000');
-    expect(totalizar([i, b])).toEqual({ total: '2987.67', exento: '2987.67', gravado: '0.00' });
+    expect(totalizar([i, b])).toEqual({ total: '2975.34', exento: '2975.34', gravado: '0.00' });
   });
   it('indemnización variable con aumento y comisión real', () => {
     const ingresos = [...meses(1, 3, '3000'), ...meses(4, 6, '5000')];
@@ -140,7 +140,7 @@ describe('Fase 9: cálculos con Decimal y casos borde', () => {
     const cambio = ps.map((p) => (p.codigo === 'BONO14_PORCENTAJE' ? { ...p, valor: '50' } : p));
     expect(
       calcularAnual('BONO_14', '2026-01-01', '2026-06-30', meses(1, 6), cambio, '3000').monto,
-    ).toBe('750.00');
+    ).toBe('743.84');
   });
   it('nómina consume exención congelada y vacaciones gravadas del finiquito', () => {
     const e = entradaPrueba('10000'),
@@ -196,14 +196,14 @@ describe('Bordes monetarios y fracciones de nómina', () => {
     ];
     expect(
       calcularAnual('BONO_14', '2026-07-01', '2026-10-12', ingresos, ps, '5000'),
-    ).toMatchObject({ promedio: '5000.00', monto: '1416.67', tiempo: '0.283333' });
+    ).toMatchObject({ promedio: '5000.00', monto: '1424.66', tiempo: '0.284932' });
   });
   it('exento y gravado cuadran al redondear un límite con fracción de centavo', () => {
     const parametros = ps.map((p) =>
       p.codigo === 'ISR_EXENCION_BONO14_MESES' ? { ...p, valor: '0.333333' } : p,
     );
     const r = calcularAnual('BONO_14', '2026-01-01', '2026-06-30', meses(1, 6), parametros, '3000');
-    expect(r).toMatchObject({ monto: '1500.00', exento: '1000.00', gravado: '500.00' });
+    expect(r).toMatchObject({ monto: '1487.67', exento: '1000.00', gravado: '487.67' });
   });
   it('bloquea desbordamiento de NUMBER(12,2)', () => {
     const c = calcularAnual('BONO_14', '2026-01-01', '2026-06-30', meses(1, 6), ps, '3000');
@@ -213,5 +213,60 @@ describe('Bordes monetarios y fracciones de nómina', () => {
         { ...c, monto: '0.01' },
       ]),
     ).toThrow('capacidad monetaria');
+  });
+});
+
+describe('A12: años completos, fracciones y liquidación paso a paso', () => {
+  it('exactamente un año paga el 100 %, incluyendo doce meses variables', () => {
+    const ingresos = [...meses(7, 12, '4000', 2025), ...meses(1, 6, '6000')];
+    expect(
+      calcularAnual('BONO_14', '2025-07-01', '2026-06-30', ingresos, ps, '6000'),
+    ).toMatchObject({ dias: 365, promedio: '5000.00', tiempo: '1.000000', monto: '5000.00' });
+  });
+  it('año bisiesto no supera el 100 % del promedio', () => {
+    const ingresos = [...meses(7, 12, '3000', 2023), ...meses(1, 6, '3000', 2024)];
+    expect(
+      calcularAnual('BONO_14', '2023-07-01', '2024-06-30', ingresos, ps, '3000'),
+    ).toMatchObject({ dias: 366, monto: '3000.00', tiempo: '1.000000' });
+  });
+  it('baja a mitad del ciclo usa días reales sin diluir salario ni comisiones', () => {
+    const ingresos = [
+      ...meses(1, 2),
+      { inicio: '2026-03-01', fin: '2026-03-15', monto: '2100', meses: '0.5' },
+    ];
+    const r = calcularAnual(
+      'BONO_14',
+      '2026-01-01',
+      '2026-03-15',
+      ingresos.map((v) => ({ ...v, meses: 'meses' in v ? v.meses : '1' })),
+      ps,
+      '3000',
+    );
+    // (3000 + 3000 + 1500 + 600 de comisión) / 2.5 × 74 / 365.
+    expect(r).toMatchObject({ dias: 74, promedio: '3240.00', monto: '656.88' });
+  });
+  it('indemnización de un año y medio más vacaciones fraccionarias', () => {
+    const r = calcularIndemnizacion(
+      '2025-01-01',
+      '2026-06-30',
+      '2026-01-01',
+      meses(1, 6, '6000'),
+      ps,
+      true,
+    );
+    // Un año más 181/365; vacaciones 6.25 × 6000 / 30 = 1250.
+    expect(r).toMatchObject({ promedio: '6000.00', tiempo: '1.495890', monto: '8975.34' });
+    expect(
+      totalizar([
+        r,
+        {
+          ...r,
+          concepto: 'VACACIONES_PENDIENTES',
+          monto: '1250.00',
+          exento: '0.00',
+          gravado: '1250.00',
+        },
+      ]).total,
+    ).toBe('10225.34');
   });
 });

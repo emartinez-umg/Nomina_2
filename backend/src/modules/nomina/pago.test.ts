@@ -302,13 +302,13 @@ describe('A11: esperados independientes (aritmética decimal documentada)', () =
   });
 });
 describe('A11: validación de entrada', () => {
-  it('objetivo coherente y prestaciones futuras bloqueadas', () => {
+  it('objetivo coherente y prestaciones A12 disponibles', () => {
     expect(
       simularSchema.safeParse({ mes: '2026-01', tipoPago: 'PAGO', objetivo: 'EMPLEADO' }).success,
     ).toBe(false);
     expect(
       simularSchema.safeParse({ mes: '2026-01', tipoPago: 'BONO_14', objetivo: 'TODOS' }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
   it('confirmar exige revisión explícita de novedades y hash; reversión exige motivo', () => {
     const d = {

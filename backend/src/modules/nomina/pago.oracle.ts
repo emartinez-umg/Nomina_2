@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
@@ -543,5 +544,189 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
         { id: empleado },
       ),
     ).toBe('APLICADA');
+  });
+  let anualEmpleado: number, anualBoleta: number, anualSesion: typeof admin;
+  const anualObjetivo = (): ObjetivoPago => ({
+    mes: '2026-07',
+    tipoPago: 'BONO_14',
+    objetivo: 'EMPLEADO',
+    idEmpleado: anualEmpleado,
+  });
+  it('A12: migración conserva pagos anteriores; precalcula desde contratación con aumento, comisión y HE', async () => {
+    const u = await enTransaccion(db, (c) =>
+      crearUsuarioInterno(c, actor, {
+        nombre: 'Anual',
+        apellido: 'Prueba',
+        correo: 'anual@example.test',
+        rol: 'EMPLEADO',
+      }),
+    );
+    await ejecutar('UPDATE USUARIOS SET CAMBIO_OBLIGATORIO=0 WHERE ID_USUARIO=:id', {
+      id: u.idUsuario,
+    });
+    await ejecutar(
+      "INSERT INTO EMPLEADOS(ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) SELECT :u,'Anual','Prueba','9876543210124','6-K',DATE '1990-01-01','F','SOLTERO','Guatemala','55551234','anual.persona@example.test',ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,DATE '2026-01-01' FROM EMPLEADOS WHERE ID_EMPLEADO=:e",
+      { u: u.idUsuario, e: empleado },
+    );
+    anualEmpleado = Number(
+      await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE ID_USUARIO=:u', { u: u.idUsuario }),
+    );
+    await ejecutar(
+      "INSERT INTO HISTORIAL_SALARIAL(ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,VIGENTE_HASTA,MOTIVO) VALUES(:id,3000,DATE '2026-01-01',DATE '2026-03-31','Historia certificada')",
+      { id: anualEmpleado },
+    );
+    await ejecutar(
+      "INSERT INTO HISTORIAL_SALARIAL(ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES(:id,5000,DATE '2026-04-01','Aumento certificado')",
+      { id: anualEmpleado },
+    );
+    await ejecutar(
+      "INSERT INTO EMPLEADO_HORARIO(ID_EMPLEADO,ID_HORARIO,VIGENTE_DESDE,MOTIVO) SELECT :id,MIN(ID_HORARIO),DATE '2026-01-01','Horario certificado' FROM HORARIOS",
+      { id: anualEmpleado },
+    );
+    await nov('COMISION', '600', '1', '2026-06', anualEmpleado);
+    await nov('HORAS_EXTRA', '250', '8', '2026-06', anualEmpleado);
+    anualSesion = await entrar(u.usuario, u.contrasenaTemporal);
+    const antes = await escalar('SELECT COUNT(*) FROM NOMINA_EMPLEADO');
+    const r = await simular(anualObjetivo());
+    // (3 × 3000 + 3 × 5000 + 600 + 8 × 5000 / 30 / 8 × 1.5) / 6 × 181 / 365.
+    expect(r.registros[0].alertas).toEqual([]);
+    expect(r.registros[0].resultado.componentes[0]).toMatchObject({
+      dias: 181,
+      promedio: '4141.67',
+      monto: '2053.81',
+      exento: '2053.81',
+      gravado: '0.00',
+    });
+    expect(await escalar('SELECT COUNT(*) FROM NOMINA_EMPLEADO')).toBe(antes);
+    await post(rh, '/simular', { ...anualObjetivo(), mes: '2026-06' }, 409);
+    const pdf = await post(rh, `/simular/${anualEmpleado}/pdf`, anualObjetivo());
+    await mkdir('../tmp/pdfs', { recursive: true });
+    await writeFile(
+      '../tmp/pdfs/bono14-v1-11-simulacion.pdf',
+      Buffer.from(pdf.body.data.base64, 'base64'),
+    );
+  });
+  it('A12: fuentes cambiantes, confirmación e idempotencia concurrente con boletas propias y ZIP', async () => {
+    const previo = await simular(anualObjetivo());
+    await ejecutar(
+      "UPDATE NOVEDADES_MENSUALES SET MONTO=720 WHERE ID_EMPLEADO=:id AND TIPO='COMISION'",
+      { id: anualEmpleado },
+    );
+    await pagar(anualObjetivo(), previo.hash, 409);
+    const actual = await simular(anualObjetivo());
+    expect(actual.verificacion).toMatchObject({ horasExtra: 1, comisiones: 1 });
+    for (const objetivo of ['DEPARTAMENTO', 'TODOS'] as const) {
+      const lote = await simular({
+        mes: '2026-07',
+        tipoPago: 'BONO_14',
+        objetivo,
+        ...(objetivo === 'DEPARTAMENTO' ? { idDepartamento: dep } : {}),
+      });
+      expect(
+        lote.registros.some((f: { idEmpleado: number }) => f.idEmpleado === anualEmpleado),
+      ).toBe(true);
+    }
+    await ejecutar(
+      "CREATE OR REPLACE TRIGGER F11_FALLAR BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='PAGAR_PRESTACION' THEN RAISE_APPLICATION_ERROR(-20099,'Fallo de prueba A12'); END IF; END;",
+    );
+    try {
+      await pagar(anualObjetivo(), actual.hash, 500);
+    } finally {
+      await ejecutar('DROP TRIGGER F11_FALLAR');
+    }
+    expect(
+      Number(
+        await escalar('SELECT COUNT(*) FROM PRESTACIONES WHERE ID_EMPLEADO=:id', {
+          id: anualEmpleado,
+        }),
+      ),
+    ).toBe(0);
+    expect(
+      Number(
+        await escalar('SELECT COUNT(*) FROM NOMINA_EMPLEADO WHERE ID_EMPLEADO=:id', {
+          id: anualEmpleado,
+        }),
+      ),
+    ).toBe(0);
+    const rs = await Promise.all(
+      [1, 2].map(() =>
+        rh.agent
+          .post('/api/nomina/pagar')
+          .set('X-CSRF-Token', rh.csrf)
+          .send({
+            ...anualObjetivo(),
+            hash: actual.hash,
+            confirmado: true,
+            novedadesCompletas: true,
+          }),
+      ),
+    );
+    expect(rs.map((r) => r.status).sort()).toEqual([201, 409]);
+    anualBoleta = rs.find((r) => r.status === 201)!.body.data.pagados[0];
+    expect(
+      await escalar('SELECT ESTADO FROM PRESTACIONES WHERE ID_NOMINA_EMPLEADO=:id', {
+        id: anualBoleta,
+      }),
+    ).toBe('PAGADA');
+    expect(
+      Number(
+        await escalar(
+          "SELECT COUNT(*) FROM NOVEDADES_MENSUALES WHERE ID_EMPLEADO=:id AND ESTADO='PENDIENTE'",
+          { id: anualEmpleado },
+        ),
+      ),
+    ).toBe(2);
+    const listado = await anualSesion.agent.get('/api/nomina/boletas').expect(200);
+    expect(listado.body.data.registros.some((r: { id: number }) => r.id === anualBoleta)).toBe(
+      true,
+    );
+    await propio.agent.get(`/api/nomina/boletas/${anualBoleta}/pdf`).expect(403);
+    const pdf = await anualSesion.agent.get(`/api/nomina/boletas/${anualBoleta}/pdf`).expect(200);
+    await writeFile(
+      '../tmp/pdfs/bono14-v1-11-pagado.pdf',
+      Buffer.from(pdf.body.data.base64, 'base64'),
+    );
+    const zip = await rh.agent
+      .get('/api/nomina/pagos/zip')
+      .query({ mes: '2026-07', idEmpleado: anualEmpleado })
+      .expect(200);
+    expect(Object.keys(unzipSync(Buffer.from(zip.body.data.base64, 'base64')))).toHaveLength(1);
+    await ejecutar("UPDATE CONFIGURACION_EMPRESA SET RAZON_SOCIAL='Nombre posterior al pago'");
+    const otra = await anualSesion.agent.get(`/api/nomina/boletas/${anualBoleta}/pdf`).expect(200);
+    expect(otra.body.data.base64).toBe(pdf.body.data.base64);
+  });
+  it('A12: reversión ADMIN conserva comprobante histórico y permite nueva versión sin doble prestación', async () => {
+    await post(
+      rh,
+      `/pagos/${anualBoleta}/revertir`,
+      { motivo: 'Corrección de prestación anual', confirmado: true },
+      403,
+    );
+    await post(admin, `/pagos/${anualBoleta}/revertir`, {
+      motivo: 'Corrección de prestación anual',
+      confirmado: true,
+    });
+    expect(
+      await escalar('SELECT ESTADO FROM PRESTACIONES WHERE ID_NOMINA_EMPLEADO=:id', {
+        id: anualBoleta,
+      }),
+    ).toBe('ANULADA');
+    const r = await simular(anualObjetivo());
+    expect(r.registros[0].resultado).not.toBeNull();
+    const p = await pagar(anualObjetivo(), r.hash);
+    expect(p.body.data.pagados[0]).not.toBe(anualBoleta);
+    await post(rh, `/periodos/${p.body.data.idPeriodo}/revisar`, {
+      version: 1,
+      confirmado: true,
+      motivo: 'Revisión de prestación sin anticipo salarial',
+    });
+    expect(
+      Number(
+        await escalar(
+          "SELECT COUNT(*) FROM PRESTACIONES WHERE ID_EMPLEADO=:id AND ESTADO='PAGADA'",
+          { id: anualEmpleado },
+        ),
+      ),
+    ).toBe(1);
   });
 });

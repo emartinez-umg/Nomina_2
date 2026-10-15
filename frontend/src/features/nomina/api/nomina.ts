@@ -1,3 +1,4 @@
+import { componente } from '../../prestaciones/api/prestaciones';
 import { z } from 'zod';
 import { solicitar } from '../../../lib/http';
 const totales = z.object({
@@ -194,14 +195,15 @@ export const guardarFormato = (body: unknown) =>
   solicitar('/nomina/igss/formato', z.object({ guardado: z.boolean() }), { method: 'POST', body });
 export interface ObjetivoPago {
   mes: string;
-  tipoPago: 'ANTICIPO' | 'PAGO';
+  tipoPago: 'ANTICIPO' | 'PAGO' | 'BONO_14' | 'AGUINALDO';
   objetivo: 'EMPLEADO' | 'DEPARTAMENTO' | 'TODOS';
   idEmpleado?: number;
   idDepartamento?: number;
 }
 const resultadoPago = detalleSchema.shape.resultado.extend({
-  tipoPago: z.enum(['ANTICIPO', 'PAGO']),
+  tipoPago: z.enum(['ANTICIPO', 'PAGO', 'BONO_14', 'AGUINALDO']),
   mes: z.string(),
+  componentes: z.array(componente).optional(),
   devengado: z.string(),
   anticipo: z.string(),
 });
@@ -216,7 +218,7 @@ const filaSimulada = z.object({
 });
 const simulacion = z.object({
   mes: z.string(),
-  tipoPago: z.enum(['ANTICIPO', 'PAGO']),
+  tipoPago: z.enum(['ANTICIPO', 'PAGO', 'BONO_14', 'AGUINALDO']),
   fechaPago: z.string(),
   hash: z.string(),
   registros: z.array(filaSimulada),

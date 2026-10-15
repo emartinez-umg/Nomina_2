@@ -20,6 +20,8 @@ export interface Componente {
   monto: string;
   exento: string;
   gravado: string;
+  dias?: number;
+  formula?: string;
 }
 export function valor(ps: Parametro[], codigo: string, fecha: string, unidad: string) {
   const p = vigente(
@@ -106,7 +108,9 @@ export function calcularAnual(
   const mesesPromedio = valor(ps, `${pref}_PROMEDIO_MESES`, fin, 'MESES');
   if (!mesesAnio.eq(mesesPromedio) || p.meses.gt(mesesAnio))
     throw new ErrorConflicto('El ciclo y los meses de promedio deben corresponder a un año.');
-  const tiempo = Decimal.min(1, p.meses.div(mesesAnio));
+  const dias = Math.round((Date.parse(fin) - Date.parse(inicio)) / 86400000) + 1;
+  const divisor = valor(ps, 'PRESTACIONES_DIAS_ANIO', fin, 'DIAS');
+  const tiempo = Decimal.min(1, new Decimal(dias).div(divisor));
   const monto = new Decimal(
     dinero(
       p.promedio
@@ -121,6 +125,8 @@ export function calcularAnual(
   );
   return {
     concepto: tipo,
+    dias,
+    formula: `${dinero(p.promedio)} × ${dias} / ${divisor.toString()} (máximo 100 %) × ${valor(ps, `${pref}_PORCENTAJE`, fin, 'PORCENTAJE')} %`,
     inicio,
     fin,
     promedio: dinero(p.promedio),
@@ -176,6 +182,9 @@ export function calcularIndemnizacion(
     : new Decimal(0);
   return {
     concepto: 'INDEMNIZACION',
+    formula: corresponde
+      ? `${dinero(p.promedio)} × ${tiempo.toFixed(6)} años`
+      : 'La causa seleccionada no genera indemnización.',
     inicio,
     fin: corte,
     promedio: dinero(p.promedio),

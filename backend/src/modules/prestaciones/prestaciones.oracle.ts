@@ -209,8 +209,8 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
     expect(p.filas[0].error).toBeUndefined();
     expect(p.filas[0].componentes[0]).toMatchObject({
       promedio: '4200.00',
-      monto: '2100.00',
-      exento: '2100.00',
+      monto: '2082.74',
+      exento: '2082.74',
       gravado: '0.00',
     });
     huella = p.hash;
@@ -231,7 +231,7 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
     prestacion = r.body.data.ids[0];
     const d = await agent.get(`/api/prestaciones/${prestacion}`).expect(200);
     huella = d.body.data.hash;
-    expect(d.body.data).toMatchObject({ estado: 'CALCULADA', total: '2150' });
+    expect(d.body.data).toMatchObject({ estado: 'CALCULADA', total: '2132.33' });
     await post(
       `/${prestacion}/pagar`,
       { hash: huella, motivo, confirmado: true, fechaPago: '2026-10-12', referencia: 'F9_PAGO' },
@@ -289,7 +289,7 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
       .get('/api/prestaciones/exportar')
       .query({ idEmpleado: empleado })
       .expect(200);
-    expect(Buffer.from(csv.body.data.base64, 'base64').toString()).toContain('2150');
+    expect(Buffer.from(csv.body.data.base64, 'base64').toString()).toContain('2132.33');
     const pdf = await agent
       .get('/api/prestaciones/constancia')
       .query({ idEmpleado: empleado, inicio: '2026-01-01', fin: '2026-12-31' })

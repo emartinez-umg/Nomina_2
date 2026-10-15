@@ -90,7 +90,7 @@ export function ayudaEmpleados(
         elemento: 'empleado-baja',
         titulo: 'Dar de baja',
         descripcion:
-          'La baja exige fecha igual o posterior al ingreso y motivo. Tras confirmar se conserva el expediente, se desactiva el usuario vinculado y se revocan sus sesiones. La fecha no puede afectar periodos cerrados.',
+          'Liquidar y dar de baja abre Prestaciones con el empleado seleccionado y calcula automáticamente el finiquito. Revisa promedio de seis meses, años y fracción, vacaciones pendientes y prestaciones proporcionales; la fecha empieza en hoy y se puede ajustar desde el ingreso. La baja exige motivo y confirmación. Tras confirmar se conserva el expediente, se desactiva el usuario vinculado y se revocan sus sesiones. La fecha no puede afectar periodos cerrados.',
       },
       {
         elemento: 'empleado-tabs',
@@ -135,7 +135,7 @@ export function ayudaEmpleados(
     ],
   };
   return {
-    id: `empleados-${pagina}-v1-7`,
+    id: `empleados-${pagina}-v1-11`,
     pasos: pasos[pagina],
   };
 }

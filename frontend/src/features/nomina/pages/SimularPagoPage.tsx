@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../../app/session';
@@ -19,12 +19,25 @@ import * as api from '../api/nomina';
 export function SimularPagoPage() {
   const { usuario } = useSession();
   usePageHelp(ayudaSimular, usuario?.rol);
+  return <SimuladorPago />;
+}
+export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean }) {
   const nav = useNavigate(),
     client = useQueryClient(),
     toast = useToast(),
     bloqueo = useBloqueoFirma();
-  const [mes, setMes] = useState(hoyGuatemala().slice(0, 7)),
-    [tipo, setTipo] = useState<'ANTICIPO' | 'PAGO'>('ANTICIPO'),
+  const [mes, setMes] = useState(
+      prestaciones
+        ? `${hoyGuatemala().slice(0, 4)}-${Number(hoyGuatemala().slice(5, 7)) >= 12 ? '12' : '07'}`
+        : hoyGuatemala().slice(0, 7),
+    ),
+    [tipo, setTipo] = useState<api.ObjetivoPago['tipoPago']>(
+      prestaciones
+        ? Number(hoyGuatemala().slice(5, 7)) >= 12
+          ? 'AGUINALDO'
+          : 'BONO_14'
+        : 'ANTICIPO',
+    ),
     [objetivo, setObjetivo] = useState<api.ObjetivoPago['objetivo']>('TODOS'),
     [id, setId] = useState(''),
     [r, setR] = useState<api.Simulacion>(),
@@ -33,6 +46,13 @@ export function SimularPagoPage() {
     [error, setError] = useState(''),
     [pagina, setPagina] = useState(1),
     [pagados, setPagados] = useState<number[]>([]);
+  const anual = tipo === 'BONO_14' || tipo === 'AGUINALDO';
+  const nombreTipo = {
+    ANTICIPO: 'Anticipo quincenal',
+    PAGO: 'Pago del mes',
+    BONO_14: 'Bono 14',
+    AGUINALDO: 'Aguinaldo',
+  }[tipo];
   const body: api.ObjetivoPago = {
     mes,
     tipoPago: tipo,
@@ -60,6 +80,11 @@ export function SimularPagoPage() {
       setError(e.message);
     },
   });
+  useEffect(() => {
+    if (prestaciones && mes <= hoyGuatemala().slice(0, 7)) simulacion.mutate();
+    // La primera consulta precalcula sin guardar. Cambios posteriores requieren revisión explícita.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const pago = useMutation({
     mutationFn: () => api.pagar(body, r!.hash),
     onSuccess: (data) => {
@@ -68,6 +93,7 @@ export function SimularPagoPage() {
       setConfirmado(false);
       setDialogo(false);
       toast(data.mensaje);
+      void client.invalidateQueries({ queryKey: ['prestaciones'] });
       void client.invalidateQueries({ queryKey: ['nomina'] });
       void client.invalidateQueries({ queryKey: ['novedades'] });
       void client.invalidateQueries({ queryKey: ['notificaciones'] });
@@ -100,7 +126,7 @@ export function SimularPagoPage() {
   const ocupado = simulacion.isPending || pago.isPending;
   return (
     <>
-      <h1>Simular pago</h1>
+      {prestaciones ? <h2>Prestaciones automáticas · revisión y pago</h2> : <h1>Simular pago</h1>}
       <AvisoEmpresa />
       <Card>
         <section data-tour="pago-objetivo">
@@ -108,18 +134,24 @@ export function SimularPagoPage() {
             <SelectField
               name="tipoPago"
               label="Tipo de pago"
-              hint="Anticipo: día 15, sin descuentos. Pago: último día del mes, con IGSS, ISR y cuotas."
+              hint="Anticipo: día 15. Pago: fin de mes. Bono 14: julio. Aguinaldo: diciembre; promedio con comisiones y horas extra."
               value={tipo}
               disabled={ocupado}
               onValueChange={(v) => {
                 invalidar();
                 setTipo(v as typeof tipo);
+                if (v === 'BONO_14' || v === 'AGUINALDO')
+                  setMes(`${mes.slice(0, 4)}-${v === 'BONO_14' ? '07' : '12'}`);
               }}
               opciones={[
-                { value: 'ANTICIPO', label: 'Anticipo' },
-                { value: 'PAGO', label: 'Pago del mes' },
-                { value: 'BONO_14', label: 'Bono 14 · V1-11', disabled: true },
-                { value: 'AGUINALDO', label: 'Aguinaldo · V1-11', disabled: true },
+                ...(!prestaciones
+                  ? [
+                      { value: 'ANTICIPO', label: 'Anticipo' },
+                      { value: 'PAGO', label: 'Pago del mes' },
+                    ]
+                  : []),
+                { value: 'BONO_14', label: 'Bono 14' },
+                { value: 'AGUINALDO', label: 'Aguinaldo' },
               ]}
               required
             />
@@ -174,7 +206,11 @@ export function SimularPagoPage() {
               </div>
             )}
           </div>
-          <p className="campo-hint">Bono 14 y Aguinaldo: disponibles en V1-11.</p>
+          <p className="campo-hint">
+            {anual
+              ? 'Cálculo desde contratación: promedio mensual × días / 365, máximo 100 %. Exención hasta el límite vigente; excedente incorporado al ISR del pago mensual. Revisa la historia completa antes de confirmar.'
+              : 'Selecciona empleado, departamento o todos y revisa los importes antes de pagar.'}
+          </p>
         </section>
         <div data-tour="pago-simular" className="flex flex-wrap gap-3 mt-4">
           <Button
@@ -198,8 +234,7 @@ export function SimularPagoPage() {
         <Card>
           <section data-tour="pago-resultados">
             <p>
-              SIMULACIÓN · {tipo === 'ANTICIPO' ? 'Anticipo quincenal' : 'Pago del mes'} · Fecha
-              informativa: {fechaVisible(r.fechaPago)}
+              SIMULACIÓN · {nombreTipo} · Fecha informativa: {fechaVisible(r.fechaPago)}
             </p>
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 my-4">
               {(['ingresos', 'descuentos', 'neto', 'patronal'] as const).map((k) => (
@@ -237,6 +272,12 @@ export function SimularPagoPage() {
                   render: (f) => (
                     <>
                       {f.empleado}
+                      {f.resultado?.componentes?.map((c) => (
+                        <p key={c.concepto} className="campo-hint">
+                          {c.formula} = {moneda(c.monto)}. Exento: {moneda(c.exento)}; gravado:{' '}
+                          {moneda(c.gravado)}.
+                        </p>
+                      ))}
                       <p className="campo-hint">{f.departamento}</p>
                     </>
                   ),
@@ -317,7 +358,9 @@ export function SimularPagoPage() {
                 disabled={ocupado}
                 onChange={(e) => setConfirmado(e.target.checked)}
               />
-              Confirmo que las novedades del mes están completas
+              {anual
+                ? 'Confirmo que la historia salarial, comisiones y horas extra del ciclo están completas'
+                : 'Confirmo que las novedades del mes están completas'}
             </label>
             <p className="campo-hint">
               Se pagarán {r.registros.filter((f) => f.resultado).length} empleados. Los bloqueados
@@ -383,7 +426,7 @@ export function SimularPagoPage() {
       <ConfirmModal
         abierto={dialogo}
         titulo="Confirmar pago de nómina"
-        descripcion={`Se pagará ${tipo === 'ANTICIPO' ? 'el anticipo' : 'el mes'} ${mes}, objetivo ${objetivo.toLowerCase()}. Neto total ${moneda(r?.totales.neto ?? '0')}. Se aplicarán novedades y cuotas, se archivarán boletas y se notificará a los empleados. ADMIN puede revertir con motivo antes del cierre.`}
+        descripcion={`Se pagará ${nombreTipo} ${mes}, objetivo ${objetivo.toLowerCase()}. Neto total ${moneda(r?.totales.neto ?? '0')}. ${anual ? 'Se registrará la prestación y su exención' : 'Se aplicarán novedades y cuotas'}, se archivarán boletas y se notificará a los empleados. ADMIN puede revertir con motivo antes del cierre.`}
         cargando={pago.isPending}
         onCancelar={() => {
           if (!pago.isPending) setDialogo(false);

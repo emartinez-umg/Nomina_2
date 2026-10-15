@@ -1034,3 +1034,112 @@ Estado: completada el 15/10/2026. Rama v1, alcance A11.
 6. npm run lint; npm run typecheck; npm test; npm run build; npm run format:check;
    npm run db:verify; npm run verify:pagos; npm run verify:security; npm run verify:prestaciones;
    npm run verify:novedades; npm run verify:comunicacion; npm run test:e2e; npm run verify:infra.
+
+## FASE V1-11 — Prestaciones automáticas integradas
+
+Estado: completada el 15/10/2026. Rama v1, alcance A12.
+
+### Hecho
+
+- Leídos AGENTS.md/adendo y progreso v1 completo. Inicio limpio; V000–V029 conservan sus archivos.
+  V030 amplía tipos de PAGOS_NOMINA, vincula PRESTACIONES a su boleta con FK/UNIQUE e incorpora
+  PRESTACIONES_DIAS_ANIO; S007 repetible conserva valores existentes. No transforma pagos previos.
+- Bono 14 y Aguinaldo automáticos desde contratación hasta cierre/egreso dentro del ciclo; promedio
+  mensual con aumentos, comisiones y HE, menos ausencias afectas. Proporción por días reales / 365
+  parametrizable, máximo 100 %: exactamente un año y año bisiesto pagan promedio completo.
+- Fuentes mensuales A12 independientes de apertura fiscal/pagos previos: contrato, salarios,
+  horario, novedades y banderas reales. Usa devengado archivado del pago mensual cuando existe;
+  excluye anticipo y retroactivas de otros meses, incorpora cargas posteriores sin duplicarlas.
+  Historia v0 conserva motor/snapshots cerrados; datos faltantes o pendientes bloquean con motivo.
+- Simular pago habilita Bono 14/julio y Aguinaldo/diciembre para empleado/departamento/todos:
+  desglose, totales/alertas, contadores de fuentes del ciclo, preview SIMULACIÓN, casilla y diálogo.
+  Prestaciones comparte ese formulario y precalcula la prestación disponible al entrar.
+- Confirmar revalida hash; registra cálculo/detalle/exención, pago UNIQUE empleado/mes/tipo,
+  firma, PDF BLOB/SHA-256, aviso y auditoría en una transacción. No aplica novedades/cuotas del
+  salario. Boletas propias inmediatas, descarga individual y ZIP por departamento; PDF inmutable
+  también desde historial de Prestaciones. No transfiere dinero a bancos.
+- Exención limitada por salario/parámetro/consumo previo del mismo tipo/año. Excedente entra
+  al ISR mensual desde PRESTACION_DETALLE, una sola vez. Las boletas anuales no duplican salario,
+  ISR acumulado, IGSS ni constancias. No representan días salariales ni generan proyección mensual.
+- Reversión ADMIN motivada antes del cierre anula la prestación vinculada, conserva su documento
+  y permite nueva versión. Pagos mensuales posteriores/del mismo mes y finiquitos dependientes
+  impiden revertir fuera de orden. Conteos de empleados deduplican boletas dentro del periodo.
+- Finiquito automático al elegir empleado/corte/causa; hoy de Guatemala por defecto. Desglose:
+  promedio de seis meses × años/fracción, vacaciones pendientes decimales × salario / 30 y
+  aguinaldo/Bono 14 proporcionales; resta pagos del ciclo. Preview PDF antes de confirmar.
+  Cambiar selección retira cálculo/confirmación y descarta respuestas antiguas. Confirmar baja
+  conserva la transacción existente de liquidación, kardex, revocación de acceso y auditoría.
+- Hints y recorridos v1-11 en Prestaciones, Simular pago, Planilla y ficha de empleado. Ayuda
+  permanece al cambiar pestañas; tabla de desglose desplazable recibe foco con teclado en móvil.
+  README, PRESTACIONES y ERD actualizados. No se agregan datos ficticios a la aplicación.
+
+### Decisiones y supuestos
+
+- A12 reemplaza intencionalmente la fracción por meses de v0: enero–junio 2026 son 181/365.
+  Q3,000 constantes dan Q1,487.67; tres meses Q3,000, tres Q5,000 y Q1,800 de comisiones dan
+  promedio Q4,300 y Bono 14 Q2,132.33. Actualizadas esas expectativas, preservando las demás reglas.
+- El promedio normaliza meses completos y parciales según cantidades salariales/divisor mensual;
+  la proporcionalidad anual usa días calendario inclusivos. No se prorratea dos veces el salario.
+  Una comisión mensual se atribuye al cierre del mes o corte de baja; no se divide por días.
+- La indemnización conserva años/fracción por aniversarios y ventana móvil de seis meses de v0.
+  Se implementa literalmente promedio × tiempo, sin añadir alícuotas no solicitadas en A12.
+  Los parámetros históricos sin vigencia deben completarse: no se presume una tasa pasada.
+- Las boletas anuales comparten el periodo del 1–15 del mes de pago, con identidad de pago separada.
+  Si contiene anticipos, el cierre exige completar sus pagos salariales. Si contiene únicamente
+  prestaciones anuales, puede revisarse/cerrarse sin forzar anticipos; novedades de salario se
+  resuelven en el pago mensual. La fecha informativa usa el parámetro; la quincena conserva su rango.
+- Los endpoints históricos de cálculo/aprobación/pago siguen disponibles para regularización de
+  registros anteriores; las pantallas anuales nuevas usan A11. Fuentes usadas protegen sus pagos.
+  Los ciclos anteriores impagos se regularizan antes del finiquito, conservando el control previo.
+- Se contrastaron fuentes oficiales de MINTRAB/Congreso y art. 70 del Decreto 10-2012; enlaces en
+  PRESTACIONES.md. El alcance matemático sigue la fórmula explícita del proyecto y las vigencias
+  configuradas, incluyendo comisiones/HE según A12.
+
+### Validación realizada
+
+- Node 20.20.2: 554 unitarias aprobadas (328 backend, 226 frontend), lint, TypeScript strict
+  backend/frontend/E2E y builds. Casos de menos de un año, exacto, bisiesto, aumento, comisiones,
+  HE revalorada, baja parcial, indemnización fraccionaria, vacaciones 6.25, banderas y pendientes.
+- Oracle/Node 20: quince pagos, incluidos tres escenarios A12 con fuentes reales sin nómina previa,
+  objetivos individual/departamento/todos, ausencia de escrituras al simular, fuentes cambiadas,
+  concurrencia única, rollback real de auditoría de prestación, publicación/propiedad, ZIP,
+  inmutabilidad de PDF, reversión/nueva versión y revisión de periodo sin anticipo obligatorio.
+  Diez regresiones de prestaciones/finiquitos/constancias y 79 de seguridad/empleados/vacaciones/
+  nómina aprobadas; esquemas retirados.
+- 26 E2E con API/Oracle reales aprobados (3.1 min): regresión completa, matriz por rol, ayuda,
+  hints, teclado, móvil 390 px y axe A/AA. Nuevos casos: precálculo, Bono 14 confirmado/boleta/
+  repetición bloqueada, finiquito automático, cambio de causa, preview PDF y baja confirmada.
+  El primer caso móvil encontró una tabla sin foco; corregida y los dos escenarios A12 aprobados.
+- Boleta de Bono 14, Aguinaldo completo con aumento y las dos páginas del finiquito renderizadas
+  e inspeccionadas: membrete, fórmulas, exento/gravado, totales, firma y pie sin solapamientos.
+  Artefactos QA locales ignorados en tmp/pdfs; Fontconfig usa caché temporal escribible.
+- V000–V030 y seeds desde cero: 68 tablas, identidades, CHECK/UNIQUE, FKs indexadas, integridad y
+  rollback verificados. Una limpieza de esquema excedió 60 s: se comprobó su identidad/fecha y
+  ausencia de sesiones, se retiró el esquema exclusivo de esa prueba y se amplió a 120 s el plazo
+  administrativo del verificador; la repetición final completó verificación y limpieza. No se
+  alteraron datos ni usuarios de aplicación.
+- Docker API/web reconstruidos con Node 20 y V030 aplicada. Antes/después: dos empleados, cuatro
+  usuarios, dos salarios/dos horarios asignados, una solicitud y cero novedades/préstamos/
+  descuentos/cuotas/pagos/prestaciones. Conteos y huellas de doce tablas originales idénticos.
+  Volumen y credenciales conservados; verify:infra aprobado para API/Oracle/nginx/React/worker PDF.
+- db:verify usa Node 24 del host por tsImport, como en fases previas. Unitarias, suites Oracle,
+  TypeScript, lint, builds y E2E usan Node 20. Revisión de secretos y git diff --check aprobados.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de V1-11. Operación: RH revisa historia
+  salarial, vigencias/banderas, ciclos anteriores y empresa/firmante reales antes de confirmar.
+
+### Cómo probar
+
+1. docker compose up --build. RH/ADMIN → Prestaciones: revisar precálculo; elegir Bono 14/julio
+   o Aguinaldo/diciembre, año/objetivo. Simular no escribe. Revisar promedio/días/exención/alertas.
+2. Completar fuentes, marcar verificación y confirmar. Descargar PDF individual y ZIP; consultar
+   boleta en portal propio e historial de Prestaciones. Repetir se bloquea; editar fuente exige
+   simular de nuevo. ADMIN puede revertir con motivo antes del cierre y dependencias resueltas.
+3. Empleados → ficha → Liquidar y dar de baja: revisar cálculo automático y hoy; cambiar corte/
+   causa recalcula. Revisar vacaciones decimales y proporcionales, abrir PDF SIMULACIÓN, cancelar
+   o confirmar con motivo. Confirmar registra baja y revoca acceso; pago desde historial.
+4. npm run lint; npm run typecheck; npm test; npm run build; npm run format:check;
+   npm run db:verify; npm run verify:pagos; npm run verify:prestaciones; npm run verify:security;
+   npm run test:e2e; npm run verify:infra. Suites Oracle/E2E en esquemas temporales y en secuencia.

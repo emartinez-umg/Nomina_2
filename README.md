@@ -292,3 +292,14 @@ Mi parqueo y solicita baja; RH puede dar de baja/suspender al cierre del mes. No
 resume cargas por persona/departamento antes del pago. Detalles y contrato para V1-10 en
 [docs/NOVEDADES.md](docs/NOVEDADES.md). Pruebas: `npm run verify:novedades` y
 `npm run test:e2e -- --grep 'FASE V1-9'` (Oracle en esquemas temporales).
+
+### Prestaciones automáticas A12 — V1-11
+
+`docker compose up --build` aplica V030. Simular pago permite Bono 14 (julio) y Aguinaldo
+(diciembre), por empleado/departamento/todos; Prestaciones los precalcula al entrar.
+Revisar historia del ciclo, confirmar y descargar boletas membretadas/ZIP; el portal las recibe
+sin duplicar anticipos ni ingresos fiscales. La ficha del empleado abre el finiquito automático
+con promedio de seis meses, vacaciones y proporcionales, preview PDF y confirmación de baja.
+Detalles, supuestos y endpoints en [Prestaciones](docs/PRESTACIONES.md).
+Pruebas: `npm run verify:pagos`, `npm run verify:prestaciones` y
+`npm run test:e2e -- --grep 'FASE V1-11'` (esquemas temporales).

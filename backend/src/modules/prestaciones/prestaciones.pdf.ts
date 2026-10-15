@@ -34,6 +34,12 @@ export function prestacionPdf(
         .moveDown();
     };
     header();
+    if (r.estado === 'SIMULACION')
+      doc
+        .fillColor('#8A4617')
+        .text('SIMULACIÓN - Sin baja ni validez de pago')
+        .moveDown()
+        .fillColor('#25303B');
     if (r.estado !== 'PAGADA')
       doc
         .fillColor('#8A4617')
@@ -59,6 +65,7 @@ export function prestacionPdf(
         .text(
           `Promedio mensual: ${q(l.promedio)} - Tiempo: ${l.tiempo}${l.concepto === 'VACACIONES_PENDIENTES' ? ' días' : ' años/fracción'}`,
         )
+        .text(`Cálculo: ${l.formula ?? `${l.promedio} × ${l.tiempo}`}`)
         .text(`Importe: ${q(l.monto)} - Exento ISR: ${q(l.exento)} - Gravado: ${q(l.gravado)}`)
         .moveDown();
     }
