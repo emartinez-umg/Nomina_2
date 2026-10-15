@@ -23,7 +23,7 @@ export interface CampoCatalogo {
   max?: number;
   decimales?: number;
   opciones?: string[];
-  referencia?: 'departamentos' | 'empleados';
+  referencia?: 'departamentos' | 'empleados' | 'departamentos-gt' | 'municipios-gt';
 }
 export interface Catalogo {
   slug: string;
@@ -181,12 +181,20 @@ export const catalogos: Catalogo[] = [
       nombre(),
       descripcion,
       campo(
-        'localidad',
-        'LOCALIDAD',
-        'Localidad',
-        'texto',
-        'Localidad real para aplicar feriados locales.',
-        { requerido: true, max: 120 },
+        'idDepartamentoGt',
+        'ID_DEPARTAMENTO_GT',
+        'Departamento de Guatemala',
+        'referencia',
+        'Departamento geográfico del catálogo oficial del INE. Busca por nombre; al cambiarlo vuelve a elegir el municipio.',
+        { requerido: true, referencia: 'departamentos-gt' },
+      ),
+      campo(
+        'idMunicipioGt',
+        'ID_MUNICIPIO_GT',
+        'Municipio',
+        'referencia',
+        'Busca y selecciona un municipio del departamento elegido. No se permite escribir una localidad libre.',
+        { requerido: true, referencia: 'municipios-gt' },
       ),
       campo('direccion', 'DIRECCION', 'Dirección', 'area', 'Ubicación del centro de trabajo.', {
         max: 500,

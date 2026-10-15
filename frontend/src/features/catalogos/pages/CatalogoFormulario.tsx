@@ -12,7 +12,7 @@ import { CampoEditor } from './CampoEditor';
 import { HorarioEditor } from './HorarioEditor';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
-import { FormErrorSummary, TextAreaField } from '../../../components/forms';
+import { FormErrorSummary, TextAreaField, UbicacionSelect } from '../../../components/forms';
 import { useToast } from '../../../components/ui/Toast';
 import { HelpButton, HelpOffer } from '../../../components/help/HelpProvider';
 import { mapearErrores } from '../../../lib/http';
@@ -72,7 +72,7 @@ export function CatalogoFormulario({
   } = form;
   const draft = useFormDraft(`catalogo-${cat.slug}`, actual?.id, {
     form,
-    version: 2,
+    version: cat.slug === 'centros-trabajo' ? 3 : 2,
     alDescartar: () => {
       setRevision(null);
       setMotivoError(undefined);
@@ -144,69 +144,139 @@ export function CatalogoFormulario({
           )}
           <HelpOffer />
           <div className="form-grid">
-            {cat.campos.map((f) => (
-              <div
-                className={
-                  f.tipo === 'area'
-                    ? 'col-span-12'
-                    : [
-                          'codigo',
-                          'fecha',
-                          'entero',
-                          'dinero',
-                          'decimal',
-                          'booleano',
-                          'nit',
-                          'telefono',
-                        ].includes(f.tipo)
-                      ? 'col-span-12 md:col-span-4'
-                      : 'col-span-12 md:col-span-6'
-                }
-                key={f.nombre}
-                data-tour={`campo-${f.nombre}`}
-              >
-                {f.tipo === 'codigo' ? (
-                  <CampoCodigo
-                    entidad={cat.slug}
-                    palabra={form.watch('nombre')}
-                    codigo={actual?.codigo ? String(actual.codigo) : undefined}
-                  />
-                ) : (
-                  <Controller
-                    control={control}
-                    name={f.nombre}
-                    render={({ field }) => (
-                      <CampoEditor
-                        campo={f}
-                        actual={actual}
-                        name={field.name}
-                        label={f.etiqueta}
-                        hint={f.hint}
-                        placeholder={f.hint.split('.')[0] ?? ''}
-                        value={field.value ?? ''}
-                        onValueChange={field.onChange}
-                        onBlur={field.onBlur}
-                        inputRef={field.ref}
-                        required={!!f.requerido}
-                        error={errors[f.nombre]?.message}
-                        disabled={
-                          mutation.isPending ||
-                          !!(
-                            actual &&
-                            cat.legal &&
-                            ['codigo', 'unidad', 'limiteInferior'].includes(f.nombre)
-                          ) ||
-                          !!(actual?.enUso && cat.slug === 'horarios' && f.nombre === 'jornada')
-                        }
-                        minFecha={
-                          f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
-                        }
-                      />
+            {cat.campos
+              .filter(
+                (f) =>
+                  cat.slug !== 'centros-trabajo' ||
+                  !['idDepartamentoGt', 'idMunicipioGt'].includes(f.nombre),
+              )
+              .map((f) => (
+                <div
+                  className={
+                    f.tipo === 'area'
+                      ? 'col-span-12'
+                      : [
+                            'codigo',
+                            'fecha',
+                            'entero',
+                            'dinero',
+                            'decimal',
+                            'booleano',
+                            'nit',
+                            'telefono',
+                          ].includes(f.tipo)
+                        ? 'col-span-12 md:col-span-4'
+                        : 'col-span-12 md:col-span-6'
+                  }
+                  key={f.nombre}
+                  data-tour={`campo-${f.nombre}`}
+                >
+                  {f.tipo === 'codigo' ? (
+                    <CampoCodigo
+                      entidad={cat.slug}
+                      palabra={form.watch('nombre')}
+                      codigo={actual?.codigo ? String(actual.codigo) : undefined}
+                    />
+                  ) : (
+                    <Controller
+                      control={control}
+                      name={f.nombre}
+                      render={({ field }) => (
+                        <CampoEditor
+                          campo={f}
+                          actual={actual}
+                          name={field.name}
+                          label={f.etiqueta}
+                          hint={f.hint}
+                          placeholder={f.hint.split('.')[0] ?? ''}
+                          value={field.value ?? ''}
+                          onValueChange={field.onChange}
+                          onBlur={field.onBlur}
+                          inputRef={field.ref}
+                          required={!!f.requerido}
+                          error={errors[f.nombre]?.message}
+                          disabled={
+                            mutation.isPending ||
+                            !!(
+                              actual &&
+                              cat.legal &&
+                              ['codigo', 'unidad', 'limiteInferior'].includes(f.nombre)
+                            ) ||
+                            !!(actual?.enUso && cat.slug === 'horarios' && f.nombre === 'jornada')
+                          }
+                          minFecha={
+                            f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
+                          }
+                        />
+                      )}
+                    />
+                  )}
+                </div>
+              ))}
+            {cat.slug === 'centros-trabajo' && (
+              <>
+                {actual?.localidadAnterior && (
+                  <div className="col-span-12 alerta" data-tour="ubicacion-anterior">
+                    <p>Localidad anterior: {String(actual.localidadAnterior)}</p>
+                    {!actual.idMunicipioGt && (
+                      <>
+                        <p>
+                          {actual.ubicacionPropuesta
+                            ? `Coincidencia propuesta: ${String(actual.ubicacionPropuesta)}. Revisa antes de guardar.`
+                            : 'Sin coincidencia única. Selecciona el departamento y municipio correctos antes de guardar.'}
+                        </p>
+                        {actual.idMunicipioGtPropuesto && (
+                          <Button
+                            icono="aprobar"
+                            variante="secundario"
+                            disabled={mutation.isPending}
+                            onClick={() => {
+                              form.setValue(
+                                'idDepartamentoGt',
+                                String(actual.idDepartamentoGtPropuesto),
+                                { shouldDirty: true, shouldValidate: true },
+                              );
+                              form.setValue(
+                                'idMunicipioGt',
+                                String(actual.idMunicipioGtPropuesto),
+                                { shouldDirty: true, shouldValidate: true },
+                              );
+                            }}
+                          >
+                            Usar coincidencia propuesta
+                          </Button>
+                        )}
+                      </>
                     )}
-                  />
+                  </div>
                 )}
-              </div>
-            ))}
+                <UbicacionSelect
+                  value={{
+                    idDepartamentoGt: form.watch('idDepartamentoGt') ?? '',
+                    idMunicipioGt: form.watch('idMunicipioGt') ?? '',
+                  }}
+                  predeterminar={!actual}
+                  disabled={mutation.isPending}
+                  onChange={(valor, predeterminado) => {
+                    form.setValue('idDepartamentoGt', valor.idDepartamentoGt, {
+                      shouldDirty: !predeterminado,
+                      shouldValidate: !predeterminado,
+                    });
+                    form.setValue('idMunicipioGt', valor.idMunicipioGt, {
+                      shouldDirty: !predeterminado,
+                      shouldValidate: !predeterminado,
+                    });
+                  }}
+                  onBlur={(campo) => {
+                    void form.trigger(campo);
+                  }}
+                  errores={{
+                    idDepartamentoGt: errors.idDepartamentoGt?.message,
+                    idMunicipioGt: errors.idMunicipioGt?.message,
+                  }}
+                />
+              </>
+            )}
             {cat.slug === 'horarios' && (
               <Controller
                 control={control}
@@ -268,13 +338,19 @@ export function CatalogoFormulario({
                 </tr>
               </thead>
               <tbody>
-                {cat.campos.map((f) => (
-                  <tr key={f.nombre}>
-                    <th scope="row">{f.etiqueta}</th>
-                    <td>{valorCampo(f, actual?.[f.nombre])}</td>
-                    <td>{valorCampo(f, revision?.[f.nombre])}</td>
-                  </tr>
-                ))}
+                {cat.campos
+                  .filter(
+                    (f) =>
+                      cat.slug !== 'centros-trabajo' ||
+                      !['idDepartamentoGt', 'idMunicipioGt'].includes(f.nombre),
+                  )
+                  .map((f) => (
+                    <tr key={f.nombre}>
+                      <th scope="row">{f.etiqueta}</th>
+                      <td>{valorCampo(f, actual?.[f.nombre])}</td>
+                      <td>{valorCampo(f, revision?.[f.nombre])}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

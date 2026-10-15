@@ -2,7 +2,7 @@ import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 import type { Catalogo } from '../api/catalogos';
 export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyuda {
   return {
-    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}`,
+    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}${cat.slug === 'centros-trabajo' ? '-v1-4' : ''}`,
     pasos: formulario
       ? [
           {
@@ -20,6 +20,16 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
                 ? 'El código se genera a partir del nombre: iniciales sin conectores o primeras letras. Ante coincidencias usa consonantes y luego un número. La vista previa no reserva el código; al guardar se asigna sin duplicados y será permanente aunque renombres el registro.'
                 : `${f.hint} ${f.requerido ? 'Es obligatorio.' : 'Puede dejarse vacío.'} ${f.tipo === 'referencia' ? 'Escribe para buscar registros reales; puedes cargar más opciones. Un registro inactivo no se acepta para nuevas asignaciones.' : ''}`,
           })),
+          ...(cat.slug === 'centros-trabajo'
+            ? [
+                {
+                  elemento: 'ubicacion-select',
+                  titulo: 'Ubicación oficial en cascada',
+                  descripcion:
+                    'Busca el departamento geográfico y luego su municipio en el catálogo del INE. En altas se propone Guatemala / Guatemala. Cambiar departamento borra el municipio anterior para evitar combinaciones inválidas. En registros migrados se conserva la localidad anterior: revisa la coincidencia propuesta o selecciona manualmente cuando no es única. Usar coincidencia solo llena los campos; Guardar confirma y audita. El borrador conserva ambas selecciones para continuar después.',
+                },
+              ]
+            : []),
           ...(cat.slug === 'horarios'
             ? [
                 {
@@ -69,6 +79,16 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             descripcion:
               'Descarga todos los resultados de la consulta, incluyendo las páginas restantes. Los filtros y el orden se respetan; el archivo puede abrirse en Excel.',
           },
+          ...(cat.slug === 'centros-trabajo'
+            ? [
+                {
+                  elemento: 'catalogo-tabla',
+                  titulo: 'Ubicaciones oficiales y centros pendientes',
+                  descripcion:
+                    'Departamento y municipio muestran los nombres del catálogo del INE. Sin asignar indica un centro histórico pendiente de revisión: abre Editar para consultar su localidad anterior y usar una coincidencia propuesta o elegir la ubicación correcta. Los filtros de departamento y municipio consultan el servidor; el CSV incluye sus nombres. Al crear se propone Guatemala / Guatemala y al cambiar departamento debes volver a seleccionar el municipio.',
+                },
+              ]
+            : []),
           {
             elemento: 'catalogo-tabla',
             titulo: 'Auditoría y permisos ADMIN',

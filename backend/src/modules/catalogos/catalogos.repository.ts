@@ -23,14 +23,32 @@ const seleccionar = (f: CampoCatalogo) =>
   `${f.tipo === 'fecha' ? `TO_CHAR(T.${f.columna},'YYYY-MM-DD')` : ['dinero', 'decimal'].includes(f.tipo) ? `TO_CHAR(T.${f.columna},'TM9','NLS_NUMERIC_CHARACTERS=''.,''')` : `T.${f.columna}`} "${f.nombre}"`;
 // Identificadores y expresiones provienen exclusivamente del catálogo estático, nunca de la petición.
 
+const referenciasGt = {
+  'departamentos-gt': ['DEPARTAMENTOS_GT', 'ID_DEPARTAMENTO_GT'],
+  'municipios-gt': ['MUNICIPIOS_GT', 'ID_MUNICIPIO_GT'],
+} as const;
 function etiquetas(cat: Catalogo) {
-  return cat.campos
-    .filter((f) => f.referencia)
-    .map(
-      (f) =>
-        `,(SELECT ${f.referencia === 'departamentos' ? 'R.NOMBRE' : "R.NOMBRES||' '||R.APELLIDOS"} FROM ${f.referencia === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS'} R WHERE R.${f.referencia === 'departamentos' ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO'}=T.${f.columna}) "${f.nombre}Etiqueta"`,
-    )
-    .join('');
+  return (
+    cat.campos
+      .filter((f) => f.referencia)
+      .map((f) => {
+        const gt =
+          f.referencia === 'departamentos-gt' || f.referencia === 'municipios-gt'
+            ? referenciasGt[f.referencia]
+            : null;
+        const tabla = gt?.[0] ?? (f.referencia === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS');
+        const pk =
+          gt?.[1] ?? (f.referencia === 'departamentos' ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO');
+        const label = f.referencia === 'empleados' ? "R.NOMBRES||' '||R.APELLIDOS" : 'R.NOMBRE';
+        return `,(SELECT ${label} FROM ${tabla} R WHERE R.${pk}=T.${f.columna}) "${f.nombre}Etiqueta"`;
+      })
+      .join('') +
+    (cat.slug === 'centros-trabajo'
+      ? `,T.LOCALIDAD_ANTERIOR "localidadAnterior",T.LOCALIDAD "localidad",T.ID_MUNICIPIO_GT_PROPUESTO "idMunicipioGtPropuesto",
+    (SELECT ID_DEPARTAMENTO_GT FROM MUNICIPIOS_GT WHERE ID_MUNICIPIO_GT=T.ID_MUNICIPIO_GT_PROPUESTO) "idDepartamentoGtPropuesto",
+    (SELECT M.NOMBRE||', '||D.NOMBRE FROM MUNICIPIOS_GT M JOIN DEPARTAMENTOS_GT D ON D.ID_DEPARTAMENTO_GT=M.ID_DEPARTAMENTO_GT WHERE M.ID_MUNICIPIO_GT=T.ID_MUNICIPIO_GT_PROPUESTO) "ubicacionPropuesta"`
+      : '')
+  );
 }
 async function referencias(c: Connection, cat: Catalogo) {
   const r = await c.execute<{ TABLA: string; COLUMNA: string }>(
@@ -196,6 +214,11 @@ export async function guardar(
   const columnas = campos.map((f) => f.columna);
   const valores = campos.map((f) => expresion(f));
   const binds: Binds = { ...bindsCampos({ ...cat, campos }, d), actor };
+  if (cat.slug === 'centros-trabajo') {
+    columnas.push('LOCALIDAD');
+    valores.push(':localidad');
+    binds.localidad = String(d.localidad);
+  }
   if (cat.slug === 'parametros-legales') {
     columnas.push('CLAVE_INTERNA');
     valores.push(':claveInterna');
@@ -278,13 +301,15 @@ export async function ultimoCierre(c: Connection) {
 }
 export async function referenciaActiva(
   c: Connection,
-  ref: 'departamentos' | 'empleados',
+  ref: NonNullable<CampoCatalogo['referencia']>,
   id: number,
 ) {
   const r = await c.execute<{ DEPARTAMENTO: number }>(
-    ref === 'departamentos'
-      ? 'SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM DEPARTAMENTOS WHERE ID_DEPARTAMENTO=:id AND ACTIVO=1'
-      : "SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM EMPLEADOS WHERE ID_EMPLEADO=:id AND ACTIVO=1 AND ESTADO='ACTIVO'",
+    ref === 'departamentos-gt' || ref === 'municipios-gt'
+      ? `SELECT ${ref === 'municipios-gt' ? 'ID_DEPARTAMENTO_GT' : referenciasGt[ref][1]} DEPARTAMENTO FROM ${referenciasGt[ref][0]} WHERE ${referenciasGt[ref][1]}=:id AND ACTIVO=1`
+      : ref === 'departamentos'
+        ? 'SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM DEPARTAMENTOS WHERE ID_DEPARTAMENTO=:id AND ACTIVO=1'
+        : "SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM EMPLEADOS WHERE ID_EMPLEADO=:id AND ACTIVO=1 AND ESTADO='ACTIVO'",
     { id },
     opciones,
   );
@@ -292,13 +317,14 @@ export async function referenciaActiva(
 }
 export async function opcionesReferencia(
   c: Connection,
-  ref: 'departamentos' | 'empleados',
+  ref: NonNullable<CampoCatalogo['referencia']>,
   buscar: string,
   pagina: number,
 ) {
-  const tabla = ref === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS';
-  const pk = ref === 'departamentos' ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO';
-  const label = ref === 'departamentos' ? 'NOMBRE' : "NOMBRES||' '||APELLIDOS";
+  const gt = ref === 'departamentos-gt' || ref === 'municipios-gt' ? referenciasGt[ref] : null;
+  const tabla = gt?.[0] ?? (ref === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS');
+  const pk = gt?.[1] ?? (ref === 'departamentos' ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO');
+  const label = ref === 'empleados' ? "NOMBRES||' '||APELLIDOS" : 'NOMBRE';
   const r = await c.execute<{ value: string; label: string }>(
     `SELECT TO_CHAR(${pk}) "value",${label} "label" FROM ${tabla} WHERE ACTIVO=1 ${ref === 'empleados' ? "AND ESTADO='ACTIVO'" : ''} AND (:buscar IS NULL OR INSTR(UPPER(${label}),UPPER(:buscar))>0) ORDER BY ${label},${pk} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
     { buscar: buscar || null, offset: (pagina - 1) * 100 },

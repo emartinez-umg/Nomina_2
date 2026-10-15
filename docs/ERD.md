@@ -981,3 +981,39 @@ consultan esa clave; los tipos de trámite conservan la referencia semántica me
 `NVL(CODIGO_ANTERIOR,CODIGO)`. Los seeds buscan también por dicha clave, conservando su idempotencia.
 Los códigos de roles, conceptos de nómina, plantillas y las referencias oficiales de IGSS
 no son identificadores introducidos por los formularios de A4 y conservan su significado.
+
+## Ubicaciones de Guatemala — V022 (FASE V1-4)
+
+```mermaid
+erDiagram
+  DEPARTAMENTOS_GT ||--|{ MUNICIPIOS_GT : contiene
+  DEPARTAMENTOS_GT o|--o{ CENTROS_TRABAJO : departamento_confirmado
+  MUNICIPIOS_GT o|--o{ CENTROS_TRABAJO : municipio_confirmado
+  MUNICIPIOS_GT o|--o{ CENTROS_TRABAJO : coincidencia_propuesta
+  DEPARTAMENTOS_GT {
+    number ID_DEPARTAMENTO_GT PK
+    varchar CODIGO_INE UK "2 posiciones"
+    varchar NOMBRE UK
+  }
+  MUNICIPIOS_GT {
+    number ID_MUNICIPIO_GT PK
+    number ID_DEPARTAMENTO_GT FK
+    varchar CODIGO_INE UK "4 posiciones"
+    varchar NOMBRE
+  }
+  CENTROS_TRABAJO {
+    number ID_CENTRO_TRABAJO PK
+    number ID_DEPARTAMENTO_GT FK
+    number ID_MUNICIPIO_GT FK
+    number ID_MUNICIPIO_GT_PROPUESTO FK
+    varchar LOCALIDAD_ANTERIOR "Referencia histórica inalterada"
+    varchar LOCALIDAD "Compatibilidad con feriados v0"
+  }
+```
+
+PK identity ALWAYS y códigos INE únicos; municipio único por departamento/nombre y por
+par ID_MUNICIPIO_GT/ID_DEPARTAMENTO_GT. La FK compuesta de centros y CHECK ambos-nulos/o-ambos
+impiden pares cruzados/parciales. Las referencias se admiten nulas para históricos pendientes;
+la API exige ambas para altas/ediciones. Todas las FKs/filtros están indexados. Los dos catálogos
+incluyen auditoría y ACTIVO, sin endpoints de escritura. S006 idempotente carga 22/340 desde
+la fuente íntegra versionada en db/data/ine, conservando nombres y códigos del INE.

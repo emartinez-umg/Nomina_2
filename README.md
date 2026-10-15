@@ -18,7 +18,7 @@ docker compose up --build
 ```
 
 También: `docker compose up --build -d --wait --wait-timeout 900`. La primera preparación tarda
-varios minutos. La API espera Oracle saludable, aplica V000–V020 y seeds y luego inicia nginx.
+varios minutos. La API espera Oracle saludable, aplica V000–V022 y seeds y luego inicia nginx.
 No necesitas SQL manual, Instant Client ni instalar Node en el host para utilizar el sistema.
 
 - **Aplicación:** [https://localhost:8443/login](https://localhost:8443/login).
@@ -207,3 +207,16 @@ al guardar. El código es permanente. La plantilla CSV de empleados ya no pide c
 descarga la versión actual desde Carga masiva. Las referencias oficiales de IGSS se conservan.
 `npm run verify:codigos` comprueba migración con datos de v0, contadores por departamento/año,
 colisiones, concurrencia, rollback, inmutabilidad y el endpoint autenticado en Oracle temporal.
+
+### Ubicaciones oficiales (v1, FASE V1-4)
+
+`docker compose up --build` aplica V022 y S006 con 22 departamentos y 340 municipios
+obtenidos del INE. Original, huella y catálogo extraído en [db/data/ine/README.md](db/data/ine/README.md).
+Centros de trabajo usa selectores con búsqueda y cascada; en altas propone Guatemala/Guatemala.
+En edición conserva la localidad anterior y permite revisar una coincidencia única antes de guardar.
+Los borradores incluyen la ubicación y la ayuda explica la migración. El formulario de empleado
+se integrará en su fase; UbicacionSelect y ZonaSelect ya están disponibles para reutilizarse.
+
+Pruebas: `npm run verify:ubicaciones` (Oracle temporal), `npm run db:verify`, `npm test`
+y `npm run test:e2e -- --grep 'FASE V1-4'`. Consultas autenticadas en `/api/ubicaciones/departamentos`
+y `/api/ubicaciones/municipios?idDepartamentoGt=…`; especificación en [docs/CATALOGOS.md](docs/CATALOGOS.md).

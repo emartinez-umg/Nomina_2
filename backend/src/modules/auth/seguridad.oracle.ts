@@ -1074,7 +1074,12 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       );
       const idCentroTrabajo = await crear('centros-trabajo', {
         ...base,
-        localidad: 'GUATEMALA_CIUDAD',
+        idDepartamentoGt: Number(
+          await escalar("SELECT ID_DEPARTAMENTO_GT FROM DEPARTAMENTOS_GT WHERE CODIGO_INE='01'"),
+        ),
+        idMunicipioGt: Number(
+          await escalar("SELECT ID_MUNICIPIO_GT FROM MUNICIPIOS_GT WHERE CODIGO_INE='0101'"),
+        ),
         direccion: null,
       });
       const idBanco = await crear('bancos', base);

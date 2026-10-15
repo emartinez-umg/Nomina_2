@@ -24,7 +24,9 @@ export const campoSchema = z.object({
   max: z.number().optional(),
   decimales: z.number().optional(),
   opciones: z.array(z.string()).optional(),
-  referencia: z.enum(['departamentos', 'empleados']).optional(),
+  referencia: z
+    .enum(['departamentos', 'empleados', 'departamentos-gt', 'municipios-gt'])
+    .optional(),
 });
 export const catalogoSchema = z.object({
   slug: z.string(),
@@ -91,7 +93,7 @@ export function csv(cat: Catalogo, filas: Fila[]) {
       ['ID', ...cat.campos.map((f) => f.etiqueta), 'Estado'],
       ...filas.map((r) => [
         r.id,
-        ...cat.campos.map((f) => r[f.nombre]),
+        ...cat.campos.map((f) => r[f.nombre + 'Etiqueta'] ?? r[f.nombre]),
         r.activo ? 'Activo' : 'Inactivo',
       ]),
     ]

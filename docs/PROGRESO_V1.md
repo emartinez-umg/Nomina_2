@@ -288,3 +288,103 @@ Estado: completada el 14/10/2026. Rama `v1`, alcance A4.
 5. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`;
    `npm run db:verify`; `npm run verify:codigos` y suites Oracle existentes; `npm run test:e2e`.
    Node 20: imagen de pruebas actualizada y `npm run verify:codigos -- --docker`.
+
+## FASE V1-4 — Catálogo oficial de ubicaciones de Guatemala
+
+Estado: completada el 14/10/2026. Rama `v1`, alcance A5 solicitado para centros y componentes reutilizables.
+
+### Hecho
+
+- Leídos AGENTS.md completo con adendo y los progresos. Inicio en `v1` con árbol limpio;
+  V000–V021 intactas. No se modificó el formulario de empleado ni se adelantaron fases futuras.
+- Descargada la fuente oficial del INE «Lugares poblados de la República de Guatemala. Censo 2018»,
+  recurso publicado el 25/03/2024. XLSX íntegro versionado en `db/data/ine`, con URL, fecha y SHA-256.
+  Extraídos únicamente códigos/nombres únicos de departamento y municipio (columnas A–D, hoja A_3):
+  22 departamentos y 340 municipios, sin pares contradictorios, sin inventar ni corregir nombres.
+  JSON versionado y extractor reproducible con biblioteca estándar Python; generador de seed en Node.
+- V022 crea DEPARTAMENTOS_GT/MUNICIPIOS_GT con PK identity ALWAYS, códigos INE UNIQUE, auditoría,
+  estado, índices y FKs; agrega a centros referencias geográficas, LOCALIDAD_ANTERIOR y propuesta.
+  FK compuesta y CHECK impiden pares cruzados/parciales; históricos pueden quedar pendientes.
+- S006 idempotente carga por código INE sin sobrescribir filas. Preserva el texto de todos los centros
+  previos, incluidos inactivos. Propone solo coincidencias completas únicas, ignorando separadores/
+  acentos, municipio/departamento en ambos órdenes y el alias histórico GUATEMALA_CIUDAD.
+  Ambigüedad/desconocido queda sin propuesta. Ninguna coincidencia confirma automáticamente la ubicación.
+- Módulo routes → controller → service → repository con SQL parametrizado y Zod. GET autenticados
+  `/api/ubicaciones/departamentos` y `/api/ubicaciones/municipios`, búsqueda sin acentos/mayúsculas,
+  municipios filtrables por idDepartamentoGt. Colecciones completas de tamaño acotado; solo lectura
+  para los tres roles después del cambio obligatorio de contraseña.
+- UbicacionSelect controlado, con API/TanStack Query, búsqueda, cascada, teclado, carga/error/reintento.
+  Resuelve Guatemala/Guatemala por códigos INE 01/0101, sin asumir IDs Oracle. Cambiar departamento
+  borra municipio. Predeterminados solo en altas; edición conserva su selección o queda pendiente.
+- ZonaSelect reutilizable con 1–25 y No aplica, obligatoriedad/error solo para municipio 0101;
+  regla exportada para el resolver y equivalente backend. No se añade zona a centros, que solo requiere
+  departamento/municipio. Ubicación/zona quedan listas para la integración del empleado en A8.
+- Centros reemplaza localidad libre por referencias obligatorias; el servidor valida existencia, estado
+  y pertenencia. Edición muestra LOCALIDAD_ANTERIOR y botón Usar coincidencia propuesta; solo llena
+  campos, Guardar confirma y audita. Listado/filtros/orden/CSV muestran las referencias geográficas.
+- Borradores de centros versión 3 (otros catálogos siguen en 2); descartan borradores antiguos con
+  localidad libre. Conservan ambas selecciones, se restauran explícitamente y se limpian tras éxito.
+  Hints/recorrido actualizados y ayuda ofrecida de nuevo con ID v1-4. Se reutilizan tokens/componentes.
+- Actualizados README, CATALOGOS, FRONTEND, ERD, manifiesto de filtros y documentación de fuente/seeds.
+  `verify:ubicaciones` se integra en `verify:all`. Fixtures anteriores ajustados solo al nuevo contrato
+  de centros y al conteo de migraciones; no se cambiaron fórmulas ni se redujeron aserciones previas.
+
+### Validación realizada
+
+- Lint, TypeScript strict (incluidos E2E), builds backend/frontend y Prettier aprobados.
+- 421 pruebas unitarias aprobadas: 224 backend y 197 frontend. Backend también aprobado con Node 20
+  en Docker. Once pruebas nuevas comprueban conteos 22/340, unicidad/relación/distribución por
+  departamento, huella del XLSX, nombres/relaciones cargados, filtros y zona; además cascada/búsqueda,
+  defaults con IDs distintos de los códigos, pares inválidos, error/reintento, borrador/restauración/
+  éxito/cambio de versión y aplicación explícita de propuestas históricas.
+- Seis pruebas Oracle/Supertest nuevas aprobadas: migración con localidades previas, ambigüedad,
+  conservación sin confirmar, totales y relaciones, semillas repetibles, UNIQUE/FK compuesta,
+  autenticación/cambio obligatorio/tres roles, consultas filtradas, escrituras no disponibles,
+  rechazo de localidad libre/pares cruzados, guardado/filtrado de centros y auditoría.
+- db:verify desde cero V000–V022 aprobado: 56 tablas, objetos válidos, índices/FKs y seeds repetibles.
+  Regresiones Oracle de seguridad/catálogos/empleados/vacaciones/nómina: 72 casos; códigos: nueve.
+- Dieciocho E2E aprobados con Chromium/API/Oracle reales (2.7 minutos), incluida matriz de páginas,
+  roles/móvil/hints/ayuda/axe A/AA. El caso nuevo prueba Guatemala por defecto, cascada, Guastatoya,
+  borrador/restauración, limpieza, guardado y edición a Mixco. Captura del selector inspeccionada en
+  `tmp/pdfs/ubicaciones-centro.png` (artefacto local ignorado). Esquemas temporales eliminados.
+- Entorno local reconstruido con Node 20, V022/S006 aplicados y tres servicios saludables.
+  verify:infra aprobado para Oracle/API/nginx/React/rutas/assets/PDF. Volumen y credenciales conservados.
+- Incidencias resueltas: Supertest requirió puertos locales fuera del sandbox; índice duplicado de
+  NOMBRE (ya cubierto por UNIQUE) retirado de V022 antes de aplicarla al entorno local. La prueba E2E
+  selecciona el aviso de ayuda del modal y espera la respuesta de detalle/apertura antes de editar;
+  flujo aislado y regresión completa aprobados. No fue necesario cambiar la funcionalidad por ese ajuste.
+
+### Decisiones y supuestos
+
+- Se eligió el XLSX oficial íntegro: la tabla S17 del Manual del Supervisor presenta códigos
+  inconsistentes de Guatemala y la boleta ENEIC tiene erratas en nombres. No se mezclan fuentes ni
+  se normalizan nombres visibles; la limpieza solo compara localidades y permite búsquedas.
+- Coincidencias son propuestas revisables; no asignar Guatemala a un histórico desconocido evita
+  introducir datos falsos. Es válido que RH deba completar un centro antes de su siguiente edición.
+- LOCALIDAD permanece como clave operativa compatible con feriados v0: al confirmar por primera vez
+  un histórico se conserva su clave anterior. Nuevos centros y cambios posteriores de municipio usan
+  el nombre INE normalizado con guiones bajos (0101 conserva GUATEMALA_CIUDAD). LOCALIDAD_ANTERIOR
+  siempre queda intacta. No se migran feriados ni se modifican snapshots/cálculos de periodos cerrados.
+- La dirección de empleado y DIRECCION_ANTERIOR pertenecen a A8 en esta planificación; el criterio
+  de esta fase pide centros y componentes listos para reutilizar. Zona admite No aplica fuera de 0101.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de FASE V1-4.
+- RH revisa las propuestas y completa ubicaciones de centros históricos al editarlos.
+- Integración de dirección/zona del empleado en A8; A6–A12 reservadas a sus fases solicitadas.
+
+### Cómo probar
+
+1. `docker compose up --build`; entrar a https://localhost:8443/login como RH/ADMIN y abrir
+   Organización → Centros de trabajo. En Crear comprobar Guatemala/Guatemala; buscar otro departamento,
+   observar municipio vacío y seleccionar uno de ese departamento. Guardar y revisar el listado/CSV.
+2. Editar un centro previo: consultar Localidad anterior y, cuando exista, usar/revisar la coincidencia
+   propuesta. Completar manualmente los desconocidos. Guardar conserva la referencia original.
+3. Elegir ubicación y escribir nombre; esperar Borrador guardado, cancelar/reabrir y Continuar.
+   Confirmar ambos selectores. Guardar elimina el borrador; el logout sigue limpiándolos.
+4. Usar Ayuda del modal para recorrer cascada, migración y borradores. UbicacionSelect/ZonaSelect
+   están exportados desde components/forms para el futuro formulario de empleado.
+5. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:ubicaciones`; `npm run test:e2e -- --grep 'FASE V1-4'`.
+   Fuente reproducible: `python3 scripts/extraer-ubicaciones-ine.py && node scripts/generar-seed-ubicaciones.mjs`.

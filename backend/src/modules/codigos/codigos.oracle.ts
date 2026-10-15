@@ -114,7 +114,7 @@ describe('FASE V1-3: códigos con Oracle real', () => {
     await sql(
       "INSERT INTO EVENTOS(TITULO,FECHA_INICIO,FECHA_FIN,LUGAR) VALUES ('Evento migrado',DATE '2030-01-01',DATE '2030-01-02','Oficina')",
     );
-    expect(await ejecutarMigraciones(db, logger)).toBe(1);
+    expect(await ejecutarMigraciones(db, logger)).toBe(2);
     await ejecutarSeeds(db, logger, seed);
   });
   afterAll(async () => {

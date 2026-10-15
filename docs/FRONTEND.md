@@ -203,3 +203,24 @@ asignado. Solicitudes (incluidas vacaciones), descuentos, préstamos y publicaci
 listados/CSV permiten localizar los códigos definitivos con las búsquedas existentes.
 Los códigos patronales/de centros/tipos IGSS siguen siendo referencias externas oficiales;
 no se generan identificadores inventados para una declaración oficial.
+
+## Ubicación y zona reutilizables — FASE V1-4
+
+`components/forms/UbicacionSelect` es controlado: `value` contiene `idDepartamentoGt` e
+`idMunicipioGt` como cadenas de formulario; `onChange` entrega ambos atómicamente y señala
+si fue una selección predeterminada. Usa TanStack Query y la API oficial autenticada; cada
+municipio se consulta por departamento. `predeterminar` propone 01/0101 solo cuando ambos
+campos están vacíos; en edición usar `false`. No asume identidades Oracle fijas. Cambiar
+el departamento borra municipio; búsquedas sin acentos, teclado, hints, errores y reintento
+usan los SelectField existentes. `errores`/`onBlur` conectan la validación del formulario.
+
+`ZonaSelect` recibe `codigoMunicipio`, valor cadena (`''` = No aplica) y las props de campo.
+Ofrece No aplica y 1–25; marca obligatoriedad y error solo si el código es 0101. `zonaValida`
+exporta la regla para el resolver del futuro formulario de empleado; la regla equivalente
+está en `modules/ubicaciones/ubicaciones.schemas.ts` para el backend. Centros solo usa
+departamento/municipio, conforme A5. Zona y dirección de empleado se integrarán en A8.
+
+Centros integra `useFormDraft` versión 3 (otros catálogos siguen en 2). Borradores previos con
+localidad libre se descartan por versión. Ambas selecciones sobreviven al cierre/restauración;
+éxito limpia y error conserva. El recorrido nuevo explica cascada, propuestas, referencia
+histórica y borrador; su ID v1-4 vuelve a ofrecer ayuda a usuarios de la pantalla anterior.

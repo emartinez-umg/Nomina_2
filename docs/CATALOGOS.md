@@ -9,6 +9,7 @@ Las pantallas consultan Oracle; no contienen datos de ejemplo.
 | Ruta `/catalogos/…`  | Datos                                                                               |
 | -------------------- | ----------------------------------------------------------------------------------- |
 | `departamentos`      | Código, nombre, descripción y estado.                                               |
+| `centros-trabajo`    | Código automático, nombre, departamento y municipio del INE, dirección y estado.    |
 | `puestos`            | Departamento, rango salarial referencial opcional y datos generales.                |
 | `jefaturas`          | Unidad, departamento y empleado responsable del mismo departamento.                 |
 | `horarios`           | Jornada y siete días independientes, con entrada/salida, descanso y cruce nocturno. |
@@ -119,3 +120,31 @@ actual y el anterior preservado; también puede buscarse por ambos con la búsqu
 Parámetros conserva su identidad entre vigencias y valida calendario/jornadas usando la clave
 interna inmutable, aunque su código visible ahora esté abreviado. En altas nuevas esa clave se
 deriva del nombre completo normalizado; el usuario no escribe códigos.
+
+## Ubicaciones oficiales — FASE V1-4
+
+`GET /api/ubicaciones/departamentos?buscar=…` devuelve los 22 departamentos.
+`GET /api/ubicaciones/municipios?buscar=…&idDepartamentoGt=…` devuelve los municipios
+(todos los 340 si se omite el departamento). Son colecciones pequeñas y completas, ordenadas
+por nombre; búsquedas sin distinguir acentos/mayúsculas. Los filtros están validados con Zod.
+Solo lectura para ADMIN/RH/EMPLEADO autenticados que ya cambiaron su contraseña temporal.
+Cada opción tiene `id`, `codigo` INE y `nombre`; municipio añade `idDepartamentoGt` y `departamento`.
+Los IDs identity se resuelven por API y no se asumen iguales a los códigos INE.
+
+Centros recibe `idDepartamentoGt` e `idMunicipioGt` obligatorios al crear/editar. El servidor
+comprueba existencia, estado y pertenencia; una FK compuesta también impide pares cruzados.
+Ya no acepta `localidad` libre. Listado, filtros, orden y CSV incluyen referencias geográficas
+(con nombres visibles en el CSV). El empleado conserva su formulario actual hasta A8.
+
+V022 conserva el texto previo en `LOCALIDAD_ANTERIOR`; S006 carga el catálogo y propone solo
+coincidencias completas únicas, ignorando acentos/separadores. También reconoce
+`GUATEMALA_CIUDAD`/`Ciudad de Guatemala` como 0101. No usa subcadenas ni alias inventados.
+Nombres ambiguos, como San José, y localidades desconocidas requieren selección manual.
+La propuesta se guarda aparte en `ID_MUNICIPIO_GT_PROPUESTO`: RH pulsa Usar coincidencia
+propuesta, revisa y guarda. Nunca se asigna Guatemala por defecto a una edición histórica.
+
+Para conservar el comportamiento de feriados de v0, `LOCALIDAD` se mantiene como clave
+operativa de compatibilidad: la primera confirmación estructurada de un centro histórico
+conserva esa clave. Al cambiar después un municipio ya confirmado, y en centros nuevos,
+se deriva del nombre INE normalizado con guiones bajos; 0101 usa `GUATEMALA_CIUDAD`.
+El texto original queda intacto. No se migran feriados ni se alteran cálculos/snapshots cerrados.

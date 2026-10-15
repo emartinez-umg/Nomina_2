@@ -1,4 +1,5 @@
 import { crearCodigosService } from '../src/modules/codigos/codigos.service.js';
+import { crearUbicacionesService } from '../src/modules/ubicaciones/ubicaciones.service.js';
 import { crearBaseDatos } from '../src/shared/db/pool.js';
 import { validarEntorno } from '../src/config/env.schema.js';
 import { ejecutarMigraciones } from '../src/shared/db/migraciones.js';
@@ -132,6 +133,7 @@ const app = crearApp(salud, logger, {
   usuarios: crearUsuariosService(db),
   auditoria: crearAuditoriaService(db),
   codigos: crearCodigosService(db),
+  ubicaciones: crearUbicacionesService(db),
   catalogos: crearCatalogosService(db),
   empleados: crearEmpleadosService(db),
   novedades: crearNovedadesService(db),

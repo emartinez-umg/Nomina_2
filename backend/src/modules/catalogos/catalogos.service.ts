@@ -1,3 +1,4 @@
+import { municipio } from '../ubicaciones/ubicaciones.repository.js';
 import { limpiarPalabra } from '../codigos/codigos.generador.js';
 import type { Connection } from 'oracledb';
 import type { BaseDatos } from '../../shared/db/pool.js';
@@ -28,6 +29,21 @@ export function crearCatalogosService(db: BaseDatos) {
     id: number,
     antes: FilaCatalogo | null,
   ) {
+    if (cat.slug === 'centros-trabajo') {
+      const ubicacion = await municipio(c, Number(d.idMunicipioGt));
+      if (!ubicacion || ubicacion.idDepartamentoGt !== d.idDepartamentoGt)
+        conflicto(
+          'idMunicipioGt',
+          'El municipio no pertenece al departamento seleccionado. Vuelve a seleccionarlo.',
+        );
+      // Conserva la clave histórica usada por feriados cuando la ubicación no cambia.
+      d.localidad =
+        antes?.localidad && (!antes.idMunicipioGt || antes.idMunicipioGt === d.idMunicipioGt)
+          ? antes.localidad
+          : ubicacion!.codigo === '0101'
+            ? 'GUATEMALA_CIUDAD'
+            : limpiarPalabra(ubicacion!.nombre).replace(/ /g, '_');
+    }
     if (antes?.enUso && ['tipos-ausencia', 'tipos-descuento'].includes(cat.slug)) {
       if (antes.codigo !== d.codigo)
         conflicto(
@@ -149,8 +165,11 @@ export function crearCatalogosService(db: BaseDatos) {
     listar: (cat: Catalogo, q: QueryCatalogo) =>
       db.conConexion((c) => repository.listar(c, cat, q)),
     detalle: (cat: Catalogo, id: number) => db.conConexion((c) => buscar(c, cat, id)),
-    opciones: (ref: 'departamentos' | 'empleados', buscar: string, pagina: number) =>
-      db.conConexion((c) => repository.opcionesReferencia(c, ref, buscar, pagina)),
+    opciones: (
+      ref: NonNullable<Catalogo['campos'][number]['referencia']>,
+      buscar: string,
+      pagina: number,
+    ) => db.conConexion((c) => repository.opcionesReferencia(c, ref, buscar, pagina)),
     restricciones: () =>
       db.conConexion(async (c) => ({ ultimoCierre: await repository.ultimoCierre(c) })),
     guardar: (auth: Autenticacion, ip: string, cat: Catalogo, d: DatosCatalogo, id?: number) =>

@@ -4,7 +4,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 const hoy = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Guatemala' }).format(new Date());
 const visible = (iso: string) => iso.split('-').reverse().join('/');
 async function oferta(page: Page) {
-  const b = page.getByRole('button', { name: 'Ahora no', exact: true });
+  const b = page.getByRole('button', { name: 'Ahora no', exact: true }).last();
   if (await b.isVisible()) await b.click();
 }
 async function entrar(page: Page, rol: 'ADMIN' | 'RH' | 'EMPLEADO') {
@@ -747,5 +747,72 @@ test.describe('FASE V1-3: códigos automáticos con API real', () => {
     await expect(page.getByRole('row').filter({ hasText: 'Nombre renombrado' })).toContainText(
       'VC2',
     );
+  });
+});
+test.describe('FASE V1-4: ubicaciones oficiales', () => {
+  test('centros con ubicación oficial, cascada, borrador y ayuda', async ({ page }) => {
+    await entrar(page, 'RH');
+    await page.goto('/catalogos/centros-trabajo');
+    await oferta(page);
+    await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+    await oferta(page);
+    await expect(
+      page.getByRole('combobox', { name: 'Departamento de Guatemala', exact: true }),
+    ).toHaveValue('Guatemala');
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+      'Guatemala',
+    );
+    await page.getByLabel('Nombre', { exact: true }).fill('Sede de ubicaciones');
+    await elegir(page, 'Departamento de Guatemala', 'El Progreso');
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue('');
+    await elegir(page, 'Municipio', 'Guastatoya');
+    await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations).toEqual([]);
+    await tour(page, true);
+    await mkdir('tmp/pdfs', { recursive: true });
+    await page.getByRole('combobox', { name: 'Municipio', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: 'tmp/pdfs/ubicaciones-centro.png', fullPage: true });
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+      'Guastatoya',
+    );
+    const guardado = page.waitForResponse(
+      (r) => r.url().includes('/api/catalogos/centros-trabajo') && r.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    const respuesta = await guardado;
+    expect(respuesta.status()).toBe(201);
+    const centro = (await respuesta.json()).data;
+    expect(centro.idDepartamentoGtEtiqueta).toBe('El Progreso');
+    expect(centro.idMunicipioGtEtiqueta).toBe('Guastatoya');
+    const fila = page.getByRole('row').filter({ hasText: 'Sede de ubicaciones' });
+    await expect(fila).toContainText('Guastatoya');
+    expect(
+      (await clavesBorradores(page)).filter((k) => k.includes('catalogo-centros-trabajo')),
+    ).toEqual([]);
+    const detalleCentro = page.waitForResponse(
+      (r) =>
+        r.url().endsWith(`/api/catalogos/centros-trabajo/${centro.id}`) &&
+        r.request().method() === 'GET',
+    );
+    await fila.getByRole('button', { name: /^Editar registro/ }).click();
+    expect((await detalleCentro).status()).toBe(200);
+    await expect(
+      page.getByRole('dialog', { name: 'Editar · Centros de trabajo', exact: true }),
+    ).toBeVisible();
+    await oferta(page);
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+      'Guastatoya',
+    );
+    await elegir(page, 'Departamento de Guatemala', 'Guatemala');
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue('');
+    await elegir(page, 'Municipio', 'Mixco');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(fila).toContainText('Mixco');
   });
 });
