@@ -1160,3 +1160,71 @@ VACACIONES_MOVIMIENTOS conserva ACUMULACION v0 como respaldo. AJUSTE MIGRACION_V
 diferencias al corte sin alterar solicitudes/snapshots/débitos. DISFRUTE SOLICITUD:id reserva al
 aprobar; REVERSO CANCELACION:id devuelve exactamente el débito. UNIQUE empleado/clave protege
 idempotencia. El saldo y los solicitables son derivados, sin nuevas tablas ni acumulación materializada.
+
+## V1-9 — Novedades mensuales y suscripciones (V027–V028)
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ NOVEDADES_MENSUALES : recibe
+  NOMINA_EMPLEADO ||--o{ NOVEDADES_MENSUALES : aplica
+  AUSENCIAS ||--o{ NOVEDADES_MENSUALES : desglosa_por_mes
+  NOVEDADES_MENSUALES ||--o{ NOVEDADES_ORIGEN : conserva
+  EMPLEADOS ||--o{ PARQUEO_SUSCRIPCIONES : solicita
+  SOLICITUDES ||--o| PARQUEO_SUSCRIPCIONES : aprueba
+  DESCUENTOS_EMPLEADO ||--o| PARQUEO_SUSCRIPCIONES : origen_v0
+  PARQUEO_SUSCRIPCIONES ||--o{ NOVEDADES_MENSUALES : cargo_mensual
+  PARQUEO_TARIFAS {
+    number ID_PARQUEO_TARIFA PK
+    varchar VEHICULO "CARRO o MOTO"
+    number MONTO
+    date VIGENTE_DESDE
+    date VIGENTE_HASTA
+  }
+  PARQUEO_SUSCRIPCIONES {
+    number ID_PARQUEO_SUSCRIPCION PK
+    number ID_EMPLEADO FK
+    number ID_SOLICITUD FK
+    number ID_DESCUENTO_ORIGEN FK
+    varchar VEHICULO "nullable solo legado por completar"
+    varchar PLACA
+    date MES_INICIO
+    date MES_FIN "último mes cobrado completo"
+    varchar ESTADO "ACTIVA, BAJA, SUSPENDIDA"
+    number BAJA_SOLICITADA
+    number MONTO_ANTERIOR "cuota v0 de referencia"
+  }
+  NOVEDADES_MENSUALES {
+    number ID_NOVEDAD_MENSUAL PK
+    number ID_EMPLEADO FK
+    varchar TIPO "HORAS_EXTRA, COMISION, CONSUMO_TIENDA, AUSENCIA, PARQUEO"
+    date MES "primer día del mes"
+    number CANTIDAD "horas, días o unidad"
+    number MONTO "nullable histórico aún sin valoración"
+    number VALOR_UNITARIO
+    number RECARGO
+    varchar REFERENCIA
+    varchar CLAVE_REFERENCIA UK "cargas v1: clase/empleado/mes/referencia; NULL legado"
+    varchar DESCRIPCION
+    varchar AUTORIZACION "preserva autorización v0 y de ausencias"
+    varchar ESTADO "PENDIENTE o APLICADA"
+    number ID_NOMINA_EMPLEADO FK
+    number ID_AUSENCIA FK
+    number ID_PARQUEO_SUSCRIPCION FK
+  }
+  NOVEDADES_ORIGEN {
+    number ID_NOVEDAD_ORIGEN PK
+    number ID_NOVEDAD_MENSUAL FK
+    varchar ENTIDAD
+    number ID_ORIGEN
+  }
+```
+
+Las cuatro tablas tienen identity ALWAYS, auditoría, ACTIVO e índices de FK/filtros. Índices
+UNIQUE condicionales evitan la colisión de claves parcialmente NULL en Oracle: cargo por
+suscripción/mes, ausencia/mes/pago y horas pendientes por empleado/mes. V028 agrega CLAVE_REFERENCIA
+para cargas v1 por clase/empleado/mes; las referencias históricas repetidas conservan su texto/origen.
+La FK
+compuesta (pago, empleado) impide aplicar una novedad a otra persona. Estado/pago tienen CHECK
+coherente. SOLICITUDES añade VEHICULO/PLACA. Se agrega HORAS_EXTRA_TOPE_MENSUAL como parámetro
+operativo vigente. V027 migra orígenes y snapshots sin alterar las tablas/migraciones anteriores;
+los cobros de parqueo v0 conservan todas sus aplicaciones a través de NOVEDADES_ORIGEN.

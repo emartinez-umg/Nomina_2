@@ -1,3 +1,4 @@
+import { mesSchema } from './novedades.schemas.js';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { respuestaOk } from '../../shared/utils/respuesta.js';
@@ -12,6 +13,56 @@ export function crearNovedadesController(s: ReturnType<typeof crearNovedadesServ
   const responder = (res: Response, d: unknown, status = 200) =>
     res.status(status).json(respuestaOk(d));
   return {
+    pendientes: async (req: Request, res: Response) => {
+      const q = z
+        .object({
+          mes: mesSchema,
+          pagina: z.coerce.number().int().min(1).default(1),
+          limite: z.coerce.number().int().min(1).max(100).default(20),
+          buscar: z.string().max(150).optional(),
+          idDepartamento: idSchema.optional(),
+          ordenarPor: z.enum(['empleado', 'departamento']).optional(),
+          direccion: z.enum(['asc', 'desc']).optional(),
+        })
+        .strict()
+        .parse(req.query);
+      responder(res, await s.pendientes(q));
+    },
+    pendientesExportar: async (req: Request, res: Response) => {
+      const q = z
+        .object({
+          mes: mesSchema,
+          buscar: z.string().max(150).optional(),
+          idDepartamento: idSchema.optional(),
+        })
+        .strict()
+        .parse(req.query);
+      responder(res, await s.exportarPendientes({ ...q, pagina: 1, limite: 100 }));
+    },
+    tarifas: async (req: Request, res: Response) => {
+      sinDatos.parse(req.query);
+      responder(res, await s.parqueo.tarifas());
+    },
+    tarifaGuardar: async (req: Request, res: Response) => {
+      sinDatos.parse(req.query);
+      responder(
+        res,
+        await s.parqueo.guardarTarifa(autenticacionDe(req), contextoDe(req).ip, req.body),
+        201,
+      );
+    },
+    parqueoExportar: async (req: Request, res: Response) =>
+      responder(res, await s.parqueo.exportar(autenticacionDe(req), contextoDe(req).ip, req.query)),
+    parqueoListar: async (req: Request, res: Response) =>
+      responder(res, await s.parqueo.listar(autenticacionDe(req), contextoDe(req).ip, req.query)),
+    parqueoCambiar: async (req: Request, res: Response) => {
+      sinDatos.parse(req.query);
+      const { id } = z.object({ id: idSchema }).strict().parse(req.params);
+      responder(
+        res,
+        await s.parqueo.cambiar(autenticacionDe(req), contextoDe(req).ip, id, req.body),
+      );
+    },
     restricciones: async (req: Request, res: Response) => {
       const { id } = z.object({ id: idSchema }).strict().parse(req.params);
       const { excluir } = z.object({ excluir: idSchema.optional() }).strict().parse(req.query);
@@ -23,7 +74,16 @@ export function crearNovedadesController(s: ReturnType<typeof crearNovedadesServ
     },
     opciones: async (req: Request, res: Response) => {
       const { ref } = z
-        .object({ ref: z.enum(['empleados', 'descuentos', 'prestamos', 'ausencias', 'periodos']) })
+        .object({
+          ref: z.enum([
+            'empleados',
+            'descuentos',
+            'prestamos',
+            'ausencias',
+            'periodos',
+            'departamentos',
+          ]),
+        })
         .strict()
         .parse(req.params);
       const q = z
@@ -74,7 +134,7 @@ export function crearNovedadesController(s: ReturnType<typeof crearNovedadesServ
     },
     preview: async (req: Request, res: Response) => {
       sinDatos.parse(req.query);
-      const { tipo } = params.parse(req.params);
+      const { tipo, id } = params.parse(req.params);
       responder(
         res,
         await s.previsualizar(
@@ -82,6 +142,7 @@ export function crearNovedadesController(s: ReturnType<typeof crearNovedadesServ
           contextoDe(req).ip,
           tipo,
           schemas[tipo].parse(req.body),
+          id,
         ),
       );
     },

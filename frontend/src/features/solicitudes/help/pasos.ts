@@ -1,6 +1,6 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaSolicitudes: DefinicionAyuda = {
-  id: 'solicitudes-v1-5',
+  id: 'solicitudes-v1-9',
   pasos: [
     {
       elemento: 'empresa-aviso',
@@ -67,7 +67,7 @@ export const ayudaSolicitudes: DefinicionAyuda = {
       elemento: 'solicitud-parqueo',
       titulo: 'Tarifa de parqueo',
       descripcion:
-        'Indica el monto real por quincena y su fecha inicial hoy o futura, después del último cierre. Aprobar crea un descuento fijo en Novedades que se consume en nómina. Revisa la tarifa antes de confirmar: no se permiten dos parqueos vigentes.',
+        'El empleado indica Carro o Moto y placa opcional. Aprobar usa la tarifa mensual configurada vigente desde el mes actual y crea una suscripción sin prorrateo. Mi parqueo permite solicitar baja; RRHH puede dar de baja o suspender al cierre del mes. Sin vehículo histórico o tarifa se bloquea y explica cómo completarlo.',
       roles: ['RH', 'ADMIN'],
     },
     {

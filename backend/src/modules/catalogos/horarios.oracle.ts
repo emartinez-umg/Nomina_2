@@ -67,7 +67,7 @@ describe('FASE V1-6: migración y horarios en Oracle', () => {
     await sql(
       "INSERT INTO HORARIO_DIAS(ID_HORARIO,DIA_SEMANA,LABORABLE,MINUTO_ENTRADA,MINUTO_SALIDA,CRUZA_MEDIANOCHE,MINUTOS_DESCANSO) SELECT ID_HORARIO,6,1,1320,270,1,15 FROM HORARIOS WHERE CODIGO_ANTERIOR='HISTORICO'",
     );
-    expect(await ejecutarMigraciones(db, logger)).toBe(3);
+    expect(await ejecutarMigraciones(db, logger)).toBe(5);
     await ejecutarSeeds(db, logger, seed);
     const config = {
       NODE_ENV: 'test' as const,
@@ -250,14 +250,13 @@ describe('FASE V1-6: migración y horarios en Oracle', () => {
       .set('X-CSRF-Token', csrf)
       .send({
         idEmpleado: empleado,
-        fecha: '2026-10-10',
+        mes: '2026-10',
         horas: '2',
-        jornada: 'NOCTURNA',
-        estado: 'PENDIENTE',
         motivo: 'Horas de prueba',
       })
       .expect(200);
-    expect(preview.body.data.calculo.monto).toBe('75.00');
+    // Cinco días de 8 horas y sábado de 4: jornada diaria promedio = 44/6.
+    expect(preview.body.data.calculo.monto).toBe('40.91');
     const asignaciones = await db.conConexion((c) => horarios(c, empleado));
     expect(asignaciones[0]!.dias).toEqual([1, 2, 3, 4, 5, 6]);
     expect(

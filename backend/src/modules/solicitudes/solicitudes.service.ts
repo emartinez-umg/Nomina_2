@@ -17,7 +17,7 @@ import { revalidarActor } from '../auth/auth.service.js';
 import type { ActorAuditoria, Autenticacion } from '../auth/auth.types.js';
 import { propio, notificaciones, leerNotificacion } from '../vacaciones/vacaciones.repository.js';
 import { hoy } from '../novedades/novedades.repository.js';
-import { registrarParqueo } from '../novedades/novedades.service.js';
+import { aprobarParqueo } from '../novedades/parqueo.service.js';
 import { salario } from '../prestaciones/prestaciones.repository.js';
 import { escribirCsv } from '../empleados/empleados.csv.js';
 import { Decimal } from 'decimal.js';
@@ -171,7 +171,16 @@ export function crearSolicitudesService(db: BaseDatos) {
           : null;
         if (datos && JSON.stringify(datos.anterior) === JSON.stringify(datos.nuevo))
           throw new ErrorConflicto('No hay cambios en los datos críticos.');
-        const id = await repo.crear(c, e.id, t.id, d.observaciones, datos, a.idUsuario);
+        const id = await repo.crear(
+          c,
+          e.id,
+          t.id,
+          d.observaciones,
+          datos,
+          a.idUsuario,
+          d.vehiculo,
+          d.placa,
+        );
         await repo.registrarEstado(c, id, null, 'EN_PROCESO', d.observaciones, a.idUsuario);
         const s = (await repo.solicitud(c, id))!;
         await repo.notificar(c, s, 'EN_PROCESO', a.idUsuario);
@@ -184,24 +193,12 @@ export function crearSolicitudesService(db: BaseDatos) {
         const d = resolverSchema.parse(raw),
           s = await obtener(c, a, id);
         validarTransicion(s.estado, d.estado);
-        if (d.parqueo && s.tipo !== 'PARQUEO')
-          throw new ErrorConflicto('Los datos de parqueo solo aplican a esa gestión.');
         if (d.estado === 'APROBADA') {
           const e = await repo.empleado(c, s.idEmpleado);
           if (!e || e.estado !== 'ACTIVO')
             throw new ErrorConflicto('El empleado ya no está activo. Revisa el expediente.');
           if (s.tipo === 'PARQUEO') {
-            if (!d.parqueo)
-              throw new ErrorNegocio(
-                'Indica el monto por quincena y la fecha de inicio del parqueo.',
-                422,
-                'VALIDACION',
-                {
-                  monto: ['Completa la tarifa por quincena.'],
-                  fechaInicio: ['Selecciona el inicio del descuento.'],
-                },
-              );
-            await registrarParqueo(c, a, e.id, id, d.parqueo.monto, d.parqueo.fechaInicio);
+            await aprobarParqueo(c, a, e.id, id, s.vehiculo, s.placa);
           }
           if (s.tipo === 'ACTUALIZACION_DATOS') {
             const propuesto = JSON.parse(s.datos!) as { anterior: unknown; nuevo: unknown };
@@ -224,7 +221,7 @@ export function crearSolicitudesService(db: BaseDatos) {
           id,
           `SOLICITUD_${d.estado}`,
           { estado: s.estado },
-          { estado: d.estado, motivo: d.motivo, parqueo: d.parqueo },
+          { estado: d.estado, motivo: d.motivo, vehiculo: s.vehiculo },
         );
         return { id };
       }),

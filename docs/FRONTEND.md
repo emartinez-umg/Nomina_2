@@ -278,3 +278,21 @@ Ver solicitud conserva solicitante, rango, días, aprobación y cancelación. Ca
 aprobadas exige motivo/confirmación y devuelve el débito original solo antes del día de inicio.
 El motivo tiene borrador y ayuda contextual. Recorridos vacaciones-v1-8/tableros-v1-8 y hints
 explican floor, fracciones, compensaciones v0, días laborales y cancelación.
+
+## Novedades mensuales — V1-9
+
+`MonthField` utiliza selectores de mes/año y deshabilita meses futuros/cerrados según las restricciones
+reales de API. Horas extra y comisiones reemplazan la fecha por mes; Consumo en tienda usa el mismo
+contrato mensual. Las vistas previas muestran importes y advertencias del servidor; edición excluye
+su propio registro al verificar el total mensual. Borradores de novedades/resolución pasan a versión 9.
+
+Rutas añadidas: `/novedades/pendientes`, `/novedades/parqueo`, `/configuracion/parqueo` y
+`/mis-gestiones/parqueo`, con carga diferida y skeletons. Navegación y paleta incluyen estos destinos
+según el rol. Pendientes resume cargas reales por empleado/departamento, con filtros, orden y CSV;
+«Sin registro» orienta a comprobar respaldos. Las tablas desplazables admiten foco y teclado.
+
+Solicitar parqueo exige Carro/Moto, con placa opcional. Resolver consulta la tarifa vigente del servidor,
+la muestra en la confirmación y bloquea Aprobar mientras falte vehículo/tarifa o su consulta falle.
+Mi parqueo consulta solo suscripciones propias; RH gestiona baja/suspensión y vehículos migrados.
+Ayudas `novedades-*-v1-9`, `novedades-pendientes-v1-9`, `parqueo-v1-9`, `tarifas-parqueo-v1-9` y
+`solicitudes-v1-9` explican el flujo, los cierres, importes y borradores.

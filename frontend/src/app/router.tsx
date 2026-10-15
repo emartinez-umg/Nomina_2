@@ -1,5 +1,17 @@
 import { EmpresaPage } from '../features/empresa/pages/EmpresaPage';
 import { lazy, Suspense } from 'react';
+const PendientesPage = lazy(() =>
+  import('../features/novedades/pages/PendientesPage').then((m) => ({ default: m.PendientesPage })),
+);
+const ParqueoPage = lazy(() =>
+  import('../features/novedades/pages/ParqueoPage').then((m) => ({ default: m.ParqueoPage })),
+);
+const TarifasParqueoPage = lazy(() =>
+  import('../features/novedades/pages/TarifasParqueoPage').then((m) => ({
+    default: m.TarifasParqueoPage,
+  })),
+);
+
 const Usuarios = lazy(() =>
   import('../features/usuarios/pages/UsuariosPage').then((m) => ({ default: m.UsuariosPage })),
 );
@@ -121,6 +133,14 @@ export const rutas = [
                     { path: '/mis-gestiones/eventos', element: comunicacionPage },
                     { path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> },
                     { path: '/mis-gestiones/boletas', element: <NominaPage /> },
+                    {
+                      path: '/mis-gestiones/parqueo',
+                      element: (
+                        <Suspense fallback={<Skeleton lineas={6} />}>
+                          <ParqueoPage />
+                        </Suspense>
+                      ),
+                    },
                     { path: '/mis-gestiones/solicitudes', element: solicitudesPage },
                     {
                       path: '/mis-gestiones/datos',
@@ -154,6 +174,30 @@ export const rutas = [
               },
               { path: '/vacaciones', element: <VacacionesPage /> },
               { path: '/solicitudes', element: solicitudesPage },
+              {
+                path: '/novedades/pendientes',
+                element: (
+                  <Suspense fallback={<Skeleton lineas={6} />}>
+                    <PendientesPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: '/novedades/parqueo',
+                element: (
+                  <Suspense fallback={<Skeleton lineas={6} />}>
+                    <ParqueoPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: '/configuracion/parqueo',
+                element: (
+                  <Suspense fallback={<Skeleton lineas={6} />}>
+                    <TarifasParqueoPage />
+                  </Suspense>
+                ),
+              },
               { path: '/novedades', element: <NovedadesPage /> },
               { path: '/novedades/:tipo', element: <NovedadesPage /> },
               { path: '/novedades/:tipo/nuevo', element: <NovedadFormularioPage /> },

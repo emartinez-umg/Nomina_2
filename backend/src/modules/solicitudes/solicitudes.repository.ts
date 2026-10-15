@@ -39,6 +39,8 @@ export async function empleado(c: Connection, id: number) {
   )[0];
 }
 export interface Solicitud {
+  vehiculo: string | null;
+  placa: string | null;
   codigo: string;
   id: number;
   idEmpleado: number;
@@ -54,7 +56,7 @@ export interface Solicitud {
   datos: string | null;
   documento: number | null;
 }
-const select = `S.ID_SOLICITUD "id",S.CODIGO "codigo", S.ID_EMPLEADO "idEmpleado", E.ID_USUARIO "usuario", E.NOMBRES||' '||E.APELLIDOS "empleado", NVL(T.CODIGO_ANTERIOR,T.CODIGO) "tipo", T.NOMBRE "nombreTipo", T.GENERA_PDF "generaPdf", S.ESTADO "estado", TO_CHAR(S.FECHA_CREACION,'YYYY-MM-DD') "fecha", S.OBSERVACIONES "observaciones", S.MOTIVO_RECHAZO "motivo", S.DATOS_SOLICITADOS "datos", (SELECT MAX(D.ID_DOCUMENTO_GENERADO) FROM DOCUMENTOS_GENERADOS D WHERE D.ID_SOLICITUD=S.ID_SOLICITUD AND D.ACTIVO=1 AND D.ESTADO<>'ANULADO') "documento"`;
+const select = `S.VEHICULO "vehiculo",S.PLACA "placa",S.ID_SOLICITUD "id",S.CODIGO "codigo", S.ID_EMPLEADO "idEmpleado", E.ID_USUARIO "usuario", E.NOMBRES||' '||E.APELLIDOS "empleado", NVL(T.CODIGO_ANTERIOR,T.CODIGO) "tipo", T.NOMBRE "nombreTipo", T.GENERA_PDF "generaPdf", S.ESTADO "estado", TO_CHAR(S.FECHA_CREACION,'YYYY-MM-DD') "fecha", S.OBSERVACIONES "observaciones", S.MOTIVO_RECHAZO "motivo", S.DATOS_SOLICITADOS "datos", (SELECT MAX(D.ID_DOCUMENTO_GENERADO) FROM DOCUMENTOS_GENERADOS D WHERE D.ID_SOLICITUD=S.ID_SOLICITUD AND D.ACTIVO=1 AND D.ESTADO<>'ANULADO') "documento"`;
 const from =
   'SOLICITUDES S JOIN EMPLEADOS E ON E.ID_EMPLEADO=S.ID_EMPLEADO JOIN TIPOS_SOLICITUD T ON T.ID_TIPO_SOLICITUD=S.ID_TIPO_SOLICITUD';
 export async function solicitud(c: Connection, id: number) {
@@ -151,12 +153,16 @@ export async function crear(
   observaciones: string,
   datos: unknown,
   actor: number,
+  vehiculo?: string,
+  placa?: string,
 ) {
   const r = await c.execute<{ id: number[] }>(
-    'INSERT INTO SOLICITUDES (ID_EMPLEADO,ID_TIPO_SOLICITUD,OBSERVACIONES,DATOS_SOLICITADOS,CREADO_POR) VALUES (:empleado,:tipo,:observaciones,:datos,:actor) RETURNING ID_SOLICITUD INTO :id',
+    'INSERT INTO SOLICITUDES (ID_EMPLEADO,ID_TIPO_SOLICITUD,OBSERVACIONES,DATOS_SOLICITADOS,CREADO_POR,VEHICULO,PLACA) VALUES (:empleado,:tipo,:observaciones,:datos,:actor,:vehiculo,:placa) RETURNING ID_SOLICITUD INTO :id',
     {
       empleado,
       tipo,
+      vehiculo: vehiculo ?? null,
+      placa: placa ?? null,
       observaciones,
       datos: { val: datos ? JSON.stringify(datos) : null, type: oracledb.CLOB },
       actor,

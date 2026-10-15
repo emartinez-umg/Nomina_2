@@ -821,3 +821,102 @@ Estado: completada el 15/10/2026. Rama v1, alcance A9.
    npm run db:verify; npm run verify:vacaciones; npm run verify:security;
    npm run verify:prestaciones; npm run test:e2e -- --grep 'vacaciones|FASE V1-8';
    npm run verify:infra. Oracle en esquemas temporales, en secuencia.
+
+## FASE V1-9 — Novedades mensuales antes del pago
+
+Estado: completada el 15/10/2026. Rama v1, alcance A10.
+
+### Hecho
+
+- Libro NOVEDADES_MENSUALES con horas extra por mes/medias horas, comisiones y consumo manuales,
+  ausencias desglosadas y cargos de parqueo. Pendiente/Aplicada, referencia al pago y bloqueos
+  por aplicación/cierre. Validación Zod, SQL con binds, Decimal, RBAC/propiedad y auditoría.
+- Horas extra valoradas con salario y duración diaria promedio del horario vigente al corte mensual;
+  divisor 30, recargo vigente y tope mensual parametrizable con advertencia/confirmación.
+- Ausencias sin goce exponen salario / 30 por día, desglose por mes y referencia de aplicación;
+  conservan autorizaciones, adjuntos privados, rangos y traslapes de v0. Con goce no descuenta.
+- Tarifas Carro/Moto con vigencias, comparación anterior/nueva, motivo y auditoría. Solicitud
+  exige vehículo y placa opcional; aprobación crea suscripción mensual desde ese mes, sin prorrateo.
+  Mi parqueo permite solicitar baja propia y notifica a RH/ADMIN; RH da de baja/suspende al cierre.
+- V027 conserva tablas/migraciones previas, orígenes diarios, importes y pagos históricos. Migra
+  parqueo sin inventar vehículo/tarifa; conserva la cuota anterior como referencia. Los cobros
+  previos quedan aplicados y no se duplican; los acuerdos migrados salen de la fuente v0.
+  Incluye el caso de parqueo cancelado antes de su fecha futura. Registros originales consultables.
+- Novedades pendientes resume por empleado/departamento, con retroactivas, alertas, filtros,
+  orden, paginación y CSV. Parqueo y cargas manuales tienen consulta/CSV protegidos por rol.
+  Hints, ayudas v1-9, borradores y controles de teclado/móvil; tablas desplazables con foco accesible.
+- Primitivas prepararNovedadesParaPago/materializarParqueo/aplicarNovedades disponibles para V1-10,
+  sin endpoint de cobro manual. README, NOVEDADES y ERD actualizados; verify:novedades en verify:all.
+- Regresión detectó que V026 había retirado la transición REEMISION documental de V023.
+  V027 la restaura junto con CANCELADA; ninguna migración anterior se modifica.
+- V028 conserva referencias repetidas válidas de comisiones v0 y protege cargas v1 por
+  clase/empleado/mes. El runner puede aplicar esa reparación ante la restricción concreta de V027
+  y repetir íntegro el bloque fallido, con checksum conocido, sin modificar SQL anterior ni fuentes.
+  Ambas versiones solo se completan al terminar; otros errores siguen deteniendo el arranque.
+
+### Decisiones y supuestos
+
+- En horarios con duraciones distintas se usa el promedio diario del patrón al último día del mes,
+  limitado por hoy/egreso. No se inventa jornada nominal si falta horario/salario vigente.
+- Las líneas de ausencia se redondean por mes y el total visible suma esas líneas; los originales
+  y snapshots consumidos se conservan. Una ausencia parcialmente aplicada queda protegida entera.
+- Tope de advertencia 40 horas es referencia operativa en Oracle, editable por RH; no límite legal
+  hardcodeado. Tarifas reales no se siembran. El vehículo histórico desconocido exige revisión humana.
+- Baja/suspensión conserva el cargo del mes, incluso si ya se aplicó; los meses siguientes cesan.
+  No modifica el cargo aplicado. Un mes cerrado bloquea la gestión; reingreso requiere alta nueva.
+- Préstamos/acuerdos y consumo v0 conservan historial; conversión de cuotas y consumo automático
+  en anticipo/pago mensual corresponden a V1-10. No se implementa A11/A12 en esta fase.
+- Pruebas v0 adaptadas intencionalmente a captura mensual y parqueo por suscripción; se conserva
+  cobertura financiera, permisos, rollback, historia documental y cierre. Conteos incluyen V027–V028.
+  La prueba de códigos distingue el parámetro previo de las nuevas semillas sin código anterior.
+- La revisión automática rechazó modificar V027 después de su aplicación local por riesgo de
+  checksum y desincronización. No se ejecutó esa edición; se resolvió mediante V028 y la reparación
+  explícita descrita en NOVEDADES.md. V000–V027 conservan sus archivos/checksums registrados.
+
+### Validación realizada
+
+- Node 20.20.2: 517 unitarias aprobadas (295 backend, 222 frontend); lint, TypeScript strict,
+  builds y formato aprobados. Build genera aviso de tamaño de chunk, sin errores.
+- Oracle/Supertest: seguridad/catálogos/empleados/novedades/vacaciones/nómina 79 aprobadas;
+  novedades 14, migración empleados dos, vacaciones dos, horarios seis, empresa seis, ubicaciones
+  seis y códigos nueve con Node 20. Casos de parqueo futuro anulado, tarifa futura, referencias
+  v0 repetidas, reintento del bloque, aplicaciones atómicas y metadatos de cierre aprobados.
+  Solicitudes 18, prestaciones diez y comunicación 16 aprobadas; total 168 Oracle/Supertest.
+  Esquemas temporales eliminados. El tablero ADMIN comprueba la versión 28 actual.
+- 23 E2E aprobados con Node 20 y API/Oracle reales (2.7 min): incluye captura de horas/comisión/tienda,
+  tarifas, solicitud con vehículo, aprobación desde UI mostrando Q150 de prueba, baja del empleado
+  y resolución RH, matriz completa de páginas/roles, ayuda, teclado, 390 px y axe A/AA sin infracciones.
+  Captura tmp/pdfs/novedades-v1-9-movil.png inspeccionada, ignorada por Git. Esquema temporal eliminado.
+- db:verify V000–V028 desde cero aprobado: 66 tablas, restricciones/identities/FKs/índices,
+  semillas repetibles y cero objetos inválidos. Se conserva el control de checksum y de versiones
+  fallidas. Tres pruebas unitarias comprueban reparación precisa, fallos ajenos y reparación fallida.
+- Docker reconstruido con Node 20 y V027–V028 aplicadas. Antes/después dos empleados, cuatro usuarios,
+  dos salarios, una solicitud y cero registros de horas/comisiones/ausencias/descuentos/pagos;
+  conteos y huellas de los originales idénticos, volumen/credenciales conservados, cero objetos inválidos.
+  Las suscripciones exponen bloqueo de gestión del mes actual independientemente del mes consultado;
+  no se impide una baja tras cobrar el mes. Selector mensual probado también desde filtro vacío.
+- verify:infra aprobado para API/Oracle/nginx, rutas SPA, assets y worker PDF. Revisión de secretos,
+  formato y git diff --check aprobados. Supertest requiere puertos locales fuera del sandbox;
+  db:verify usa Node 24 del host por la incompatibilidad tsImport ya documentada. Suites Oracle,
+  unitarias y E2E usan Node 20.20.2; suites Oracle ejecutadas en secuencia.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación V1-9. Consumo en anticipo/pago mensual y
+  boletas nuevas quedan para V1-10; A12 sigue reservada.
+- Operación: RRHH configura tarifas reales Carro/Moto, revisa el tope de advertencia y completa
+  vehículos históricos antes de pagar. No se inventan importes ni vehículos para los registros v0.
+
+### Cómo probar
+
+1. docker compose up --build aplica V027–V028 sin reemplazar volumen ni credenciales.
+2. RH/ADMIN: Configuración → Tarifas de parqueo; configurar Carro y Moto reales con motivo/vigencia.
+3. Novedades: cargar horas enteras/medias por mes, revisar cálculo/tope; comisiones y tienda manuales
+   con referencia. Revisar ausencias sin goce/con goce, desglose, traslapes, filtros y CSV.
+4. EMPLEADO solicita parqueo con vehículo; RH aprueba. Mi parqueo → Solicitar baja; RH resuelve
+   baja/suspensión. El mes se cobra completo, los siguientes cesan; revisar migrados sin vehículo.
+5. Revisar Novedades pendientes por empleado/departamento, retroactivas, alertas y ayuda.
+6. npm run lint; npm run typecheck; npm test; npm run build; npm run format:check;
+   npm run db:verify; npm run verify:novedades; npm run verify:solicitudes;
+   npm run verify:horarios; npm run verify:security; npm run verify:prestaciones;
+   npm run test:e2e; npm run verify:infra. Oracle en esquemas temporales y en secuencia.

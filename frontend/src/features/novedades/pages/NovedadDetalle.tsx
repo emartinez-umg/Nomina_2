@@ -58,7 +58,11 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
     [guardando, setGuardando] = useState(false),
     [error, setError] = useState(''),
     [descargando, setDescargando] = useState(false);
-  const protegida = !!d.bloqueada || !d.activo || ['LIQUIDADO', 'CANCELADO'].includes(d.estado);
+  const protegida =
+    d.autorizacion === 'RECHAZADA' ||
+    !!d.bloqueada ||
+    !d.activo ||
+    ['LIQUIDADO', 'CANCELADO'].includes(d.estado);
   const cuotas = d.cuotasDetalle ?? [];
   let restante = new Decimal(d.monto ?? 0);
   return (
@@ -80,6 +84,11 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
           )}
           <dl className="form-grid my-5">
             {Object.entries({
+              Mes: d.mes,
+              'Autorización del origen': d.autorizacion,
+              'Estado de aplicación': d.estadoAplicacion,
+              'Pago aplicado': d.idPago,
+              'Descuento por ausencias': d.descuento ? moneda(d.descuento) : undefined,
               Inicio: fechaVisible(d.fechaInicio),
               Fin: finVisible(d.fechaFin),
               Modalidad: d.modalidad,
@@ -112,6 +121,24 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
               estimado: {moneda(d.calculo.monto)}
             </p>
           )}
+          {!!d.origenes?.length && (
+            <details className="my-4">
+              <summary>Registros originales v0 ({d.origenes.length})</summary>
+              {d.origenes.map((o) => (
+                <p key={`${o.entidad}-${o.id}`}>
+                  {o.entidad} #{o.id} · {o.fecha ? fechaVisible(o.fecha) : ''}{' '}
+                  {o.cantidad ? `${o.cantidad} h` : ''} {o.monto ? moneda(o.monto) : ''} ·{' '}
+                  {o.estado} · {o.descripcion}
+                </p>
+              ))}
+            </details>
+          )}
+          {d.aplicaciones?.map((m, i) => (
+            <p key={`${m.mes}-${i}`}>
+              {m.mes} · {m.dias} días · {moneda(m.monto)} · {m.estado}{' '}
+              {m.idPago ? `· Pago #${m.idPago}` : ''}
+            </p>
+          ))}
           {d.advertencia && <p className="alerta">{d.advertencia}</p>}
           {cuotas.length > 0 && (
             <div className="table-scroll my-5">

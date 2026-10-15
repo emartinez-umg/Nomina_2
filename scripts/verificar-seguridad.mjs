@@ -33,25 +33,27 @@ try {
     'run',
     '--config',
     'vitest.oracle.config.ts',
-    process.argv.includes('--vacaciones')
-      ? 'src/modules/vacaciones/vacaciones.oracle.ts'
-      : process.argv.includes('--empleados')
-        ? 'src/modules/empleados/empleados.oracle.ts'
-        : process.argv.includes('--horarios')
-          ? 'src/modules/catalogos/horarios.oracle.ts'
-          : process.argv.includes('--empresa')
-            ? 'src/modules/empresa/empresa.oracle.ts'
-            : process.argv.includes('--ubicaciones')
-              ? 'src/modules/ubicaciones/ubicaciones.oracle.ts'
-              : process.argv.includes('--codigos')
-                ? 'src/modules/codigos/codigos.oracle.ts'
-                : process.argv.includes('--comunicacion')
-                  ? 'src/modules/comunicacion/comunicacion.oracle.ts'
-                  : process.argv.includes('--solicitudes')
-                    ? 'src/modules/solicitudes/solicitudes.oracle.ts'
-                    : process.argv.includes('--prestaciones')
-                      ? 'src/modules/prestaciones/prestaciones.oracle.ts'
-                      : 'src/modules/auth/seguridad.oracle.ts',
+    process.argv.includes('--novedades')
+      ? 'src/modules/novedades/novedades.oracle.ts'
+      : process.argv.includes('--vacaciones')
+        ? 'src/modules/vacaciones/vacaciones.oracle.ts'
+        : process.argv.includes('--empleados')
+          ? 'src/modules/empleados/empleados.oracle.ts'
+          : process.argv.includes('--horarios')
+            ? 'src/modules/catalogos/horarios.oracle.ts'
+            : process.argv.includes('--empresa')
+              ? 'src/modules/empresa/empresa.oracle.ts'
+              : process.argv.includes('--ubicaciones')
+                ? 'src/modules/ubicaciones/ubicaciones.oracle.ts'
+                : process.argv.includes('--codigos')
+                  ? 'src/modules/codigos/codigos.oracle.ts'
+                  : process.argv.includes('--comunicacion')
+                    ? 'src/modules/comunicacion/comunicacion.oracle.ts'
+                    : process.argv.includes('--solicitudes')
+                      ? 'src/modules/solicitudes/solicitudes.oracle.ts'
+                      : process.argv.includes('--prestaciones')
+                        ? 'src/modules/prestaciones/prestaciones.oracle.ts'
+                        : 'src/modules/auth/seguridad.oracle.ts',
   ];
   const entornoPrueba = {
     ...process.env,

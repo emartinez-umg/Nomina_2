@@ -1,3 +1,6 @@
+import { tarifas } from '../../novedades/api/parqueo';
+import { formatoMoneda } from '../../../components/forms/MoneyField';
+import { hoyGuatemala } from '../../../lib/validadores';
 import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
@@ -15,11 +18,9 @@ import { Button } from '../../../components/ui/Button';
 import { Modal, ConfirmModal } from '../../../components/ui/Modal';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { DateField, MoneyField, TextAreaField, FormErrorSummary } from '../../../components/forms';
+import { TextAreaField, FormErrorSummary } from '../../../components/forms';
 import { useToast } from '../../../components/ui/Toast';
-import { fechaSchema, hoyGuatemala } from '../../../lib/validadores';
 import { mapearErrores } from '../../../lib/http';
-import { Decimal } from 'decimal.js';
 const etiquetasCriticos: Record<string, string> = {
   nombres: 'Nombres',
   apellidos: 'Apellidos',
@@ -63,22 +64,46 @@ export function SolicitudDetalle({
 }
 function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
   const bloqueoFirma = useBloqueoFirma();
+  const mesActual = hoyGuatemala().slice(0, 7);
+  const t = useQuery({
+    queryKey: ['novedades', 'tarifas'],
+    queryFn: ({ signal }) => tarifas(signal),
+    enabled: !empleado && s.tipo === 'PARQUEO' && s.estado === 'EN_PROCESO',
+  });
+  const vigentes =
+    t.data?.filter(
+      (v) =>
+        v.vehiculo === s.vehiculo &&
+        v.desde <= `${mesActual}-01` &&
+        (!v.hasta || v.hasta >= `${mesActual}-01`),
+    ) ?? [];
+  const tarifaActual = vigentes.length === 1 ? vigentes[0] : undefined;
+  const bloqueoParqueo =
+    s.tipo === 'PARQUEO'
+      ? t.isPending
+        ? 'Cargando la tarifa vigente.'
+        : t.error
+          ? 'No se pudo consultar la tarifa. Reintenta antes de aprobar.'
+          : !s.vehiculo
+            ? 'La solicitud histórica no indica vehículo; rechaza y solicita una nueva.'
+            : !tarifaActual
+              ? 'Configura una tarifa mensual vigente única para este vehículo.'
+              : undefined
+      : undefined;
   const cache = useQueryClient(),
     toast = useToast();
   const [accion, setAccion] = useState<'APROBADA' | 'RECHAZADA' | 'ENTREGADA' | 'REEMITIR'>(),
     [preview, setPreview] = useState<api.Documento>();
   const [revisado, setRevisado] = useState(false);
   const alRevisar = useCallback(() => setRevisado(true), []);
-  const f = useForm<{ motivo: string; monto: string; fechaInicio: string }>({
+  const f = useForm<{ motivo: string }>({
     mode: 'onBlur',
-    defaultValues: { motivo: '', monto: '', fechaInicio: hoyGuatemala() },
-    resolver: zodResolver(
-      z.object({ motivo: z.string().max(500), monto: z.string(), fechaInicio: z.string() }),
-    ),
+    defaultValues: { motivo: '' },
+    resolver: zodResolver(z.object({ motivo: z.string().max(500) })),
   });
   const draft = useFormDraft('solicitud-resolucion', s.id, {
     form: f,
-    version: 1,
+    version: 9,
     alDescartar: () => setAccion(undefined),
     enabled: !empleado && s.estado === 'EN_PROCESO',
   });
@@ -96,14 +121,6 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
               estado: accion,
               motivo: f.getValues('motivo'),
               confirmado: true,
-              ...(accion === 'APROBADA' && s.tipo === 'PARQUEO'
-                ? {
-                    parqueo: {
-                      monto: f.getValues('monto').replace(/,/g, ''),
-                      fechaInicio: f.getValues('fechaInicio'),
-                    },
-                  }
-                : {}),
             }),
     onSuccess: () => {
       draft.limpiar();
@@ -116,7 +133,7 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
       invalidar();
     },
     onError: (e) => {
-      mapearErrores(e, f.setError, ['motivo', 'monto', 'fechaInicio']);
+      mapearErrores(e, f.setError, ['motivo']);
       setAccion(undefined);
     },
   });
@@ -136,20 +153,6 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
           'Explica el rechazo con al menos 5 caracteres para que el empleado pueda corregirlo.',
       });
       return;
-    }
-    if (estado === 'APROBADA' && s.tipo === 'PARQUEO') {
-      const monto = f.getValues('monto').replace(/,/g, ''),
-        fecha = f.getValues('fechaInicio');
-      if (!/^\d{1,10}(\.\d{1,2})?$/.test(monto) || new Decimal(monto || 0).lte(0)) {
-        f.setError('monto', {
-          message: 'Ingresa una tarifa positiva por quincena, con hasta dos decimales.',
-        });
-        return;
-      }
-      if (!fechaSchema.safeParse(fecha).success || fecha < hoyGuatemala()) {
-        f.setError('fechaInicio', { message: 'Selecciona hoy o una fecha futura.' });
-        return;
-      }
     }
     setAccion(estado);
   };
@@ -201,37 +204,19 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
       {!empleado && s.estado === 'EN_PROCESO' && (
         <>
           {s.tipo === 'PARQUEO' && (
-            <div className="form-grid my-4" data-tour="solicitud-parqueo">
-              <Controller
-                control={f.control}
-                name="monto"
-                render={({ field: { ref: _ref, ...field }, fieldState }) => (
-                  <MoneyField
-                    {...field}
-                    required
-                    label="Tarifa por quincena"
-                    hint="Monto real que se descontará en cada quincena desde el inicio indicado."
-                    onValueChange={field.onChange}
-                    error={fieldState.error?.message}
-                  />
-                )}
-              />
-              <Controller
-                control={f.control}
-                name="fechaInicio"
-                render={({ field: { ref: _ref, ...field }, fieldState }) => (
-                  <DateField
-                    {...field}
-                    required
-                    label="Inicio del descuento"
-                    hint="Hoy o una fecha futura, posterior a los periodos cerrados."
-                    min={hoyGuatemala()}
-                    onValueChange={field.onChange}
-                    error={fieldState.error?.message}
-                  />
-                )}
-              />
-            </div>
+            <p data-tour="solicitud-parqueo" className="banda-informativa">
+              Tarifa mensual:{' '}
+              {tarifaActual ? `Q ${formatoMoneda(tarifaActual.monto)}` : 'Sin tarifa vigente'} ·
+              Vehículo: {s.vehiculo ?? 'Sin vehículo: rechaza y pide una nueva solicitud'} · Placa:{' '}
+              {s.placa ?? 'Sin placa'}. Aprobar crea una suscripción con la tarifa mensual vigente
+              desde este mes, sin prorrateo. Configura Carro/Moto en Configuración → Tarifas de
+              parqueo.
+            </p>
+          )}
+          {t.error && s.tipo === 'PARQUEO' && (
+            <Button icono="actualizar" onClick={() => void t.refetch()}>
+              Reintentar tarifa
+            </Button>
           )}
           <div className="form-grid">
             <Controller
@@ -258,8 +243,8 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
             <Button
               icono="aprobar"
               cargando={mutar.isPending}
-              disabled={!!s.generaPdf && !!bloqueoFirma}
-              motivoDeshabilitado={bloqueoFirma}
+              disabled={(!!s.generaPdf && !!bloqueoFirma) || !!bloqueoParqueo}
+              motivoDeshabilitado={bloqueoParqueo ?? (s.generaPdf ? bloqueoFirma : undefined)}
               onClick={() => resolver('APROBADA')}
             >
               Aprobar
@@ -324,7 +309,7 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
           accion === 'REEMITIR'
             ? 'Se conserva el archivo original y se genera una nueva versión con el membrete y tu firma. Revisa el PDF y confirma nuevamente su entrega.'
             : accion === 'APROBADA' && s.tipo === 'PARQUEO'
-              ? `Se creará un descuento fijo de Q ${f.getValues('monto')} por quincena desde ${f.getValues('fechaInicio').split('-').reverse().join('/')}. Confirma que el empleado conoce la tarifa.`
+              ? `Se creará una suscripción de ${s.vehiculo ?? 'vehículo pendiente'} desde ${mesActual}, con tarifa mensual de ${tarifaActual ? `Q ${formatoMoneda(tarifaActual.monto)}` : 'tarifa pendiente'}. El mes se cobra completo, sin prorrateo. Confirma que el empleado conoce la tarifa.`
               : accion === 'APROBADA' && s.tipo === 'ACTUALIZACION_DATOS'
                 ? 'Se aplicarán los datos críticos propuestos al expediente y se notificará al empleado.'
                 : accion === 'ENTREGADA'

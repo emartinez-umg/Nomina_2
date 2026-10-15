@@ -277,3 +277,14 @@ Calendario por bloques/feriados; aprobación revalida y descuenta una vez. Cance
 inicio devuelve el débito original y conserva la aprobación. V026 preserva saldos e historia v0.
 Ver [reglas y API de vacaciones](docs/VACACIONES.md). Validar con npm run verify:vacaciones,
 npm run verify:security y npm run test:e2e -- --grep 'FASE V1-8'.
+
+### Novedades mensuales (V1-9)
+
+Aplicar V027 y V028 con `docker compose up --build` o `npm run db:migrate`. RH/ADMIN carga horas extra,
+comisiones y consumos por mes; las ausencias muestran el descuento sin goce. Configurar tarifas
+reales Carro/Moto en Configuración → Tarifas de parqueo antes de aprobar solicitudes. Revisar
+vehículos migrados y el parámetro de advertencia HORAS_EXTRA_TOPE_MENSUAL. El empleado consulta
+Mi parqueo y solicita baja; RH puede dar de baja/suspender al cierre del mes. Novedades pendientes
+resume cargas por persona/departamento antes del pago. Detalles y contrato para V1-10 en
+[docs/NOVEDADES.md](docs/NOVEDADES.md). Pruebas: `npm run verify:novedades` y
+`npm run test:e2e -- --grep 'FASE V1-9'` (Oracle en esquemas temporales).

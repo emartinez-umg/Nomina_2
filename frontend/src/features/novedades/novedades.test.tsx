@@ -55,7 +55,7 @@ describe('Captura guiada de novedades', () => {
     ).toBe(false);
   });
   it('no acepta horas o dinero de otro tipo ni un empleado escrito sin seleccionar', () => {
-    for (const horas of ['abc', '0', '25', '1.123'])
+    for (const horas of ['abc', '0', '2.25', '1.123'])
       expect(
         schemaFormulario('horas-extra', '2027-01-01').safeParse({
           ...iniciales('horas-extra', '2027-01-01'),

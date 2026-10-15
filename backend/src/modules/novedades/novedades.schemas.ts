@@ -12,6 +12,7 @@ export const tipoSchema = z.enum([
   'comisiones',
   'horas-extra',
   'ausencias',
+  'consumo-tienda',
 ]);
 export type Tipo = z.infer<typeof tipoSchema>;
 const id = z.number().int().positive().safe();
@@ -63,18 +64,19 @@ const prestamo = base
     referencia: z.string().trim().min(1).max(100),
   })
   .strict();
+export const mesSchema = z
+  .string()
+  .regex(/^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/, 'Selecciona un mes y año válidos.');
 const comision = base
-  .extend({ fecha, monto: importe, referencia: z.string().trim().min(1).max(100) })
+  .extend({ mes: mesSchema, monto: importe, referencia: z.string().trim().min(1).max(100) })
   .strict();
 const hora = base
   .extend({
-    fecha,
+    mes: mesSchema,
     horas: importe.refine(
-      (v) => /^\d{1,10}(\.\d{1,2})?$/.test(v) && new Decimal(v).lte(24),
-      'No puede superar 24 horas por día.',
+      (v) => /^\d{1,10}(\.\d{1,2})?$/.test(v) && new Decimal(v).mod('0.5').isZero(),
+      'Ingresa horas completas o medias horas (ejemplo: 2.5).',
     ),
-    jornada: z.enum(['DIURNA', 'MIXTA', 'NOCTURNA']),
-    estado,
   })
   .strict();
 const ausencia = base
@@ -90,6 +92,7 @@ export const schemas = {
   descuentos: descuento,
   prestamos: prestamo,
   comisiones: comision,
+  'consumo-tienda': comision,
   'horas-extra': hora,
   ausencias: ausencia,
 };
@@ -103,6 +106,7 @@ export type Datos = z.infer<typeof base> & {
   fechaDesembolso?: string;
   referencia?: string;
   fecha?: string;
+  mes?: string;
   horas?: string;
   jornada?: 'DIURNA' | 'MIXTA' | 'NOCTURNA';
   estado?: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
@@ -126,6 +130,9 @@ export const querySchema = z
     direccion: z.enum(['asc', 'desc']).default('desc'),
     buscar: z.string().trim().max(150).optional(),
     idEmpleado: z.coerce.number().int().positive().optional(),
+    idDepartamento: z.coerce.number().int().positive().optional(),
+    mes: mesSchema.optional(),
+    estadoAplicacion: z.enum(['PENDIENTE', 'APLICADA']).optional(),
     idTipo: z.coerce.number().int().positive().optional(),
     idPeriodo: z.coerce.number().int().positive().optional(),
     desde: fecha.optional(),
@@ -138,6 +145,7 @@ export const querySchema = z
         'PENDIENTE',
         'APROBADA',
         'RECHAZADA',
+        'APLICADA',
         'ACTIVA',
         'INACTIVA',
       ])

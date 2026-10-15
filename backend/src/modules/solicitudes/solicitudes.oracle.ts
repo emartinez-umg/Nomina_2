@@ -18,8 +18,7 @@ import { crearUsuariosService, crearUsuarioInterno } from '../usuarios/usuarios.
 import { crearAuditoriaService } from '../auditoria/auditoria.service.js';
 import { crearSolicitudesService } from './solicitudes.service.js';
 import { crearNovedadesService } from '../novedades/novedades.service.js';
-import { fuentes } from '../nomina/nomina.repository.js';
-import { quincena } from '../novedades/novedades.reglas.js';
+import { pendientes } from '../novedades/pendientes.repository.js';
 import { crearVacacionesService } from '../vacaciones/vacaciones.service.js';
 import type { ActorAuditoria } from '../auth/auth.types.js';
 let db: BaseDatos, app: Express, empleado: number, segundo: number, admin: ActorAuditoria;
@@ -48,8 +47,19 @@ async function entrar(usuario: string, contrasena: string) {
 const post = (s: typeof rh, ruta: string, datos: object, status = 200) =>
   s.agent.post(`/api/solicitudes${ruta}`).set('X-CSRF-Token', s.csrf).send(datos).expect(status);
 async function solicitar(tipo: string, datos?: object) {
-  return (await post(propio, '', { tipo, ...(datos ? { datos } : {}), confirmado: true }, 201)).body
-    .data.id as number;
+  return (
+    await post(
+      propio,
+      '',
+      {
+        tipo,
+        ...(datos ? { datos } : {}),
+        ...(tipo === 'PARQUEO' ? { vehiculo: 'CARRO' } : {}),
+        confirmado: true,
+      },
+      201,
+    )
+  ).body.data.id as number;
 }
 async function hoy() {
   return String(
@@ -362,6 +372,9 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     await propio.agent.get(`/api/solicitudes/${otro}/documento`).expect(404);
   });
   it('fallo de auditoría revierte parqueo y datos críticos junto con la resolución', async () => {
+    await ejecutar(
+      "INSERT INTO PARQUEO_TARIFAS(VEHICULO,MONTO,VIGENTE_DESDE,MOTIVO) VALUES('CARRO',125.50,DATE '2026-01-01','Tarifa mensual de prueba')",
+    );
     const p = await solicitar('PARQUEO');
     const d = (await propio.agent.get('/api/solicitudes/mis-datos').expect(200)).body.data.criticos;
     const id = await solicitar('ACTUALIZACION_DATOS', { ...d, nombres: 'Propuesta temporal' });
@@ -374,7 +387,6 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
         `/${p}/resolver`,
         {
           estado: 'APROBADA',
-          parqueo: { monto: '75.25', fechaInicio: await hoy() },
           confirmado: true,
         },
         500,
@@ -385,7 +397,9 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     }
     expect(
       Number(
-        await escalar('SELECT COUNT(*) FROM DESCUENTOS_EMPLEADO WHERE ID_SOLICITUD=:id', { id: p }),
+        await escalar('SELECT COUNT(*) FROM PARQUEO_SUSCRIPCIONES WHERE ID_SOLICITUD=:id', {
+          id: p,
+        }),
       ),
     ).toBe(0);
     expect(
@@ -402,51 +416,26 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
       });
     }
   });
-  it('parqueo: aprobación atómica crea un fijo de Fase 6 y evita doble cargo', async () => {
+  it('parqueo: aprobación atómica crea suscripción mensual y evita doble cargo', async () => {
     const id = await solicitar('PARQUEO');
-    const parqueo = { monto: '125.50', fechaInicio: await hoy() };
-    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', confirmado: true }, 422);
-    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', parqueo, confirmado: true });
-    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', parqueo, confirmado: true }, 409);
-    expect(
-      String(
-        await escalar('SELECT MONTO_QUINCENA FROM DESCUENTOS_EMPLEADO WHERE ID_SOLICITUD=:id', {
-          id,
-        }),
-      ),
-    ).toBe('125.5');
-    const listado = await rh.agent
-      .get('/api/novedades/descuentos')
-      .query({ idEmpleado: empleado })
-      .expect(200);
+    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', confirmado: true });
+    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', confirmado: true }, 409);
+    const actual = (await hoy()).slice(0, 7);
+    const listado = await rh.agent.get('/api/novedades/parqueo').query({ mes: actual }).expect(200);
     expect(listado.body.data.total).toBe(1);
-    const entrada = await db.conConexion((c) =>
-      fuentes(
-        c,
-        {
-          id: 0,
-          ...quincena(parqueo.fechaInicio),
-          estado: 'ABIERTO',
-          version: 0,
-          hash: null,
-          alertas: '[]',
-          empleados: 0,
-          ingresos: '0',
-          descuentos: '0',
-          neto: '0',
-          patronal: '0',
-        },
-        empleado,
-      ),
-    );
-    expect(entrada[0]!.descuentos).toEqual(
+    expect(listado.body.data.registros[0]).toMatchObject({
+      vehiculo: 'CARRO',
+      inicio: actual,
+      tarifa: '125.5',
+    });
+    const cargos = await db.conConexion((c) => pendientes(c, actual, empleado));
+    expect(cargos).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ codigo: 'PARQUEO', modalidad: 'FIJO', monto: '125.5' }),
+        expect.objectContaining({ tipo: 'PARQUEO', monto: '125.5', mes: actual }),
       ]),
     );
-
     const nuevo = await solicitar('PARQUEO');
-    await post(rh, `/${nuevo}/resolver`, { estado: 'APROBADA', parqueo, confirmado: true }, 409);
+    await post(rh, `/${nuevo}/resolver`, { estado: 'APROBADA', confirmado: true }, 409);
     await post(rh, `/${nuevo}/resolver`, {
       estado: 'RECHAZADA',
       motivo: 'Ya tiene parqueo vigente.',

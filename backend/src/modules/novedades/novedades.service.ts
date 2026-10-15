@@ -1,4 +1,8 @@
-import { horasDiariasEnFecha } from '../../shared/horarios/horas.js';
+import { prepararNovedadesParaPago } from './consumo.service.js';
+import { crearParqueoService } from './parqueo.service.js';
+import { empleadosResumen } from './pendientes.repository.js';
+import * as mensual from './mensuales.service.js';
+import * as mesesRepo from './mensuales.repository.js';
 import { Decimal } from 'decimal.js';
 import { createHash } from 'node:crypto';
 import type { Connection } from 'oracledb';
@@ -17,72 +21,13 @@ import type { ActorAuditoria, Autenticacion } from '../auth/auth.types.js';
 import { escribirCsv } from '../empleados/empleados.csv.js';
 import { schemas, validarAdjunto } from './novedades.schemas.js';
 import type { Datos, Tipo, Query } from './novedades.schemas.js';
-import {
-  amortizar,
-  calcularHoraExtra,
-  diasInclusivos,
-  descontarSaldo,
-  quincena,
-} from './novedades.reglas.js';
+import { amortizar, diasInclusivos, descontarSaldo, quincena } from './novedades.reglas.js';
 import * as repo from './novedades.repository.js';
-import { dinero as validarMonto, fecha as validarFecha } from '../empleados/empleados.schemas.js';
 const rechazar = (campo: string, mensaje: string): never => {
   throw new ErrorNegocio('Revisa los campos indicados antes de continuar.', 422, 'VALIDACION', {
     [campo]: [mensaje],
   });
 };
-// El llamador controla la transacción; parqueo usa el mismo acuerdo FIJO que consume nómina.
-export async function registrarParqueo(
-  c: Connection,
-  actor: ActorAuditoria,
-  idEmpleado: number,
-  idSolicitud: number,
-  monto: string,
-  fechaInicio: string,
-) {
-  if (!['ADMIN', 'RH'].includes(actor.rol)) throw new ErrorProhibido();
-  await bloquearCatalogos(c, true);
-  monto = validarMonto.parse(monto);
-  validarFecha.parse(fechaInicio);
-  const e = await repo.empleado(c, idEmpleado),
-    tipo = await repo.tipoParqueo(c);
-  if (!tipo) throw new ErrorConflicto('Activa el tipo PARQUEO en Catálogos antes de aprobar.');
-  if (!e || e.estado !== 'ACTIVO' || fechaInicio < e.inicio || (e.fin && fechaInicio > e.fin))
-    throw new ErrorConflicto('El parqueo requiere una relación laboral activa.');
-  if (fechaInicio < (await repo.hoy(c)) || (await repo.cerrados(c, fechaInicio, '9999-12-31')))
-    throw new ErrorConflicto(
-      'El inicio del descuento debe ser hoy o futuro y posterior a los periodos cerrados.',
-    );
-  if (await repo.parqueoVigente(c, idEmpleado, fechaInicio))
-    throw new ErrorConflicto(
-      'El empleado ya tiene parqueo vigente. Revisa el descuento existente.',
-    );
-  const id = await repo.guardar(
-    c,
-    'descuentos',
-    {
-      ID_EMPLEADO: { valor: idEmpleado },
-      ID_TIPO_DESCUENTO: { valor: tipo },
-      ID_SOLICITUD: { valor: idSolicitud },
-      MODALIDAD: { valor: 'FIJO' },
-      MONTO_QUINCENA: { valor: monto, tipo: 'numero' },
-      FECHA_INICIO: { valor: fechaInicio, tipo: 'fecha' },
-      MOTIVO: { valor: `Parqueo aprobado en solicitud ${idSolicitud}` },
-    },
-    actor.idUsuario,
-  );
-  await audit(
-    c,
-    actor,
-    'descuentos',
-    id,
-    'APROBAR_PARQUEO',
-    null,
-    { idEmpleado, idSolicitud, monto, fechaInicio },
-    'Alta automática al aprobar parqueo',
-  );
-  return id;
-}
 const audit = (
   c: Connection,
   actor: ActorAuditoria,
@@ -103,32 +48,6 @@ const audit = (
     motivo,
   });
 
-async function valorar(
-  c: Connection,
-  d: { idEmpleado: number; fecha: string; jornada: string; horas: string },
-) {
-  const p = await repo.parametrosHora(c, d.idEmpleado, d.fecha);
-  const obtener = (codigo: string, unidad: string) => {
-    const encontrados = p.parametros.filter((v) => v.CODIGO === codigo && v.UNIDAD === unidad);
-    if (encontrados.length !== 1)
-      throw new ErrorConflicto(
-        `Configura una única vigencia de ${codigo} (${unidad}) para la fecha indicada.`,
-      );
-    return encontrados[0]!.VALOR;
-  };
-  if (!p.salario)
-    rechazar(
-      'fecha',
-      'No existe un salario vigente para la fecha. Regístralo en la ficha del empleado.',
-    );
-  return calcularHoraExtra(
-    p.salario!,
-    d.horas,
-    obtener('SALARIO_DIAS_MES', 'DIAS'),
-    horasDiariasEnFecha(p.jornadas, d.fecha).toString(),
-    obtener('HORAS_EXTRA_RECARGO_PORCENTAJE', 'PORCENTAJE'),
-  );
-}
 export function crearNovedadesService(db: BaseDatos) {
   async function tx<T>(
     auth: Autenticacion,
@@ -148,17 +67,17 @@ export function crearNovedadesService(db: BaseDatos) {
           const horas =
             'message' in e &&
             typeof e.message === 'string' &&
-            e.message.includes('UQ_HORAS_EXTRA_1');
+            e.message.includes('UQ_NOV_MES_HORAS');
           throw new ErrorNegocio(
             horas
-              ? 'Ya hay horas registradas para este empleado y fecha.'
+              ? 'Ya hay horas registradas para este empleado y mes.'
               : 'Esta referencia ya está registrada. Revisa si el origen ya fue cargado.',
             409,
             'CONFLICTO',
             {
-              [horas ? 'fecha' : 'referencia']: [
+              [horas ? 'mes' : 'referencia']: [
                 horas
-                  ? 'Edita el registro existente de este día para corregir sus horas.'
+                  ? 'Edita el registro existente de este mes para corregir sus horas.'
                   : 'Usa una referencia única para este registro.',
               ],
             },
@@ -178,30 +97,67 @@ export function crearNovedadesService(db: BaseDatos) {
     return d;
   }
   function editable(d: repo.Fila) {
-    if (d.bloqueada)
+    mensual.exigirEditable(d.estado, d.bloqueada, d.activo);
+    if (d.autorizacion === 'RECHAZADA')
       throw new ErrorConflicto(
-        'Esta novedad afecta un periodo cerrado o ya fue consumida por nómina. Se conserva para consulta.',
+        'El registro v0 fue rechazado. Conserva la decisión y crea una novedad nueva si corresponde.',
       );
     if (!d.activo || ['LIQUIDADO', 'CANCELADO'].includes(d.estado))
       throw new ErrorConflicto('La novedad está liquidada o anulada. Se conserva para consulta.');
   }
   async function enriquecer(c: Connection, tipo: Tipo, d: repo.Fila) {
-    let calculo = null,
-      advertencia = null;
     if (tipo === 'horas-extra') {
+      if (d.estado === 'APLICADA' || d.valorUnitario) {
+        const topes = await mesesRepo.topeHoras(c, d.fechaInicio);
+        const total = await mesesRepo.horasMes(c, d.idEmpleado, d.mes!, 0);
+        return {
+          ...d,
+          calculo:
+            d.monto && d.valorUnitario && d.recargo
+              ? {
+                  valorHora: new Decimal(d.valorUnitario).toFixed(2),
+                  recargo: d.recargo,
+                  monto: new Decimal(d.monto).toFixed(2),
+                }
+              : null,
+          advertencia:
+            topes[0] && new Decimal(total).gt(topes[0].valor)
+              ? `El total mensual de ${total} horas supera el tope de ${topes[0].valor}. Verifica la cantidad.`
+              : null,
+        };
+      }
       try {
-        calculo = await valorar(c, {
-          idEmpleado: d.idEmpleado,
-          fecha: d.fecha!,
-          horas: d.horas!,
-          jornada: d.jornada!,
-        });
+        return {
+          ...d,
+          ...(await mensual.valorarMes(c, {
+            idEmpleado: d.idEmpleado,
+            mes: d.mes!,
+            horas: d.horas!,
+            id: d.id,
+          })),
+        };
       } catch (e) {
-        if (e instanceof ErrorNegocio) advertencia = e.message;
-        else throw e;
+        if (e instanceof ErrorNegocio) return { ...d, calculo: null, advertencia: e.message };
+        throw e;
       }
     }
-    return { ...d, calculo, advertencia };
+    if (tipo === 'ausencias') {
+      const aplicaciones = await mesesRepo.ausenciasMensuales(c, d.id);
+      const descuento = aplicaciones.length
+        ? new Decimal(0)
+            .plus(aplicaciones.reduce((s, m) => s.plus(m.monto ?? 0), new Decimal(0)))
+            .toFixed(2)
+        : null;
+      return {
+        ...d,
+        estadoAplicacion: aplicaciones.some((m) => m.estado === 'APLICADA')
+          ? 'APLICADA'
+          : 'PENDIENTE',
+        aplicaciones,
+        descuento,
+      };
+    }
+    return { ...d, calculo: null, advertencia: null };
   }
   async function validar(c: Connection, tipo: Tipo, d: Datos, antes?: repo.Fila) {
     const inicio = d.fecha ?? d.fechaInicio!;
@@ -219,6 +175,8 @@ export function crearNovedadesService(db: BaseDatos) {
     if (d.idTipo) {
       const ref = await repo.tipoReferencia(c, tipo, d.idTipo);
       if (!ref) rechazar('idTipo', 'Selecciona un tipo activo del catálogo.');
+      if (repo.esDescuento(tipo) && ['PARQUEO', 'CONSUMO_TIENDA'].includes(ref!.codigo))
+        rechazar('idTipo', 'Utiliza Suscripciones de parqueo o Consumo en tienda mensual.');
       if (
         repo.esDescuento(tipo) &&
         (tipo === 'prestamos') !== ['PRESTAMO', 'ANTICIPO'].includes(ref!.codigo)
@@ -284,13 +242,6 @@ export function crearNovedadesService(db: BaseDatos) {
         campoInicio,
         'El rango afecta un periodo cerrado. Selecciona fechas de periodos abiertos.',
       );
-    if (tipo === 'horas-extra')
-      await valorar(c, {
-        idEmpleado: d.idEmpleado,
-        fecha: d.fecha!,
-        horas: d.horas!,
-        jornada: d.jornada!,
-      });
     return plan;
   }
   async function guardar(
@@ -300,13 +251,19 @@ export function crearNovedadesService(db: BaseDatos) {
     d: Datos,
     antes?: repo.Fila,
   ) {
+    if (mesesRepo.esMensual(tipo)) {
+      if (antes && antes.idEmpleado !== d.idEmpleado)
+        rechazar('idEmpleado', 'No se puede cambiar el empleado.');
+      const id = await mensual.guardarMensual(c, actor, tipo, d, antes?.id);
+      return enriquecer(c, tipo, await buscar(c, tipo, id));
+    }
     const plan = await validar(c, tipo, d, antes);
     const campos: Parameters<typeof repo.guardar>[2] = {};
     const set = (key: string, valor: string | number | null, tipo?: 'fecha' | 'numero') => {
       campos[key] = tipo ? { valor, tipo } : { valor };
     };
     set('ID_EMPLEADO', d.idEmpleado);
-    set(tipo === 'comisiones' ? 'DESCRIPCION' : 'MOTIVO', d.motivo);
+    set('MOTIVO', d.motivo);
     if (repo.esDescuento(tipo)) {
       const modalidad = tipo === 'prestamos' ? 'CUOTAS' : d.modalidad!;
       set('ID_TIPO_DESCUENTO', d.idTipo!);
@@ -318,16 +275,6 @@ export function crearNovedadesService(db: BaseDatos) {
       set('FECHA_INICIO', d.fechaInicio!, 'fecha');
       set('FECHA_FIN', plan.at(-1)?.fecha ?? d.fechaFin ?? null, 'fecha');
       set('ESTADO', 'VIGENTE');
-    } else if (tipo === 'comisiones' || tipo === 'horas-extra') {
-      set('ID_PERIODO_NOMINA', await repo.periodo(c, quincena(d.fecha!), actor.idUsuario));
-      if (tipo === 'comisiones') {
-        set('MONTO', d.monto!, 'numero');
-        set('REFERENCIA', d.referencia!);
-      } else {
-        set('FECHA', d.fecha!, 'fecha');
-        set('HORAS', d.horas!, 'numero');
-        set('JORNADA', d.jornada!);
-      }
     } else {
       set('ID_TIPO_AUSENCIA', d.idTipo!);
       set('FECHA_INICIO', d.fechaInicio!, 'fecha');
@@ -343,7 +290,28 @@ export function crearNovedadesService(db: BaseDatos) {
       if (tipo === 'prestamos') await repo.guardarPrestamo(c, id, d, actor.idUsuario);
       await repo.guardarCuotas(c, id, d.idEmpleado, plan, actor.idUsuario);
     }
-    if (tipo === 'ausencias') await repo.guardarAdjunto(c, id, d.adjunto, actor.idUsuario);
+    if (tipo === 'ausencias') {
+      await repo.guardarAdjunto(c, id, d.adjunto, actor.idUsuario);
+      const desglose = await mensual.desglosarAusencia(c, {
+        idEmpleado: d.idEmpleado,
+        idTipo: d.idTipo!,
+        fechaInicio: d.fechaInicio!,
+        fechaFin: d.fechaFin!,
+      });
+      await mesesRepo.limpiarAusencia(c, id);
+      for (const m of desglose.meses)
+        await mesesRepo.guardarAusenciaMes(
+          c,
+          {
+            id,
+            empleado: d.idEmpleado,
+            ...m,
+            estado: d.estado!,
+            motivo: `Descuento por ausencias, ${m.dias} días. ${d.motivo}`.slice(0, 500),
+          },
+          actor.idUsuario,
+        );
+    }
     const despues = await buscar(c, tipo, id);
     await audit(
       c,
@@ -370,7 +338,74 @@ export function crearNovedadesService(db: BaseDatos) {
       cuotasDetalle: repo.esDescuento(tipo) ? await repo.cuotas(c, id) : [],
     };
   }
+  const resumenPendientes = (q: {
+    mes: string;
+    pagina: number;
+    limite: number;
+    buscar?: string | undefined;
+    idDepartamento?: number | undefined;
+    ordenarPor?: 'empleado' | 'departamento' | undefined;
+    direccion?: 'asc' | 'desc' | undefined;
+  }) =>
+    db.conConexion(async (c) => {
+      mensual.validarMes(q.mes, await repo.hoy(c));
+      const empleados = await empleadosResumen(c, q),
+        novedades = await prepararNovedadesParaPago(c, q.mes);
+      const porEmpleado = new Map<number, typeof novedades>();
+      for (const n of novedades) {
+        const items = porEmpleado.get(n.idEmpleado) ?? [];
+        items.push(n);
+        porEmpleado.set(n.idEmpleado, items);
+      }
+      const registros = empleados.registros.map((e) => {
+        const items = porEmpleado.get(e.id) ?? [];
+        return {
+          ...e,
+          novedades: items,
+          pendientes: items.length,
+          retroactivas: items.filter((n) => n.mes < q.mes).length,
+          alertas: items.filter((n) => n.monto === null || n.autorizacion !== 'APROBADA').length,
+        };
+      });
+      const departamentos = await empleadosResumen(c, { ...q, pagina: 1, limite: 1000000 });
+      const resumen = new Map<
+        number,
+        { departamento: string; empleados: number; pendientes: number; alertas: number }
+      >();
+      for (const e of departamentos.registros) {
+        const v = resumen.get(e.idDepartamento) ?? {
+          departamento: e.departamento,
+          empleados: 0,
+          pendientes: 0,
+          alertas: 0,
+        };
+        const items = porEmpleado.get(e.id) ?? [];
+        v.empleados++;
+        v.pendientes += items.length;
+        v.alertas += items.filter((n) => n.monto === null || n.autorizacion !== 'APROBADA').length;
+        resumen.set(e.idDepartamento, v);
+      }
+      return { ...empleados, registros, departamentos: [...resumen.values()] };
+    });
   return {
+    parqueo: crearParqueoService(db),
+    pendientes: resumenPendientes,
+    exportarPendientes: async (q: Parameters<typeof resumenPendientes>[0]) => {
+      const r = await resumenPendientes({ ...q, pagina: 1, limite: 100000 });
+      if (r.total > 100000)
+        throw new ErrorConflicto('Reduce los filtros para exportar hasta 100,000 empleados.');
+      return escribirCsv([
+        ['Empleado', 'Departamento', 'Pendientes', 'Retroactivas', 'Alertas', 'Detalle'],
+        ...r.registros.map((e) => [
+          e.empleado,
+          e.departamento,
+          e.pendientes,
+          e.retroactivas,
+          e.alertas,
+          e.novedades.map((n) => `${n.tipo} ${n.mes}: ${n.monto ?? 'Sin monto'}`).join(' | '),
+        ]),
+      ]);
+    },
     restricciones: (id: number, excluir: number) =>
       db.conConexion((c) => repo.restricciones(c, id, excluir)),
     reglas: () => db.conConexion(async (c) => ({ hoy: await repo.hoy(c) })),
@@ -391,6 +426,7 @@ export function crearNovedadesService(db: BaseDatos) {
     detalle: (tipo: Tipo, id: number) =>
       db.conConexion(async (c) => ({
         ...(await enriquecer(c, tipo, await buscar(c, tipo, id))),
+        origenes: mesesRepo.esMensual(tipo) ? await mesesRepo.origenes(c, id) : [],
         cuotasDetalle: repo.esDescuento(tipo) ? await repo.cuotas(c, id) : [],
       })),
     crear: (auth: Autenticacion, ip: string, tipo: Tipo, raw: Datos) =>
@@ -417,21 +453,42 @@ export function crearNovedadesService(db: BaseDatos) {
         if (!d) throw new ErrorNoEncontrado();
         return d;
       }),
-    previsualizar: (auth: Autenticacion, ip: string, tipo: Tipo, raw: Datos) =>
+    previsualizar: (auth: Autenticacion, ip: string, tipo: Tipo, raw: Datos, id?: number) =>
       tx(auth, ip, async (c) => {
         const d: Datos = schemas[tipo].parse(raw);
+        if (id) {
+          const antes = await buscar(c, tipo, id);
+          editable(antes);
+          if (antes.idEmpleado !== d.idEmpleado)
+            rechazar('idEmpleado', 'No se puede cambiar el empleado.');
+        }
+        if (mesesRepo.esMensual(tipo)) {
+          await mensual.validarMensual(c, d);
+          return {
+            plan: [],
+            calculo: null,
+            ...(tipo === 'horas-extra'
+              ? await mensual.valorarMes(c, {
+                  idEmpleado: d.idEmpleado,
+                  mes: d.mes!,
+                  horas: d.horas!,
+                  ...(id ? { id } : {}),
+                })
+              : {}),
+          };
+        }
         const plan = await validar(c, tipo, { ...d, confirmado: true });
         return {
           plan,
-          calculo:
-            tipo === 'horas-extra'
-              ? await valorar(c, {
-                  idEmpleado: d.idEmpleado,
-                  fecha: d.fecha!,
-                  horas: d.horas!,
-                  jornada: d.jornada!,
-                })
-              : null,
+          calculo: null,
+          ...(tipo === 'ausencias'
+            ? await mensual.desglosarAusencia(c, {
+                idEmpleado: d.idEmpleado,
+                idTipo: d.idTipo!,
+                fechaInicio: d.fechaInicio!,
+                fechaFin: d.fechaFin!,
+              })
+            : {}),
         };
       }),
     exportar: (tipo: Tipo, q: Query) =>
@@ -444,6 +501,9 @@ export function crearNovedadesService(db: BaseDatos) {
             'Inicio',
             'Fin',
             'Estado',
+            'Mes',
+            'Pago aplicado',
+            'Referencia',
             'Monto',
             'Cuota quincenal',
             'Saldo',
@@ -464,6 +524,9 @@ export function crearNovedadesService(db: BaseDatos) {
               f.fechaInicio,
               f.fechaFin,
               f.estado,
+              f.mes,
+              f.idPago,
+              f.referencia,
               f.monto,
               f.montoQuincena,
               f.saldo,

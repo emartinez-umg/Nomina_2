@@ -63,7 +63,12 @@ export function Table<T>({
           descripcion="Revisa la búsqueda o limpia los filtros para consultar otros registros."
         />
       ) : (
-        <div className="table-scroll">
+        <div
+          className="table-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label={`Tabla de ${titulo.toLowerCase()}`}
+        >
           <table>
             <caption className="sr-only">{titulo}</caption>
             <thead>

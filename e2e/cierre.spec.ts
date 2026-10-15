@@ -833,8 +833,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         fechaDesembolso: hoy,
         referencia: 'AUDITORIA_PRESTAMO',
       },
-      comisiones: { fecha: '2026-02-03', monto: '100.00', referencia: 'AUDITORIA_COMISION' },
-      'horas-extra': { fecha: '2026-02-03', horas: '1.00', jornada: 'DIURNA', estado: 'PENDIENTE' },
+      comisiones: { mes: '2026-02', monto: '100.00', referencia: 'AUDITORIA_COMISION' },
+      'horas-extra': { mes: '2026-02', horas: '1.00' },
       ausencias: {
         idTipo: await opcion('ausencias'),
         fechaInicio: '2026-02-04',
@@ -1255,4 +1255,121 @@ test('FASE V1-6: bloques, borrador, duplicado y horario desde empleado', async (
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
     .analyze();
   expect(axeMovil.violations.map((v) => v.id)).toEqual([]);
+});
+
+test('FASE V1-9: novedades mensuales, tarifas y ciclo de parqueo con ayuda y móvil', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  await page.goto('/configuracion/parqueo');
+  await oferta(page);
+  for (const vehiculo of ['Carro', 'Moto']) {
+    await elegir(page, 'Vehículo', vehiculo);
+    await page
+      .getByLabel('Tarifa mensual', { exact: true })
+      .fill(vehiculo === 'Carro' ? '150.00' : '75.00');
+    await page
+      .getByLabel('Motivo del cambio', { exact: true })
+      .fill('Tarifa mensual aprobada para pruebas');
+    await page.getByRole('button', { name: 'Revisar y guardar tarifa', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Confirmar tarifa mensual' })).not.toBeVisible();
+  }
+  await revisarUi(page);
+  const empleadoLabel = (
+    await (await page.request.get('/api/novedades/opciones/empleados?buscar=Persona')).json()
+  ).data[0].label as string;
+  await page.goto('/novedades/horas-extra/nuevo');
+  await oferta(page);
+  await elegir(page, 'Empleado', empleadoLabel);
+  await page.getByLabel('Horas registradas', { exact: true }).fill('2.5');
+  await page
+    .getByLabel('Motivo o descripción', { exact: true })
+    .fill('Horas adicionales del mes con respaldo');
+  await page.getByRole('button', { name: 'Revisar cálculo', exact: true }).click();
+  await expect(page.getByText(/Total estimado:/)).toBeVisible();
+  await page.getByRole('button', { name: 'Revisar y guardar', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page).toHaveURL(/\/novedades\/horas-extra\/\d+$/);
+  await oferta(page);
+  await revisarUi(page);
+  for (const tipo of ['comisiones', 'consumo-tienda']) {
+    await page.goto(`/novedades/${tipo}/nuevo`);
+    await oferta(page);
+    await elegir(page, 'Empleado', empleadoLabel);
+    await page
+      .getByLabel(tipo === 'comisiones' ? 'Comisión' : 'Consumo en tienda', { exact: true })
+      .fill('123.45');
+    await page.getByLabel('Referencia', { exact: true }).fill(`E2E_V19_${tipo}`);
+    await page
+      .getByLabel('Motivo o descripción', { exact: true })
+      .fill('Carga manual del mes con respaldo');
+    await page.getByRole('button', { name: 'Revisar y guardar', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/novedades/${tipo}/\\d+$`));
+    await oferta(page);
+  }
+  await page.goto('/novedades/pendientes');
+  await oferta(page);
+  await revisarUi(page);
+  await expect(page.getByRole('table', { name: 'Resumen por departamento' })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await revisarUi(page);
+  await mkdir('tmp/pdfs', { recursive: true });
+  await page.screenshot({ path: 'tmp/pdfs/novedades-v1-9-movil.png' });
+  await salir(page);
+  await entrar(page, 'EMPLEADO');
+  await page.goto('/mis-gestiones/solicitudes');
+  await oferta(page);
+  await page
+    .locator('.gestiones-tarjeta')
+    .filter({ has: page.getByRole('heading', { name: 'Parqueo', exact: true }) })
+    .getByRole('button', { name: 'Solicitar', exact: true })
+    .click();
+  const modal = page.getByRole('dialog', { name: 'Solicitar Parqueo' });
+  await oferta(page);
+  await elegir(page, 'Tipo de vehículo', 'Carro');
+  await page.getByLabel('Placa (opcional)', { exact: true }).fill('P123ABC');
+  await modal.getByRole('button', { name: 'Revisar y enviar', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await salir(page);
+  await entrar(page, 'RH');
+  const solicitudes = (
+    await (await page.request.get('/api/solicitudes?tipo=PARQUEO&estado=EN_PROCESO')).json()
+  ).data.registros;
+  expect(solicitudes.length).toBe(1);
+  await page.goto(`/solicitudes?solicitud=${solicitudes[0].id}`);
+  await oferta(page);
+  const detalle = page.getByRole('dialog', {
+    name: `Solicitud #${solicitudes[0].id}`,
+    exact: true,
+  });
+  await expect(detalle.getByRole('button', { name: 'Aprobar', exact: true })).toBeEnabled();
+  await detalle.getByRole('button', { name: 'Aprobar', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Aprobar solicitud' })).toContainText(
+    'tarifa mensual de Q 150.00',
+  );
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(detalle.getByRole('button', { name: 'Aprobar', exact: true })).toHaveCount(0);
+  await salir(page);
+  await entrar(page, 'EMPLEADO');
+  await page.goto('/mis-gestiones/parqueo');
+  await oferta(page);
+  await revisarUi(page);
+  await page.getByRole('button', { name: 'Solicitar baja', exact: true }).click();
+  await page.getByLabel('Motivo', { exact: true }).fill('Ya no utilizaré el parqueo');
+  await page.getByRole('button', { name: 'Revisar cambio', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Solicitar baja', exact: true })).toBeDisabled();
+  await salir(page);
+  await entrar(page, 'RH');
+  await page.goto('/novedades/parqueo');
+  await oferta(page);
+  await page.getByRole('button', { name: 'Dar de baja', exact: true }).click();
+  await page.getByLabel('Motivo', { exact: true }).fill('Baja solicitada por el empleado');
+  await page.getByRole('button', { name: 'Revisar cambio', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Dar de baja', exact: true })).toBeDisabled();
+  await revisarUi(page);
 });

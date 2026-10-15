@@ -2168,15 +2168,13 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       const dComision = () => ({
         ...base(),
         monto: '300.25',
-        fecha,
+        mes: hoy.slice(0, 7),
         referencia: `F6_C_${++serialN}`,
       });
       const dHora = () => ({
         ...base(),
-        fecha,
+        mes: hoy.slice(0, 7),
         horas: '2',
-        jornada: 'DIURNA',
-        estado: 'APROBADA',
         confirmado: true,
       });
       const dAusencia = () => ({
@@ -2194,13 +2192,16 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         ).body.data.empleado.id;
         descuento = Number(
           await escalar(
-            "SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='PARQUEO'",
+            "SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='OTROS'",
           ),
         );
         prestamo = Number(
           await escalar(
             "SELECT ID_TIPO_DESCUENTO FROM TIPOS_DESCUENTO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='PRESTAMO'",
           ),
+        );
+        await ejecutar(
+          "INSERT INTO PERIODOS_NOMINA(FECHA_INICIO,FECHA_FIN,QUINCENA) VALUES(DATE '2090-01-01',DATE '2090-01-15',1)",
         );
         ausencia = Number(
           await escalar(
@@ -2330,7 +2331,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           }),
         ).toBe(0);
       });
-      it('carga comisiones por quincena, filtra y evita duplicar el origen', async () => {
+      it('carga comisiones por mes, filtra y evita duplicar el origen', async () => {
         const { agent, csrf } = await entrarAdmin();
         const d = dComision();
         const r = await agent
@@ -2338,12 +2339,12 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .set('X-CSRF-Token', csrf)
           .send(d)
           .expect(201);
-        expect(r.body.data.fechaInicio).toBe('2090-01-01');
-        expect(r.body.data.fechaFin).toBe('2090-01-15');
+        expect(r.body.data.fechaInicio).toBe(`${hoy.slice(0, 7)}-01`);
+        expect(r.body.data.mes).toBe(hoy.slice(0, 7));
         await agent.post('/api/novedades/comisiones').set('X-CSRF-Token', csrf).send(d).expect(409);
         const lista = await agent
           .get(
-            `/api/novedades/comisiones?idEmpleado=${idEmpleado}&idPeriodo=${r.body.data.idPeriodo}&montoMin=300&buscar=Prueba`,
+            `/api/novedades/comisiones?idEmpleado=${idEmpleado}&mes=${hoy.slice(0, 7)}&montoMin=300&buscar=Prueba`,
           )
           .expect(200);
         expect(lista.body.data.total).toBeGreaterThan(0);
@@ -2353,14 +2354,14 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .send({ ...d, monto: '301.25' })
           .expect(200);
       });
-      it('valora horas con salario/recargo vigentes y exige confirmación al aprobar', async () => {
+      it('valora horas mensuales con salario/recargo y exige confirmar el exceso del tope', async () => {
         const { agent, csrf } = await entrarAdmin();
         const d = dHora();
         await agent
           .post('/api/novedades/horas-extra')
           .set('X-CSRF-Token', csrf)
-          .send({ ...d, confirmado: false })
-          .expect(422);
+          .send({ ...d, horas: '40.5', confirmado: false })
+          .expect(409);
         const r = await agent
           .post('/api/novedades/horas-extra')
           .set('X-CSRF-Token', csrf)
@@ -2373,12 +2374,14 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           .send(d)
           .expect(409);
         await agent
-          .get(`/api/novedades/horas-extra?idEmpleado=${idEmpleado}&jornada=DIURNA&horasMin=2`)
+          .get(
+            `/api/novedades/horas-extra?idEmpleado=${idEmpleado}&mes=${hoy.slice(0, 7)}&horasMin=2`,
+          )
           .expect(200);
         const p = await agent
           .post('/api/novedades/horas-extra/previsualizar')
           .set('X-CSRF-Token', csrf)
-          .send({ ...d, jornada: 'MIXTA' })
+          .send(d)
           .expect(200);
         // La etiqueta de jornada no sustituye las 8 horas efectivas del patrón asignado.
         expect(p.body.data.calculo.monto).toBe('62.50');
@@ -2501,11 +2504,11 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           await agent
             .post('/api/novedades/comisiones')
             .set('X-CSRF-Token', csrf)
-            .send({ ...dComision(), fecha: '2093-06-01' })
+            .send({ ...dComision(), referencia: 'F6_ROLLBACK_MES' })
             .expect(500);
           expect(
             await escalar(
-              "SELECT COUNT(*) FROM PERIODOS_NOMINA WHERE FECHA_INICIO=DATE '2093-06-01'",
+              "SELECT COUNT(*) FROM NOVEDADES_MENSUALES WHERE REFERENCIA='F6_ROLLBACK_MES'",
             ),
           ).toBe(0);
         } finally {
@@ -2589,7 +2592,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           ['descuentos', { ...dDescuento(), cuotas: 1 }],
           ['prestamos', { ...dPrestamo(), cuotas: 1 }],
           ['comisiones', dComision()],
-          ['horas-extra', { ...dHora(), fecha: '2090-01-03' }],
+          ['horas-extra', dHora()],
           ['ausencias', { ...dAusencia(), fechaInicio: '2090-01-04', fechaFin: '2090-01-04' }],
         ] as const;
         const registros = [];
@@ -2597,13 +2600,21 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           registros.push({
             tipo,
             body,
-            id: (
-              await agent
-                .post(`/api/novedades/${tipo}`)
-                .set('X-CSRF-Token', csrf)
-                .send(body)
-                .expect(201)
-            ).body.data.id,
+            id:
+              tipo === 'horas-extra'
+                ? Number(
+                    await escalar(
+                      "SELECT MAX(ID_NOVEDAD_MENSUAL) FROM NOVEDADES_MENSUALES WHERE TIPO='HORAS_EXTRA' AND ID_EMPLEADO=:id",
+                      { id: idEmpleado },
+                    ),
+                  )
+                : (
+                    await agent
+                      .post(`/api/novedades/${tipo}`)
+                      .set('X-CSRF-Token', csrf)
+                      .send(body)
+                      .expect(201)
+                  ).body.data.id,
           });
         await ejecutar(
           "INSERT INTO PERIODOS_NOMINA (FECHA_INICIO,FECHA_FIN,QUINCENA,ESTADO,APROBADO_EN,CERRADO_EN,APROBADO_POR,CERRADO_POR) VALUES (DATE '2092-01-01',DATE '2092-01-15',1,'CERRADO',SYSDATE,SYSDATE,:actor,:actor)",
@@ -2611,8 +2622,8 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         );
         for (const { tipo, body, id } of registros) {
           const nuevo =
-            'fecha' in body
-              ? { ...body, fecha: '2092-01-02' }
+            'mes' in body
+              ? { ...body, mes: '2092-01' }
               : {
                   ...body,
                   fechaInicio: '2092-01-02',
@@ -2627,6 +2638,10 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         await ejecutar(
           "UPDATE PERIODOS_NOMINA SET ESTADO='CERRADO',APROBADO_EN=SYSDATE,CERRADO_EN=SYSDATE,APROBADO_POR=:actor,CERRADO_POR=:actor WHERE FECHA_INICIO=DATE '2090-01-01'",
           { actor: admin.idUsuario },
+        );
+        await ejecutar(
+          "INSERT INTO PERIODOS_NOMINA(FECHA_INICIO,FECHA_FIN,QUINCENA,ESTADO,APROBADO_EN,CERRADO_EN,APROBADO_POR,CERRADO_POR) VALUES(TO_DATE(:mes||'-01','YYYY-MM-DD'),TO_DATE(:mes||'-15','YYYY-MM-DD'),1,'CERRADO',SYSDATE,SYSDATE,:actor,:actor)",
+          { mes: hoy.slice(0, 7), actor: admin.idUsuario },
         );
         for (const { tipo, body, id } of registros) {
           await agent
