@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { CampoProps } from '../../../components/forms/Field';
 import { InputField } from '../../../components/forms/Field';
 import {
@@ -15,7 +15,7 @@ import {
 } from '../../../components/forms';
 import { Button } from '../../../components/ui/Button';
 import type { CampoEmpleado as Def } from '../api/formulario';
-import { opciones } from '../api/empleados';
+import { opciones, parentescos } from '../api/empleados';
 import type { Reglas } from '../api/empleados';
 import { validarNacimiento, validarIngreso, fechaValida } from '../../../lib/validadores';
 export function RefField(props: CampoProps & { departamento?: string | undefined }) {
@@ -64,6 +64,26 @@ export function RefField(props: CampoProps & { departamento?: string | undefined
     </div>
   );
 }
+function ParentescoField(props: CampoProps) {
+  const q = useQuery({
+    queryKey: ['empleados', 'parentescos'],
+    queryFn: ({ signal }) => parentescos(signal),
+  });
+  return (
+    <SelectField
+      {...props}
+      opciones={q.data ?? []}
+      disabled={props.disabled || q.isPending}
+      error={
+        props.error ??
+        q.error?.message ??
+        (q.data && props.value && !q.data.some((p) => p.value === props.value)
+          ? 'Selecciona un parentesco del catálogo; revisa el dato anterior.'
+          : undefined)
+      }
+    />
+  );
+}
 export function CampoEmpleado({
   campo,
   reglas,
@@ -78,6 +98,16 @@ export function CampoEmpleado({
   ingreso?: string | undefined;
   departamento?: string | undefined;
 }) {
+  if (campo.nombre === 'contactoParentesco') return <ParentescoField {...props} />;
+  if (campo.nombre === 'numeroCasa')
+    return (
+      <InputField
+        {...props}
+        maxLength={20}
+        sanitizar={(v) => v.replace(/[^A-Za-z0-9-]/g, '')}
+        pattern="[A-Za-z0-9]+(-[A-Za-z0-9]+)*"
+      />
+    );
   if (campo.tipo === 'referencia') return <RefField {...props} departamento={departamento} />;
   if (campo.tipo === 'opcion')
     return (
@@ -86,7 +116,7 @@ export function CampoEmpleado({
           {...props}
           opciones={(campo.opciones ?? []).map((v) => ({
             value: v,
-            label: v === 'F' ? 'Femenino' : v === 'M' ? 'Masculino' : v === 'O' ? 'Otro' : v,
+            label: v === 'F' ? 'Femenino' : v === 'M' ? 'Masculino' : v,
           }))}
         />
         {!props.required && props.value && (
@@ -119,7 +149,9 @@ export function CampoEmpleado({
                 !!validarIngreso(v, nacimiento, reglas.hoy, reglas.edadMinima),
             }
           : {})}
-        {...(campo.nombre === 'fechaFinContrato' && ingreso ? { min: ingreso } : {})}
+        {...(campo.nombre === 'fechaFinContrato' && ingreso
+          ? { deshabilitar: (v: string) => v <= ingreso }
+          : {})}
       />
     );
   if (campo.tipo === 'numero')

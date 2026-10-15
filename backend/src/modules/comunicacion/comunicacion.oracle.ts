@@ -181,7 +181,7 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
       hoy = hora().slice(0, 10);
     for (const i of [1, 2]) {
       await ejecutar(
-        "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_JEFATURA,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO,FECHA_FIN_CONTRATO) VALUES (:codigo,:usuario,:nombre,'Comunicación',:dpi,:nit,TO_DATE(:nace,'YYYY-MM-DD'),'O','SOLTERO','Dirección','55551234',:correo,:puesto,:dep,:jefe,:contrato,:centro,TO_DATE(:ingreso,'YYYY-MM-DD'),TO_DATE(:fin,'YYYY-MM-DD'))",
+        "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_JEFATURA,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO,FECHA_FIN_CONTRATO) VALUES (:codigo,:usuario,:nombre,'Comunicación',:dpi,:nit,TO_DATE(:nace,'YYYY-MM-DD'),'F','SOLTERO','Dirección','55551234',:correo,:puesto,:dep,:jefe,:contrato,:centro,TO_DATE(:ingreso,'YYYY-MM-DD'),TO_DATE(:fin,'YYYY-MM-DD'))",
         {
           codigo: `F11_${i}`,
           usuario: cuentas[i]!.idUsuario,

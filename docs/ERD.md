@@ -1103,3 +1103,44 @@ Las lecturas operativas expanden bloques/días y generan los descansos que no ti
 Para horas extra se suman los minutos efectivos de todos los bloques de cada día de entrada.
 Los solapes y límites vigentes se verifican en servicio dentro del bloqueo común de catálogos y empleados.
 Las 61 tablas de negocio quedan cubiertas por `db/filtros.json` y `db:verify`.
+
+## V1-7 — Empleados automatizados (V025)
+
+```mermaid
+erDiagram
+    DEPARTAMENTOS_GT ||--o{ EMPLEADOS : residencia
+    MUNICIPIOS_GT ||--o{ EMPLEADOS : municipio_del_departamento
+    USUARIOS |o--o| EMPLEADOS : acceso_automatico
+    PARENTESCOS {
+        NUMBER ID_PARENTESCO PK
+        VARCHAR NOMBRE UK
+        NUMBER ACTIVO
+    }
+    EMPLEADOS {
+        NUMBER ID_DEPARTAMENTO_GT FK
+        NUMBER ID_MUNICIPIO_GT FK
+        NUMBER ZONA
+        VARCHAR NUMERO_CASA
+        VARCHAR DIRECCION_ANTERIOR
+        VARCHAR SEXO_ANTERIOR
+    }
+    EMPLEADO_CONTACTOS_EMERGENCIA {
+        VARCHAR PARENTESCO
+        VARCHAR PARENTESCO_ANTERIOR
+    }
+    TIPOS_CONTRATO {
+        NUMBER REQUIERE_FECHA_FIN
+    }
+```
+
+PARENTESCOS contiene las 12 opciones A8, identity ALWAYS, auditoría, CHECK y FKs de actor indexadas.
+El servicio valida el nombre exacto contra este catálogo de lectura; el texto histórico se conserva.
+FK compuesta en EMPLEADOS impide cruzar municipio/departamento. Zona y casa tienen CHECK;
+la API exige ubicación/casa y zona en 0101. DIRECCION se deriva para consumidores documentales v0.
+No se asignan ubicaciones ficticias a históricos: DIRECCION_ANTERIOR conserva todo el texto.
+SEXO_ANTERIOR preserva el valor original; antiguos O quedan pendientes (NULL), sin reinterpretarlos.
+REQUIERE_FECHA_FIN es la bandera operativa; REQUIERE_FIN queda sincronizado por trigger como alias
+para seeds/herramientas históricas. Obra determinada requiere fecha final en nuevas escrituras.
+Las altas nuevas siempre vinculan usuario en la misma transacción. Históricos sin cuenta conservan
+su vínculo previo. Contraseñas/PDF no se persisten; se devuelve solo la entrega inicial en memoria.
+Las 62 tablas se verifican con db:verify; V000–V024 permanecen intactas.

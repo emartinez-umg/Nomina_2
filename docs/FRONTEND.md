@@ -198,7 +198,7 @@ persistido y no vuelve a consultar un contador, aunque se renombre o traslade el
 Los formularios de catálogo y empleado omiten código de sus cuerpos de escritura;
 el backend también descarta valores enviados por clientes anteriores. Sus borradores pasan
 a versión 2, descartando versiones anteriores con códigos manuales. La plantilla CSV de
-empleados contiene 28 columnas: no incluye código. El reporte de importación incluye el código
+empleados contiene 30 columnas: no incluye código ni bandera generarUsuario; usa código de horario y residencia estructurada (V1-7). El reporte de importación incluye el código
 asignado. Solicitudes (incluidas vacaciones), descuentos, préstamos y publicaciones muestran su vista previa y sus
 listados/CSV permiten localizar los códigos definitivos con las búsquedas existentes.
 Los códigos patronales/de centros/tipos IGSS siguen siendo referencias externas oficiales;
@@ -254,3 +254,14 @@ Catálogo usa RHF y borrador versión 4; duplicar tiene clave independiente por 
 de ayuda. Crear selecciona el ID retornado y refresca opciones sin enviar ni perder el empleado.
 La ayuda del empleado y de horas extra explica el flujo y las horas efectivas del patrón.
 El borrador valida su JSON antes de renderizar el constructor y descarta versiones anteriores.
+
+## V1-7 — Alta, edición y entrega privada
+
+Empleado usa borrador versión 7 y fecha inicial del servidor en America/Guatemala. La ubicación
+se consulta por IDs INE (sin asumir IDs Oracle); cambio de departamento limpia puesto/jefatura.
+Contrato consulta REQUIERE_FECHA_FIN: bloquea/vacía indefinido, requiere fecha posterior en contratos
+con plazo. Parentescos se leen de la API y los textos históricos fuera del catálogo exigen revisión.
+Credenciales y PDF se mantienen en estado de React, fuera del formulario, caché Query y borradores.
+Copiar o descargar habilita la confirmación; Escape/Cerrar no descartan la entrega sin confirmarla.
+Una sola descarga del PDF y limpieza al cerrar. El restablecimiento tiene motivo, borrador y recorrido.
+Ayuda de credenciales/horario/restablecimiento usa un HelpProvider propio para conservar la página.

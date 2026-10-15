@@ -785,7 +785,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO WHERE ACTIVO=1'),
       );
       await ejecutar(
-        "INSERT INTO EMPLEADOS (CODIGO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES ('F4_EMPLEADO','Persona','Prueba','1234567890101','1234567-9',DATE '1990-01-01','O','SOLTERO','Dirección temporal','55551234','f4empleado@example.test',:puesto,:departamento,:contrato,:centro,DATE '2026-01-01')",
+        "INSERT INTO EMPLEADOS (CODIGO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES ('F4_EMPLEADO','Persona','Prueba','1234567890101','1234567-9',DATE '1990-01-01','F','SOLTERO','Dirección temporal','55551234','f4empleado@example.test',:puesto,:departamento,:contrato,:centro,DATE '2026-01-01')",
         { puesto: puesto.body.data.id, departamento: dep.body.data.id, contrato, centro },
       );
       const empleado = Number(
@@ -1034,7 +1034,10 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         fechaNacimiento: '1995-05-15',
         sexo: 'F',
         estadoCivil: 'SOLTERO',
-        direccion: 'Dirección de prueba',
+        idDepartamentoGt: 1,
+        idMunicipioGt: 1,
+        zona: 1,
+        numeroCasa: '12-A',
         telefono: '55551234',
         correo: `f5_${n}@example.test`,
         ...refs,
@@ -1044,14 +1047,20 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         cuentaBancaria: '123456',
         tipoCuenta: 'AHORRO',
         contactoNombre: 'Contacto Familiar',
-        contactoParentesco: 'Hermana',
+        contactoParentesco: 'Hermano/a',
         contactoTelefono: '55554321',
         estado: 'ACTIVO',
-        generarUsuario: false,
       };
     };
-    const csvDe = (filas: Record<string, unknown>[]) =>
-      escribirCsv([Array.from(columnasCsv), ...filas.map((d) => columnasCsv.map((k) => d[k]))]);
+    const csvDe = async (filas: Record<string, unknown>[]) => {
+      const codigoHorario = await escalar('SELECT CODIGO FROM HORARIOS WHERE ID_HORARIO=:id', {
+        id: refs.idHorario,
+      });
+      return escribirCsv([
+        Array.from(columnasCsv),
+        ...filas.map((d) => columnasCsv.map((k) => (k === 'codigoHorario' ? codigoHorario : d[k]))),
+      ]);
+    };
     beforeAll(async () => {
       const { agent, csrf } = await entrarAdmin();
       const crear = async (slug: string, body: object) => {
@@ -1113,9 +1122,184 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       };
       const r = await agent.get('/api/empleados/reglas').expect(200);
       hoy = r.body.data.hoy;
+      await prepararFirmantePrueba(db, admin.idUsuario);
       await ejecutar(
         "INSERT INTO PARAMETROS_LEGALES (CODIGO,NOMBRE,VALOR,UNIDAD,VIGENTE_DESDE,FUNDAMENTO,MOTIVO) VALUES ('SALARIO_MINIMO_MENSUAL','Mínimo de prueba',6000,'QUETZALES',DATE '2026-01-01','Solo esquema de prueba','Prueba de advertencia')",
       );
+    });
+    it('V1-7: alta automática, K, reglas de contrato, ubicación y catálogo de parentescos', async () => {
+      const { agent, csrf } = await entrarCuenta('RH');
+      const parentescos = (await agent.get('/api/empleados/parentescos').expect(200)).body.data;
+      expect(parentescos.map((p: { value: string }) => p.value)).toEqual([
+        'Madre',
+        'Padre',
+        'Hermano/a',
+        'Esposo/a',
+        'Hijo/a',
+        'Abuelo/a',
+        'Tío/a',
+        'Primo/a',
+        'Cuñado/a',
+        'Suegro/a',
+        'Pareja/conviviente',
+        'Otro',
+      ]);
+      const crear = (d: object) => agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d);
+      const fijo = Number(
+        await escalar(
+          "SELECT ID_TIPO_CONTRATO FROM TIPOS_CONTRATO WHERE CODIGO_ANTERIOR='PLAZO_FIJO'",
+        ),
+      );
+      for (const cambio of [
+        { zona: null },
+        { idDepartamentoGt: 99999 },
+        { contactoParentesco: 'Texto libre' },
+        { idTipoContrato: fijo },
+        { fechaFinContrato: hoy },
+      ]) {
+        const r = await crear({ ...datos(), ...cambio });
+        expect([400, 409]).toContain(r.status);
+      }
+      await crear({ ...datos(), sexo: 'O' }).expect(400);
+      await crear({ ...datos(), nit: '6-0' }).expect(400);
+      const d = { ...datos(), nit: '6-K', idTipoContrato: fijo, fechaFinContrato: '2027-01-01' };
+      const n = await crear(d).expect(201);
+      expect(n.body.data.empleado.codigo).toMatch(/^EMP_.*_\d{4,}$/);
+      expect(n.body.data.empleado.idUsuario).toBe(n.body.data.credenciales.idUsuario);
+      expect(Buffer.from(n.body.data.pdfCredenciales, 'base64').subarray(0, 5).toString()).toBe(
+        '%PDF-',
+      );
+      const hash = String(
+        await escalar('SELECT CONTRASENA_HASH FROM USUARIOS WHERE ID_USUARIO=:id', {
+          id: n.body.data.credenciales.idUsuario,
+        }),
+      );
+      expect(hash).toMatch(/^\$argon2id\$/);
+      expect(hash).not.toContain(n.body.data.credenciales.contrasenaTemporal);
+      const e = await agent.get(`/api/empleados/${n.body.data.empleado.id}`).expect(200);
+      expect(e.text).not.toContain(n.body.data.credenciales.contrasenaTemporal);
+      expect(e.body.data.direccion).toBe('Casa 12-A, zona 1, Guatemala, Guatemala');
+    });
+    it('V1-7: si falla crear usuario revierte empleado, contacto, código y auditoría', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const d = datos();
+      const previo = await escalar(
+        "SELECT NVL(MAX(ULTIMO_NUMERO),0) FROM SECUENCIAS_CODIGOS WHERE ENTIDAD='empleados' AND AMBITO=:ambito",
+        { ambito: String(refs.idDepartamento) },
+      );
+      await ejecutar(
+        `CREATE OR REPLACE TRIGGER V17_FALLAR_USUARIO BEFORE INSERT ON USUARIOS FOR EACH ROW BEGIN IF :NEW.CORREO='${d.correo}' THEN RAISE_APPLICATION_ERROR(-20047,'Fallo controlado'); END IF; END;`,
+      );
+      try {
+        await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(500);
+        expect(
+          await escalar('SELECT COUNT(*) FROM EMPLEADOS WHERE CORREO=:correo', {
+            correo: d.correo,
+          }),
+        ).toBe(0);
+        expect(
+          await escalar('SELECT COUNT(*) FROM USUARIOS WHERE CORREO=:correo', { correo: d.correo }),
+        ).toBe(0);
+        expect(
+          await escalar(
+            "SELECT NVL(MAX(ULTIMO_NUMERO),0) FROM SECUENCIAS_CODIGOS WHERE ENTIDAD='empleados' AND AMBITO=:ambito",
+            { ambito: String(refs.idDepartamento) },
+          ),
+        ).toBe(previo);
+      } finally {
+        await ejecutar('DROP TRIGGER V17_FALLAR_USUARIO');
+      }
+    });
+    it('V1-7: carga automática entrega un único PDF de dos páginas y nunca persiste claves', async () => {
+      const { agent, csrf } = await entrarCuenta('RH');
+      const ds = [datos(), datos()];
+      const csv = await csvDe(ds);
+      const p = await agent
+        .post('/api/empleados/cargas')
+        .set('X-CSRF-Token', csrf)
+        .send({ nombreArchivo: 'v17.csv', csv })
+        .expect(201);
+      expect(
+        p.body.data.filas.every((f: { errores: object }) => Object.keys(f.errores).length === 0),
+      ).toBe(true);
+      const ruta = `/api/empleados/cargas/${p.body.data.id}/confirmar`;
+      const n = await agent
+        .post(ruta)
+        .set('X-CSRF-Token', csrf)
+        .send({ modalidad: 'TODO_O_NADA', confirmado: true })
+        .expect(200);
+      expect(n.headers['cache-control']).toBe('no-store');
+      expect(n.body.data.importadas).toBe(2);
+      expect(n.body.data.credenciales).toHaveLength(2);
+      expect(Buffer.from(n.body.data.pdfCredenciales, 'base64').toString('latin1')).toContain(
+        '/Count 2',
+      );
+      for (const cred of n.body.data.credenciales) {
+        expect(
+          await escalar(
+            'SELECT COUNT(*) FROM BITACORA_AUDITORIA WHERE DBMS_LOB.INSTR(VALORES_NUEVOS,:clave)>0 OR DBMS_LOB.INSTR(VALORES_ANTERIORES,:clave)>0',
+            { clave: cred.contrasenaTemporal },
+          ),
+        ).toBe(0);
+        expect(
+          await escalar(
+            'SELECT COUNT(*) FROM CARGA_MASIVA_FILAS WHERE DBMS_LOB.INSTR(DATOS,:clave)>0',
+            { clave: cred.contrasenaTemporal },
+          ),
+        ).toBe(0);
+      }
+      await agent
+        .post(ruta)
+        .set('X-CSRF-Token', csrf)
+        .send({ modalidad: 'TODO_O_NADA', confirmado: true })
+        .expect(409);
+      const mal = await agent
+        .post('/api/empleados/cargas')
+        .set('X-CSRF-Token', csrf)
+        .send({
+          nombreArchivo: 'mal.csv',
+          csv: csv.replaceAll(
+            String(
+              await escalar('SELECT CODIGO FROM HORARIOS WHERE ID_HORARIO=:id', {
+                id: refs.idHorario,
+              }),
+            ),
+            'NO_EXISTE',
+          ),
+        })
+        .expect(201);
+      expect(mal.body.data.filas[0].errores.codigoHorario).toBeTruthy();
+    });
+    it('V1-7: RH y ADMIN restablecen una temporal; revoca sesiones y exige primer cambio', async () => {
+      const a = await entrarCuenta('RH');
+      const n = await a.agent
+        .post('/api/empleados')
+        .set('X-CSRF-Token', a.csrf)
+        .send(datos())
+        .expect(201);
+      let cred = n.body.data.credenciales;
+      for (const actor of [a, await entrarAdmin()]) {
+        const sesion = await entrar(cred.usuario, cred.contrasenaTemporal);
+        const r = await actor.agent
+          .post(`/api/empleados/${n.body.data.empleado.id}/restablecer-contrasena`)
+          .set('X-CSRF-Token', actor.csrf)
+          .send({ motivo: 'Credenciales extraviadas' })
+          .expect(200);
+        expect(r.body.data.credenciales.contrasenaTemporal).not.toBe(cred.contrasenaTemporal);
+        expect(Buffer.from(r.body.data.pdfCredenciales, 'base64').subarray(0, 5).toString()).toBe(
+          '%PDF-',
+        );
+        await sesion.agent.get('/api/auth/sesion').expect(401);
+        const login = await entrar(cred.usuario, r.body.data.credenciales.contrasenaTemporal);
+        await login.agent.get('/api/empleados').expect(403);
+        cred = r.body.data.credenciales;
+      }
+      const empleado = await entrarCuenta();
+      await empleado.agent
+        .post(`/api/empleados/${n.body.data.empleado.id}/restablecer-contrasena`)
+        .set('X-CSRF-Token', empleado.csrf)
+        .send({ motivo: 'Intento ajeno' })
+        .expect(403);
     });
     it('deniega empleado, CSRF ausente y acceso sin sesión', async () => {
       await request(app).get('/api/empleados').expect(401);
@@ -1230,15 +1414,16 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
     });
     it('usuario con sufijo, cambio obligatorio y baja que revoca sesiones', async () => {
       const { agent, csrf } = await entrarCuenta('RH');
-      const d = { ...datos(), generarUsuario: true };
+      const d = { ...datos() };
       const a = await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(201);
       const b = await agent
         .post('/api/empleados')
         .set('X-CSRF-Token', csrf)
-        .send({ ...datos(), generarUsuario: true })
+        .send({ ...datos() })
         .expect(201);
-      expect(a.body.data.credenciales.usuario).toBe('ana.prueba');
-      expect(b.body.data.credenciales.usuario).toBe('ana.prueba2');
+      expect(a.body.data.credenciales.usuario).toMatch(/^ana\.prueba\d*$/);
+      expect(b.body.data.credenciales.usuario).toMatch(/^ana\.prueba\d+$/);
+      expect(b.body.data.credenciales.usuario).not.toBe(a.body.data.credenciales.usuario);
       const cred = a.body.data.credenciales;
       const empleado = await entrar(cred.usuario, cred.contrasenaTemporal);
       await empleado.agent.get('/api/empleados').expect(403);
@@ -1303,7 +1488,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
     });
     it('rollback de alta y cambio salarial si falla auditoría', async () => {
       const { agent, csrf } = await entrarAdmin();
-      const d = { ...datos(), generarUsuario: true };
+      const d = { ...datos() };
       const n = await agent
         .post('/api/empleados')
         .set('X-CSRF-Token', csrf)
@@ -1350,12 +1535,12 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
     });
     it('carga: vista previa por fila, propiedad, todo o nada, solo válidas y reporte sin claves', async () => {
       const { agent, csrf } = await entrarCuenta('RH');
-      const valida = { ...datos(), generarUsuario: true },
+      const valida = { ...datos() },
         invalida = { ...datos(), telefono: '12' };
       const p = await agent
         .post('/api/empleados/cargas')
         .set('X-CSRF-Token', csrf)
-        .send({ nombreArchivo: 'empleados.csv', csv: csvDe([valida, invalida]) })
+        .send({ nombreArchivo: 'empleados.csv', csv: await csvDe([valida, invalida]) })
         .expect(201);
       const id = p.body.data.id as number;
       expect(p.body.data.filas[1].errores).toHaveProperty('telefono');
@@ -1395,7 +1580,10 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       const dup = await agent
         .post('/api/empleados/cargas')
         .set('X-CSRF-Token', csrf)
-        .send({ nombreArchivo: 'duplicados.csv', csv: csvDe([d, { ...datos(), dpi: d.dpi }]) })
+        .send({
+          nombreArchivo: 'duplicados.csv',
+          csv: await csvDe([d, { ...datos(), dpi: d.dpi }]),
+        })
         .expect(201);
       expect(
         dup.body.data.filas.every((f: { errores: Record<string, unknown> }) => f.errores.dpi),
@@ -1403,7 +1591,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       const p = await agent
         .post('/api/empleados/cargas')
         .set('X-CSRF-Token', csrf)
-        .send({ nombreArchivo: 'cambio.csv', csv: csvDe([d]) })
+        .send({ nombreArchivo: 'cambio.csv', csv: await csvDe([d]) })
         .expect(201);
       await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(201);
       await agent
@@ -1414,14 +1602,11 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
     });
     it('carga revierte todo el lote y usuarios cuando la última fila falla', async () => {
       const { agent, csrf } = await entrarAdmin();
-      const ds = [
-        { ...datos(), generarUsuario: true },
-        { ...datos(), generarUsuario: true },
-      ];
+      const ds = [{ ...datos() }, { ...datos() }];
       const p = await agent
         .post('/api/empleados/cargas')
         .set('X-CSRF-Token', csrf)
-        .send({ nombreArchivo: 'rollback.csv', csv: csvDe(ds) })
+        .send({ nombreArchivo: 'rollback.csv', csv: await csvDe(ds) })
         .expect(201);
       const id = p.body.data.id as number;
       await ejecutar(
@@ -1475,7 +1660,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         const r = await agent
           .post('/api/empleados')
           .set('X-CSRF-Token', csrf)
-          .send({ ...datos(), generarUsuario: true })
+          .send({ ...datos() })
           .expect(201);
         idEmpleado = r.body.data.empleado.id;
         cuenta = r.body.data.credenciales;
@@ -1728,7 +1913,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         const nuevo = await a.agent
           .post('/api/empleados')
           .set('X-CSRF-Token', a.csrf)
-          .send({ ...datos(), generarUsuario: true })
+          .send({ ...datos() })
           .expect(201);
         const id = nuevo.body.data.empleado.id,
           cred = nuevo.body.data.credenciales;
@@ -2359,7 +2544,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         ['F8_OTRO', null, '1234598-3'],
       ] as const) {
         await ejecutar(
-          "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,'Persona','Prueba',:dpi,:nit,:igss,DATE '1995-01-01','O','SOLTERO','Dirección F8','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2099-01-01')",
+          "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,'Persona','Prueba',:dpi,:nit,:igss,DATE '1995-01-01','F','SOLTERO','Dirección F8','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2099-01-01')",
           {
             codigo,
             usuario,

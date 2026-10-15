@@ -101,7 +101,7 @@ await enTransaccion(db, async (c) => {
   );
   for (const i of [1, 2]) {
     await c.execute(
-      "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'E2E',:dpi,:nit,:igss,DATE '1995-01-01','O','SOLTERO','Dirección E2E','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
+      "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'E2E',:dpi,:nit,:igss,DATE '1995-01-01','F','SOLTERO','Dirección E2E','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
       {
         codigo: `E2E_${i}`,
         usuario: cuentas[i]!.idUsuario,

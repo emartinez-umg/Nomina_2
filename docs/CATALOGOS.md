@@ -176,3 +176,11 @@ Cambiar límites utiliza el flujo motivado/confirmado por vigencia de Parámetro
 Los metadatos de un histórico pueden editarse conservando sus minutos exactos. Un duplicado debe
 ajustarse a las nuevas opciones antes de guardarse. Los patrones asignados siguen siendo inmutables;
 selecciona un nuevo horario desde Empleados con la fecha efectiva requerida.
+
+## V1-7 — Contratos y parentescos
+
+La opción Requiere fecha de fin escribe REQUIERE_FECHA_FIN, que la API de opciones de empleado
+expone junto al contrato. Indefinido queda sin fecha; plazo fijo y obra determinada requieren fin
+posterior al ingreso. REQUIERE_FIN conserva compatibilidad sincronizada por trigger.
+PARENTESCOS es un catálogo de lectura con las doce opciones A8, servido en /api/empleados/parentescos.
+Los textos históricos se conservan como referencia; el siguiente guardado exige seleccionar una opción.

@@ -624,3 +624,107 @@ Estado: completada el 15/10/2026. Rama `v1`, alcance A7 solicitado.
    `npm run db:verify`; `npm run verify:horarios`; `npm run verify:security`;
    `npm run verify:prestaciones`; `npm run test:e2e -- --grep 'FASE V1-6'`;
    `npm run verify:infra`. Las suites Oracle usan esquemas temporales y conviene correrlas en secuencia.
+
+## FASE V1-7 — Alta y edición automatizadas de empleados
+
+Estado: completada el 15/10/2026. Rama `v1`, alcance A8.
+
+### Hecho
+
+- Leídos AGENTS.md completo con adendo y progreso v1. Inicio con árbol limpio; V000–V024 intactas.
+- V025 agrega residencia INE, zona, vivienda y DIRECCION_ANTERIOR sin asignar ubicaciones ficticias.
+  Conserva SEXO_ANTERIOR; antiguos O quedan pendientes de revisión, sin reinterpretarlos como M/F.
+  PARENTESCOS contiene las doce opciones A8, identity ALWAYS, auditoría e índices de FK/filtros.
+  Contactos conservan PARENTESCO_ANTERIOR; el siguiente guardado exige una opción válida del catálogo.
+- REQUIERE_FECHA_FIN es la bandera operativa de contrato. REQUIERE_FIN queda como alias sincronizado
+  para seeds/herramientas anteriores. Obra determinada requiere fin en nuevas escrituras; los datos
+  históricos permanecen íntegros. FK compuesta impide cruzar municipio/departamento, CHECK valida zona/casa.
+- Alta y edición reutilizan CampoCodigo, UbicacionSelect, ZonaSelect, NitField y ConstructorHorario.
+  Código automático por departamento y de solo lectura; no cambia al editar. Residencia reemplaza texto
+  libre; edición muestra dirección previa como referencia. Guatemala/Guatemala predeterminados solo en alta.
+  Cambio de departamento laboral limpia puesto/jefatura. Sexo solo Masculino/Femenino; parentesco buscable
+  desde API real. Fecha de ingreso comienza en hoy de Guatemala, conservando las reglas previas.
+- Contrato con plazo exige fin posterior al ingreso; indefinido bloquea/vacía el campo con explicación.
+  Cambiar el tipo ajusta automáticamente el formulario. Frontend/backend aplican NIT módulo 11/K y el
+  mensaje solicitado. Selección de horario o creación inline conserva el expediente y selecciona el ID real.
+- Guardar crea empleado, contacto, usuario EMPLEADO, salario, horario y auditoría en una transacción.
+  Eliminada la generación opcional de acceso. Usuario nombre.apellido con sufijos seguros, contraseña
+  aleatoria de 24 caracteres, hash argon2id y cambio obligatorio. Fallar usuario revierte también código.
+- PDF de credenciales membretado con la utilidad de V1-5, generado antes del commit y devuelto únicamente
+  en la respuesta de alta/importación/restablecimiento. No se archivan PDF, contraseña ni token de descarga.
+  Respuestas privadas no-store. Credenciales/PDF permanecen solo en estado de React fuera de Query/RHF/drafts.
+  Modal exige copiar/descargar y marcar confirmación para cerrar; Escape/Cerrar la respetan. PDF descargable
+  una sola vez; un lote genera un único PDF de una página por empleado. Cierre descarta el estado en memoria.
+- RH/ADMIN puede restablecer una cuenta EMPLEADO activa desde la ficha, con motivo/revisión/confirmación.
+  Revoca sesiones, invalida la anterior y exige primer cambio. Cuentas RH/ADMIN se administran en Usuarios;
+  no se amplían sus permisos. Cada nueva temporal tiene su entrega privada y PDF.
+- CSV nuevo de 30 columnas sin código/usuario/bandera de generación, con residencia validada, sexo M/F,
+  parentesco de catálogo y horario por código. Vista previa, revalidación al confirmar, propiedad, modalidades
+  todo o nada/solo válidas y reporte sin secretos conservados. No se puede repetir una carga importada.
+- Borrador de empleado versión 7, sección/restauración y limpieza al éxito. Borrador de motivo de reset
+  sin secretos. Hints/recorridos de alta, edición, carga, ficha, restablecimiento y credenciales actualizados.
+  Ayuda de modales usa proveedor propio. Se reutilizan los tokens visuales del mockup.
+- README, EMPLEADOS, FRONTEND, CATALOGOS, ERD y manifiesto de filtros actualizados; verify:empleados
+  prueba migración con datos anteriores y se incorpora a verify:all. El portal mantiene su contrato de
+  contacto v0: DIRECCION derivada permite compatibilidad documental; no se cambió su flujo en esta fase.
+
+### Validación realizada
+
+- Node 20.20.2: lint, TypeScript strict de backend/frontend/E2E, builds y Prettier aprobados.
+- 481 unitarias aprobadas: 267 backend y 214 frontend. Casos NIT válidos/inválidos/K, sexo, casa/zona,
+  fin posterior, contratos condicionales, hoy predeterminado, máscara K, cierre confirmado y PDF único.
+- Dos pruebas Oracle de migración aprobadas: conserva dirección/sexo/parentesco/código, catálogo de doce,
+  contratos sincronizados, seeds repetibles e idempotencia. db:verify V000–V025 aprobado: 62 tablas,
+  identities, CHECK, UNIQUE, auditoría, FKs indexadas y cero objetos inválidos.
+- Regresión Oracle con Node 20 de seguridad/catálogos/empleados/novedades/vacaciones/nómina: 76 aprobadas.
+  Incluye alta con K, controles de ubicación/contrato/parentesco, fallo de usuario y restablecimiento
+  RH/ADMIN con sesiones revocadas. Añadido caso de lote de dos empleados/PDF de dos páginas y ausencia
+  de contraseñas en filas/auditoría, aprobado. Regresión de solicitudes: 18 aprobadas; prestaciones,
+  finiquitos y constancias: diez. Esquemas temporales retirados al terminar.
+- 21 E2E aprobados con Node 20 y API/Oracle reales (2.7 minutos): alta, contrato condicional, edición con código inmutable,
+  entrega única y restablecimiento. Incluye recorrido, teclado, 390 px y axe A/AA sin infracciones.
+  Captura de formulario móvil inspeccionada en tmp/pdfs/empleado-v1-7-movil.png (ignorada por Git).
+  La regresión completa incluye importación de dos filas/un solo PDF, matriz de páginas/roles,
+  borradores, móvil, ayuda, horarios, firma/membrete, documentos y cálculo/cierre de nómina.
+- Docker local reconstruido con Node 20 y V025 aplicada: antes/después dos empleados, cuatro usuarios
+  y dos asignaciones; doce parentescos y cero objetos inválidos. Volumen y credenciales conservados.
+  verify:infra aprobado para API/Oracle/nginx, rutas/assets de React y worker PDF.
+
+### Decisiones y supuestos
+
+- La entrega única se implementa en la respuesta original y memoria del navegador, sin endpoint para
+  recuperar secretos ni almacenamiento temporal del servidor. Ante pérdida/red/recarga se restablece una
+  temporal nueva, auditada. La configuración real de empresa es requisito antes del alta/importación
+  para asegurar el PDF membretado; si falta, toda la transacción queda sin cambios.
+- DIRECCION se deriva de casa/zona/municipio/departamento para consumidores existentes, manteniendo
+  DIRECCION_ANTERIOR intacta. Históricos sin ubicación o con sexo/parentesco fuera del catálogo requieren
+  revisión humana al editar. No se inventan domicilios, sexos ni vínculos de usuario históricos.
+- Actualizadas fixtures a usuario automático y dirección estructurada, M/F y parentesco de catálogo.
+  En CSV usan el código real del horario. Conteos de migraciones reflejan V025 sin editar SQL anteriores.
+  La fixture de firma reactiva únicamente su ficha sintética tras el aislamiento de nómina; fórmulas
+  y expectativas financieras/RBAC permanecen intactas. El permiso de portapapeles se concede al navegador
+  E2E para probar la copia; si el usuario lo bloquea, el modal orienta hacia descargar PDF.
+- Oracle agotó el disco durante pruebas. Se liberaron 2.912 GB exclusivamente de caché Docker no utilizada;
+  contenedores, imágenes, volúmenes y datos conservados. Los dos esquemas desechables de estas ejecuciones
+  cuya limpieza falló se identificaron por nombre/fecha y se retiraron. Pruebas Oracle posteriores en secuencia.
+
+### Pendientes
+
+- Ningún pendiente técnico del criterio de aceptación de V1-7. A9–A12 reservadas para sus fases.
+- Operación: completar empresa real para el membrete; revisar residencia/sexo/parentesco históricos
+  al editar. Cargas validadas con la cabecera v0 deben descargarse/prepararse de nuevo con la plantilla v1.
+
+### Cómo probar
+
+1. `docker compose up --build`; ingresar como RH/ADMIN, completar Configuración → Empresa.
+2. Personal → Empleados → Nuevo: revisar hoy, ubicación predeterminada, código al elegir departamento,
+   NIT 6-K/válido e inválido, sexo M/F, parentesco, contrato con plazo/indefinido y horario inline.
+3. Guardar: copiar o descargar el PDF, comprobar única descarga y cierre bloqueado sin confirmación.
+   Primer login exige cambio. Editar conserva código, valida residencia/contrato y pide motivo.
+4. Ficha → Restablecer contraseña: motivo, revisión y confirmación; entrega nueva temporal, revoca
+   sesiones y exige primer cambio. EMPLEADO no accede a estas operaciones.
+5. Carga masiva: descargar plantilla nueva de 30 columnas, usar IDs/código de horario reales, validar,
+   corregir errores, importar una vez y guardar el único PDF del lote; reporte no contiene contraseñas.
+6. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:empleados`; `npm run verify:security`;
+   `npm run verify:solicitudes`; `npm run verify:prestaciones`; `npm run test:e2e`.

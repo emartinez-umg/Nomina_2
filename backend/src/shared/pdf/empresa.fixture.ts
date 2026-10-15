@@ -13,6 +13,10 @@ export async function prepararFirmantePrueba(db: BaseDatos, usuario: number) {
         correo: `firmante${usuario}@example.test`,
       },
     );
+    await c.execute(
+      "UPDATE EMPLEADOS SET ACTIVO=1 WHERE ID_USUARIO=:usuario AND NOMBRES='ZZ Firmante' AND APELLIDOS='Pruebas'",
+      { usuario },
+    );
     const r = await c.execute<unknown[]>(
       'SELECT COUNT(*) FROM CONFIGURACION_EMPRESA WHERE ACTIVO=1',
     );

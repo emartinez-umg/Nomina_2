@@ -11,14 +11,22 @@ export const tipos = [
 export const tipoSchema = z.enum(tipos);
 export const estados = z.enum(['EN_PROCESO', 'APROBADA', 'RECHAZADA', 'ENTREGADA']);
 const expediente = crearEmpleadoSchema.innerType();
-export const contactoSchema = expediente.pick({
-  telefono: true,
-  direccion: true,
-  correo: true,
-  contactoNombre: true,
-  contactoParentesco: true,
-  contactoTelefono: true,
-});
+export const contactoSchema = expediente
+  .pick({
+    telefono: true,
+    correo: true,
+    contactoNombre: true,
+    contactoParentesco: true,
+    contactoTelefono: true,
+  })
+  .extend({
+    direccion: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .regex(/^\P{Cc}*$/u, 'No uses caracteres de control.'),
+  });
 export const criticosSchema = expediente.pick({
   nombres: true,
   apellidos: true,

@@ -145,7 +145,7 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
       ),
       contrato = await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO');
     await ejecutar(
-      "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES ('F9',:usuario,'Persona','Prestaciones','9876543210123','1234567-9',DATE '1995-01-01','O','SOLTERO','Dirección','55551234','empleado@example.test',:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
+      "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES ('F9',:usuario,'Persona','Prestaciones','9876543210123','1234567-9',DATE '1995-01-01','F','SOLTERO','Dirección','55551234','empleado@example.test',:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
       {
         usuario: cuenta.idUsuario,
         puesto: Number(puesto),

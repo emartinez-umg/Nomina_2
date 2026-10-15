@@ -349,7 +349,7 @@ export const catalogos: Catalogo[] = [
       nombre(),
       campo(
         'requiereFin',
-        'REQUIERE_FIN',
+        'REQUIERE_FECHA_FIN',
         'Requiere fecha de fin',
         'booleano',
         'Actívalo para contratos que deben tener fecha de finalización.',

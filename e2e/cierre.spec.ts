@@ -10,6 +10,7 @@ async function oferta(page: Page) {
   if (await b.isVisible()) await b.click();
 }
 async function entrar(page: Page, rol: 'ADMIN' | 'RH' | 'EMPLEADO') {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/login');
   await oferta(page);
   await page
@@ -216,7 +217,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       await page.keyboard.press('Escape');
       await expect(buscar).toBeFocused();
     });
-  test('alta guiada de empleado y validaciones de formato/fechas', async ({ page }) => {
+  test('FASE V1-7: alta guiada de empleado y validaciones de formato/fechas', async ({ page }) => {
     await entrar(page, 'RH');
     await page.goto('/empleados/nuevo');
     await oferta(page);
@@ -233,22 +234,165 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await page.getByLabel('Fecha de nacimiento', { exact: true }).fill('01/01/1995');
     await elegir(page, 'Sexo', 'Femenino');
     await elegir(page, 'Estado civil', 'SOLTERO');
-    await page.getByLabel('Dirección', { exact: true }).fill('Dirección de pruebas E2E');
+    await elegir(page, 'Zona', 'Zona 1');
+    await page.getByLabel('Número de casa/vivienda', { exact: true }).fill('12-A');
     await page.getByLabel('Teléfono', { exact: true }).fill('55552222');
     await page.getByLabel('Correo', { exact: true }).fill('alta@example.test');
     await elegir(page, 'Departamento', 'Departamento E2E');
     await elegir(page, 'Puesto', 'Analista E2E');
+    await expect(page.getByLabel('Fecha de ingreso', { exact: true })).toHaveValue(visible(hoy));
+    await elegir(page, 'Tipo de contrato', 'A plazo fijo');
+    await expect(page.getByLabel('Fin de contrato', { exact: true })).toBeEnabled();
+    await page.getByLabel('Fin de contrato', { exact: true }).fill('01/01/2027');
     await elegir(page, 'Tipo de contrato', 'Por tiempo indefinido');
+    await expect(page.getByLabel('Fin de contrato', { exact: true })).toBeDisabled();
+    await expect(page.getByLabel('Fin de contrato', { exact: true })).toHaveValue('');
     await elegir(page, 'Centro de trabajo', 'Centro E2E');
     await elegir(page, 'Horario', 'Horario E2E');
     await page.getByLabel('Fecha de ingreso', { exact: true }).fill(visible(hoy));
     await page.getByLabel('Salario base mensual', { exact: true }).fill('5000');
     await page.getByLabel('Nombre del contacto', { exact: true }).fill('Contacto Prueba');
-    await page.getByLabel('Parentesco', { exact: true }).fill('Hermana');
+    await elegir(page, 'Parentesco', 'Hermano/a');
     await page.getByLabel('Teléfono de emergencia', { exact: true }).fill('55553333');
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    const accesibilidad = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(accesibilidad.violations.map((v) => v.id)).toEqual([]);
+    await mkdir('tmp/pdfs', { recursive: true });
+    await page.screenshot({ path: 'tmp/pdfs/empleado-v1-7-movil.png', fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('button', { name: 'Guardar empleado', exact: true }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cerrar entrega', exact: true })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(
+      page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
+    ).toBeVisible();
+    const descargaCredenciales = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Descargar PDF', exact: true }).click();
+    expect((await descargaCredenciales).suggestedFilename()).toBe('credenciales-temporales.pdf');
+    await expect(page.getByRole('button', { name: 'Descargar PDF', exact: true })).toBeDisabled();
+    await tour(page, true);
+    await page.bringToFront();
+    await page.getByRole('button', { name: 'Copiar credenciales', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Credenciales copiadas.' }),
+    ).toBeVisible();
+    await page.getByLabel('Ya copié o descargué las credenciales').check();
+    await page.getByRole('button', { name: 'Cerrar entrega', exact: true }).click();
     await expect(page).toHaveURL(/\/empleados\/\d+$/);
     await expect(page.getByText('Nueva Persona Prueba', { exact: false }).first()).toBeVisible();
+    const id = Number(page.url().split('/').pop());
+    const previo = (await (await page.request.get(`/api/empleados/${id}`)).json()).data;
+    await page.getByRole('button', { name: 'Editar', exact: true }).click();
+    await oferta(page);
+    await expect(page.getByLabel('Código', { exact: true })).toHaveValue(previo.codigo);
+    await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+      'Guatemala',
+    );
+    await page.getByLabel('Número de casa/vivienda', { exact: true }).fill('12-B');
+    await page
+      .getByLabel('Motivo de edición', { exact: true })
+      .fill('Corrección de vivienda del empleado');
+    await page.getByRole('button', { name: 'Guardar empleado', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/empleados/${id}$`));
+    const posterior = (await (await page.request.get(`/api/empleados/${id}`)).json()).data;
+    expect(posterior.codigo).toBe(previo.codigo);
+    expect(posterior.numeroCasa).toBe('12-B');
+    await page.getByRole('button', { name: 'Restablecer contraseña', exact: true }).click();
+    await page
+      .getByLabel('Motivo del restablecimiento', { exact: true })
+      .fill('Entrega de credencial nueva solicitada');
+    await page.getByRole('button', { name: 'Revisar restablecimiento', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar restablecimiento', exact: true }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
+    ).toBeVisible();
+    await page.bringToFront();
+    await page.getByRole('button', { name: 'Copiar credenciales', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Credenciales copiadas.' }),
+    ).toBeVisible();
+    await page.getByLabel('Ya copié o descargué las credenciales').check();
+    await page.getByRole('button', { name: 'Cerrar entrega', exact: true }).click();
+  });
+  test('FASE V1-7: CSV automatizado y un solo PDF privado del lote', async ({ page }) => {
+    await entrar(page, 'RH');
+    const lista = (await (await page.request.get('/api/empleados?nombre=Persona%20E2E')).json())
+      .data;
+    const base = (await (await page.request.get(`/api/empleados/${lista.registros[0].id}`)).json())
+      .data;
+    const municipios = (await (await page.request.get('/api/ubicaciones/municipios')).json()).data;
+    const lugar = municipios.find((m: { codigo: string }) => m.codigo === '0101');
+    const horario = (
+      await (await page.request.get(`/api/catalogos/horarios/${base.idHorario}`)).json()
+    ).data;
+    const plantilla = (await (await page.request.get('/api/empleados/cargas/plantilla')).json())
+      .data as string;
+    const encabezado = plantilla.replace(/^\uFEFF/, '').split('\r\n')[0]!;
+    const columnas = encabezado.split(',').map((v) => v.replaceAll('"', ''));
+    const filas = [
+      { nombres: 'Carga', dpi: '3456789012345', nit: '6-K', sexo: 'F' },
+      { nombres: 'Otra', dpi: '3456789012346', nit: '12-4', sexo: 'M' },
+    ].map(
+      (d, index) =>
+        ({
+          ...base,
+          ...d,
+          apellidos: 'Masiva',
+          correo: `masiva${index}@example.test`,
+          afiliacionIgss: null,
+          idDepartamentoGt: lugar.idDepartamentoGt,
+          idMunicipioGt: lugar.id,
+          zona: 1,
+          numeroCasa: '13-A',
+          codigoHorario: horario.codigo,
+          fechaIngreso: hoy,
+          fechaFinContrato: null,
+          contactoNombre: 'Contacto Masiva',
+          contactoParentesco: 'Madre',
+          contactoTelefono: '55554321',
+        }) as Record<string, unknown>,
+    );
+    const csv = [
+      encabezado,
+      ...filas.map((d) =>
+        columnas.map((k) => `"${String(d[k] ?? '').replaceAll('"', '""')}"`).join(','),
+      ),
+    ].join('\r\n');
+    await page.goto('/empleados/carga-masiva');
+    await oferta(page);
+    await page
+      .locator('input[name="csv"]')
+      .setInputFiles({ name: 'v17.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+    await page.getByRole('button', { name: 'Validar y ver vista previa', exact: true }).click();
+    await expect(
+      page.getByText('2 filas · 2 válidas · 0 con errores.', { exact: false }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Importar empleados', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    const entrega = page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' });
+    await expect(entrega).toBeVisible();
+    await expect(entrega.getByRole('row')).toHaveCount(3);
+    const descarga = page.waitForEvent('download');
+    await entrega.getByRole('button', { name: 'Descargar PDF', exact: true }).click();
+    await descarga;
+    await expect(
+      entrega.getByRole('button', { name: 'Descargar PDF', exact: true }),
+    ).toBeDisabled();
+    await entrega.getByLabel('Ya copié o descargué las credenciales').check();
+    await entrega.getByRole('button', { name: 'Cerrar entrega', exact: true }).click();
+    await expect(page.getByText('Importación completada', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Descargar reporte de resultados', exact: true }),
+    ).toBeVisible();
   });
   test('solicitud de vacaciones, aprobación RH y descuento propio', async ({ browser }) => {
     const empleado = await browser.newContext(),
@@ -372,7 +516,13 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await expect(
       page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Ya las guardé · cerrar', exact: true }).click();
+    await page.bringToFront();
+    await page.getByRole('button', { name: 'Copiar credenciales', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Credenciales copiadas.' }),
+    ).toBeVisible();
+    await page.getByLabel('Ya copié o descargué las credenciales').check();
+    await page.getByRole('button', { name: 'Cerrar entrega', exact: true }).click();
     await expect(page.getByRole('row').filter({ hasText: 'julia.accesos' })).toHaveCount(1);
     const sinCsrf = await page.request.post('/api/usuarios', { data: {} });
     expect(sinCsrf.status()).toBe(403);

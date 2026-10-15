@@ -62,7 +62,7 @@ TLS en un proxy administrado; renueva el certificado antes de su vencimiento. La
    documentos en Solicitudes. Configura departamentos, puestos, centros y horarios laborales reales.
    ADMIN debe usar **Usuarios → Vincular ficha de firmante** para asociar cada cuenta RH/ADMIN con
    su expediente real y puesto activo. Sin nombre completo y cargo se bloquean las aprobaciones.
-4. RH crea expedientes en **Empleados**, con usuario EMPLEADO opcional vinculado al expediente.
+4. RH crea expedientes en **Empleados**, con usuario EMPLEADO creado automáticamente en la misma transacción.
    También puede importar hasta 100 filas CSV con vista previa y confirmación. No hay cuentas RH ni
    empleados de demostración sembrados en la aplicación.
 5. RH valida parámetros y conceptos legales con vigencia, feriados y configuración IGSS patronal.
@@ -245,7 +245,7 @@ Las constancias de salario conservan su PDF y aprobación en una tabla privada.
 `npm run verify:empresa` prueba migración, permisos, logos, concurrencia y rollback en un esquema
 desechable; `npm run verify:solicitudes` cubre firma/entrega/reemisión y `npm run test:e2e -- --grep
 'FASE V1-5'` comprueba configuración, borrador, logo, móvil y entrega con API/Oracle reales.
-La utilidad de credenciales solo trabaja en memoria y queda lista para V1-7, sin endpoint nuevo.
+El alta individual y masiva usa la utilidad de credenciales en memoria de V1-7; ningún PDF de acceso se archiva en el servidor.
 
 ### Horarios por bloques (V1-6)
 
@@ -255,3 +255,16 @@ Parámetros legales. Desde **Empleados**, Crear horario personalizado abre el mi
 sin perder el expediente. Vacaciones excluye descansos/feriados y horas extra usa las horas efectivas.
 `docker compose up --build` aplica V024 conservando los tiempos y asignaciones anteriores.
 Pruebas específicas: `npm run verify:horarios` y `npm run test:e2e -- --grep 'FASE V1-6'`.
+
+### Empleados automatizados (V1-7)
+
+Alta y edición usan código de solo lectura, NIT módulo 11/K, residencia INE con zona/casa,
+sexo Masculino/Femenino, parentesco de catálogo y horario seleccionable o creado en el mismo formulario.
+Ingreso comienza en hoy. El tipo de contrato determina si fin es obligatorio o queda bloqueado/vacío.
+Guardar crea empleado y cuenta juntos; copia o descarga el PDF membretado de credenciales y confirma
+la entrega antes de cerrar. RH/ADMIN puede restablecer una temporal desde la ficha del empleado.
+La carga masiva usa 30 columnas, horario por código, códigos/usuarios automáticos y un único PDF
+con una página por empleado y una sola descarga. Descarga una plantilla nueva después de actualizar.
+`docker compose up --build` aplica V025 conservando referencias históricas. Completa primero empresa
+para emitir las credenciales membretadas. Pruebas: `npm run verify:empleados`, `npm run verify:security`
+y `npm run test:e2e -- --grep 'FASE V1-7'`. Detalle en [Empleados](docs/EMPLEADOS.md).

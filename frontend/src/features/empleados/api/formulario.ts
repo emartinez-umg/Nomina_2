@@ -9,6 +9,7 @@ import {
   validarNacimiento,
   validarIngreso,
   fechaValida,
+  hoyGuatemala,
 } from '../../../lib/validadores';
 import type { Empleado, Reglas } from './empleados';
 export interface CampoEmpleado {
@@ -99,7 +100,7 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         label: 'Sexo',
         tipo: 'opcion',
         hint: 'Selecciona el dato del expediente.',
-        opciones: ['F', 'M', 'O'],
+        opciones: ['F', 'M'],
         required: true,
         ancho: 'corto',
       },
@@ -112,13 +113,34 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         required: true,
       },
       {
-        nombre: 'direccion',
-        label: 'Dirección',
-        tipo: 'area',
-        hint: 'Dirección completa de residencia, hasta 500 caracteres.',
-        max: 500,
+        nombre: 'idDepartamentoGt',
+        label: 'Departamento de Guatemala',
+        tipo: 'referencia',
+        hint: 'Departamento geográfico del catálogo oficial del INE.',
         required: true,
-        ancho: 'ancho',
+      },
+      {
+        nombre: 'idMunicipioGt',
+        label: 'Municipio',
+        tipo: 'referencia',
+        hint: 'Municipio del departamento elegido.',
+        required: true,
+      },
+      {
+        nombre: 'zona',
+        label: 'Zona',
+        tipo: 'texto',
+        hint: 'Del 1 al 25. Obligatoria en Guatemala.',
+        ancho: 'corto',
+      },
+      {
+        nombre: 'numeroCasa',
+        label: 'Número de casa/vivienda',
+        tipo: 'texto',
+        hint: 'Hasta 20 letras, números y guiones. Ejemplo: 12-A.',
+        max: 20,
+        required: true,
+        ancho: 'corto',
       },
       {
         nombre: 'telefono',
@@ -166,7 +188,7 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         nombre: 'fechaFinContrato',
         label: 'Fin de contrato',
         tipo: 'fecha',
-        hint: 'Opcional. Igual o posterior al ingreso.',
+        hint: 'Obligatoria y posterior al ingreso cuando el contrato tiene plazo. El contrato indefinido la mantiene vacía.',
         ancho: 'corto',
       },
       {
@@ -207,7 +229,7 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         nombre: 'contactoParentesco',
         label: 'Parentesco',
         tipo: 'texto',
-        hint: 'Relación con el empleado. Ejemplo: Hermana.',
+        hint: 'Selecciona la relación del contacto desde el catálogo. Ejemplo: Hermano/a.',
         max: 60,
         required: true,
       },
@@ -248,18 +270,24 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
   },
 ];
 export const todosCampos = secciones.flatMap((s) => s.campos);
-export function iniciales(d?: Empleado): Record<string, string> {
+export function iniciales(d?: Empleado, hoy = hoyGuatemala()): Record<string, string> {
   return {
     ...Object.fromEntries(
       todosCampos.map((f) => [f.nombre, d?.[f.nombre] == null ? '' : String(d[f.nombre])]),
     ),
     estado: d?.estado ?? 'ACTIVO',
-    generarUsuario: 'false',
+    fechaIngreso: String(d?.fechaIngreso ?? hoy),
     motivo: '',
     fechaHorario: '',
   };
 }
-export function schemaFormulario(r: Reglas, editar = false) {
+export function schemaFormulario(
+  r: Reglas,
+  editar = false,
+  requiereFin?: boolean,
+  codigoMunicipio?: string,
+  parentescos?: string[],
+) {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const f of todosCampos) {
     let schema: z.ZodTypeAny = z
@@ -300,9 +328,24 @@ export function schemaFormulario(r: Reglas, editar = false) {
     else schema = z.string().min(1, 'Completa este campo obligatorio.').pipe(schema);
     shape[f.nombre] = schema;
   }
+  if (parentescos)
+    shape.contactoParentesco = z
+      .string()
+      .refine((v) => parentescos.includes(v), 'Selecciona un parentesco del catálogo.');
   shape.codigo = z.string().default('');
   shape.cuentaBancaria = z.string().regex(/^[A-Za-z0-9-]{0,34}$/, 'Usa letras, números o guiones.');
-  shape.generarUsuario = z.enum(['true', 'false']);
+  shape.zona = z
+    .string()
+    .refine(
+      (v) => v === '' || /^(?:[1-9]|1\d|2[0-5])$/.test(v),
+      'Selecciona una zona del 1 al 25.',
+    );
+  shape.numeroCasa = z
+    .string()
+    .trim()
+    .min(1, 'Ingresa el número de casa/vivienda.')
+    .max(20)
+    .regex(/^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/, 'Usa letras, números y guiones. Ejemplo: 12-A.');
   shape.motivo = editar
     ? z.string().trim().min(5, 'Explica el motivo con al menos 5 caracteres.').max(500)
     : z.string();
@@ -318,8 +361,14 @@ export function schemaFormulario(r: Reglas, editar = false) {
       );
     if (fechaValida(d.fechaIngreso) && fechaValida(d.fechaNacimiento))
       add('fechaIngreso', validarIngreso(d.fechaIngreso, d.fechaNacimiento, r.hoy, r.edadMinima));
-    if (d.fechaFinContrato && d.fechaFinContrato < d.fechaIngreso)
-      add('fechaFinContrato', 'El fin de contrato no puede ser anterior al ingreso.');
+    if (d.fechaFinContrato && d.fechaFinContrato <= d.fechaIngreso)
+      add('fechaFinContrato', 'El fin de contrato debe ser posterior al ingreso.');
+    if (requiereFin === true && !d.fechaFinContrato)
+      add('fechaFinContrato', 'Este contrato exige una fecha de fin posterior al ingreso.');
+    if (requiereFin === false && d.fechaFinContrato)
+      add('fechaFinContrato', 'El contrato indefinido no tiene fecha de fin.');
+    if (codigoMunicipio === '0101' && !d.zona)
+      add('zona', 'Selecciona una zona del 1 al 25 para el municipio de Guatemala.');
     const presentes = [d.idBanco, d.cuentaBancaria, d.tipoCuenta].filter(Boolean).length;
     if (presentes && presentes !== 3)
       add('cuentaBancaria', 'Completa banco, cuenta y tipo, o deja los tres vacíos.');
@@ -334,7 +383,7 @@ export function cuerpo(d: Record<string, string>, editar = false) {
     result[f.nombre] =
       v === ''
         ? null
-        : f.tipo === 'referencia'
+        : f.tipo === 'referencia' || f.nombre === 'zona'
           ? Number(v)
           : f.tipo === 'dpi' || f.tipo === 'telefono'
             ? v.replace(/\s/g, '')
@@ -347,6 +396,6 @@ export function cuerpo(d: Record<string, string>, editar = false) {
   if (editar) {
     result.motivo = d.motivo;
     if (d.fechaHorario) result.fechaHorario = d.fechaHorario;
-  } else result.generarUsuario = d.generarUsuario === 'true';
+  }
   return result;
 }

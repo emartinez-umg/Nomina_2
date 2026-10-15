@@ -156,7 +156,7 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
       contrato = Number(await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO'));
     for (const i of [1, 2]) {
       await ejecutar(
-        "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'Gestiones',:dpi,:nit,:igss,DATE '1995-01-01','O','SOLTERO','Dirección','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
+        "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'Gestiones',:dpi,:nit,:igss,DATE '1995-01-01','F','SOLTERO','Dirección','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
         {
           codigo: `F10_${i}`,
           usuario: cuentas[i]!.idUsuario,
