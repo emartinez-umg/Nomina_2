@@ -1,3 +1,4 @@
+import { prepararFirmantePrueba } from '../../shared/pdf/empresa.fixture.js';
 import { crearNominaService } from '../nomina/nomina.service.js';
 import { entradaPrueba } from '../nomina/nomina.fixture.js';
 import { crearVacacionesService } from '../vacaciones/vacaciones.service.js';
@@ -2403,6 +2404,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         })
         .expect(201);
       descuentoId = prestamo.body.data.id;
+      await prepararFirmantePrueba(db, admin.idUsuario);
     });
     it('RBAC, CSRF y periodo exacto sin duplicados', async () => {
       const { agent } = await entrarCuenta('EMPLEADO');
@@ -2466,6 +2468,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await actuar('aprobar', 2, 409);
       await actuar('revisar', 1, 409);
       await actuar('revisar', 2);
+      await prepararFirmantePrueba(db, admin.idUsuario);
       await actuar('aprobar', 2);
     });
     it('rollback del cierre incluye cobros, saldo, estado y auditoría', async () => {

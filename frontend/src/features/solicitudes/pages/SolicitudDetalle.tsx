@@ -1,3 +1,4 @@
+import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -41,6 +42,7 @@ export function SolicitudDetalle({
   });
   return (
     <Modal abierto titulo={`Solicitud #${id}`} onCerrar={onCerrar}>
+      <AvisoEmpresa firma={!empleado} empleado={empleado} />
       {q.isPending ? (
         <Skeleton lineas={6} />
       ) : q.error ? (
@@ -60,9 +62,10 @@ export function SolicitudDetalle({
   );
 }
 function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
+  const bloqueoFirma = useBloqueoFirma();
   const cache = useQueryClient(),
     toast = useToast();
-  const [accion, setAccion] = useState<'APROBADA' | 'RECHAZADA' | 'ENTREGADA'>(),
+  const [accion, setAccion] = useState<'APROBADA' | 'RECHAZADA' | 'ENTREGADA' | 'REEMITIR'>(),
     [preview, setPreview] = useState<api.Documento>();
   const [revisado, setRevisado] = useState(false);
   const alRevisar = useCallback(() => setRevisado(true), []);
@@ -85,21 +88,23 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
   };
   const mutar = useMutation({
     mutationFn: () =>
-      accion === 'ENTREGADA'
-        ? api.entregar(s.id, preview?.sha256)
-        : api.resolver(s.id, {
-            estado: accion,
-            motivo: f.getValues('motivo'),
-            confirmado: true,
-            ...(accion === 'APROBADA' && s.tipo === 'PARQUEO'
-              ? {
-                  parqueo: {
-                    monto: f.getValues('monto').replace(/,/g, ''),
-                    fechaInicio: f.getValues('fechaInicio'),
-                  },
-                }
-              : {}),
-          }),
+      accion === 'REEMITIR'
+        ? api.reemitir(s.id)
+        : accion === 'ENTREGADA'
+          ? api.entregar(s.id, preview?.sha256)
+          : api.resolver(s.id, {
+              estado: accion,
+              motivo: f.getValues('motivo'),
+              confirmado: true,
+              ...(accion === 'APROBADA' && s.tipo === 'PARQUEO'
+                ? {
+                    parqueo: {
+                      monto: f.getValues('monto').replace(/,/g, ''),
+                      fechaInicio: f.getValues('fechaInicio'),
+                    },
+                  }
+                : {}),
+            }),
     onSuccess: () => {
       draft.limpiar();
       toast(
@@ -151,6 +156,7 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
   return (
     <section data-tour="solicitud-detalle" className="mt-5">
       <CampoCodigo entidad="solicitudes" codigo={s.codigo} />
+
       {!empleado && s.estado === 'EN_PROCESO' && <FormDraftNotice draft={draft} />}
       <HelpButton />
       <h3>
@@ -184,6 +190,14 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
           </table>
         </div>
       )}
+      {!empleado &&
+        s.requiereReemision &&
+        s.generaPdf === 1 &&
+        ['APROBADA', 'ENTREGADA'].includes(s.estado) && (
+          <Button icono="actualizar" onClick={() => setAccion('REEMITIR')}>
+            Reemitir documento histórico
+          </Button>
+        )}
       {!empleado && s.estado === 'EN_PROCESO' && (
         <>
           {s.tipo === 'PARQUEO' && (
@@ -241,7 +255,13 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
             mensajeServidor={mutar.error?.message}
           />
           <div className="flex flex-wrap gap-3 my-5">
-            <Button icono="aprobar" cargando={mutar.isPending} onClick={() => resolver('APROBADA')}>
+            <Button
+              icono="aprobar"
+              cargando={mutar.isPending}
+              disabled={!!s.generaPdf && !!bloqueoFirma}
+              motivoDeshabilitado={bloqueoFirma}
+              onClick={() => resolver('APROBADA')}
+            >
               Aprobar
             </Button>
             <Button
@@ -292,20 +312,24 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
       <ConfirmModal
         abierto={!!accion}
         titulo={
-          accion === 'ENTREGADA'
-            ? 'Confirmar entrega'
-            : accion === 'APROBADA'
-              ? 'Aprobar solicitud'
-              : 'Rechazar solicitud'
+          accion === 'REEMITIR'
+            ? 'Reemitir documento con membrete'
+            : accion === 'ENTREGADA'
+              ? 'Confirmar entrega'
+              : accion === 'APROBADA'
+                ? 'Aprobar solicitud'
+                : 'Rechazar solicitud'
         }
         descripcion={
-          accion === 'APROBADA' && s.tipo === 'PARQUEO'
-            ? `Se creará un descuento fijo de Q ${f.getValues('monto')} por quincena desde ${f.getValues('fechaInicio').split('-').reverse().join('/')}. Confirma que el empleado conoce la tarifa.`
-            : accion === 'APROBADA' && s.tipo === 'ACTUALIZACION_DATOS'
-              ? 'Se aplicarán los datos críticos propuestos al expediente y se notificará al empleado.'
-              : accion === 'ENTREGADA'
-                ? 'Se registrará la entrega y se notificará al empleado. El PDF quedará disponible para su descarga.'
-                : 'La resolución quedará en el historial y se notificará al empleado.'
+          accion === 'REEMITIR'
+            ? 'Se conserva el archivo original y se genera una nueva versión con el membrete y tu firma. Revisa el PDF y confirma nuevamente su entrega.'
+            : accion === 'APROBADA' && s.tipo === 'PARQUEO'
+              ? `Se creará un descuento fijo de Q ${f.getValues('monto')} por quincena desde ${f.getValues('fechaInicio').split('-').reverse().join('/')}. Confirma que el empleado conoce la tarifa.`
+              : accion === 'APROBADA' && s.tipo === 'ACTUALIZACION_DATOS'
+                ? 'Se aplicarán los datos críticos propuestos al expediente y se notificará al empleado.'
+                : accion === 'ENTREGADA'
+                  ? 'Se registrará la entrega y se notificará al empleado. El PDF quedará disponible para su descarga.'
+                  : 'La resolución quedará en el historial y se notificará al empleado.'
         }
         onCancelar={() => {
           if (!mutar.isPending) setAccion(undefined);

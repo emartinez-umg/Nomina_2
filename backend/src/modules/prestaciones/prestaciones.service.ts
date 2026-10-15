@@ -1,3 +1,10 @@
+import { membrete, firmante } from '../empresa/empresa.service.js';
+import {
+  guardarFirma,
+  obtenerFirma,
+  obtenerEmpresa,
+  guardarConstancia,
+} from '../empresa/empresa.repository.js';
 import { createHash } from 'node:crypto';
 import { Decimal } from 'decimal.js';
 import type { Connection } from 'oracledb';
@@ -456,6 +463,8 @@ export function crearPrestacionesService(db: BaseDatos) {
         if (v.hash !== d.hash)
           throw new ErrorConflicto('Las fuentes cambiaron. Simula nuevamente antes de confirmar.');
         const id = await guardar(c, a, v, d.seleccion, d.motivo, 'INDEMNIZACION');
+        await membrete(c);
+        await guardarFirma(c, 'PRESTACIONES', id, await firmante(c, a.idUsuario));
         await repo.estado(c, id, 'APROBADA', a.idUsuario);
         const e = await obtener(c, v.idEmpleado),
           dias = v.componentes.find((l) => l.concepto === 'VACACIONES_PENDIENTES')!.tiempo;
@@ -575,6 +584,10 @@ export function crearPrestacionesService(db: BaseDatos) {
               'El pago debe ser no futuro, desde el corte y posterior al último cierre fiscal.',
             );
         }
+        if (accion === 'aprobar') {
+          await membrete(c);
+          await guardarFirma(c, 'PRESTACIONES', id, await firmante(c, a.idUsuario));
+        }
         await repo.estado(c, id, estado, a.idUsuario, d.fechaPago ?? null, d.referencia ?? null);
         await audit(
           c,
@@ -591,7 +604,17 @@ export function crearPrestacionesService(db: BaseDatos) {
       tx(auth, ip, async (c, a) => {
         const r = await repo.registro(c, id);
         if (!r?.snapshot) throw new ErrorNoEncontrado();
-        const contenido = await prestacionPdf(r, JSON.parse(r.snapshot) as Snapshot);
+        const firma = await obtenerFirma(c, 'PRESTACIONES', id);
+        if (['APROBADA', 'PAGADA'].includes(r.estado) && !firma)
+          throw new ErrorConflicto(
+            'La aprobación histórica carece de nombre y cargo. Completa la ficha del aprobador y solicita revisión de la prestación.',
+          );
+        const contenido = await prestacionPdf(
+          r,
+          JSON.parse(r.snapshot) as Snapshot,
+          await membrete(c),
+          firma,
+        );
         await audit(
           c,
           a,
@@ -660,12 +683,11 @@ export function crearPrestacionesService(db: BaseDatos) {
           throw new ErrorConflicto(
             'No hay ingresos pagados en el rango. Cierra las nóminas o registra los pagos antes de emitir la constancia.',
           );
-        const empresa = await nomina.empresa(c);
-        if (!empresa)
-          throw new ErrorConflicto(
-            'Completa los datos reales de empresa en Planilla antes de emitir constancias.',
-          );
-        const contenido = await constanciaPdf(e, q, filas, empresa.nombre, await hoy(c));
+        const empresa = await obtenerEmpresa(c);
+        await membrete(c);
+        const firma = await firmante(c, a.idUsuario);
+        const contenido = await constanciaPdf(e, q, filas, empresa!, await hoy(c), firma);
+        await guardarConstancia(c, e.id, firma, empresa!.version, contenido, hashDe(contenido));
         await registrarAuditoria(c, {
           actor: a,
           accion: 'GENERAR_CONSTANCIA_SALARIO',

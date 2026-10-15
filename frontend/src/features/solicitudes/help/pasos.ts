@@ -1,7 +1,14 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaSolicitudes: DefinicionAyuda = {
-  id: 'solicitudes',
+  id: 'solicitudes-v1-5',
   pasos: [
+    {
+      elemento: 'empresa-aviso',
+      titulo: 'Membrete y firma de aprobación',
+      descripcion:
+        'Antes de emitir PDF completa Configuración de empresa. Todos los documentos incluyen sus datos y logo si está cargado. Para aprobar, tu usuario debe estar vinculado a un expediente con nombres, apellidos y puesto activo. La firma conserva la identidad y fecha de quien aprobó.',
+      roles: ['RH', 'ADMIN'],
+    },
     {
       elemento: 'codigo-automatico',
       titulo: 'Código asignado por el sistema',
@@ -46,7 +53,7 @@ export const ayudaSolicitudes: DefinicionAyuda = {
       elemento: 'solicitud-detalle',
       titulo: 'Resuelve y entrega',
       descripcion:
-        'Comprueba observaciones e historial. Rechazar exige un motivo que permita corregir el problema. Aprobar un documento genera un PDF con la plantilla y datos actuales. Revísalo antes de Enviar y entregar. Esa acción publica el archivo y notifica al empleado; no puede repetirse.',
+        'Comprueba observaciones e historial. Rechazar exige un motivo que permita corregir el problema. Aprobar un documento exige empresa configurada y tu ficha con nombre completo y puesto; genera un PDF membretado con tu firma. Revísalo antes de Enviar y entregar. Esa acción publica el archivo y notifica al empleado; no puede repetirse.',
       roles: ['RH', 'ADMIN'],
     },
     {

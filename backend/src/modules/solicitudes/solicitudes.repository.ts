@@ -1,4 +1,5 @@
 import oracledb from 'oracledb';
+import type { FirmaDocumento } from '../../shared/pdf/documento.js';
 import type { Connection, BindParameters } from 'oracledb';
 import { randomUUID, createHash } from 'node:crypto';
 import type { Query, Criticos, Contacto } from './solicitudes.schemas.js';
@@ -185,6 +186,7 @@ export async function registrarEstado(
   estado: string,
   motivo: string,
   actor: number,
+  reemision = false,
 ) {
   if (anterior)
     await c.execute(
@@ -192,11 +194,20 @@ export async function registrarEstado(
       { id, estado, motivo, actor },
     );
   await c.execute(
-    'INSERT INTO SOLICITUD_HISTORIAL (ID_SOLICITUD,ESTADO_ANTERIOR,ESTADO_NUEVO,ID_USUARIO,MOTIVO,CREADO_POR) VALUES (:id,:anterior,:estado,:actor,:motivo,:actor)',
-    { id, anterior, estado, actor, motivo },
+    'INSERT INTO SOLICITUD_HISTORIAL (ID_SOLICITUD,ESTADO_ANTERIOR,ESTADO_NUEVO,ID_USUARIO,MOTIVO,CREADO_POR,TIPO_MOVIMIENTO) VALUES (:id,:anterior,:estado,:actor,:motivo,:actor,:tipoMovimiento)',
+    { id, anterior, estado, actor, motivo, tipoMovimiento: reemision ? 'REEMISION' : 'ESTADO' },
   );
 }
 export async function notificar(c: Connection, s: Solicitud, estado: string, actor: number) {
+  const versiones =
+    estado === 'ENTREGADA'
+      ? await filas<{ n: number }>(
+          c,
+          'SELECT MAX(VERSION) "n" FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id',
+          { id: s.id },
+        )
+      : [];
+  const sufijo = (versiones[0]?.n ?? 0) > 1 ? `:V${versiones[0]!.n}` : '';
   const destinatarios =
     estado === 'EN_PROCESO'
       ? (
@@ -229,7 +240,7 @@ export async function notificar(c: Connection, s: Solicitud, estado: string, act
               : estado === 'ENTREGADA' && s.generaPdf
                 ? `Tu documento está disponible. Abre la solicitud ${s.id} para descargarlo.`
                 : `Solicitud ${s.id}: ${estado === 'APROBADA' ? 'aprobada' : 'entregada'}.`,
-        clave: `SOLICITUD:${s.id}:${estado}`,
+        clave: `SOLICITUD:${s.id}:${estado}${sufijo}`,
         actor,
       },
     );
@@ -286,31 +297,19 @@ export async function versionar(
     },
   );
 }
-export async function empresa(c: Connection) {
-  return (
-    await filas<{
-      empresa: string;
-      nit_empresa: string;
-      direccion_empresa: string;
-      representante: string | null;
-    }>(
-      c,
-      'SELECT RAZON_SOCIAL "empresa",NIT "nit_empresa",DIRECCION "direccion_empresa",REPRESENTANTE "representante" FROM CONFIGURACION_EMPRESA WHERE ACTIVO=1',
-    )
-  )[0];
-}
 export interface Documento {
   id: number;
   nombre: string;
   sha256: Buffer;
   pdf: Buffer;
   estado: string;
+  versionMembrete: number | null;
 }
 export async function documento(c: Connection, id: number) {
   return (
     await filas<Documento>(
       c,
-      `SELECT ID_DOCUMENTO_GENERADO "id",NOMBRE_ARCHIVO "nombre",SHA256 "sha256",CONTENIDO_PDF "pdf",ESTADO "estado" FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id AND ACTIVO=1 AND ESTADO<>'ANULADO'`,
+      `SELECT ID_DOCUMENTO_GENERADO "id",NOMBRE_ARCHIVO "nombre",SHA256 "sha256",CONTENIDO_PDF "pdf",ESTADO "estado",VERSION_MEMBRETE "versionMembrete" FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id AND ACTIVO=1 AND ESTADO<>'ANULADO' ORDER BY VERSION DESC FETCH FIRST 1 ROW ONLY`,
       { id },
     )
   )[0];
@@ -322,9 +321,11 @@ export async function guardarPdf(
   datos: Record<string, string | null>,
   pdf: Buffer,
   actor: number,
+  firma: FirmaDocumento,
+  versionMembrete: number,
 ) {
   await c.execute(
-    `INSERT INTO DOCUMENTOS_GENERADOS (ID_EMPLEADO,ID_SOLICITUD,ID_PLANTILLA_DOCUMENTO,VERSION,NOMBRE_ARCHIVO,RUTA_PRIVADA,SHA256,TAMANIO_BYTES,CONTENIDO_PLANTILLA,VARIABLES_APLICADAS,CONTENIDO_PDF,CREADO_POR) VALUES (:empleado,:id,:plantilla,1,:nombre,:ruta,:hash,:bytes,:contenido,:variables,:pdf,:actor)`,
+    `INSERT INTO DOCUMENTOS_GENERADOS (ID_EMPLEADO,ID_SOLICITUD,ID_PLANTILLA_DOCUMENTO,VERSION,NOMBRE_ARCHIVO,RUTA_PRIVADA,SHA256,TAMANIO_BYTES,CONTENIDO_PLANTILLA,VARIABLES_APLICADAS,CONTENIDO_PDF,CREADO_POR,APROBADO_POR,APROBADO_EN,FIRMANTE_NOMBRE,FIRMANTE_CARGO,VERSION_MEMBRETE) VALUES (:empleado,:id,:plantilla,(SELECT NVL(MAX(VERSION),0)+1 FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id),:nombre,:ruta,:hash,:bytes,:contenido,:variables,:pdf,:actor,:actor,TO_DATE(:fechaFirma,'YYYY-MM-DD HH24:MI:SS'),:firmanteNombre,:firmanteCargo,:versionMembrete)`,
     {
       empleado: s.idEmpleado,
       id: s.id,
@@ -336,6 +337,10 @@ export async function guardarPdf(
       contenido: { val: p.contenido, type: oracledb.CLOB },
       variables: { val: JSON.stringify(datos), type: oracledb.CLOB },
       pdf: { val: pdf, type: oracledb.BLOB },
+      fechaFirma: firma.fecha,
+      firmanteNombre: firma.nombre,
+      firmanteCargo: firma.cargo,
+      versionMembrete,
       actor,
     },
   );
@@ -343,6 +348,13 @@ export async function guardarPdf(
 export async function entregarPdf(c: Connection, id: number, actor: number) {
   await c.execute(
     `UPDATE DOCUMENTOS_GENERADOS SET ESTADO='ENTREGADO',ENTREGADO_EN=${ahora},MODIFICADO_POR=:actor WHERE ID_SOLICITUD=:id AND ESTADO='VISTA_PREVIA' AND ACTIVO=1`,
+    { id, actor },
+  );
+}
+
+export async function archivarPdf(c: Connection, id: number, actor: number) {
+  await c.execute(
+    'UPDATE DOCUMENTOS_GENERADOS SET ACTIVO=0,MODIFICADO_POR=:actor WHERE ID_SOLICITUD=:id AND ACTIVO=1',
     { id, actor },
   );
 }

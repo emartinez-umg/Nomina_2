@@ -1,3 +1,4 @@
+import { EmpresaPage } from '../features/empresa/pages/EmpresaPage';
 import { lazy, Suspense } from 'react';
 const Usuarios = lazy(() =>
   import('../features/usuarios/pages/UsuariosPage').then((m) => ({ default: m.UsuariosPage })),
@@ -163,6 +164,7 @@ export const rutas = [
               { path: '/empleados/carga-masiva', element: <CargaMasivaPage /> },
               { path: '/empleados/:id', element: <EmpleadoDetallePage /> },
               { path: '/empleados/:id/editar', element: <EmpleadoFormularioPage /> },
+              { path: '/catalogos/empresa', element: <EmpresaPage /> },
               { path: '/catalogos', element: <CatalogosPage /> },
               { path: '/catalogos/:catalogo', element: <CatalogosPage /> },
             ],

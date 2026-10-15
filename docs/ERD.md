@@ -1017,3 +1017,58 @@ impiden pares cruzados/parciales. Las referencias se admiten nulas para históri
 la API exige ambas para altas/ediciones. Todas las FKs/filtros están indexados. Los dos catálogos
 incluyen auditoría y ACTIVO, sin endpoints de escritura. S006 idempotente carga 22/340 desde
 la fuente íntegra versionada en db/data/ine, conservando nombres y códigos del INE.
+
+## V023 — Identidad privada y firma de documentos
+
+```mermaid
+erDiagram
+  CONFIGURACION_EMPRESA ||--|| IDENTIDAD_EMPRESA : amplia
+  USUARIOS ||--o{ FIRMAS_DOCUMENTO : aprueba
+  USUARIOS ||--o{ DOCUMENTOS_GENERADOS : firma
+  EMPLEADOS ||--o{ CONSTANCIAS_SALARIO_PDF : recibe
+  USUARIOS ||--o{ CONSTANCIAS_SALARIO_PDF : aprueba
+  IDENTIDAD_EMPRESA {
+    number ID_IDENTIDAD_EMPRESA PK
+    number ID_CONFIGURACION_EMPRESA FK,UK
+    varchar NOMBRE_COMERCIAL
+    varchar SITIO_WEB
+    blob LOGO_PNG "Privado, normalizado sin metadatos"
+    varchar LOGO_SHA256
+    number VERSION
+  }
+  FIRMAS_DOCUMENTO {
+    number ID_FIRMA_DOCUMENTO PK
+    varchar ENTIDAD "PERIODOS_NOMINA o PRESTACIONES"
+    number ID_REGISTRO "Único junto con entidad"
+    number ID_USUARIO FK
+    varchar NOMBRE "Snapshot del expediente"
+    varchar CARGO "Snapshot del puesto"
+    date APROBADO_EN
+  }
+  DOCUMENTOS_GENERADOS {
+    number APROBADO_POR FK
+    date APROBADO_EN
+    varchar FIRMANTE_NOMBRE
+    varchar FIRMANTE_CARGO
+    number VERSION_MEMBRETE
+  }
+  CONSTANCIAS_SALARIO_PDF {
+    number ID_CONSTANCIA_SALARIO_PDF PK
+    number ID_EMPLEADO FK
+    number APROBADO_POR FK
+    date APROBADO_EN
+    varchar FIRMANTE_NOMBRE
+    varchar FIRMANTE_CARGO
+    number VERSION_MEMBRETE
+    blob CONTENIDO_PDF
+    varchar SHA256
+  }
+```
+
+Las tres tablas incluyen auditoría y ACTIVO, PK identity ALWAYS y FKs indexadas. Se migra cada
+configuración existente sin alterar sus claves ni FORMATO_IGSS. Las firmas históricas recuperables
+usan el aprobador/fecha ya registrados y su expediente/puesto; no se inventan identidades faltantes.
+Las plantillas activas se versionan, preservando originales y archivos emitidos. Las columnas
+antiguas de firma quedan únicamente como datos históricos de la configuración; la aplicación ya
+no las consulta ni las ofrece para captura. Las constancias de salario guardan archivo/huella y
+aprobación en la misma transacción de auditoría. Los PDFs de solicitudes se versionan al reemitir.

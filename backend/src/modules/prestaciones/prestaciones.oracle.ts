@@ -1,3 +1,4 @@
+import { prepararFirmantePrueba } from '../../shared/pdf/empresa.fixture.js';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -179,6 +180,9 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
   });
   afterAll(async () => {
     await db?.cerrar();
+  });
+  beforeAll(async () => {
+    await prepararFirmantePrueba(db, admin.idUsuario);
   });
   it('RBAC, CSRF y validación estricta', async () => {
     const e = await entrar(cuenta.usuario, cuenta.contrasenaTemporal);

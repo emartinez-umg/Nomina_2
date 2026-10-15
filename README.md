@@ -58,8 +58,10 @@ TLS en un proxy administrado; renueva el certificado antes de su vencimiento. La
    contraseña antes de acceder a módulos. El seed no restablece contraseñas ni eleva usuarios existentes.
 2. En **Usuarios**, crea accesos RH o ADMIN. El usuario `nombre.apellido` y la contraseña temporal
    se muestran una sola vez. Entrégalos en privado; cada cuenta debe cambiar su contraseña al entrar.
-3. Completa **Catálogos → Datos de empresa**, incluido representante, y revisa las plantillas de
+3. Completa **Configuración → Configuración de empresa** (identidad fiscal, contacto y logo) y revisa las plantillas de
    documentos en Solicitudes. Configura departamentos, puestos, centros y horarios laborales reales.
+   ADMIN debe usar **Usuarios → Vincular ficha de firmante** para asociar cada cuenta RH/ADMIN con
+   su expediente real y puesto activo. Sin nombre completo y cargo se bloquean las aprobaciones.
 4. RH crea expedientes en **Empleados**, con usuario EMPLEADO opcional vinculado al expediente.
    También puede importar hasta 100 filas CSV con vista previa y confirmación. No hay cuentas RH ni
    empleados de demostración sembrados en la aplicación.
@@ -220,3 +222,27 @@ se integrará en su fase; UbicacionSelect y ZonaSelect ya están disponibles par
 Pruebas: `npm run verify:ubicaciones` (Oracle temporal), `npm run db:verify`, `npm test`
 y `npm run test:e2e -- --grep 'FASE V1-4'`. Consultas autenticadas en `/api/ubicaciones/departamentos`
 y `/api/ubicaciones/municipios?idDepartamentoGt=…`; especificación en [docs/CATALOGOS.md](docs/CATALOGOS.md).
+
+## Identidad de empresa y documentos (v1-5)
+
+`docker compose up --build` aplica V023 de forma aditiva. La configuración existente y FORMATO_IGSS
+se conservan. La pantalla `/catalogos/empresa` usa `/api/empresa`; ya no se escribe a través del CRUD
+antiguo. NIT con módulo 11, razón social, dirección, teléfono y correo son obligatorios; nombre
+comercial, sitio web HTTP/HTTPS y logo son opcionales. Sin esos datos no se generan PDF.
+
+Los logos PNG/JPG/SVG de hasta 2 MB se validan por contenido y se convierten a PNG sin metadatos.
+Los SVG deben usar formas/texto sin scripts, estilos, DTD ni recursos externos. Oracle guarda el
+BLOB privado; solo RH/ADMIN autenticados pueden obtenerlo. No hay directorio ni URL pública de logos.
+Cambiar o quitar el logo queda auditado por su SHA-256, sin copiar binarios a bitácora.
+
+Boletas, planilla, solicitudes, certificados, constancias y prestaciones comparten `shared/pdf`.
+El membrete aparece en cada página; la firma conserva nombre, puesto, usuario y fecha de aprobación.
+Las solicitudes ya emitidas conservan su PDF y firma aunque cambien la empresa, plantilla o puesto.
+Los documentos históricos sin membrete se reemiten desde el detalle: se archiva el original,
+se crea una versión aprobada por quien reemite y se exige revisar y entregar de nuevo.
+Las constancias de salario conservan su PDF y aprobación en una tabla privada.
+
+`npm run verify:empresa` prueba migración, permisos, logos, concurrencia y rollback en un esquema
+desechable; `npm run verify:solicitudes` cubre firma/entrega/reemisión y `npm run test:e2e -- --grep
+'FASE V1-5'` comprueba configuración, borrador, logo, móvil y entrega con API/Oracle reales.
+La utilidad de credenciales solo trabaja en memoria y queda lista para V1-7, sin endpoint nuevo.

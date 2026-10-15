@@ -1,3 +1,4 @@
+import { confirmarSchema } from './solicitudes.schemas.js';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { autenticacionDe } from '../../shared/security/rbac.js';
@@ -35,6 +36,10 @@ export function crearSolicitudesController(s: ReturnType<typeof crearSolicitudes
     resolver: async (r: Request, res: Response) => {
       vacio(r);
       ok(res, await s.resolver(auth(r), ip(r), id(r), resolverSchema.parse(r.body)));
+    },
+    reemitir: async (r: Request, res: Response) => {
+      vacio(r);
+      ok(res, await s.reemitir(auth(r), ip(r), id(r), confirmarSchema.parse(r.body)));
     },
     entregar: async (r: Request, res: Response) => {
       vacio(r);

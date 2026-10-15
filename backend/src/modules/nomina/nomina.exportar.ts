@@ -1,5 +1,6 @@
 import { fechas, vigente } from './nomina.calculo.js';
-import PDFDocument from 'pdfkit';
+import { generarPdf, bloqueFirma } from '../../shared/pdf/documento.js';
+import type { IdentidadEmpresa, FirmaDocumento } from '../../shared/pdf/documento.js';
 import { zipSync, strToU8 } from 'fflate';
 import { Decimal } from 'decimal.js';
 import { dinero } from '../../shared/utils/dinero.js';
@@ -18,51 +19,24 @@ const q = (m: string) => {
   const [entero, centavos] = new Decimal(m).toFixed(2).split('.');
   return `Q ${entero!.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${centavos}`;
 };
-async function pdf(contenido: (doc: PDFKit.PDFDocument) => void, horizontal = false) {
-  const doc = new PDFDocument({
-      size: 'A4',
-      layout: horizontal ? 'landscape' : 'portrait',
-      margin: 42,
-      bufferPages: true,
-      info: { Title: 'Nómina', Author: 'nomina2' },
-    }),
-    partes: Buffer[] = [];
-  const terminado = new Promise<Buffer>((resolve, reject) => {
-    doc.on('data', (b: Buffer) => partes.push(b));
-    doc.on('end', () => resolve(Buffer.concat(partes)));
-    doc.on('error', reject);
-  });
-  contenido(doc);
-  const paginas = doc.bufferedPageRange();
-  for (let i = paginas.start; i < paginas.start + paginas.count; i++) {
-    doc.switchToPage(i);
-    doc
-      .font('Helvetica')
-      .fontSize(8)
-      .fillColor('#52606D')
-      .text(`Página ${i + 1} de ${paginas.count}`, 42, doc.page.height - 28, {
-        width: doc.page.width - 84,
-        align: 'right',
-        lineBreak: false,
-      });
-  }
-  doc.end();
-  return terminado;
-}
 function encabezado(doc: PDFKit.PDFDocument, titulo: string, empresa: string) {
   doc.fillColor('#213F60').font('Helvetica-Bold').fontSize(18).text(titulo);
   doc.moveDown(0.5).fillColor('#365D35').fontSize(11).text(empresa);
   doc.moveDown().fillColor('#25303B').font('Helvetica').fontSize(10);
 }
-export function boletasPdf(filas: Guardado[]) {
-  return pdf((doc) => {
+export function boletasPdf(
+  filas: Guardado[],
+  empresa: IdentidadEmpresa,
+  firmas: Map<number, FirmaDocumento> = new Map(),
+) {
+  return generarPdf('Boletas de pago', empresa, (doc) => {
     filas.forEach((fila, i) => {
       if (i) doc.addPage();
       const s = snapshot(fila),
         e = s.entrada.empleado,
         r = s.resultado;
       const cabecera = () => {
-        encabezado(doc, 'Boleta de pago', s.empresa?.nombre ?? 'Nómina');
+        encabezado(doc, 'Boleta de pago', empresa.razonSocial);
         doc.text(`${e.codigo} · ${e.nombres} ${e.apellidos}`);
         doc.text(`${e.departamento} · ${e.puesto}`);
         doc.text(`${visible(fila.inicio)} al ${visible(fila.fin)} · Versión ${fila.version}`);
@@ -116,52 +90,69 @@ export function boletasPdf(filas: Guardado[]) {
         .text(
           `Identificador: ${fila.id} · ${fila.estado}. Generada desde el detalle y las vigencias conservadas del cálculo.`,
         );
+      const firma = firmas.get(fila.id);
+      if (firma) bloqueFirma(doc, firma);
     });
   });
 }
 export function planillaPdf(
   filas: FilaNomina[],
   totales: { ingresos: string; descuentos: string; neto: string; patronal: string },
+  empresa: IdentidadEmpresa,
+  firmas: FirmaDocumento[] = [],
 ) {
-  return pdf((doc) => {
-    const cabecera = () => {
-      encabezado(doc, 'Planilla consolidada', 'Nómina');
-      const y = doc.y;
-      ['Empleado / periodo', 'Ingresos', 'Descuentos', 'Neto', 'Patronal'].forEach((s, i) =>
-        doc.font('Helvetica-Bold').text(s, [42, 360, 460, 560, 660][i]!, y, {
-          width: i === 0 ? 305 : 90,
-          align: i === 0 ? 'left' : 'right',
-        }),
-      );
-      doc.y = y + 24;
-    };
-    cabecera();
-    for (const f of filas) {
-      if (doc.y > 500) {
-        doc.addPage();
-        cabecera();
+  return generarPdf(
+    'Planilla consolidada',
+    empresa,
+    (doc) => {
+      const cabecera = () => {
+        encabezado(doc, 'Planilla consolidada', empresa.razonSocial);
+        const y = doc.y;
+        ['Empleado / periodo', 'Ingresos', 'Descuentos', 'Neto', 'Patronal'].forEach((s, i) =>
+          doc.font('Helvetica-Bold').text(s, [42, 360, 460, 560, 660][i]!, y, {
+            width: i === 0 ? 305 : 90,
+            align: i === 0 ? 'left' : 'right',
+          }),
+        );
+        doc.y = y + 24;
+      };
+      cabecera();
+      for (const f of filas) {
+        if (doc.y > 500) {
+          doc.addPage();
+          cabecera();
+        }
+        const y = doc.y;
+        doc
+          .font('Helvetica')
+          .fontSize(9)
+          .text(`${f.empleado}\n${visible(f.inicio)} - ${visible(f.fin)} · ${f.estado}`, 42, y, {
+            width: 305,
+          });
+        [f.ingresos, f.descuentos, f.neto, f.patronal].forEach((v, i) =>
+          doc.text(q(v), [360, 460, 560, 660][i]!, y, { width: 90, align: 'right' }),
+        );
+        doc.y = y + 42;
       }
-      const y = doc.y;
+      if (doc.y > 500) doc.addPage();
+      doc.x = 42;
       doc
-        .font('Helvetica')
-        .fontSize(9)
-        .text(`${f.empleado}\n${visible(f.inicio)} - ${visible(f.fin)} · ${f.estado}`, 42, y, {
-          width: 305,
-        });
-      [f.ingresos, f.descuentos, f.neto, f.patronal].forEach((v, i) =>
-        doc.text(q(v), [360, 460, 560, 660][i]!, y, { width: 90, align: 'right' }),
-      );
-      doc.y = y + 42;
-    }
-    if (doc.y > 500) doc.addPage();
-    doc.x = 42;
-    doc
-      .moveDown()
-      .font('Helvetica-Bold')
-      .text(
-        `Totales · Ingresos ${q(totales.ingresos)} · Descuentos ${q(totales.descuentos)} · Neto ${q(totales.neto)} · Patronal ${q(totales.patronal)}`,
-      );
-  }, true);
+        .moveDown()
+        .font('Helvetica-Bold')
+        .text(
+          `Totales · Ingresos ${q(totales.ingresos)} · Descuentos ${q(totales.descuentos)} · Neto ${q(totales.neto)} · Patronal ${q(totales.patronal)}`,
+        );
+      const vistas = new Set<string>();
+      for (const firma of firmas) {
+        const clave = `${firma.idUsuario}:${firma.fecha}`;
+        if (!vistas.has(clave)) {
+          bloqueFirma(doc, firma);
+          vistas.add(clave);
+        }
+      }
+    },
+    true,
+  );
 }
 const xml = (s: unknown) =>
   String(s ?? '')

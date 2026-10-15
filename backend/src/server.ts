@@ -1,3 +1,4 @@
+import { crearEmpresaService } from './modules/empresa/empresa.service.js';
 import { crearCodigosService } from './modules/codigos/codigos.service.js';
 import { crearUbicacionesService } from './modules/ubicaciones/ubicaciones.service.js';
 import { crearComunicacionService } from './modules/comunicacion/comunicacion.service.js';
@@ -34,6 +35,7 @@ try {
   const auth = await crearAuthService(baseDatos, config);
   const server = crearApp(service, logger, {
     auth,
+    empresa: crearEmpresaService(baseDatos),
     codigos: crearCodigosService(baseDatos),
     ubicaciones: crearUbicacionesService(baseDatos),
     comunicacion: crearComunicacionService(baseDatos),

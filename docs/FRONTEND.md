@@ -224,3 +224,18 @@ Centros integra `useFormDraft` versión 3 (otros catálogos siguen en 2). Borrad
 localidad libre se descartan por versión. Ambas selecciones sobreviven al cierre/restauración;
 éxito limpia y error conserva. El recorrido nuevo explica cascada, propuestas, referencia
 histórica y borrador; su ID v1-4 vuelve a ofrecer ayuda a usuarios de la pantalla anterior.
+
+## Identidad de empresa (v1-5)
+
+La opción Configuración de empresa conserva `/catalogos/empresa` y tiene formulario específico
+con RHF/Zod, TanStack Query, tokens y campos existentes. Los anchos responden al tipo de dato,
+la dirección ocupa toda la grilla y el NIT se valida con dígito verificador. Los errores de API
+se mapean a campos, incluidos los del logo; no se guardan archivos en borradores. El logo SVG
+se muestra como imagen aislada en la vista previa y se reemplaza por el PNG validado tras guardar.
+
+Ayuda `empresa-v1-5` explica datos, carga, vista previa, guardado auditado y perfil de firma.
+AvisoEmpresa muestra el problema antes de descargar/aprobar en nómina, prestaciones y solicitudes.
+Los botones de aprobación se deshabilitan con explicación cuando se conoce un requisito faltante;
+el backend revalida siempre. Los recorridos de las tres pantallas y de Usuarios fueron actualizados.
+ADMIN puede usar Vincular ficha de firmante desde Usuarios, con búsqueda, motivo, confirmación
+y borrador. No reemplaza una cuenta o expediente que ya tenga otro vínculo.

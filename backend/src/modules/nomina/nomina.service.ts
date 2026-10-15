@@ -1,3 +1,6 @@
+import { membrete, firmante } from '../empresa/empresa.service.js';
+import { guardarFirma, firmaBoleta } from '../empresa/empresa.repository.js';
+import type { FirmaDocumento } from '../../shared/pdf/documento.js';
 import { fuenteUtilizada } from '../prestaciones/prestaciones.repository.js';
 import { createHash } from 'node:crypto';
 import { Decimal } from 'decimal.js';
@@ -78,6 +81,18 @@ export function completarHistoria(e: Entrada) {
       isr: acumulado.isr.toFixed(2),
     },
   };
+}
+async function firmas(c: Connection, ns: { id: number; estado: string }[]) {
+  const resultado = new Map<number, FirmaDocumento>();
+  for (const n of ns) {
+    const f = await firmaBoleta(c, n.id);
+    if (f) resultado.set(n.id, f);
+    else if (['APROBADO', 'CERRADO'].includes(n.estado))
+      throw new ErrorConflicto(
+        'La aprobación histórica carece de nombre y cargo verificables. Completa la ficha del aprobador y solicita a ADMIN revisar y reaprobar el periodo.',
+      );
+  }
+  return resultado;
 }
 export function crearNominaService(db: BaseDatos) {
   const lectura = <T>(fn: (c: Connection) => Promise<T>) =>
@@ -245,6 +260,10 @@ export function crearNominaService(db: BaseDatos) {
           }
           nuevo = accion === 'revisar' ? 'REVISADO' : accion === 'aprobar' ? 'APROBADO' : 'CERRADO';
         }
+        if (accion === 'aprobar') {
+          await membrete(c);
+          await guardarFirma(c, 'PERIODOS_NOMINA', id, await firmante(c, a.idUsuario));
+        }
         await repo.estado(c, id, nuevo, a.idUsuario, version, hash, alertas, d.motivo);
         await audit(
           c,
@@ -277,7 +296,7 @@ export function crearNominaService(db: BaseDatos) {
       lectura(async (c) => {
         const n = await detalle(c, auth, id);
         return exportar.archivo(
-          await exportar.boletasPdf([n]),
+          await exportar.boletasPdf([n], await membrete(c), await firmas(c, [n])),
           `boleta-${id}-v${n.version}.pdf`,
           'application/pdf',
         );
@@ -333,13 +352,19 @@ export function crearNominaService(db: BaseDatos) {
           );
         if (formato === 'pdf')
           return exportar.archivo(
-            await exportar.planillaPdf(r.registros, r.totales),
+            await exportar.planillaPdf(r.registros, r.totales, await membrete(c), [
+              ...(await firmas(c, r.registros)).values(),
+            ]),
             'planilla.pdf',
             'application/pdf',
           );
         const ns: repo.Guardado[] = [];
         for (const f of r.registros) ns.push((await detalle(c, auth, f.id))!);
-        return exportar.archivo(await exportar.boletasPdf(ns), 'boletas.pdf', 'application/pdf');
+        return exportar.archivo(
+          await exportar.boletasPdf(ns, await membrete(c), await firmas(c, ns)),
+          'boletas.pdf',
+          'application/pdf',
+        );
       }),
     tipos: () => lectura((c) => repo.tiposDeduccion(c)),
     fiscal: (id: number, anio: number) => lectura((c) => repo.fiscal(c, id, anio)),

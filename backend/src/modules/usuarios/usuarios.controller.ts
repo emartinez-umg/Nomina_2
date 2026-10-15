@@ -4,6 +4,7 @@ import { autenticacionDe } from '../../shared/security/rbac.js';
 import { sinDatos } from '../auth/auth.schemas.js';
 import { contextoDe } from '../auth/auth.controller.js';
 import {
+  expedienteSchema,
   cambiarRolSchema,
   crearUsuarioSchema,
   estadoSchema,
@@ -15,6 +16,20 @@ import type { crearUsuariosService } from './usuarios.service.js';
 
 export function crearUsuariosController(service: ReturnType<typeof crearUsuariosService>) {
   return {
+    async vincular(req: Request, res: Response) {
+      sinDatos.parse(req.query);
+      const { id } = usuarioIdSchema.parse(req.params);
+      res.json(
+        respuestaOk(
+          await service.vincular(
+            autenticacionDe(req),
+            contextoDe(req).ip,
+            id,
+            expedienteSchema.parse(req.body),
+          ),
+        ),
+      );
+    },
     async crear(req: Request, res: Response) {
       sinDatos.parse(req.query);
       const datos = crearUsuarioSchema.parse(req.body);

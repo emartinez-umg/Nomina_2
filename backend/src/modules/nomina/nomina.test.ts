@@ -1,3 +1,4 @@
+import { empresaPrueba } from '../../shared/pdf/documento.fixture.js';
 import { describe, it, expect } from 'vitest';
 import { Decimal } from 'decimal.js';
 import { unzipSync, strFromU8 } from 'fflate';
@@ -334,7 +335,7 @@ describe('Exportaciones exactas', () => {
         version: 1,
         snapshot: JSON.stringify({ entrada: e, resultado, empresa: null }),
       };
-    const pdf = await boletasPdf([n]);
+    const pdf = await boletasPdf([n], empresaPrueba);
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     const x = unzipSync(
       excel([

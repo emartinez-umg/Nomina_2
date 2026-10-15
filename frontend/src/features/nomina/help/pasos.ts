@@ -1,7 +1,14 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaNomina: DefinicionAyuda = {
-  id: 'nomina',
+  id: 'nomina-v1-5',
   pasos: [
+    {
+      elemento: 'empresa-aviso',
+      titulo: 'Membrete y firma de aprobación',
+      descripcion:
+        'Antes de emitir PDF completa Configuración de empresa. Todos los documentos incluyen sus datos y logo si está cargado. Para aprobar, tu usuario debe estar vinculado a un expediente con nombres, apellidos y puesto activo. La firma conserva la identidad y fecha de quien aprobó.',
+      roles: ['RH', 'ADMIN'],
+    },
     {
       elemento: 'nomina-detalle',
       titulo: 'Comprobar los conceptos de la boleta',
@@ -19,7 +26,7 @@ export const ayudaNomina: DefinicionAyuda = {
       elemento: 'igss-patrono',
       titulo: 'Identificación patronal',
       descripcion:
-        'Captura número patronal, razón social, NIT, dirección y correo inscritos ante IGSS. Selecciona el destino de pruebas o producción según corresponda. Estos datos configuran el archivo mensual; para datos de constancias y representante utiliza Catálogos, Datos de empresa.',
+        'Captura número patronal, razón social, NIT, dirección y correo inscritos ante IGSS. Selecciona el destino de pruebas o producción según corresponda. Estos datos configuran el archivo mensual; para el membrete utiliza Configuración de empresa. La firma procede de la ficha del usuario que aprueba.',
       roles: ['ADMIN', 'RH'],
     },
     {

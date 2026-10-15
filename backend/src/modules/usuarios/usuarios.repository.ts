@@ -118,3 +118,30 @@ export async function listarUsuarios(c: Connection, q: UsuariosQuery) {
     limite: q.limite,
   };
 }
+export async function expedienteUsuario(c: Connection, id: number) {
+  const r = await c.execute<{ id: number }>(
+    `SELECT ID_EMPLEADO "id" FROM EMPLEADOS WHERE ID_USUARIO=:id`,
+    { id },
+    { outFormat: oracledb.OUT_FORMAT_OBJECT },
+  );
+  return r.rows?.[0] ?? null;
+}
+export async function expedienteDisponible(c: Connection, id: number) {
+  const r = await c.execute<{ usuario: number | null; nombre: string; puesto: string }>(
+    `SELECT E.ID_USUARIO "usuario",E.NOMBRES||' '||E.APELLIDOS "nombre",P.NOMBRE "puesto" FROM EMPLEADOS E JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO AND P.ACTIVO=1 WHERE E.ID_EMPLEADO=:id AND E.ACTIVO=1 AND E.ESTADO='ACTIVO' FOR UPDATE OF E.ID_USUARIO`,
+    { id },
+    { outFormat: oracledb.OUT_FORMAT_OBJECT },
+  );
+  return r.rows?.[0] ?? null;
+}
+export async function vincularExpediente(
+  c: Connection,
+  id: number,
+  usuario: number,
+  actor: number,
+) {
+  await c.execute(
+    'UPDATE EMPLEADOS SET ID_USUARIO=:usuario,MODIFICADO_POR=:actor WHERE ID_EMPLEADO=:id',
+    { id, usuario, actor },
+  );
+}

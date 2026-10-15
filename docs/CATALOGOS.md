@@ -108,7 +108,7 @@ Migración aditiva V013: `SALARIO_MINIMO`/`SALARIO_MAXIMO` en PUESTOS, CHECK de 
 Los catálogos con dirección postal (centros y empresa) usan `direccionTexto` para filtrar ese dato.
 `direccion` conserva exclusivamente `asc`/`desc` del ordenamiento. El formulario de captura mantiene
 `direccion`; la separación impide que el sentido de ordenamiento se interprete como texto postal.
-Datos de empresa incorpora NIT validado, representante, correo y teléfono normalizado, conservando
+Configuración de empresa incorpora NIT validado, correo, teléfono, nombre comercial, sitio web y logo privado, conservando
 FORMATO_IGSS y documentos ya emitidos. Solo una empresa activa, según la restricción de Oracle.
 
 ### Actualización v1-3
@@ -148,3 +148,13 @@ operativa de compatibilidad: la primera confirmación estructurada de un centro 
 conserva esa clave. Al cambiar después un municipio ya confirmado, y en centros nuevos,
 se deriva del nombre INE normalizado con guiones bajos; 0101 usa `GUATEMALA_CIUDAD`.
 El texto original queda intacto. No se migran feriados ni se alteran cálculos/snapshots cerrados.
+
+### Actualización v1-5
+
+Empresa tiene una pantalla específica RH/ADMIN en `/catalogos/empresa`, con borrador de texto,
+vista previa, carga privada de logo y control de versión para no sobrescribir ediciones concurrentes.
+`GET/PATCH /api/empresa` obtiene/guarda la configuración. `GET /api/empresa/estado` permite a los
+tres roles conocer si se puede emitir PDF, sin entregar datos ni logo al empleado.
+El antiguo CRUD de empresa sigue disponible para consultas compatibles; las mutaciones explican
+que debe usarse Configuración de empresa. FORMATO_IGSS permanece separado de la identidad visual.
+La firma procede del expediente/puesto del aprobador y se guarda al aprobar, sin un campo manual.

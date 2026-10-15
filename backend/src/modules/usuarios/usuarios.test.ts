@@ -32,23 +32,17 @@ describe('Captura administrativa final', () => {
     ])
       expect(crearUsuarioSchema.safeParse({ ...d, ...cambio }).success).toBe(false);
   });
-  it('valida NIT, correo, teléfono y representante de empresa antes de Oracle', () => {
+  it('valida NIT, correo, teléfono de empresa antes de Oracle', () => {
     const schema = entradaSchema(obtenerCatalogo('empresa')!);
     const d = {
       nombre: 'Empresa',
       nit: '1234567-9',
       direccion: 'Dirección fiscal',
-      representante: 'Persona Prueba',
       correo: 'empresa@example.test',
       telefono: '55551234',
     };
     expect(schema.safeParse(d).success).toBe(true);
-    for (const cambio of [
-      { nit: '1234567-0' },
-      { correo: 'incorrecto' },
-      { telefono: '5555abcd' },
-      { representante: '12345' },
-    ])
+    for (const cambio of [{ nit: '1234567-0' }, { correo: 'incorrecto' }, { telefono: '5555abcd' }])
       expect(schema.safeParse({ ...d, ...cambio }).success).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -88,7 +89,9 @@ export function AccionesPrestacion({
   r,
   ocupado,
   onAccion,
+  bloqueoFirma,
 }: {
+  bloqueoFirma?: string | undefined;
   r: Registro;
   ocupado: boolean;
   onAccion: (a: string) => void;
@@ -107,15 +110,17 @@ export function AccionesPrestacion({
           disabled={
             ocupado ||
             (a === 'aprobar'
-              ? r.estado !== 'CALCULADA'
+              ? r.estado !== 'CALCULADA' || !!bloqueoFirma
               : a === 'pagar'
                 ? r.estado !== 'APROBADA'
                 : !['CALCULADA', 'APROBADA'].includes(r.estado) || r.tipo === 'INDEMNIZACION')
           }
           motivoDeshabilitado={
-            r.estado === 'PAGADA'
-              ? 'Un pago registrado conserva su historial.'
-              : 'Sigue cálculo → aprobación → pago. La liquidación confirmada conserva la baja.'
+            a === 'aprobar' && bloqueoFirma
+              ? bloqueoFirma
+              : r.estado === 'PAGADA'
+                ? 'Un pago registrado conserva su historial.'
+                : 'Sigue cálculo → aprobación → pago. La liquidación confirmada conserva la baja.'
           }
           onClick={() => onAccion(a!)}
         >
@@ -133,6 +138,7 @@ export function PrestacionesPage() {
   const [id, setId] = useState<number>();
   return (
     <>
+      <AvisoEmpresa firma />
       <h1>Prestaciones de ley</h1>
       <p className="mb-5 text-secundario">
         Promedios reales, liquidaciones y constancias de salario.
@@ -703,6 +709,7 @@ function Historial({
   );
 }
 function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
+  const bloqueoFirma = useBloqueoFirma();
   const r = useQuery({
       queryKey: ['prestaciones', 'detalle', id],
       queryFn: ({ signal }) => api.detalle(id, signal),
@@ -771,7 +778,12 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
             Vista previa PDF
           </Button>
           <div className="my-4">
-            <AccionesPrestacion r={r.data} ocupado={m.isPending || !r.data.hash} onAccion={setOp} />
+            <AccionesPrestacion
+              bloqueoFirma={bloqueoFirma}
+              r={r.data}
+              ocupado={m.isPending || !r.data.hash}
+              onAccion={setOp}
+            />
           </div>
           {op && (
             <div data-tour="prestaciones-confirmar">

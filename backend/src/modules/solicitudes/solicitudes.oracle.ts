@@ -1,3 +1,4 @@
+import { prepararFirmantePrueba } from '../../shared/pdf/empresa.fixture.js';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -142,7 +143,7 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
       "INSERT INTO CENTROS_TRABAJO (CODIGO,NOMBRE,LOCALIDAD) VALUES ('F10','Oficina de pruebas','PRUEBA')",
     );
     await ejecutar(
-      "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,REPRESENTANTE) VALUES ('Empresa de pruebas F10','1234567-9','Dirección de pruebas','Representante de pruebas')",
+      "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION) VALUES ('Empresa de pruebas F10','1234567-9','Dirección de pruebas')",
     );
     const puesto = Number(
         await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F10'"),
@@ -220,6 +221,31 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     await post(propio, `/${documento}/resolver`, { estado: 'APROBADA', confirmado: true }, 403);
     await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(403);
   });
+  it('bloquea aprobación sin ficha completa y permite completarla', async () => {
+    const r = await post(
+      rh,
+      `/${documento}/resolver`,
+      { estado: 'APROBADA', confirmado: true },
+      409,
+    );
+    expect(r.body.error.mensaje).toMatch(/empresa|ficha/);
+    await ejecutar(
+      "UPDATE CONFIGURACION_EMPRESA SET TELEFONO='55551234',CORREO='empresa@example.test' WHERE ACTIVO=1",
+    );
+    const sinFicha = await post(
+      rh,
+      `/${documento}/resolver`,
+      { estado: 'APROBADA', confirmado: true },
+      409,
+    );
+    expect(sinFicha.body.error.mensaje).toContain('ficha de empleado');
+    const usuario = Number(
+      await escalar(
+        "SELECT U.ID_USUARIO FROM USUARIOS U JOIN ROLES R ON R.ID_ROL=U.ID_ROL WHERE R.CODIGO='RH'",
+      ),
+    );
+    await prepararFirmantePrueba(db, usuario);
+  });
   it('aprobación concurrente única genera PDF privado, snapshot y aviso', async () => {
     const r = await Promise.all(
       [1, 2].map(() =>
@@ -233,6 +259,17 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     const pdf = await rh.agent.get(`/api/solicitudes/${documento}/documento`).expect(200);
     const bytes = Buffer.from(pdf.body.data.base64, 'base64');
     expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(
+      await escalar('SELECT FIRMANTE_NOMBRE FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id', {
+        id: documento,
+      }),
+    ).toBe('ZZ Firmante Pruebas');
+    expect(
+      await escalar(
+        'SELECT COUNT(*) FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id AND APROBADO_POR IS NOT NULL AND APROBADO_EN IS NOT NULL AND VERSION_MEMBRETE>0',
+        { id: documento },
+      ),
+    ).toBe(1);
     sha256 = pdf.body.data.sha256;
     await mkdir('../tmp/pdfs', { recursive: true });
     await writeFile('../tmp/pdfs/solicitud-oracle.pdf', bytes);
@@ -540,5 +577,28 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
         ),
       ),
     ).toBe(0);
+  });
+  it('reemite un histórico conservando archivo original y exige revisar la nueva entrega', async () => {
+    await ejecutar('UPDATE DOCUMENTOS_GENERADOS SET VERSION_MEMBRETE=NULL WHERE ID_SOLICITUD=:id', {
+      id: documento,
+    });
+    await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(409);
+    await post(rh, `/${documento}/reemitir`, { confirmado: true });
+    expect(
+      await escalar('SELECT COUNT(*) FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id', {
+        id: documento,
+      }),
+    ).toBe(2);
+    expect(
+      await escalar(
+        'SELECT COUNT(*) FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id AND ACTIVO=0 AND VERSION=1',
+        { id: documento },
+      ),
+    ).toBe(1);
+    await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(403);
+    const nuevo = (await rh.agent.get(`/api/solicitudes/${documento}/documento`).expect(200)).body
+      .data;
+    await post(rh, `/${documento}/entregar`, { confirmado: true, sha256: nuevo.sha256 });
+    await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(200);
   });
 });

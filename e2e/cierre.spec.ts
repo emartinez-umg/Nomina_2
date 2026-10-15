@@ -22,6 +22,15 @@ async function entrar(page: Page, rol: 'ADMIN' | 'RH' | 'EMPLEADO') {
   );
   await oferta(page);
 }
+async function salir(page: Page) {
+  const token = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+  expect(
+    (
+      await page.request.post('/api/auth/logout', { headers: { 'X-CSRF-Token': token }, data: {} })
+    ).status(),
+  ).toBe(200);
+  await page.goto('/login');
+}
 async function clavesBorradores(page: Page) {
   return page.evaluate(() =>
     Object.keys(localStorage).filter((k) => k.startsWith('nomina2:borrador:')),
@@ -373,32 +382,89 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       data: { activo: false, motivo: 'No debe desactivar último ADMIN' },
     });
     expect(ultimo.status()).toBe(409);
-    const redEmpresa = page.waitForResponse((r) => r.url().includes('/api/catalogos/empresa?'));
     await page.goto('/catalogos/empresa');
-    const recibidaEmpresa = await redEmpresa;
-    expect((await recibidaEmpresa.json()).data.total, new URL(recibidaEmpresa.url()).search).toBe(
-      1,
-    );
     await oferta(page);
-    const comprobacionEmpresa = (
-      await (await page.request.get('/api/catalogos/empresa?activo=1')).json()
-    ).data;
-    expect(comprobacionEmpresa.total).toBe(1);
-    await page
-      .getByRole('button', { name: /^Editar registro / })
-      .first()
-      .click();
-    await tour(page, true);
-    await page.getByLabel('Representante', { exact: true }).fill('Representante Pruebas');
-    await page.getByLabel('Teléfono de empresa', { exact: true }).fill('55551234');
-    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(
-      page.getByRole('dialog').filter({ has: page.getByLabel('Representante', { exact: true }) }),
-    ).toHaveCount(0);
-    const empresa = (await (await page.request.get('/api/catalogos/empresa')).json()).data
-      .registros[0];
+      page.getByRole('heading', { name: 'Configuración de empresa', exact: true }),
+    ).toBeVisible();
+    await tour(page);
+    await page.getByLabel('Teléfono', { exact: true }).fill('55551234');
+    await page.getByLabel('Nombre comercial', { exact: true }).fill('Empresa Pruebas');
+    await page.getByRole('button', { name: 'Guardar configuración', exact: true }).click();
+    await expect(
+      page.getByText('Configuración de empresa guardada.', { exact: true }),
+    ).toBeVisible();
+    const empresa = (await (await page.request.get('/api/empresa')).json()).data;
     expect(empresa.telefono).toBe('55551234');
-    expect(empresa.representante).toBe('Representante Pruebas');
+    expect(empresa.nombreComercial).toBe('Empresa Pruebas');
+  });
+  test('FASE V1-5: logo privado, borrador y membrete en documentos', async ({ page }) => {
+    await entrar(page, 'RH');
+    await page.goto('/catalogos/empresa');
+    await oferta(page);
+    await page.getByLabel('Nombre comercial', { exact: true }).fill('Identidad v1');
+    await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
+    await page.reload();
+    await oferta(page);
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByLabel('Nombre comercial', { exact: true })).toHaveValue('Identidad v1');
+    await page.getByLabel('Logo', { exact: true }).setInputFiles({
+      name: 'logo.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="60"><rect width="180" height="60" fill="#213F60"/><text x="15" y="40" fill="white" font-size="30">EMPRESA</text></svg>',
+      ),
+    });
+    await expect(page.getByAltText('Vista previa del logo')).toBeVisible();
+    await revisarUi(page);
+    await page.getByRole('button', { name: 'Guardar configuración', exact: true }).click();
+    await expect(
+      page.getByText('Configuración de empresa guardada.', { exact: true }),
+    ).toBeVisible();
+    await expect.poll(() => clavesBorradores(page)).toEqual([]);
+    const empresa = (await (await page.request.get('/api/empresa')).json()).data;
+    expect(empresa.logo.mime).toBe('image/png');
+    await mkdir('tmp/pdfs', { recursive: true });
+    await page.screenshot({ path: 'tmp/pdfs/empresa-v1-5.png', fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await revisarUi(page);
+    await salir(page);
+    await entrar(page, 'EMPLEADO');
+    expect((await page.request.get('/api/empresa')).status()).toBe(403);
+    const token = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+    const solicitud = await page.request.post('/api/solicitudes', {
+      headers: { 'X-CSRF-Token': token },
+      data: { tipo: 'CONSTANCIA_LABORAL', confirmado: true },
+    });
+    expect(solicitud.status()).toBe(201);
+    const id = (await solicitud.json()).data.id;
+    await salir(page);
+    await entrar(page, 'RH');
+    const csrfRh = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+    expect(
+      (
+        await page.request.post(`/api/solicitudes/${id}/resolver`, {
+          headers: { 'X-CSRF-Token': csrfRh },
+          data: { estado: 'APROBADA', confirmado: true },
+        })
+      ).status(),
+    ).toBe(200);
+    const documento = (await (await page.request.get(`/api/solicitudes/${id}/documento`)).json())
+      .data;
+    const bytes = Buffer.from(documento.base64, 'base64');
+    expect(bytes.toString('latin1')).toContain('/Subtype /Image');
+    await writeFile('tmp/pdfs/empresa-solicitud-v1-5.pdf', bytes);
+    expect(
+      (
+        await page.request.post(`/api/solicitudes/${id}/entregar`, {
+          headers: { 'X-CSRF-Token': csrfRh },
+          data: { confirmado: true, sha256: documento.sha256 },
+        })
+      ).status(),
+    ).toBe(200);
+    await salir(page);
+    await entrar(page, 'EMPLEADO');
+    expect((await page.request.get(`/api/solicitudes/${id}/documento`)).status()).toBe(200);
   });
   test('RBAC, recursos propios y tiempos de consultas reales', async ({ page, browser }) => {
     const anon = await browser.newContext();
@@ -569,7 +635,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         await revisarUi(page);
         if (ruta === '/mis-gestiones/solicitudes')
           await expect(page.getByLabel('Buscar empleado', { exact: true })).toHaveCount(0);
-        if (ruta.startsWith('/catalogos/')) {
+        if (ruta.startsWith('/catalogos/') && ruta !== '/catalogos/empresa') {
           await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
           await tour(page, true);
           const a11y = await new AxeBuilder({ page })

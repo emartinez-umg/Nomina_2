@@ -1,3 +1,4 @@
+import { empresaPrueba, firmaPrueba } from '../../shared/pdf/documento.fixture.js';
 import { describe, expect, it } from 'vitest';
 import { validarTransicion } from './solicitudes.service.js';
 import { rellenarPlantilla, solicitudPdf } from './solicitudes.pdf.js';
@@ -72,7 +73,8 @@ describe('Gestiones: estados, validación y PDF', () => {
       'Constancia laboral',
       'Relación laboral.\n'.repeat(150),
       1,
-      'Empresa de prueba',
+      empresaPrueba,
+      firmaPrueba,
     );
     expect(b.subarray(0, 5).toString()).toBe('%PDF-');
     expect(b.toString('latin1')).toMatch(/\/Count [2-9]/);

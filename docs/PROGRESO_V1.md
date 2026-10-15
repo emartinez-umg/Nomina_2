@@ -388,3 +388,131 @@ Estado: completada el 14/10/2026. Rama `v1`, alcance A5 solicitado para centros 
 5. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`;
    `npm run db:verify`; `npm run verify:ubicaciones`; `npm run test:e2e -- --grep 'FASE V1-4'`.
    Fuente reproducible: `python3 scripts/extraer-ubicaciones-ine.py && node scripts/generar-seed-ubicaciones.mjs`.
+
+## FASE V1-5 — Identidad de empresa y documentos membretados
+
+Estado: completada el 14/10/2026. Rama `v1`, alcance A6 solicitado.
+
+### Hecho
+
+- Leídos AGENTS.md completo con adendo y progreso v1. Inicio con árbol limpio; V000–V022 intactas.
+- V023 amplía la configuración sin perder datos ni FORMATO_IGSS: IDENTIDAD_EMPRESA guarda nombre
+  comercial, sitio web, logo PNG privado, SHA-256 y versión. FIRMAS_DOCUMENTO conserva identidad
+  y fecha para periodos/prestaciones; CONSTANCIAS_SALARIO_PDF archiva PDF/huella/aprobación.
+  DOCUMENTOS_GENERADOS incorpora usuario, fecha, nombre/cargo y versión de membrete.
+  Las tablas nuevas tienen identity ALWAYS, auditoría, estado, restricciones y FKs indexadas.
+- Pantalla específica Configuración de empresa para RH/ADMIN en la ruta existente. Formulario
+  RHF/Zod con NIT módulo 11, razón social, nombre comercial, dirección, teléfono, correo y sitio
+  HTTP/HTTPS; grilla proporcional, hints, vista previa, estados de carga/error y borrador de texto.
+  Control de versión impide sobrescribir una edición concurrente. Todo guardado se audita.
+- GET/PATCH /api/empresa protegidos por sesión, cambio obligatorio, RBAC y CSRF. GET /estado
+  permite consultar requisitos sin entregar empresa/logo al empleado. El antiguo CRUD conserva
+  consultas y orienta las escrituras hacia la pantalla nueva, evitando identidades divergentes.
+- Logos PNG/JPG/SVG de hasta 2 MB: validación de MIME, firma real y decodificación; límite de píxeles
+  y tiempo, conversión a PNG de hasta 1000×1000, sin metadatos. SVG se analiza como XML: formas/texto,
+  sin scripts, DTD, estilos, eventos, referencias externas ni atributos con escapes CSS.
+  BLOB en Oracle, sin URL ni carpeta pública; la bitácora guarda huella, nunca binarios.
+  Quitar logo exige confirmación. Docker incorpora fuentes/configuración para SVG con texto.
+- Los tres generadores anteriores ahora usan exclusivamente shared/pdf/documento: boletas,
+  planilla horizontal, solicitudes/cartas/certificados, constancias de salario, prestaciones y
+  finiquitos. Encabezado y pie en todas las páginas, paginación y margen superior que crece con
+  razón social/dirección extensas. Sin empresa completa la API bloquea PDF y la pantalla explica
+  cómo configurarla. Avisos y botones de aprobación orientan sobre requisitos de firma faltantes.
+- La firma procede de nombres/apellidos del expediente y del puesto activo de quien aprueba,
+  también cuando actúa ADMIN. Se conserva como snapshot con usuario y fecha, dentro de la misma
+  transacción; cambios posteriores del puesto no alteran firmas ya guardadas.
+- Usuarios añade Vincular ficha de firmante para ADMIN: búsqueda de expediente, motivo, borrador,
+  confirmación y auditoría; exige cuenta RH/ADMIN y ficha activas, sin reemplazar vínculos existentes.
+  Al faltar nombre/cargo se bloquea la aprobación y se explica cómo completar/vincular la ficha.
+- Retirado el campo y variable anteriores de firma del código y seeds activos. V023 versiona las
+  plantillas previas conservando sus originales y convierte su variable histórica a firmante_nombre;
+  firmante_cargo también está disponible. El bloque de firma se añade siempre desde el generador.
+- Reemisión explícita para solicitudes históricas sin membrete: conserva el PDF original inactivo,
+  genera una nueva versión firmada por quien reemite y exige vista previa/entrega otra vez. Historial
+  identifica REEMISION sin ampliar las transiciones ordinarias; avisos de reentrega distinguen versión.
+- Utilidad credencialesTemporalesPdf acepta una o varias credenciales, membrete e instrucciones de
+  primer ingreso. Solo trabaja en memoria: no almacena contraseñas, archivos ni tokens; integración
+  de entrega única y alta automática reservada para V1-7, como se solicitó.
+- Actualizados navegación, hints y recorridos de empresa/nómina/prestaciones/solicitudes/usuarios;
+  README, CATALOGOS, FRONTEND, ERD y manifiesto de filtros. verify:empresa se integra a verify:all.
+
+### Validación realizada
+
+- Lint, TypeScript strict (backend, frontend y E2E), builds y Prettier sin errores.
+- 445 unitarias aprobadas: 244 backend y 201 frontend. Nuevas: PDF con/sin logo, membrete en cada
+  página, texto real de firma/fecha, bloqueo sin nombre/cargo/empresa, credenciales en memoria,
+  PNG/JPG/SVG reales, archivos falsos, tamaño excedido, SVG activo/externo/DTD, datos/NIT/contacto,
+  preview, formulario/API con versión y limpieza del borrador al guardar.
+- Seis pruebas Oracle/Supertest de empresa aprobadas: migración de identidad y plantillas con datos
+  previos, preservación de versiones, permisos/CSRF, logo privado/normalizado, edición concurrente,
+  datos inválidos, perfil/vínculo y snapshot de firma, rollback real de auditoría y retirada del logo.
+- Dieciocho pruebas Oracle de solicitudes aprobadas, incluidas aprobación concurrente única,
+  identidad y fecha persistidas, bloqueo sin ficha, PDF inmutable, entrega propia, rollback y
+  reemisión de histórico conservando original y publicación de la versión nueva.
+- Regresión Oracle: 72 casos de seguridad/catálogos/empleados/novedades/vacaciones/nómina y
+  diez de prestaciones, finiquitos y constancias. Fórmulas e importes conservados.
+- db:verify desde cero V000–V023 aprobado: 59 tablas, objetos válidos, seeds repetibles,
+  identities, restricciones, FKs/índices y transacciones. Esquemas desechables eliminados.
+- Diecinueve E2E cubiertos con API/Oracle reales: 18 aprobaron en la regresión y la matriz completa
+  pasó al adaptar empresa a su formulario específico. Repetición de matriz + V1-5: dos aprobados,
+  incluida axe A/AA, móvil, hints/tours, borrador/restauración, logo SVG, bloqueo de datos/logo para
+  EMPLEADO y generación/entrega/descarga de una constancia con imagen real incrustada.
+- PDFs renderizados e inspeccionados: membrete con/sin logo, razón social/dirección extensas,
+  boleta, planilla horizontal, solicitud real, salario y finiquito. Sin solapamientos ni cortes de
+  firma. Artefactos de QA en tmp/pdfs, ignorados por Git; no se entregan como datos de producción.
+- Entorno local reconstruido con Node 20.20.2, V023 aplicada, cero objetos inválidos y dos empleados
+  conservados. verify:infra aprobado para API/Oracle/nginx/rutas/assets/worker PDF. Conversión SVG
+  y PDF con firma probados en memoria dentro del contenedor, sin escrituras de datos de prueba.
+
+### Decisiones y supuestos
+
+- Se mantiene CONFIGURACION_EMPRESA como identidad fiscal referenciada por IGSS, ampliada mediante
+  tabla nueva; no se duplica la razón social/NIT. El logo usa BLOB transaccional como los documentos
+  existentes, sin requerir volumen ni directorios de subida. El SHA-256 permite auditar reemplazos.
+- Logo, nombre comercial y web son opcionales; razón social, NIT, dirección, teléfono y correo son
+  obligatorios para PDF. Sin logo se emite membrete textual. No se inventan datos al migrar históricos.
+- La firma es un bloque de identificación, sin agregar una imagen o firma electrónica. ADMIN usa
+  igualmente su expediente/puesto al aprobar. No se permite escribir manualmente quién firma.
+- Los archivos de solicitudes y salario guardan la identidad al emitir. Boletas/prestaciones
+  consultan la empresa vigente al descargarse, conservando cálculos e identidad de aprobación.
+  Las firmas históricas recuperables se migran desde aprobador/fecha y ficha/puesto existentes;
+  si no son verificables se explica que deben completarse y revisarse, sin inventar un firmante.
+- El dato antiguo de firma se conserva únicamente en el esquema/documentos históricos para no
+  perder información; no se consulta, edita ni usa en nuevas plantillas o generación.
+- Reemisión es una acción documental motivada en historial/bitácora, no un cambio del flujo normal.
+  El archivo anterior conserva contenido y huella, y el nuevo requiere entrega explícita.
+- Ajustadas fixtures existentes a empresa completa y ficha firmante. Sus expedientes exclusivos de
+  prueba tienen ingreso posterior a los periodos ensayados para no alterar cálculos; quedan excluidos
+  del build de producción. Se mantiene la cobertura financiera/RBAC previa.
+- Incidencias resueltas: Supertest requirió puertos fuera del sandbox; la reemisión necesitó su tipo
+  explícito en el CHECK de historial; E2E debía cerrar sesión antes de alternar roles y tratar empresa
+  como formulario específico. Poppler usó caché temporal de fuentes. Docker liberó 1.512 GB de caché
+  de compilación sin uso de más de 24 h; contenedores, imágenes, volúmenes y datos se conservaron.
+
+### Pendientes
+
+- Operación: RH/ADMIN debe completar los datos reales de empresa y cargar su logo, si lo utiliza.
+  ADMIN debe vincular las cuentas aprobadoras a sus fichas reales; RH completa nombres y puestos.
+- Los documentos históricos sin membrete se reemiten desde su detalle. Las aprobaciones históricas
+  sin identidad verificable requieren completar la ficha y revisión administrativa antes de emitir.
+- A7–A12 permanecen reservadas para sus fases; V1-7 conectará la utilidad de credenciales.
+
+### Cómo probar
+
+1. `docker compose up --build`; abrir https://localhost:8443/login como RH/ADMIN.
+2. Configuración → Configuración de empresa: revisar datos migrados, completar NIT/contacto,
+   cargar PNG/JPG/SVG hasta 2 MB, comprobar vista previa y guardar. Probar NIT incorrecto,
+   archivo falso, tamaño excesivo, SVG con recursos externos y guardado concurrente.
+3. Escribir, esperar Borrador guardado, recargar y Continuar; seleccionar el archivo otra vez.
+   Guardar elimina el borrador. Quitar logo pide confirmación y se aplica al guardar.
+4. ADMIN: Usuarios → Vincular ficha de firmante, elegir expediente real sin cuenta y confirmar
+   con motivo. RH sin ficha/puesto no puede aprobar; una ficha completa habilita la firma.
+5. Descargar boletas/planilla, prestaciones/finiquito y constancia de salario. Aprobar una solicitud,
+   revisar su PDF, entregar y descargar como empleado. Revisar encabezado/pie en cada página y
+   nombre/cargo/fecha. Cambiar puesto después no modifica el documento aprobado.
+6. En un documento histórico usar Reemitir, revisar la nueva versión y entregar; el original queda
+   conservado. Ayuda de cada página explica requisitos, firma, logo y borradores.
+7. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`; `npm run verify:empresa`; `npm run verify:solicitudes`;
+   `npm run verify:prestaciones`; `npm run verify:security`; `npm run test:e2e`;
+   `npm run verify:infra`.

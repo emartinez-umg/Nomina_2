@@ -1,7 +1,14 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaPrestaciones: DefinicionAyuda = {
-  id: 'prestaciones',
+  id: 'prestaciones-v1-5',
   pasos: [
+    {
+      elemento: 'empresa-aviso',
+      titulo: 'Membrete y firma de aprobación',
+      descripcion:
+        'Antes de emitir PDF completa Configuración de empresa. Todos los documentos incluyen sus datos y logo si está cargado. Para aprobar, tu usuario debe estar vinculado a un expediente con nombres, apellidos y puesto activo. La firma conserva la identidad y fecha de quien aprobó.',
+      roles: ['RH', 'ADMIN'],
+    },
     {
       elemento: 'prestaciones-calculo',
       titulo: 'Ciclos y vista previa',

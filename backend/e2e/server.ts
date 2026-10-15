@@ -1,3 +1,5 @@
+import { prepararFirmantePrueba } from '../src/shared/pdf/empresa.fixture.js';
+import { crearEmpresaService } from '../src/modules/empresa/empresa.service.js';
 import { crearCodigosService } from '../src/modules/codigos/codigos.service.js';
 import { crearUbicacionesService } from '../src/modules/ubicaciones/ubicaciones.service.js';
 import { crearBaseDatos } from '../src/shared/db/pool.js';
@@ -97,7 +99,7 @@ await enTransaccion(db, async (c) => {
       },
     );
   await c.execute(
-    "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,REPRESENTANTE) VALUES ('Empresa E2E','1234567-9','Dirección E2E','Representante E2E')",
+    "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,TELEFONO,CORREO) VALUES ('Empresa E2E','1234567-9','Dirección E2E','55551234','empresa@example.test')",
   );
   for (const i of [1, 2]) {
     await c.execute(
@@ -127,8 +129,18 @@ await enTransaccion(db, async (c) => {
     );
   }
 });
+const idsFirmantes = await db.conConexion(
+  async (c) =>
+    (
+      await c.execute<number[]>(
+        "SELECT U.ID_USUARIO FROM USUARIOS U JOIN ROLES R ON R.ID_ROL=U.ID_ROL WHERE R.CODIGO IN ('ADMIN','RH')",
+      )
+    ).rows ?? [],
+);
+for (const [id] of idsFirmantes) await prepararFirmantePrueba(db, id!);
 const salud = crearSaludService(crearSaludRepository(db), logger);
 const app = crearApp(salud, logger, {
+  empresa: crearEmpresaService(db),
   auth: await crearAuthService(db, config),
   usuarios: crearUsuariosService(db),
   auditoria: crearAuditoriaService(db),

@@ -85,7 +85,8 @@ export const variables = [
   'empresa',
   'nit_empresa',
   'direccion_empresa',
-  'representante',
+  'firmante_nombre',
+  'firmante_cargo',
   'fecha_emision',
 ] as const;
 export const plantillaSchema = z

@@ -1,3 +1,5 @@
+import { crearEmpresaRouter } from './modules/empresa/empresa.routes.js';
+import type { crearEmpresaService } from './modules/empresa/empresa.service.js';
 import { crearCodigosRouter } from './modules/codigos/codigos.routes.js';
 import { crearUbicacionesRouter } from './modules/ubicaciones/ubicaciones.routes.js';
 import type { crearUbicacionesService } from './modules/ubicaciones/ubicaciones.service.js';
@@ -46,6 +48,7 @@ import { crearVacacionesRouter } from './modules/vacaciones/vacaciones.routes.js
 import type { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 
 interface SeguridadApp {
+  empresa?: ReturnType<typeof crearEmpresaService>;
   ubicaciones?: ReturnType<typeof crearUbicacionesService>;
   codigos?: ReturnType<typeof crearCodigosService>;
   comunicacion?: ReturnType<typeof crearComunicacionService>;
@@ -74,6 +77,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
   }
   app.use(helmet());
   app.use(registrarPeticiones(logger));
+  app.use('/api/empresa', express.json({ limit: '3mb' }));
   app.use('/api/nomina/igss/formato', express.json({ limit: '4mb' }));
   app.use('/api/empleados/cargas', express.json({ limit: '2mb' }));
   app.use('/api/novedades/ausencias', express.json({ limit: '1500kb' }));
@@ -88,6 +92,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
       permitirRoles('ADMIN', 'RH', 'EMPLEADO'),
       exigirCambioCompletado,
     );
+    if (seguridad.empresa) app.use('/api/empresa', crearEmpresaRouter(seguridad.empresa));
     if (seguridad.codigos) app.use('/api/codigos', crearCodigosRouter(seguridad.codigos));
     if (seguridad.ubicaciones)
       app.use('/api/ubicaciones', crearUbicacionesRouter(seguridad.ubicaciones));

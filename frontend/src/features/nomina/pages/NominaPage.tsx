@@ -1,3 +1,4 @@
+import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { Decimal } from 'decimal.js';
@@ -39,7 +40,9 @@ export function AccionesPeriodo({
   admin,
   ocupado,
   onAccion,
+  bloqueoFirma,
 }: {
+  bloqueoFirma?: string | undefined;
   p: Periodo;
   admin: boolean;
   ocupado: boolean;
@@ -58,6 +61,7 @@ export function AccionesPeriodo({
       {opciones.map(([a, label, estados]) => {
         const bloqueada =
           ocupado ||
+          (a === 'aprobar' && !!bloqueoFirma) ||
           !(estados as readonly string[]).includes(p.estado) ||
           (!['calcular', 'reabrir', 'devolver'].includes(a) && api.alertasDe(p).length > 0);
         return (
@@ -73,9 +77,11 @@ export function AccionesPeriodo({
             variante={a === 'cerrar' || a === 'reabrir' ? 'peligro' : 'secundario'}
             disabled={bloqueada}
             motivoDeshabilitado={
-              api.alertasDe(p).length && !['calcular', 'reabrir', 'devolver'].includes(a)
-                ? 'Resuelve las alertas y recalcula.'
-                : `Acción disponible en: ${estados.join(', ')}.`
+              a === 'aprobar' && bloqueoFirma
+                ? bloqueoFirma
+                : api.alertasDe(p).length && !['calcular', 'reabrir', 'devolver'].includes(a)
+                  ? 'Resuelve las alertas y recalcula.'
+                  : `Acción disponible en: ${estados.join(', ')}.`
             }
             onClick={() => onAccion(a)}
           >
@@ -97,6 +103,7 @@ export function NominaPage() {
     [formato, setFormato] = useState(false);
   return (
     <>
+      <AvisoEmpresa empleado={propio} firma={!propio} />
       <h1>{propio ? 'Mis boletas de pago' : 'Planilla de nómina'}</h1>
       <p className="text-secundario mb-5">
         {propio
@@ -287,6 +294,7 @@ function Planilla({
   id: number | undefined;
   admin: boolean;
 }) {
+  const bloqueoFirma = useBloqueoFirma();
   const cache = useQueryClient(),
     toast = useToast();
   const [q, setQ] = useState<Record<string, string>>({
@@ -382,6 +390,7 @@ function Planilla({
                   conserva la versión anterior.
                 </p>
                 <AccionesPeriodo
+                  bloqueoFirma={bloqueoFirma}
                   p={p.data}
                   admin={admin}
                   ocupado={actuar.isPending}

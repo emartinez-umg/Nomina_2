@@ -282,7 +282,7 @@ const compartidos: GrupoNavegacion[] = [
       ]),
       catalogo(
         'empresa',
-        'Datos de empresa',
+        'Configuración de empresa',
         'Administra los datos empresariales para documentos.',
       ),
     ],

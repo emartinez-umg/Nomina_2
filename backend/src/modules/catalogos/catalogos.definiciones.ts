@@ -139,14 +139,6 @@ export const catalogos: Catalogo[] = [
         { requerido: true, max: 500 },
       ),
       campo(
-        'representante',
-        'REPRESENTANTE',
-        'Representante',
-        'nombre',
-        'Nombre completo de quien firma las constancias; no se agrega firma electrónica.',
-        { requerido: true, max: 200 },
-      ),
-      campo(
         'correo',
         'CORREO',
         'Correo de empresa',
