@@ -13,6 +13,7 @@ export const nombresEstado: Record<string, string> = {
   APROBADA: 'Aprobada',
   RECHAZADA: 'Rechazada',
   ENTREGADA: 'Entregada',
+  CANCELADA: 'Cancelada',
 };
 export const criticosSchema = z.object({
   nombres: z.string(),
@@ -32,6 +33,9 @@ export const contactoSchema = z.object({
 export const datosSchema = z.object({ criticos: criticosSchema, contacto: contactoSchema });
 export type MisDatos = z.infer<typeof datosSchema>;
 const fila = z.object({
+  vehiculo: z.string().nullable().optional(),
+  placa: z.string().nullable().optional(),
+  codigo: z.string(),
   id: z.number(),
   idEmpleado: z.number(),
   empleado: z.string(),
@@ -46,6 +50,7 @@ const fila = z.object({
 });
 export type Fila = z.infer<typeof fila>;
 export const detalleSchema = fila.extend({
+  requiereReemision: z.boolean().optional(),
   datos: z.object({ anterior: criticosSchema, nuevo: criticosSchema }).nullable(),
   historial: z.array(
     z.object({
@@ -122,3 +127,9 @@ export const guardarPlantilla = (tipo: string, body: unknown) =>
   });
 export const exportar = (q: Record<string, string>) =>
   solicitar(`/solicitudes/exportar?${qs(q)}`, z.string());
+
+export const reemitir = (id: number) =>
+  solicitar(`/solicitudes/${id}/reemitir`, z.object({ id: z.number() }), {
+    method: 'POST',
+    body: { confirmado: true },
+  });

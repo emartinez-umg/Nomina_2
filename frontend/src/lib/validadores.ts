@@ -55,10 +55,7 @@ export const dpiSchema = z
   );
 export const nitSchema = z
   .string()
-  .refine(
-    nitValido,
-    'El NIT o su dígito verificador no es válido. Revisa el número de tu constancia de RTU.',
-  );
+  .refine(nitValido, 'El dígito verificador del NIT no coincide. Revisa el número.');
 export const telefonoSchema = z
   .string()
   .transform((v) => v.replace(/\s/g, ''))

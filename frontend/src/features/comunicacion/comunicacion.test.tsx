@@ -66,6 +66,7 @@ describe('FASE 11: guía de comunicación y tableros', () => {
           total={1}
           filas={[
             {
+              codigo: 'ANU_2026_0001',
               id: 1,
               titulo: 'Aviso',
               contenido: '<img src=x onerror=alert(1)>',

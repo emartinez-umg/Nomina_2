@@ -38,7 +38,7 @@ export function HelpProvider({ children }: PropsWithChildren) {
       setOfrecida(false);
       return;
     }
-    const clave = `nomina2:ayuda:${ayuda.id}:${rol ?? 'publico'}`;
+    const clave = `nomina2:ayuda:${ayuda.id}:${rol ?? 'publico'}:v1-12`;
     try {
       setOfrecida(localStorage.getItem(clave) !== 'vista');
     } catch {
@@ -50,7 +50,7 @@ export function HelpProvider({ children }: PropsWithChildren) {
     if (definicion)
       try {
         localStorage.setItem(
-          `nomina2:ayuda:${definicion.ayuda.id}:${definicion.rol ?? 'publico'}`,
+          `nomina2:ayuda:${definicion.ayuda.id}:${definicion.rol ?? 'publico'}:v1-12`,
           'vista',
         );
       } catch {
@@ -65,15 +65,21 @@ export function HelpProvider({ children }: PropsWithChildren) {
     const alcance = abiertos.item(abiertos.length - 1) ?? document;
     const activador = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const origen = { left: window.scrollX, top: window.scrollY };
+    const restaurar = () => {
+      // Driver puede enfocar otro control al cerrar; devolvemos foco y posición al origen.
+      queueMicrotask(() => {
+        if (activador?.isConnected) {
+          activador.focus({ preventScroll: true });
+          window.scrollTo(origen);
+        }
+      });
+    };
     activo.current = driver({
-      onDestroyed: () => {
-        // Driver puede enfocar otro control al cerrar; devolvemos foco y posición al origen.
-        queueMicrotask(() => {
-          if (activador?.isConnected) {
-            activador.focus({ preventScroll: true });
-            window.scrollTo(origen);
-          }
-        });
+      onDestroyed: restaurar,
+      onDestroyStarted: (_elemento, _paso, { driver: recorrido }) => {
+        // Un cierre durante la animación puede omitir onDestroyed de driver.js.
+        recorrido.destroy();
+        restaurar();
       },
       showProgress: true,
       progressText: 'Paso {{current}} de {{total}}',

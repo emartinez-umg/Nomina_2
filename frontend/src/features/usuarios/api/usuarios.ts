@@ -32,3 +32,9 @@ export const modificar = (id: number, accion: string, body: unknown) =>
     z.object({ contrasenaTemporal: z.string().optional() }).passthrough(),
     { method: accion === 'restablecer-contrasena' ? 'POST' : 'PATCH', body },
   );
+
+export const vincularFicha = (id: number, idEmpleado: number, motivo: string) =>
+  solicitar(`/usuarios/${id}/expediente`, z.object({ vinculado: z.boolean() }), {
+    method: 'POST',
+    body: { idEmpleado, motivo, confirmado: true },
+  });

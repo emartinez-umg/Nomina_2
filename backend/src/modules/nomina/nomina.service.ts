@@ -1,6 +1,14 @@
+import { conLecturaConsistente } from '../../shared/db/lectura.js';
+import { zipSync } from 'fflate';
+import { completarHistoria } from './nomina.historia.js';
+export { completarHistoria } from './nomina.historia.js';
+import { crearPagosService, accionPeriodoMensual } from './pago.service.js';
+import { boletaArchivada } from './pago.repository.js';
+import { membrete, firmante } from '../empresa/empresa.service.js';
+import { guardarFirma, firmaBoleta } from '../empresa/empresa.repository.js';
+import type { FirmaDocumento } from '../../shared/pdf/documento.js';
 import { fuenteUtilizada } from '../prestaciones/prestaciones.repository.js';
 import { createHash } from 'node:crypto';
-import { Decimal } from 'decimal.js';
 import type { Connection } from 'oracledb';
 import type { BaseDatos } from '../../shared/db/pool.js';
 import { enTransaccion } from '../../shared/db/transaccion.js';
@@ -17,7 +25,7 @@ import type { ActorAuditoria, Autenticacion } from '../auth/auth.types.js';
 import { registrarCobroCuota } from '../novedades/novedades.service.js';
 import { quincena } from '../novedades/novedades.reglas.js';
 import { calcularNomina, validarTransicion } from './nomina.calculo.js';
-import type { Entrada, Periodo } from './nomina.types.js';
+import type { Periodo } from './nomina.types.js';
 import {
   accionSchema,
   fiscalSchema,
@@ -38,53 +46,20 @@ const audit = (
   motivo: string,
   entidad = 'PERIODOS_NOMINA',
 ) => registrarAuditoria(c, { actor, accion, entidad, idEntidad: id, antes, despues, motivo });
-export function completarHistoria(e: Entrada) {
-  const historia = (e as Entrada & { historia?: repo.Historia }).historia;
-  if (!historia) return e;
-  const inicioAnio = `${e.inicio.slice(0, 4)}-01-01`;
-  let cursor = e.empleado.ingreso > inicioAnio ? e.empleado.ingreso : inicioAnio;
-  const a = historia.apertura;
-  if (a) {
-    if (a.corte >= e.inicio)
+async function firmas(c: Connection, ns: { id: number; estado: string }[]) {
+  const resultado = new Map<number, FirmaDocumento>();
+  for (const n of ns) {
+    const f = await firmaBoleta(c, n.id);
+    if (f) resultado.set(n.id, f);
+    else if (['APROBADO', 'CERRADO'].includes(n.estado))
       throw new ErrorConflicto(
-        'La apertura fiscal se traslapa con esta quincena. Calcula desde el periodo siguiente al corte.',
+        'La aprobación histórica carece de nombre y cargo verificables. Completa la ficha del aprobador y solicita a ADMIN revisar y reaprobar el periodo.',
       );
-    cursor = new Date(Date.parse(a.corte) + 86400000).toISOString().slice(0, 10);
   }
-  const acumulado = {
-    renta: new Decimal(a?.renta ?? 0),
-    igss: new Decimal(a?.igss ?? 0),
-    isr: new Decimal(a?.isr ?? 0),
-  };
-  for (const n of historia.previos) {
-    if (a && n.inicio <= a.corte)
-      throw new ErrorConflicto('La apertura fiscal se traslapa con nóminas cerradas del empleado.');
-    if (n.inicio > cursor)
-      throw new ErrorConflicto(
-        `Falta historia fiscal desde ${cursor}. Cierra las quincenas anteriores o registra la apertura certificada.`,
-      );
-    cursor = new Date(Date.parse(n.fin) + 86400000).toISOString().slice(0, 10);
-    for (const k of ['renta', 'igss', 'isr'] as const) acumulado[k] = acumulado[k].plus(n[k]);
-  }
-  if (cursor < e.inicio)
-    throw new ErrorConflicto(
-      `Falta historia fiscal desde ${cursor}. Registra ingresos, IGSS e ISR reales mediante apertura certificada o calcula las quincenas anteriores.`,
-    );
-  return {
-    ...e,
-    acumulado: {
-      renta: acumulado.renta.toFixed(2),
-      igss: acumulado.igss.toFixed(2),
-      isr: acumulado.isr.toFixed(2),
-    },
-  };
+  return resultado;
 }
 export function crearNominaService(db: BaseDatos) {
-  const lectura = <T>(fn: (c: Connection) => Promise<T>) =>
-    db.conConexion(async (c) => {
-      await repo.lecturaConsistente(c);
-      return fn(c);
-    });
+  const lectura = <T>(fn: (c: Connection) => Promise<T>) => conLecturaConsistente(db, fn);
   const tx = <T>(
     auth: Autenticacion,
     ip: string,
@@ -118,9 +93,13 @@ export function crearNominaService(db: BaseDatos) {
     if (!n) throw new ErrorNoEncontrado();
     if (
       auth.rol === 'EMPLEADO' &&
-      (n.usuario !== auth.idUsuario || n.estado !== 'CERRADO' || n.version !== n.actual)
+      (n.usuario !== auth.idUsuario ||
+        (n.estado !== 'CERRADO' && !n.pagado) ||
+        n.version !== n.actual)
     )
-      throw new ErrorProhibido('Solo puedes consultar tus boletas de periodos cerrados.');
+      throw new ErrorProhibido(
+        'Solo puedes consultar tus propias boletas pagadas o de periodos históricos cerrados.',
+      );
     return n;
   };
   const todos = async (c: Connection, q: Query, periodo?: number) => {
@@ -135,6 +114,7 @@ export function crearNominaService(db: BaseDatos) {
     return { ...r, registros };
   };
   return {
+    ...crearPagosService(db),
     periodos: (q: Query) => lectura((c) => repo.periodos(c, q)),
     periodo: (id: number) =>
       lectura(async (c) => {
@@ -156,6 +136,7 @@ export function crearNominaService(db: BaseDatos) {
           throw new ErrorConflicto(
             'La versión cambió. Recarga y revisa el nuevo cálculo antes de confirmar.',
           );
+        if (p.motor === 'V1') return accionPeriodoMensual(c, p, accion, a, d.motivo);
         validarTransicion(p.estado, accion, a.rol, d.motivo);
         if (['calcular', 'reabrir', 'devolver'].includes(accion) && (await repo.posteriores(c, p)))
           throw new ErrorConflicto(
@@ -245,6 +226,10 @@ export function crearNominaService(db: BaseDatos) {
           }
           nuevo = accion === 'revisar' ? 'REVISADO' : accion === 'aprobar' ? 'APROBADO' : 'CERRADO';
         }
+        if (accion === 'aprobar') {
+          await membrete(c);
+          await guardarFirma(c, 'PERIODOS_NOMINA', id, await firmante(c, a.idUsuario));
+        }
         await repo.estado(c, id, nuevo, a.idUsuario, version, hash, alertas, d.motivo);
         await audit(
           c,
@@ -276,8 +261,11 @@ export function crearNominaService(db: BaseDatos) {
     boleta: (auth: Autenticacion, id: number) =>
       lectura(async (c) => {
         const n = await detalle(c, auth, id);
+        const archivada = await boletaArchivada(c, id);
+        if (archivada)
+          return exportar.archivo(archivada, `boleta-${id}-v${n.version}.pdf`, 'application/pdf');
         return exportar.archivo(
-          await exportar.boletasPdf([n]),
+          await exportar.boletasPdf([n], await membrete(c), await firmas(c, [n])),
           `boleta-${id}-v${n.version}.pdf`,
           'application/pdf',
         );
@@ -333,13 +321,29 @@ export function crearNominaService(db: BaseDatos) {
           );
         if (formato === 'pdf')
           return exportar.archivo(
-            await exportar.planillaPdf(r.registros, r.totales),
+            await exportar.planillaPdf(r.registros, r.totales, await membrete(c), [
+              ...(await firmas(c, r.registros)).values(),
+            ]),
             'planilla.pdf',
             'application/pdf',
           );
         const ns: repo.Guardado[] = [];
         for (const f of r.registros) ns.push((await detalle(c, auth, f.id))!);
-        return exportar.archivo(await exportar.boletasPdf(ns), 'boletas.pdf', 'application/pdf');
+        if (ns.some((n) => 'tipoPago' in exportar.snapshot(n).resultado)) {
+          const archivos: Record<string, Uint8Array> = {};
+          for (const n of ns)
+            archivos[
+              `departamento-${exportar.snapshot(n).entrada.empleado.idDepartamento}/boleta-${n.id}.pdf`
+            ] =
+              (await boletaArchivada(c, n.id)) ??
+              (await exportar.boletasPdf([n], await membrete(c), await firmas(c, [n])));
+          return exportar.archivo(Buffer.from(zipSync(archivos)), 'boletas.zip', 'application/zip');
+        }
+        return exportar.archivo(
+          await exportar.boletasPdf(ns, await membrete(c), await firmas(c, ns)),
+          'boletas.pdf',
+          'application/pdf',
+        );
       }),
     tipos: () => lectura((c) => repo.tiposDeduccion(c)),
     fiscal: (id: number, anio: number) => lectura((c) => repo.fiscal(c, id, anio)),
@@ -411,11 +415,17 @@ export function crearNominaService(db: BaseDatos) {
             direccion: 'asc',
             anio,
             mes,
-            estado: 'CERRADO',
           },
           ps = await repo.periodos(c, q);
-        if (ps.total !== 2 || ps.registros.some((p) => p.estado !== 'CERRADO'))
-          throw new ErrorConflicto('Cierra las dos quincenas del mes antes de exportar IGSS.');
+        const mensual = ps.registros.some((p) => p.motor === 'V1');
+        if (
+          (!mensual && ps.total !== 2) ||
+          (mensual && !ps.registros.some((p) => p.inicio.endsWith('-16'))) ||
+          ps.registros.some((p) => p.estado !== 'CERRADO')
+        )
+          throw new ErrorConflicto(
+            'Cierra el pago mensual y el anticipo, si existe, antes de exportar IGSS.',
+          );
         const empresa = await repo.empresa(c);
         if (!empresa?.formato)
           throw new ErrorConflicto('Configura el formato IGSS patronal antes de exportar.');

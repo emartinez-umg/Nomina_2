@@ -22,7 +22,10 @@ const campos = {
   fechaNacimiento: 'FECHA_NACIMIENTO',
   sexo: 'SEXO',
   estadoCivil: 'ESTADO_CIVIL',
-  direccion: 'DIRECCION',
+  idDepartamentoGt: 'ID_DEPARTAMENTO_GT',
+  idMunicipioGt: 'ID_MUNICIPIO_GT',
+  zona: 'ZONA',
+  numeroCasa: 'NUMERO_CASA',
   telefono: 'TELEFONO',
   correo: 'CORREO',
   idDepartamento: 'ID_DEPARTAMENTO',
@@ -37,7 +40,7 @@ const campos = {
   tipoCuenta: 'TIPO_CUENTA',
   estado: 'ESTADO',
 } as const;
-export type Empleado = Omit<DatosEmpleado, 'generarUsuario' | 'estado'> & {
+export type Empleado = Omit<DatosEmpleado, 'estado'> & {
   estado: 'ACTIVO' | 'SUSPENDIDO' | 'EGRESADO';
   id: number;
   idUsuario: number | null;
@@ -47,12 +50,14 @@ export type Empleado = Omit<DatosEmpleado, 'generarUsuario' | 'estado'> & {
   fechaEgreso: string | null;
   motivoEgreso: string | null;
   activo: boolean;
+  direccionAnterior: string | null;
+  direccion: string;
 };
 const salarioSql = `(SELECT S.SALARIO_BASE FROM HISTORIAL_SALARIAL S WHERE S.ID_EMPLEADO=E.ID_EMPLEADO AND S.ACTIVO=1 AND S.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (S.VIGENTE_HASTA IS NULL OR S.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY S.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY)`;
 const base = `SELECT E.*, D.NOMBRE DEPARTAMENTO,P.NOMBRE PUESTO,${salarioSql} SALARIO FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO`;
 export async function reglas(c: Connection): Promise<ReglasEmpleado> {
   const r = await c.execute<{ hoy: string; min: number; max: number; ultimoCierre: string | null }>(
-    `SELECT ${fecha(hoy)} "hoy",(SELECT VALOR FROM PARAMETROS_LEGALES WHERE CODIGO='EMPLEADO_EDAD_MINIMA' AND ACTIVO=1 AND VIGENTE_DESDE<=${hoy} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${hoy}) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "min",(SELECT VALOR FROM PARAMETROS_LEGALES WHERE CODIGO='EMPLEADO_EDAD_MAXIMA' AND ACTIVO=1 AND VIGENTE_DESDE<=${hoy} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${hoy}) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "max",(SELECT ${fecha('MAX(FECHA_FIN)')} FROM PERIODOS_NOMINA WHERE ESTADO='CERRADO') "ultimoCierre" FROM DUAL`,
+    `SELECT ${fecha(hoy)} "hoy",(SELECT VALOR FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='EMPLEADO_EDAD_MINIMA' AND ACTIVO=1 AND VIGENTE_DESDE<=${hoy} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${hoy}) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "min",(SELECT VALOR FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='EMPLEADO_EDAD_MAXIMA' AND ACTIVO=1 AND VIGENTE_DESDE<=${hoy} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${hoy}) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "max",(SELECT ${fecha('MAX(FECHA_FIN)')} FROM PERIODOS_NOMINA WHERE ESTADO='CERRADO') "ultimoCierre" FROM DUAL`,
     {},
     opts,
   );
@@ -61,7 +66,7 @@ export async function reglas(c: Connection): Promise<ReglasEmpleado> {
 }
 export async function salarioMinimo(c: Connection, desde: string) {
   const r = await c.execute<{ valor: string }>(
-    `SELECT ${monto('VALOR')} "valor" FROM PARAMETROS_LEGALES WHERE CODIGO='SALARIO_MINIMO_MENSUAL' AND UNIDAD='QUETZALES' AND ACTIVO=1 AND VIGENTE_DESDE<=TO_DATE(:desde,'YYYY-MM-DD') AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=TO_DATE(:desde,'YYYY-MM-DD')) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY`,
+    `SELECT ${monto('VALOR')} "valor" FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='SALARIO_MINIMO_MENSUAL' AND UNIDAD='QUETZALES' AND ACTIVO=1 AND VIGENTE_DESDE<=TO_DATE(:desde,'YYYY-MM-DD') AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=TO_DATE(:desde,'YYYY-MM-DD')) ORDER BY VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY`,
     { desde },
     opts,
   );
@@ -76,7 +81,11 @@ export async function listar(c: Connection, q: QueryEmpleados) {
       where.push(sql);
     }
   };
-  add('nombre', q.nombre, "INSTR(UPPER(E.NOMBRES||' '||E.APELLIDOS),UPPER(:nombre))>0");
+  add(
+    'nombre',
+    q.nombre,
+    "INSTR(UPPER(E.NOMBRES||' '||E.APELLIDOS||' '||E.CODIGO),UPPER(:nombre))>0",
+  );
   add('dpi', q.dpi, 'INSTR(E.DPI,:dpi)>0');
   add('nit', q.nit, 'INSTR(E.NIT,:nit)>0');
   for (const key of [
@@ -121,7 +130,7 @@ export async function detalle(c: Connection, id: number): Promise<Empleado | nul
     .map(([key, col]) => `${key.startsWith('fecha') ? fecha('E.' + col) : 'E.' + col} "${key}"`)
     .join(',');
   const r = await c.execute<Empleado>(
-    `SELECT E.ID_EMPLEADO "id",E.ID_USUARIO "idUsuario",E.ACTIVO "activo",${selection},${fecha('E.FECHA_EGRESO')} "fechaEgreso",E.MOTIVO_EGRESO "motivoEgreso",D.NOMBRE "departamento",P.NOMBRE "puesto",U.USUARIO "usuario",${monto(salarioSql)} "salarioBase",(SELECT H.ID_HORARIO FROM EMPLEADO_HORARIO H WHERE H.ID_EMPLEADO=E.ID_EMPLEADO AND H.ACTIVO=1 AND H.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (H.VIGENTE_HASTA IS NULL OR H.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY H.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "idHorario",(SELECT NOMBRE FROM JEFATURAS WHERE ID_JEFATURA=E.ID_JEFATURA) "idJefaturaEtiqueta",(SELECT NOMBRE FROM TIPOS_CONTRATO WHERE ID_TIPO_CONTRATO=E.ID_TIPO_CONTRATO) "idTipoContratoEtiqueta",(SELECT NOMBRE FROM CENTROS_TRABAJO WHERE ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO) "idCentroTrabajoEtiqueta",(SELECT NOMBRE FROM BANCOS WHERE ID_BANCO=E.ID_BANCO) "idBancoEtiqueta",(SELECT H.NOMBRE FROM HORARIOS H JOIN EMPLEADO_HORARIO A ON A.ID_HORARIO=H.ID_HORARIO WHERE A.ID_EMPLEADO=E.ID_EMPLEADO AND A.ACTIVO=1 AND A.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (A.VIGENTE_HASTA IS NULL OR A.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY A.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "idHorarioEtiqueta",C.NOMBRE "contactoNombre",C.PARENTESCO "contactoParentesco",C.TELEFONO "contactoTelefono" FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO LEFT JOIN USUARIOS U ON U.ID_USUARIO=E.ID_USUARIO LEFT JOIN EMPLEADO_CONTACTOS_EMERGENCIA C ON C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1 WHERE E.ID_EMPLEADO=:id`,
+    `SELECT E.DIRECCION "direccion",E.DIRECCION_ANTERIOR "direccionAnterior",E.SEXO_ANTERIOR "sexoAnterior",(SELECT NOMBRE FROM DEPARTAMENTOS_GT WHERE ID_DEPARTAMENTO_GT=E.ID_DEPARTAMENTO_GT) "idDepartamentoGtEtiqueta",(SELECT NOMBRE FROM MUNICIPIOS_GT WHERE ID_MUNICIPIO_GT=E.ID_MUNICIPIO_GT) "idMunicipioGtEtiqueta",C.PARENTESCO_ANTERIOR "parentescoAnterior",E.ID_EMPLEADO "id",E.ID_USUARIO "idUsuario",E.ACTIVO "activo",${selection},${fecha('E.FECHA_EGRESO')} "fechaEgreso",E.MOTIVO_EGRESO "motivoEgreso",D.NOMBRE "departamento",P.NOMBRE "puesto",U.USUARIO "usuario",${monto(salarioSql)} "salarioBase",(SELECT H.ID_HORARIO FROM EMPLEADO_HORARIO H WHERE H.ID_EMPLEADO=E.ID_EMPLEADO AND H.ACTIVO=1 AND H.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (H.VIGENTE_HASTA IS NULL OR H.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY H.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "idHorario",(SELECT NOMBRE FROM JEFATURAS WHERE ID_JEFATURA=E.ID_JEFATURA) "idJefaturaEtiqueta",(SELECT NOMBRE FROM TIPOS_CONTRATO WHERE ID_TIPO_CONTRATO=E.ID_TIPO_CONTRATO) "idTipoContratoEtiqueta",(SELECT NOMBRE FROM CENTROS_TRABAJO WHERE ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO) "idCentroTrabajoEtiqueta",(SELECT NOMBRE FROM BANCOS WHERE ID_BANCO=E.ID_BANCO) "idBancoEtiqueta",(SELECT H.NOMBRE FROM HORARIOS H JOIN EMPLEADO_HORARIO A ON A.ID_HORARIO=H.ID_HORARIO WHERE A.ID_EMPLEADO=E.ID_EMPLEADO AND A.ACTIVO=1 AND A.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (A.VIGENTE_HASTA IS NULL OR A.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY A.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "idHorarioEtiqueta",C.NOMBRE "contactoNombre",C.PARENTESCO "contactoParentesco",C.TELEFONO "contactoTelefono" FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO LEFT JOIN USUARIOS U ON U.ID_USUARIO=E.ID_USUARIO LEFT JOIN EMPLEADO_CONTACTOS_EMERGENCIA C ON C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1 WHERE E.ID_EMPLEADO=:id`,
     { id },
     opts,
   );
@@ -140,8 +149,12 @@ export const referencias = {
 export async function referencia(c: Connection, key: keyof typeof referencias, id: number) {
   const [tabla, pk] = referencias[key];
   const dep = key === 'idPuesto' || key === 'idJefatura';
-  const r = await c.execute<{ activo: number; departamento: number | null }>(
-    `SELECT ACTIVO "activo",${dep ? 'ID_DEPARTAMENTO' : 'NULL'} "departamento" FROM ${tabla} WHERE ${pk}=:id`,
+  const r = await c.execute<{
+    activo: number;
+    departamento: number | null;
+    requiereFechaFin: number | null;
+  }>(
+    `SELECT ACTIVO "activo",${dep ? 'ID_DEPARTAMENTO' : 'NULL'} "departamento",${key === 'idTipoContrato' ? 'REQUIERE_FECHA_FIN' : 'NULL'} "requiereFechaFin" FROM ${tabla} WHERE ${pk}=:id`,
     { id },
     opts,
   );
@@ -157,8 +170,8 @@ export async function opciones(
 ) {
   const [tabla, pk] = referencias[key];
   const dep = key === 'idPuesto' || key === 'idJefatura';
-  const r = await c.execute<{ value: string; label: string }>(
-    `SELECT TO_CHAR(${pk}) "value",NOMBRE||CASE WHEN ACTIVO=0 THEN ' (inactivo)' ELSE '' END "label" FROM ${tabla} WHERE ((ACTIVO=1 AND (:buscar IS NULL OR INSTR(UPPER(NOMBRE),UPPER(:buscar))>0) ${dep ? 'AND (:departamento IS NULL OR ID_DEPARTAMENTO=:departamento)' : ''}) OR ${pk}=:seleccionado) ORDER BY NOMBRE,${pk} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
+  const r = await c.execute<{ value: string; label: string; requiereFechaFin: number | null }>(
+    `SELECT TO_CHAR(${pk}) "value",NOMBRE||CASE WHEN ACTIVO=0 THEN ' (inactivo)' ELSE '' END "label",${key === 'idTipoContrato' ? 'REQUIERE_FECHA_FIN' : 'NULL'} "requiereFechaFin" FROM ${tabla} WHERE ((ACTIVO=1 AND (:buscar IS NULL OR INSTR(UPPER(NOMBRE),UPPER(:buscar))>0) ${dep ? 'AND (:departamento IS NULL OR ID_DEPARTAMENTO=:departamento)' : ''}) OR ${pk}=:seleccionado) ORDER BY CASE WHEN ${pk}=:seleccionado THEN 0 ELSE 1 END,NOMBRE,${pk} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
     {
       buscar: buscar || null,
       seleccionado: seleccionado ?? null,
@@ -170,7 +183,6 @@ export async function opciones(
   return r.rows ?? [];
 }
 export const unicos = {
-  codigo: 'CODIGO',
   dpi: 'DPI',
   nit: 'NIT',
   afiliacionIgss: 'AFILIACION_IGSS',
@@ -190,7 +202,7 @@ export async function duplicados(c: Connection, d: DatosEmpleado | EditarEmplead
         'Este dato ya está registrado en otro empleado. Revisa el expediente existente.',
       ];
   }
-  if ('generarUsuario' in d && d.generarUsuario) {
+  if ('salarioBase' in d) {
     const r = await c.execute('SELECT 1 FROM USUARIOS WHERE CORREO=:correo', { correo: d.correo });
     if (r.rows?.length)
       errores.correo = ['El correo ya pertenece a un usuario. Ingresa otro correo.'];
@@ -203,8 +215,9 @@ export async function guardar(
   actor: number,
   id?: number,
   idUsuario?: number,
+  direccion?: string,
 ) {
-  const entries = Object.entries(campos),
+  const entries = Object.entries(campos).filter(([key]) => key !== 'codigo'),
     binds: Record<string, string | number | null | oracledb.BindParameter> = { actor };
   for (const [key] of entries) binds[key] = d[key as keyof typeof campos];
   const exp = (key: string) =>
@@ -212,15 +225,15 @@ export async function guardar(
   if (id) {
     binds.id = id;
     await c.execute(
-      `UPDATE EMPLEADOS SET ${entries.map(([key, col]) => `${col}=${exp(key)}`).join(',')},MODIFICADO_POR=:actor WHERE ID_EMPLEADO=:id`,
-      binds,
+      `UPDATE EMPLEADOS SET ${entries.map(([key, col]) => `${col}=${exp(key)}`).join(',')},DIRECCION=:direccion,MODIFICADO_POR=:actor WHERE ID_EMPLEADO=:id`,
+      { ...binds, direccion },
     );
   } else {
     binds.usuario = idUsuario ?? null;
     binds.id = { dir: oracledb.BIND_OUT, type: oracledb.NUMBER };
     const r = await c.execute<{ id: number[] }>(
-      `INSERT INTO EMPLEADOS (${entries.map(([, col]) => col).join(',')},ID_USUARIO,CREADO_POR) VALUES (${entries.map(([key]) => exp(key)).join(',')},:usuario,:actor) RETURNING ID_EMPLEADO INTO :id`,
-      binds,
+      `INSERT INTO EMPLEADOS (${entries.map(([, col]) => col).join(',')},DIRECCION,ID_USUARIO,CREADO_POR) VALUES (${entries.map(([key]) => exp(key)).join(',')},:direccion,:usuario,:actor) RETURNING ID_EMPLEADO INTO :id`,
+      { ...binds, direccion },
     );
     id = r.outBinds!.id[0]!;
   }
@@ -343,8 +356,9 @@ export async function filasCarga(c: Connection, id: number) {
     idEmpleado: number | null;
     estado: string;
     usuario: string | null;
+    codigo: string | null;
   }>(
-    `SELECT F.NUMERO_FILA "numero",F.DATOS "datos",F.ERRORES "errores",F.ID_EMPLEADO "idEmpleado",F.ESTADO "estado",U.USUARIO "usuario" FROM CARGA_MASIVA_FILAS F LEFT JOIN EMPLEADOS E ON E.ID_EMPLEADO=F.ID_EMPLEADO LEFT JOIN USUARIOS U ON U.ID_USUARIO=E.ID_USUARIO WHERE F.ID_CARGA_MASIVA=:id ORDER BY F.NUMERO_FILA`,
+    `SELECT F.NUMERO_FILA "numero",F.DATOS "datos",F.ERRORES "errores",F.ID_EMPLEADO "idEmpleado",F.ESTADO "estado",E.CODIGO "codigo",U.USUARIO "usuario" FROM CARGA_MASIVA_FILAS F LEFT JOIN EMPLEADOS E ON E.ID_EMPLEADO=F.ID_EMPLEADO LEFT JOIN USUARIOS U ON U.ID_USUARIO=E.ID_USUARIO WHERE F.ID_CARGA_MASIVA=:id ORDER BY F.NUMERO_FILA`,
     { id },
     {
       ...opts,
@@ -387,5 +401,28 @@ export async function terminarCarga(
   await c.execute(
     `UPDATE CARGAS_MASIVAS SET MODALIDAD=:modalidad,ESTADO='IMPORTADA',FILAS_VALIDAS=:importadas,FILAS_IMPORTADAS=:importadas,CONFIRMADA_EN=CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE),MODIFICADO_POR=:actor WHERE ID_CARGA_MASIVA=:id`,
     { id, modalidad, importadas, actor },
+  );
+}
+
+export async function parentescos(c: Connection) {
+  const r = await c.execute<{ value: string; label: string }>(
+    'SELECT NOMBRE "value",NOMBRE "label" FROM PARENTESCOS WHERE ACTIVO=1 ORDER BY ID_PARENTESCO',
+    {},
+    opts,
+  );
+  return r.rows ?? [];
+}
+export async function horarioPorCodigo(c: Connection, codigo: string) {
+  const r = await c.execute<{ id: number }>(
+    'SELECT ID_HORARIO "id" FROM HORARIOS WHERE CODIGO=:codigo AND ACTIVO=1',
+    { codigo },
+    opts,
+  );
+  return r.rows?.[0]?.id ?? null;
+}
+export async function vincularUsuario(c: Connection, id: number, usuario: number, actor: number) {
+  await c.execute(
+    'UPDATE EMPLEADOS SET ID_USUARIO=:usuario,MODIFICADO_POR=:actor WHERE ID_EMPLEADO=:id',
+    { id, usuario, actor },
   );
 }

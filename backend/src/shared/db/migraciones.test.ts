@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { crearLogger } from '../../config/logger.js';
 import { aplicarMigraciones } from './migraciones.js';
@@ -108,5 +109,71 @@ describe('historial de migraciones', () => {
       'anteriores',
     );
     expect(repo.iniciar).not.toHaveBeenCalled();
+  });
+
+  async function referenciasV027() {
+    const todas = await cargarMigraciones(
+      fileURLToPath(new URL('../../../../db/migrations/', import.meta.url)),
+    );
+    const pendientes = todas.filter((m) => m.version >= 27 && m.version <= 28);
+    const bloque = pendientes[0]!.sentencias.find((sql) =>
+      sql.includes('FOR G IN (SELECT C.*,TRUNC(P.FECHA_INICIO'),
+    )!;
+    return { pendientes, bloque };
+  }
+  const duplicadaV027 = () =>
+    Object.assign(
+      new Error('ORA-00001: unique constraint (PRUEBA.UQ_NOV_MES_REFERENCIA) violated'),
+      { errorNum: 1 },
+    );
+
+  it('aplica V028 y repite intacto el bloque V027 solo ante referencias v0 repetidas', async () => {
+    const { pendientes, bloque } = await referenciasV027();
+    const repo = repository();
+    let fallo = false;
+    repo.ejecutar.mockImplementation(async (sql: string) => {
+      if (sql === bloque && !fallo) {
+        fallo = true;
+        throw duplicadaV027();
+      }
+    });
+    expect(await aplicarMigraciones(pendientes, repo, logger)).toBe(2);
+    expect(repo.ejecutar.mock.calls.filter(([sql]) => sql === bloque)).toHaveLength(2);
+    for (const sql of pendientes[1]!.sentencias)
+      expect(repo.ejecutar.mock.calls.filter(([s]) => s === sql)).toHaveLength(1);
+    expect(repo.completar.mock.calls).toEqual([[27], [28]]);
+    expect(repo.fallar).not.toHaveBeenCalled();
+  });
+
+  it('detiene otros errores de integridad en V027 y no anticipa V028', async () => {
+    const { pendientes, bloque } = await referenciasV027();
+    const repo = repository();
+    repo.ejecutar.mockImplementation(async (sql: string) => {
+      if (sql === bloque) throw Object.assign(new Error('ORA-00001: UQ_OTRA'), { errorNum: 1 });
+    });
+    await expect(aplicarMigraciones(pendientes, repo, logger)).rejects.toThrow('UQ_OTRA');
+    expect(repo.iniciar.mock.calls).toEqual([[pendientes[0]]]);
+    expect(repo.fallar.mock.calls).toEqual([[27]]);
+    expect(repo.completar).not.toHaveBeenCalled();
+  });
+
+  it('no recupera V027 sin su reparación disponible y marca fallos de V028', async () => {
+    const { pendientes, bloque } = await referenciasV027();
+    const repo = repository();
+    repo.ejecutar.mockImplementation(async (sql: string) => {
+      if (sql === bloque) throw duplicadaV027();
+    });
+    await expect(aplicarMigraciones([pendientes[0]!], repo, logger)).rejects.toThrow(
+      'UQ_NOV_MES_REFERENCIA',
+    );
+    expect(repo.fallar.mock.calls).toEqual([[27]]);
+    const fallida = repository();
+    fallida.ejecutar.mockImplementation(async (sql: string) => {
+      if (sql === bloque) throw duplicadaV027();
+      if (sql === pendientes[1]!.sentencias[0]) throw new Error('Reparación interrumpida');
+    });
+    await expect(aplicarMigraciones(pendientes, fallida, logger)).rejects.toThrow('interrumpida');
+    expect(fallida.fallar.mock.calls).toEqual([[27], [28]]);
+    expect(fallida.completar).not.toHaveBeenCalled();
   });
 });

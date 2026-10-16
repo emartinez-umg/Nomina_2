@@ -12,6 +12,8 @@ export function crearVacacionesRouter(s: ReturnType<typeof crearVacacionesServic
   r.post('/previsualizar', permitirRoles('EMPLEADO'), c.preview);
   r.post('/solicitudes', permitirRoles('EMPLEADO'), c.solicitar);
   r.get('/solicitudes', c.listar);
+  r.get('/solicitudes/:id', c.detalle);
+  r.post('/solicitudes/:id/cancelar', c.cancelar);
   r.get('/exportar', c.exportar);
   r.use(permitirRoles('ADMIN', 'RH'));
   r.get('/opciones', c.opciones);

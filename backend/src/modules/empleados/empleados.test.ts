@@ -18,7 +18,10 @@ const fixture = {
   fechaNacimiento: '1995-05-15',
   sexo: 'F',
   estadoCivil: 'SOLTERO',
-  direccion: 'Dirección del empleado',
+  idDepartamentoGt: 1,
+  idMunicipioGt: 1,
+  zona: 1,
+  numeroCasa: '12-A',
   telefono: '55551234',
   correo: 'ana@example.test',
   idDepartamento: 1,
@@ -34,10 +37,9 @@ const fixture = {
   cuentaBancaria: null,
   tipoCuenta: null,
   contactoNombre: 'Contacto Familiar',
-  contactoParentesco: 'Hermana',
+  contactoParentesco: 'Hermano/a',
   contactoTelefono: '55554321',
   estado: 'ACTIVO',
-  generarUsuario: true,
 };
 const reglas = { hoy: '2026-10-12', edadMinima: 18, edadMaxima: 75, ultimoCierre: null };
 describe('Empleados: validación y CSV', () => {
@@ -72,6 +74,25 @@ describe('Empleados: validación y CSV', () => {
     expect(nitValido('6-K')).toBe(true);
     for (const v of ['0-0', '1234567--0', '12345670', 'ABC-K']) expect(nitValido(v)).toBe(false);
   });
+  it.each([
+    ['1234567-9', true],
+    ['6-K', true],
+    ['123456-0', true],
+    ['1234567-4', false],
+    ['6-0', false],
+    ['6-1', false],
+    ['0-0', false],
+    ['12-K', false],
+  ])('módulo 11: %s válido=%s', (nit, valid) => expect(nitValido(nit)).toBe(valid));
+  it.each([
+    { sexo: 'O' },
+    { numeroCasa: '12 !' },
+    { zona: 26 },
+    { zona: 1.5 },
+    { fechaFinContrato: '2026-10-12' },
+  ])('V1-7: rechaza %j', (c) =>
+    expect(crearEmpleadoSchema.safeParse({ ...fixture, ...c }).success).toBe(false),
+  );
   it('exige banco, cuenta y tipo juntos y fin de contrato coherente', () => {
     expect(crearEmpleadoSchema.safeParse({ ...fixture, idBanco: 1 }).success).toBe(false);
     expect(
@@ -116,17 +137,19 @@ describe('Empleados: validación y CSV', () => {
     expect(() => dinero.safeParse('mal')).not.toThrow();
     expect(dinero.safeParse('mal').success).toBe(false);
   });
-  it('la plantilla contiene una fila ilustrativa válida con 29 columnas', () => {
+  it('la plantilla contiene una fila ilustrativa válida con 30 columnas y sin código manual', () => {
     const filas = leerCsv(plantillaCsv());
     expect(filas).toHaveLength(1);
     expect(filas[0]?.errores).toEqual({});
-    expect(columnasCsv).toHaveLength(29);
+    expect(columnasCsv).toHaveLength(30);
   });
   it('lee UTF-8 BOM, comillas escapadas, comas y saltos de línea', () => {
-    const valores = columnasCsv.map((k) => fixture[k as keyof typeof fixture] ?? '');
-    valores[columnasCsv.indexOf('direccion')] = 'Calle, casa "A"';
+    const valores = columnasCsv.map((k) =>
+      k === 'codigoHorario' ? 'LAV' : (fixture[k as keyof typeof fixture] ?? ''),
+    );
+    valores[columnasCsv.indexOf('contactoNombre')] = 'Persona, casa "A"';
     const filas = leerCsv(escribirCsv([Array.from(columnasCsv), valores]));
-    expect(filas[0]?.datos.direccion).toBe('Calle, casa "A"');
+    expect(filas[0]?.datos.contactoNombre).toBe('Persona, casa "A"');
   });
   it('informa errores por fila, incluidos tipos y columnas sobrantes', () => {
     const csv = plantillaCsv().replace('5000.00', 'invalido');
@@ -136,11 +159,11 @@ describe('Empleados: validación y CSV', () => {
   it('rechaza cabecera alterada, archivo vacío, comillas rotas y exceso de filas', () => {
     for (const csv of [
       '',
-      plantillaCsv().replace('codigo', 'clave'),
+      plantillaCsv().replace('nombres', 'clave'),
       plantillaCsv() + '"',
       columnasCsv.join(',') +
         '\n' +
-        Array.from({ length: 101 }, () => Array.from({ length: 29 }, () => 'x').join(',')).join(
+        Array.from({ length: 101 }, () => Array.from({ length: 30 }, () => 'x').join(',')).join(
           '\n',
         ),
     ])

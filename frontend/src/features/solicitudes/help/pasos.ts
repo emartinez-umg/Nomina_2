@@ -1,12 +1,25 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaSolicitudes: DefinicionAyuda = {
-  id: 'solicitudes',
+  id: 'solicitudes-v1-9',
   pasos: [
+    {
+      elemento: 'empresa-aviso',
+      titulo: 'Membrete y firma de aprobación',
+      descripcion:
+        'Antes de emitir PDF completa Configuración de empresa. Todos los documentos incluyen sus datos y logo si está cargado. Para aprobar, tu usuario debe estar vinculado a un expediente con nombres, apellidos y puesto activo. La firma conserva la identidad y fecha de quien aprobó.',
+      roles: ['RH', 'ADMIN'],
+    },
+    {
+      elemento: 'codigo-automatico',
+      titulo: 'Código asignado por el sistema',
+      descripcion:
+        'La vista previa consulta el contador actual sin reservar números. Guardar asigna el código definitivo dentro de la transacción. Será permanente, también después de editar o desactivar el registro. Puedes copiarlo para localizarlo en la búsqueda del listado.',
+    },
     {
       elemento: 'gestiones-accesos',
       titulo: 'Elige tu gestión',
       descripcion:
-        'Las boletas se descargan directamente de tu historial. Vacaciones abre el calendario laboral. Para constancias, certificados, gafete y parqueo, envía una solicitud: RRHH recibirá un aviso. No envíes otra del mismo tipo mientras esté en proceso.',
+        'Los códigos internos se asignan automáticamente al guardar y se conservan al editar. Puedes buscarlos en el listado. Las boletas se descargan directamente de tu historial. Vacaciones abre el calendario laboral. Para constancias, certificados, gafete y parqueo, envía una solicitud: RRHH recibirá un aviso. No envíes otra del mismo tipo mientras esté en proceso.',
       roles: ['EMPLEADO'],
     },
     {
@@ -40,7 +53,7 @@ export const ayudaSolicitudes: DefinicionAyuda = {
       elemento: 'solicitud-detalle',
       titulo: 'Resuelve y entrega',
       descripcion:
-        'Comprueba observaciones e historial. Rechazar exige un motivo que permita corregir el problema. Aprobar un documento genera un PDF con la plantilla y datos actuales. Revísalo antes de Enviar y entregar. Esa acción publica el archivo y notifica al empleado; no puede repetirse.',
+        'Comprueba observaciones e historial. Rechazar exige un motivo que permita corregir el problema. Aprobar un documento exige empresa configurada y tu ficha con nombre completo y puesto; genera un PDF membretado con tu firma. Revísalo antes de Enviar y entregar. Esa acción publica el archivo y notifica al empleado; no puede repetirse.',
       roles: ['RH', 'ADMIN'],
     },
     {
@@ -54,7 +67,7 @@ export const ayudaSolicitudes: DefinicionAyuda = {
       elemento: 'solicitud-parqueo',
       titulo: 'Tarifa de parqueo',
       descripcion:
-        'Indica el monto real por quincena y su fecha inicial hoy o futura, después del último cierre. Aprobar crea un descuento fijo en Novedades que se consume en nómina. Revisa la tarifa antes de confirmar: no se permiten dos parqueos vigentes.',
+        'El empleado indica Carro o Moto y placa opcional. Aprobar usa la tarifa mensual configurada vigente desde el mes actual y crea una suscripción sin prorrateo. Mi parqueo permite solicitar baja; RRHH puede dar de baja o suspender al cierre del mes. Sin vehículo histórico o tarifa se bloquea y explica cómo completarlo.',
       roles: ['RH', 'ADMIN'],
     },
     {

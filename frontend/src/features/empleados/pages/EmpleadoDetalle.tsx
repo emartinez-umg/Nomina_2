@@ -1,3 +1,4 @@
+import { RestablecerEmpleadoModal } from './RestablecerEmpleadoModal';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -46,6 +47,7 @@ export function EmpleadoDetallePage() {
     queryKey: ['empleados', 'reglas'],
     queryFn: ({ signal }) => reglas(signal),
   });
+  const [restableciendo, setRestableciendo] = useState(false);
   const [tab, setTab] = useState('resumen');
   if (d.isPending || r.isPending) return <Skeleton lineas={8} />;
   const error = d.error ?? r.error;
@@ -94,6 +96,16 @@ export function EmpleadoDetallePage() {
         >
           Editar
         </Button>
+        <span data-tour="empleado-restablecer">
+          <Button
+            icono="seguridad"
+            disabled={!empleado.idUsuario || empleado.estado === 'EGRESADO'}
+            title="Genera una contraseña nueva, exige cambiarla y cierra las sesiones del empleado."
+            onClick={() => setRestableciendo(true)}
+          >
+            Restablecer contraseña
+          </Button>
+        </span>
         <span data-tour="empleado-salario">
           <Button
             icono="planilla"
@@ -143,6 +155,9 @@ export function EmpleadoDetallePage() {
           />
         </div>
       </Card>
+      {restableciendo && (
+        <RestablecerEmpleadoModal empleado={empleado} cerrar={() => setRestableciendo(false)} />
+      )}
       {accion && (
         <Accion empleado={empleado} reglas={r.data!} tipo={accion} cerrar={() => setAccion(null)} />
       )}
@@ -165,15 +180,19 @@ function Resumen({ empleado: e }: { empleado: Empleado }) {
                 <dd>
                   {e[f.nombre] == null
                     ? 'Sin registro'
-                    : f.tipo === 'dinero'
-                      ? `Q ${formatoMoneda(String(e[f.nombre]))}`
-                      : f.tipo === 'fecha'
-                        ? fechaVisible(String(e[f.nombre]))
-                        : f.nombre === 'idDepartamento'
-                          ? String(e.departamento)
-                          : f.nombre === 'idPuesto'
-                            ? String(e.puesto)
-                            : String(e[f.nombre + 'Etiqueta'] ?? e[f.nombre])}
+                    : f.nombre === 'sexo'
+                      ? e[f.nombre] === 'F'
+                        ? 'Femenino'
+                        : 'Masculino'
+                      : f.tipo === 'dinero'
+                        ? `Q ${formatoMoneda(String(e[f.nombre]))}`
+                        : f.tipo === 'fecha'
+                          ? fechaVisible(String(e[f.nombre]))
+                          : f.nombre === 'idDepartamento'
+                            ? String(e.departamento)
+                            : f.nombre === 'idPuesto'
+                              ? String(e.puesto)
+                              : String(e[f.nombre + 'Etiqueta'] ?? e[f.nombre])}
                 </dd>
               </div>
             ))}

@@ -155,7 +155,7 @@ export function ComunicacionPage() {
           <div className="form-grid mt-4">
             <TextField
               name="buscar"
-              label="Buscar título"
+              label="Buscar título o código"
               hint="Busca parte del título."
               placeholder="Título de la publicación"
               value={q.buscar!}
@@ -295,6 +295,7 @@ export function ComunicacionPage() {
           {...(consulta.error ? { error: consulta.error.message } : {})}
           onReintentar={() => void consulta.refetch()}
           columnas={[
+            { id: 'codigo', titulo: 'Código', ordenable: true, render: (f) => f.codigo },
             {
               id: 'titulo',
               titulo: 'Título',

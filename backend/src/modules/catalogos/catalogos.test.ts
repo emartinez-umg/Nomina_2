@@ -70,11 +70,22 @@ describe('Validación de catálogos', () => {
       cruzaMedianoche: false,
       minutosDescanso: i < 4 ? 60 : 0,
     }));
-    const horario = { ...base, jornada: 'DIURNA', dias };
+    const bloques = dias
+      .filter((d) => d.laborable)
+      .map((d) => ({
+        dias: [d.diaSemana],
+        entrada: d.entrada!,
+        salida: d.salida!,
+        cruzaMedianoche: d.cruzaMedianoche,
+        minutosDescanso: 60,
+      }));
+    const horario = { ...base, jornada: 'DIURNA', bloques };
     expect(schema('horarios').safeParse(horario).success).toBe(true);
     expect(
-      schema('horarios').safeParse({ ...horario, dias: dias.map((d) => ({ ...d, diaSemana: 1 })) })
-        .success,
+      schema('horarios').safeParse({
+        ...horario,
+        bloques: bloques.map((b) => ({ ...b, dias: [1, 1] })),
+      }).success,
     ).toBe(false);
     expect(
       diaSchema.safeParse({ ...dias[0], entrada: '22:00', salida: '05:00', cruzaMedianoche: true })

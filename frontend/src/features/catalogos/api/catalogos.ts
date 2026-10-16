@@ -1,3 +1,8 @@
+import type {
+  BloqueHorario,
+  LimitesHorario,
+} from '../../../../../backend/src/shared/horarios/modelo';
+export type { BloqueHorario, LimitesHorario };
 import { z } from 'zod';
 import { solicitar } from '../../../lib/http';
 export const campoSchema = z.object({
@@ -24,7 +29,9 @@ export const campoSchema = z.object({
   max: z.number().optional(),
   decimales: z.number().optional(),
   opciones: z.array(z.string()).optional(),
-  referencia: z.enum(['departamentos', 'empleados']).optional(),
+  referencia: z
+    .enum(['departamentos', 'empleados', 'departamentos-gt', 'municipios-gt'])
+    .optional(),
 });
 export const catalogoSchema = z.object({
   slug: z.string(),
@@ -34,18 +41,22 @@ export const catalogoSchema = z.object({
 });
 export type Campo = z.infer<typeof campoSchema>;
 export type Catalogo = z.infer<typeof catalogoSchema>;
-export const diaSchema = z.object({
-  diaSemana: z.number(),
-  laborable: z.boolean(),
-  entrada: z.string().nullable(),
-  salida: z.string().nullable(),
+export const bloqueSchema = z.object({
+  dias: z.array(z.number()),
+  entrada: z.string(),
+  salida: z.string(),
   cruzaMedianoche: z.boolean(),
   minutosDescanso: z.number(),
 });
-export type Dia = z.infer<typeof diaSchema>;
+const limiteSchema = z.object({ diarias: z.number(), semanales: z.number() });
+const limitesSchema = z.object({
+  DIURNA: limiteSchema,
+  MIXTA: limiteSchema,
+  NOCTURNA: limiteSchema,
+});
 export const filaSchema = z
   .object({ id: z.number(), activo: z.boolean(), enUso: z.boolean() })
-  .catchall(z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(diaSchema)]));
+  .catchall(z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(bloqueSchema)]));
 export type Fila = z.infer<typeof filaSchema>;
 const listadoSchema = z.object({
   registros: z.array(filaSchema),
@@ -57,9 +68,16 @@ export type Listado = z.infer<typeof listadoSchema>;
 export const definiciones = (signal?: AbortSignal) =>
   solicitar('/catalogos', z.array(catalogoSchema), { signal });
 export const restricciones = (signal?: AbortSignal) =>
-  solicitar('/catalogos/restricciones', z.object({ ultimoCierre: z.string().nullable() }), {
-    signal,
-  });
+  solicitar(
+    '/catalogos/restricciones',
+    z.object({
+      ultimoCierre: z.string().nullable(),
+      limitesHorario: limitesSchema.nullable().optional(),
+    }),
+    {
+      signal,
+    },
+  );
 export const listar = (slug: string, q: Record<string, string>, signal?: AbortSignal) =>
   solicitar(`/catalogos/${slug}?${new URLSearchParams(q)}`, listadoSchema, { signal });
 export const detalle = (slug: string, id: number) =>
@@ -91,7 +109,7 @@ export function csv(cat: Catalogo, filas: Fila[]) {
       ['ID', ...cat.campos.map((f) => f.etiqueta), 'Estado'],
       ...filas.map((r) => [
         r.id,
-        ...cat.campos.map((f) => r[f.nombre]),
+        ...cat.campos.map((f) => r[f.nombre + 'Etiqueta'] ?? r[f.nombre]),
         r.activo ? 'Activo' : 'Inactivo',
       ]),
     ]

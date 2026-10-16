@@ -1,3 +1,4 @@
+import { analizarHorario } from '../../shared/horarios/modelo.js';
 import { z } from 'zod';
 import { nitValido } from '../empleados/empleados.schemas.js';
 import { Decimal } from 'decimal.js';
@@ -63,6 +64,15 @@ export const diaSchema = z
           'La salida debe ser posterior a la entrada y el descanso menor a la duración. Revisa el cruce de medianoche.',
       });
   });
+export const bloqueSchema = z
+  .object({
+    dias: z.array(z.number().int().min(1).max(7)).min(1).max(7),
+    entrada: hora,
+    salida: hora,
+    cruzaMedianoche: z.boolean(),
+    minutosDescanso: z.number().int().min(0).max(1439),
+  })
+  .strict();
 function schemaCampo(f: CampoCatalogo): z.ZodTypeAny {
   let s: z.ZodTypeAny;
   switch (f.tipo) {
@@ -131,10 +141,20 @@ function schemaCampo(f: CampoCatalogo): z.ZodTypeAny {
 }
 export function entradaSchema(cat: Catalogo) {
   const shape: z.ZodRawShape = Object.fromEntries(
-    cat.campos.map((f) => [f.nombre, schemaCampo(f)]),
+    cat.campos.map((f) => [
+      f.nombre,
+      f.tipo === 'codigo'
+        ? z
+            .unknown()
+            .optional()
+            .transform(() => null)
+        : schemaCampo(f),
+    ]),
   );
-  if (cat.slug === 'horarios')
-    shape.dias = z.array(diaSchema).length(7, 'Configura los siete días.');
+  if (cat.slug === 'horarios') {
+    shape.bloques = z.array(bloqueSchema).min(1).max(28);
+    shape.jornada = z.unknown().optional();
+  }
   if (cat.legal) {
     shape.motivo = motivoSchema;
     shape.confirmado = z.literal(true, {
@@ -208,10 +228,9 @@ export function entradaSchema(cat: Catalogo) {
           error('localidad', 'Para nacional usa *; para local ingresa la localidad.');
       }
       if (cat.slug === 'horarios') {
-        if (new Set(d.dias.map((dia: { diaSemana: number }) => dia.diaSemana)).size !== 7)
-          error('dias', 'Incluye cada día de la semana una sola vez.');
-        if (!d.dias.some((dia: { laborable: boolean }) => dia.laborable))
-          error('dias', 'Selecciona al menos un día laborable.');
+        const analisis = analizarHorario(d.bloques, undefined, false);
+        for (const mensaje of analisis.errores) error('bloques', mensaje);
+        d.jornada = analisis.jornada;
       }
     })
     .transform((d) => d as DatosCatalogo);

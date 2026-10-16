@@ -9,6 +9,7 @@ export function crearUsuariosRouter(service: ReturnType<typeof crearUsuariosServ
   router.use(permitirRoles('ADMIN'));
   router.get('/', controller.listar);
   router.post('/', controller.crear);
+  router.post('/:id/expediente', controller.vincular);
   router.patch('/:id/estado', controller.estado);
   router.patch('/:id/rol', controller.rol);
   router.post('/:id/restablecer-contrasena', controller.restablecer);

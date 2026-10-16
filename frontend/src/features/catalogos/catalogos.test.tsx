@@ -43,6 +43,161 @@ beforeEach(() => {
   guardarCsrf('csrf-prueba');
 });
 describe('Catálogos: validación y formularios', () => {
+  it('centros conserva ubicación en borrador, invalida el formato anterior y limpia tras guardar', async () => {
+    const c = cat('centros-trabajo');
+    const clave = claveBorrador(7, 'catalogo-centros-trabajo', undefined);
+    const valores = {
+      ...valoresIniciales(c),
+      nombre: 'Sede guardada',
+      idDepartamentoGt: '2',
+      idMunicipioGt: '201',
+    };
+    localStorage.setItem(clave, JSON.stringify({ version: 3, guardado: Date.now(), valores }));
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      const u = String(url);
+      const data = u.includes('/ubicaciones/departamentos')
+        ? [
+            { id: 1, codigo: '01', nombre: 'Guatemala' },
+            { id: 2, codigo: '02', nombre: 'El Progreso' },
+          ]
+        : u.includes('/ubicaciones/municipios')
+          ? u.includes('idDepartamentoGt=2')
+            ? [
+                {
+                  id: 201,
+                  codigo: '0201',
+                  nombre: 'Guastatoya',
+                  idDepartamentoGt: 2,
+                  departamento: 'El Progreso',
+                },
+              ]
+            : [
+                {
+                  id: 101,
+                  codigo: '0101',
+                  nombre: 'Guatemala',
+                  idDepartamentoGt: 1,
+                  departamento: 'Guatemala',
+                },
+              ]
+          : u.includes('/codigos/')
+            ? { codigo: 'SG', definitivo: false }
+            : { ...JSON.parse(String(init?.body)), id: 9, activo: true, enUso: false };
+      return new Response(JSON.stringify({ ok: true, data }), {
+        status: init?.method === 'POST' ? 201 : 200,
+      });
+    });
+    const cliente = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const cerrar = vi.fn();
+    const r = render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={c} cierre={null} onCerrar={cerrar} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Municipio' })).toHaveValue('Guastatoya'),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(cerrar).toHaveBeenCalledOnce());
+    expect(localStorage.getItem(clave)).toBeNull();
+    const llamada = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(JSON.parse(String(llamada?.[1]?.body))).toMatchObject({
+      idDepartamentoGt: 2,
+      idMunicipioGt: 201,
+    });
+    expect(JSON.parse(String(llamada?.[1]?.body))).not.toHaveProperty('localidad');
+    r.unmount();
+    localStorage.setItem(
+      clave,
+      JSON.stringify({
+        version: 2,
+        guardado: Date.now(),
+        valores: { nombre: 'Antiguo', localidad: 'Texto libre' },
+      }),
+    );
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={c} cierre={null} onCerrar={vi.fn()} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Municipio' })).toHaveValue('Guatemala'),
+    );
+    expect(screen.queryByRole('button', { name: 'Continuar' })).toBeNull();
+    expect(screen.getByLabelText(/^Nombre/)).toHaveValue('');
+    cliente.clear();
+  });
+  it('centros históricos muestran referencia y aplican la propuesta solo al pedirlo', async () => {
+    const c = cat('centros-trabajo');
+    vi.mocked(fetch).mockImplementation(
+      async (url) =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: String(url).includes('/departamentos')
+              ? [{ id: 1, codigo: '01', nombre: 'Guatemala' }]
+              : [
+                  {
+                    id: 101,
+                    codigo: '0101',
+                    nombre: 'Guatemala',
+                    idDepartamentoGt: 1,
+                    departamento: 'Guatemala',
+                  },
+                ],
+          }),
+          { status: 200 },
+        ),
+    );
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario
+              cat={c}
+              cierre={null}
+              onCerrar={vi.fn()}
+              actual={{
+                id: 8,
+                activo: true,
+                enUso: false,
+                nombre: 'Sede previa',
+                codigo: 'SP',
+                localidadAnterior: 'GUATEMALA_CIUDAD',
+                idDepartamentoGt: null,
+                idMunicipioGt: null,
+                idDepartamentoGtPropuesto: 1,
+                idMunicipioGtPropuesto: 101,
+                ubicacionPropuesta: 'Guatemala, Guatemala',
+              }}
+            />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('Localidad anterior: GUATEMALA_CIUDAD')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Municipio' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Usar coincidencia propuesta' }));
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Municipio' })).toHaveValue('Guatemala'),
+    );
+    expect(
+      vi.mocked(fetch).mock.calls.every(([, init]) => !init?.method || init.method === 'GET'),
+    ).toBe(true);
+    cliente.clear();
+  });
   it('valida las definiciones de la API y conserva el dinero como texto decimal', () => {
     for (const c of catalogos)
       expect(catalogoSchema.safeParse({ ...c, legal: !!c.legal }).success).toBe(true);
@@ -75,19 +230,9 @@ describe('Catálogos: validación y formularios', () => {
       d = valoresIniciales(c);
     Object.assign(d, { codigo: 'NOCHE', nombre: 'Horario', jornada: 'NOCTURNA' });
     expect(schemaFormulario(c, null).safeParse(d).success).toBe(false);
-    const dias = JSON.parse(d.dias!) as {
-      laborable: boolean;
-      entrada: string;
-      salida: string;
-      cruzaMedianoche: boolean;
-    }[];
-    Object.assign(dias[0]!, {
-      laborable: true,
-      entrada: '22:00',
-      salida: '05:00',
-      cruzaMedianoche: true,
-    });
-    d.dias = JSON.stringify(dias);
+    d.bloques = JSON.stringify([
+      { dias: [1], entrada: '22:00', salida: '05:00', cruzaMedianoche: true, minutosDescanso: 60 },
+    ]);
     expect(schemaFormulario(c, null).safeParse(d).success).toBe(true);
   });
   it('muestra anterior/nuevo y exige motivo antes de confirmar el cambio legal', async () => {
@@ -171,7 +316,7 @@ describe('Catálogos: validación y formularios', () => {
     localStorage.setItem(
       clave,
       JSON.stringify({
-        version: 1,
+        version: 2,
         guardado: Date.now(),
         valores: { ...valoresIniciales(c, actual), valor: '5', motivo: 'Norma revisada' },
         paso: 'revision',

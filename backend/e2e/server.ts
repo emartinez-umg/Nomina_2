@@ -1,3 +1,7 @@
+import { prepararFirmantePrueba } from '../src/shared/pdf/empresa.fixture.js';
+import { crearEmpresaService } from '../src/modules/empresa/empresa.service.js';
+import { crearCodigosService } from '../src/modules/codigos/codigos.service.js';
+import { crearUbicacionesService } from '../src/modules/ubicaciones/ubicaciones.service.js';
 import { crearBaseDatos } from '../src/shared/db/pool.js';
 import { validarEntorno } from '../src/config/env.schema.js';
 import { ejecutarMigraciones } from '../src/shared/db/migraciones.js';
@@ -66,7 +70,7 @@ await enTransaccion(db, async (c) => {
     cuentas.push(u);
   }
   await c.execute("INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('E2E','Departamento E2E')");
-  const dep = await scalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='E2E'");
+  const dep = await scalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO_ANTERIOR='E2E'");
   await c.execute(
     "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('E2E','Analista E2E',:dep)",
     { dep },
@@ -77,27 +81,27 @@ await enTransaccion(db, async (c) => {
   await c.execute(
     "INSERT INTO HORARIOS (CODIGO,NOMBRE,JORNADA) VALUES ('E2E','Horario E2E','DIURNA')",
   );
-  const puesto = await scalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='E2E'"),
-    centro = await scalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='E2E'"),
-    horario = await scalar("SELECT ID_HORARIO FROM HORARIOS WHERE CODIGO='E2E'"),
+  const puesto = await scalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO_ANTERIOR='E2E'"),
+    centro = await scalar(
+      "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO_ANTERIOR='E2E'",
+    ),
+    horario = await scalar("SELECT ID_HORARIO FROM HORARIOS WHERE CODIGO_ANTERIOR='E2E'"),
     contrato = await scalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO');
-  for (let dia = 1; dia <= 7; dia++)
+  await c.execute(
+    'INSERT INTO HORARIO_BLOQUES(ID_HORARIO,MINUTO_ENTRADA,MINUTO_SALIDA,MINUTOS_DESCANSO) VALUES(:id,480,1020,60)',
+    { id: horario },
+  );
+  for (let dia = 1; dia <= 5; dia++)
     await c.execute(
-      'INSERT INTO HORARIO_DIAS (ID_HORARIO,DIA_SEMANA,LABORABLE,MINUTO_ENTRADA,MINUTO_SALIDA) VALUES (:id,:dia,:laborable,:entrada,:salida)',
-      {
-        id: horario,
-        dia,
-        laborable: dia <= 5 ? 1 : 0,
-        entrada: dia <= 5 ? 480 : null,
-        salida: dia <= 5 ? 960 : null,
-      },
+      'INSERT INTO HORARIO_BLOQUE_DIAS(ID_HORARIO_BLOQUE,DIA_SEMANA) SELECT ID_HORARIO_BLOQUE,:dia FROM HORARIO_BLOQUES WHERE ID_HORARIO=:id',
+      { id: horario, dia },
     );
   await c.execute(
-    "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,REPRESENTANTE) VALUES ('Empresa E2E','1234567-9','Dirección E2E','Representante E2E')",
+    "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,TELEFONO,CORREO) VALUES ('Empresa E2E','1234567-9','Dirección E2E','55551234','empresa@example.test')",
   );
   for (const i of [1, 2]) {
     await c.execute(
-      "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'E2E',:dpi,:nit,:igss,DATE '1995-01-01','O','SOLTERO','Dirección E2E','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
+      "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'E2E',:dpi,:nit,:igss,DATE '1995-01-01','F','SOLTERO','Dirección E2E','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
       {
         codigo: `E2E_${i}`,
         usuario: cuentas[i]!.idUsuario,
@@ -112,7 +116,7 @@ await enTransaccion(db, async (c) => {
         centro,
       },
     );
-    const id = await scalar(`SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO='E2E_${i}'`);
+    const id = await scalar(`SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO_ANTERIOR='E2E_${i}'`);
     await c.execute(
       "INSERT INTO HISTORIAL_SALARIAL (ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES (:id,5000,DATE '2026-01-01','Salario E2E')",
       { id },
@@ -123,11 +127,37 @@ await enTransaccion(db, async (c) => {
     );
   }
 });
+// Historia 2025 exclusiva del empleado de prueba para verificar Aguinaldo sin adelantar el reloj.
+await enTransaccion(db, async (c) => {
+  await c.execute("UPDATE EMPLEADOS SET FECHA_INGRESO=DATE '2025-06-01' WHERE ID_EMPLEADO=1");
+  await c.execute(
+    "UPDATE HISTORIAL_SALARIAL SET VIGENTE_DESDE=DATE '2025-06-01' WHERE ID_EMPLEADO=1",
+  );
+  await c.execute(
+    "UPDATE EMPLEADO_HORARIO SET VIGENTE_DESDE=DATE '2025-06-01' WHERE ID_EMPLEADO=1",
+  );
+  await c.execute(`INSERT INTO PARAMETROS_LEGALES(CODIGO,CLAVE_INTERNA,NOMBRE,VALOR,UNIDAD,VIGENTE_DESDE,VIGENTE_HASTA,FUNDAMENTO,MOTIVO)
+    SELECT CODIGO,CLAVE_INTERNA,NOMBRE,VALOR,UNIDAD,DATE '2025-01-01',DATE '2025-12-31','Referencia aislada de pruebas','Historia exclusiva E2E' FROM PARAMETROS_LEGALES WHERE VIGENTE_DESDE=DATE '2026-01-01'`);
+  await c.execute(`INSERT INTO CONCEPTOS_NOMINA(CODIGO,NOMBRE,NATURALEZA,AFECTA_IGSS,AFECTA_ISR,AFECTA_PRESTACIONES,VIGENTE_DESDE,VIGENTE_HASTA)
+    SELECT CODIGO,NOMBRE,NATURALEZA,AFECTA_IGSS,AFECTA_ISR,AFECTA_PRESTACIONES,DATE '2025-01-01',DATE '2025-12-31' FROM CONCEPTOS_NOMINA WHERE VIGENTE_DESDE=DATE '2026-01-01'`);
+});
+const idsFirmantes = await db.conConexion(
+  async (c) =>
+    (
+      await c.execute<number[]>(
+        "SELECT U.ID_USUARIO FROM USUARIOS U JOIN ROLES R ON R.ID_ROL=U.ID_ROL WHERE R.CODIGO IN ('ADMIN','RH')",
+      )
+    ).rows ?? [],
+);
+for (const [id] of idsFirmantes) await prepararFirmantePrueba(db, id!);
 const salud = crearSaludService(crearSaludRepository(db), logger);
 const app = crearApp(salud, logger, {
+  empresa: crearEmpresaService(db),
   auth: await crearAuthService(db, config),
   usuarios: crearUsuariosService(db),
   auditoria: crearAuditoriaService(db),
+  codigos: crearCodigosService(db),
+  ubicaciones: crearUbicacionesService(db),
   catalogos: crearCatalogosService(db),
   empleados: crearEmpleadosService(db),
   novedades: crearNovedadesService(db),

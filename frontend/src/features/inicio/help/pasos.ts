@@ -1,13 +1,13 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaInicio: DefinicionAyuda = {
-  id: 'tableros-fase11',
+  id: 'tableros-v1-10',
   pasos: [
     {
       elemento: 'indicadores',
       titulo: 'Indicadores de Recursos Humanos',
       roles: ['RH'],
       descripcion:
-        'Los empleados activos tienen ingreso efectivo hasta hoy. Altas y bajas cuentan fechas efectivas del mes actual. Bruto, neto y aportes patronales pertenecen a la quincena de hoy y a su versión de cálculo actual. Sin calcular indica que falta crear o calcular esa quincena; no representa un pago en cero. Solicitudes incluye vacaciones, que también aparecen por separado.',
+        'Los empleados activos tienen ingreso efectivo hasta hoy. Altas y bajas cuentan fechas efectivas del mes actual. Bruto, neto y aportes patronales pertenecen a la quincena de hoy y a los pagos vigentes del periodo (o a la versión histórica v0). Sin calcular indica que falta crear o calcular esa quincena; no representa un pago en cero. Solicitudes incluye vacaciones, que también aparecen por separado.',
     },
     {
       elemento: 'graficas',
@@ -35,7 +35,7 @@ export const ayudaInicio: DefinicionAyuda = {
       titulo: 'Tu saldo y última boleta',
       roles: ['EMPLEADO'],
       descripcion:
-        'El saldo suma meses cumplidos con la tasa vigente y resta vacaciones previas y aprobadas. No anticipa meses futuros. Si falta historia o configuración, verás Por revisar y la indicación de RRHH. La última boleta corresponde exclusivamente a tu nómina cerrada más reciente; abre Boletas de pago para consultar o descargar su PDF.',
+        'Se muestran acumulados por meses completos, tomados/aprobados, disponibles decimales y solicitables enteros (redondeo hacia abajo). Cinco meses a 1.25 dan 6.25 disponibles y 6 solicitables. Abre Vacaciones para revisar previas, kardex o cancelar una aprobada antes de iniciar. No anticipa meses futuros. Si falta historia o configuración, verás Por revisar y la indicación de RRHH. La última boleta corresponde a tu pago confirmado más reciente o a una nómina histórica cerrada; abre Boletas de pago para consultar o descargar su PDF.',
     },
     {
       elemento: 'accesos',

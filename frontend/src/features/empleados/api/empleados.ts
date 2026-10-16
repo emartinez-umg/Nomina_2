@@ -58,10 +58,17 @@ export const opciones = (
 ) =>
   solicitar(
     `/empleados/opciones/${ref}?${new URLSearchParams({ buscar, pagina: String(pagina), ...(seleccionado ? { seleccionado } : {}), ...(departamento ? { departamento } : {}) })}`,
-    z.array(z.object({ value: z.string(), label: z.string() })),
+    z.array(
+      z.object({
+        value: z.string(),
+        label: z.string(),
+        requiereFechaFin: z.number().nullable().optional(),
+      }),
+    ),
     { signal },
   );
 const credencialSchema = z.object({
+  nombre: z.string().optional(),
   idUsuario: z.number(),
   usuario: z.string(),
   contrasenaTemporal: z.string(),
@@ -72,7 +79,8 @@ export const crear = (body: unknown) =>
     '/empleados',
     z.object({
       empleado: empleadoSchema,
-      credenciales: credencialSchema.nullable(),
+      credenciales: credencialSchema,
+      pdfCredenciales: z.string(),
       advertencias: z.array(z.string()),
     }),
     { method: 'POST', body },
@@ -123,6 +131,7 @@ export const confirmar = (id: number, modalidad: string) =>
       id: z.number(),
       importadas: z.number(),
       credenciales: z.array(credencialSchema.extend({ numero: z.number() })),
+      pdfCredenciales: z.string(),
     }),
     { method: 'POST', body: { modalidad, confirmado: true }, timeoutMs: 120000 },
   );
@@ -135,3 +144,14 @@ export function descargar(texto: string, nombre: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+export const parentescos = (signal?: AbortSignal) =>
+  solicitar('/empleados/parentescos', z.array(z.object({ value: z.string(), label: z.string() })), {
+    signal,
+  });
+export const restablecer = (id: number, motivo: string) =>
+  solicitar(
+    `/empleados/${id}/restablecer-contrasena`,
+    z.object({ credenciales: credencialSchema, pdfCredenciales: z.string() }),
+    { method: 'POST', body: { motivo } },
+  );

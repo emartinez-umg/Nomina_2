@@ -5,6 +5,7 @@ COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
 RUN npm ci --workspace frontend --include-workspace-root
 COPY frontend frontend
+COPY backend/src/shared/horarios backend/src/shared/horarios
 RUN npm run build --workspace frontend
 
 FROM nginx:stable-alpine AS runtime

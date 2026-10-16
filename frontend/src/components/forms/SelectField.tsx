@@ -8,7 +8,7 @@ export function SelectField({
   onBuscar,
   ...props
 }: CampoProps & {
-  opciones: { value: string; label: string }[];
+  opciones: { value: string; label: string; disabled?: boolean }[];
   onBuscar?: (buscar: string) => void;
 }) {
   const id = useId();
@@ -101,7 +101,7 @@ export function SelectField({
               if (e.key === 'Enter' && abierto) {
                 e.preventDefault();
                 const o = filtradas[indice];
-                if (o) elegir(o.value);
+                if (o && !o.disabled) elegir(o.value);
               }
             }}
           />
@@ -121,9 +121,12 @@ export function SelectField({
                 id={`${id}-opcion-${i}`}
                 role="option"
                 aria-selected={o.value === props.value}
+                aria-disabled={o.disabled || undefined}
                 className={i === indice ? 'opcion-activa' : ''}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => elegir(o.value)}
+                onClick={() => {
+                  if (!o.disabled) elegir(o.value);
+                }}
               >
                 {o.label}
               </li>

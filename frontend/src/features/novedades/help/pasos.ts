@@ -3,28 +3,36 @@ import type { Tipo } from '../api/novedades';
 import { titulos } from '../api/novedades';
 const explicaciones: Record<Tipo, string> = {
   descuentos:
-    'El monto fijo se repite cada quincena y no tiene saldo total. Cuotas distribuye el total entre quincenas; único crea una cuota. Parqueo y consumo en tienda se capturan con el tipo correspondiente. El neto se comprobará al calcular planilla.',
+    'El monto fijo se repite cada mes y no tiene saldo total. Cuotas distribuye el total entre meses; único crea una cuota. Parqueo se administra como suscripción y consumo en tienda se carga por mes en su propia pantalla. El neto se comprobará al calcular planilla.',
   prestamos:
-    'Selecciona préstamo o anticipo, capital y número de cuotas. La primera cuota debe ser hoy o futura. No se calculan intereses: el capital se distribuye en centavos y el residuo se suma a la última cuota. Revisa la amortización antes de guardar.',
+    'Selecciona préstamo o anticipo, capital y número de cuotas. La primera cuota debe ser hoy o futura. No se calculan intereses: el capital se distribuye en centavos y el residuo se suma a la última cuota. Las cuotas vencen una vez por mes, al último día calendario. Revisa la amortización antes de guardar.',
   comisiones:
-    'Selecciona un día dentro de la quincena correspondiente y escribe el monto manual. El sistema identifica del 1 al 15 o del 16 al último día del mes, creando el periodo abierto cuando todavía no existe. La referencia evita registrar el mismo origen dos veces.',
+    'Carga manual por empleado y mes, con importe, descripción y referencia única para ese empleado y mes. Solo meses actuales o anteriores sin periodos cerrados. Una vez aplicada muestra el pago y queda protegida.',
+  'consumo-tienda':
+    'Registra el mes, importe, referencia y descripción del consumo real. No repitas una referencia del mismo empleado y mes. Se reserva para el pago del último día; al aplicar queda ligado al pago y no admite cambios.',
   'horas-extra':
-    'Registra un único total de horas por empleado y día. Selecciona la jornada real; el valor usa salario vigente en esa fecha, divisor mensual, horas de jornada y recargo parametrizados. La vista previa es estimada; la planilla conserva los valores al calcular.',
+    'Registra un total por empleado y mes con horas completas o medias horas. No admite meses futuros ni cerrados. Valor = horas × salario / 30 / jornada diaria promedio del patrón vigente al corte del mes × recargo parametrizado (referencia 1.5). Revisa el cálculo y la advertencia si el total supera el tope mensual; la confirmación conserva tu revisión.',
   ausencias:
-    'Selecciona permiso, ausencia o incapacidad y revisa el efecto indicado por el catálogo: con goce, sin goce o subsidio IGSS. Las fechas son inclusivas; no se aceptan traslapes con ausencias ni vacaciones en proceso, aprobadas o tomadas. Puedes adjuntar PDF, PNG o JPEG de hasta 1 MB.',
+    'Selecciona permiso, ausencia o incapacidad y revisa el efecto indicado por el catálogo: con goce, sin goce o subsidio IGSS. Las fechas son inclusivas; no se aceptan traslapes con ausencias ni vacaciones en proceso, aprobadas o tomadas. Puedes adjuntar PDF, PNG o JPEG de hasta 1 MB. Revisar cálculo muestra salario / 30 por cada día sin goce; con goce no resta. El detalle conserva el desglose por mes y las referencias de pago.',
 };
 export function ayudaNovedades(
   tipo: Tipo,
   pagina: 'listado' | 'formulario' | 'detalle',
 ): DefinicionAyuda {
   return {
-    id: `novedades-${tipo}-${pagina}`,
+    id: `novedades-${tipo}-${pagina}-v1-10`,
     pasos: [
+      {
+        elemento: 'codigo-automatico',
+        titulo: 'Código asignado por el sistema',
+        descripcion:
+          'La vista previa consulta el contador actual sin reservar números. Guardar asigna el código definitivo dentro de la transacción. Será permanente, también después de editar o desactivar el registro. Puedes copiarlo para localizarlo en la búsqueda del listado.',
+      },
       {
         elemento: 'novedades-tipos',
         titulo: 'Novedades de nómina',
         descripcion:
-          'Cada sección registra novedades reales para las próximas quincenas. Cambiar de sección conserva los registros; los filtros se aplican dentro del módulo seleccionado.',
+          'Los códigos internos se asignan automáticamente al guardar y se conservan al editar. Puedes buscarlos en el listado. Cada sección registra novedades reales antes de calcular el pago. Cambiar de sección conserva los registros; los filtros se aplican dentro del módulo seleccionado.',
       },
       {
         elemento: 'novedades-filtros',
@@ -55,7 +63,7 @@ export function ayudaNovedades(
         elemento: 'novedad-detalle',
         titulo: 'Historial y autorización',
         descripcion:
-          'Solo las horas y ausencias aprobadas se consumirán en nómina. Para aprobar o rechazar, edita el estado y explica el motivo. Anular conserva el registro y exige motivo y confirmación. Un saldo cero liquida automáticamente el descuento al aplicar su última cuota.',
+          'Las novedades mensuales se cargan listas; solo las ausencias aprobadas se consumirán en nómina. Para aprobar o rechazar, edita el estado y explica el motivo. Anular conserva el registro y exige motivo y confirmación. Un saldo cero liquida automáticamente el descuento al aplicar su última cuota.',
       },
       {
         elemento: 'novedad-detalle',

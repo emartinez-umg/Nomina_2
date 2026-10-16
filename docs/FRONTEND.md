@@ -185,3 +185,114 @@ En carga masiva se conserva la modalidad; el CSV debe seleccionarse y validarse 
 Las confirmaciones y los cálculos derivados requieren revisión actual; nunca se ejecuta una
 acción de negocio automáticamente por restaurar un borrador. Los hints del aviso y el paso
 compartido de `pasosVisibles` explican estos límites en todos los módulos y roles.
+
+## V1-3 — Código automático
+
+`components/forms/CampoCodigo.tsx` presenta un input `readOnly` seleccionable/copiable,
+con tooltip e hint, consulta cancelable y debounce de 250 ms. Usa
+`GET /api/codigos/vista-previa?entidad=...&palabra=...&idDepartamento=...`.
+La respuesta `{ codigo, definitivo: false }` consulta Oracle sin reservar números.
+El código puede cambiar antes de guardar por altas concurrentes. En edición muestra el valor
+persistido y no vuelve a consultar un contador, aunque se renombre o traslade el registro.
+
+Los formularios de catálogo y empleado omiten código de sus cuerpos de escritura;
+el backend también descarta valores enviados por clientes anteriores. Sus borradores pasan
+a versión 2, descartando versiones anteriores con códigos manuales. La plantilla CSV de
+empleados contiene 30 columnas: no incluye código ni bandera generarUsuario; usa código de horario y residencia estructurada (V1-7). El reporte de importación incluye el código
+asignado. Solicitudes (incluidas vacaciones), descuentos, préstamos y publicaciones muestran su vista previa y sus
+listados/CSV permiten localizar los códigos definitivos con las búsquedas existentes.
+Los códigos patronales/de centros/tipos IGSS siguen siendo referencias externas oficiales;
+no se generan identificadores inventados para una declaración oficial.
+
+## Ubicación y zona reutilizables — FASE V1-4
+
+`components/forms/UbicacionSelect` es controlado: `value` contiene `idDepartamentoGt` e
+`idMunicipioGt` como cadenas de formulario; `onChange` entrega ambos atómicamente y señala
+si fue una selección predeterminada. Usa TanStack Query y la API oficial autenticada; cada
+municipio se consulta por departamento. `predeterminar` propone 01/0101 solo cuando ambos
+campos están vacíos; en edición usar `false`. No asume identidades Oracle fijas. Cambiar
+el departamento borra municipio; búsquedas sin acentos, teclado, hints, errores y reintento
+usan los SelectField existentes. `errores`/`onBlur` conectan la validación del formulario.
+
+`ZonaSelect` recibe `codigoMunicipio`, valor cadena (`''` = No aplica) y las props de campo.
+Ofrece No aplica y 1–25; marca obligatoriedad y error solo si el código es 0101. `zonaValida`
+exporta la regla para el resolver del futuro formulario de empleado; la regla equivalente
+está en `modules/ubicaciones/ubicaciones.schemas.ts` para el backend. Centros solo usa
+departamento/municipio, conforme A5. Zona y dirección de empleado se integrarán en A8.
+
+Centros integra `useFormDraft` versión 3 (otros catálogos siguen en 2). Borradores previos con
+localidad libre se descartan por versión. Ambas selecciones sobreviven al cierre/restauración;
+éxito limpia y error conserva. El recorrido nuevo explica cascada, propuestas, referencia
+histórica y borrador; su ID v1-4 vuelve a ofrecer ayuda a usuarios de la pantalla anterior.
+
+## Identidad de empresa (v1-5)
+
+La opción Configuración de empresa conserva `/catalogos/empresa` y tiene formulario específico
+con RHF/Zod, TanStack Query, tokens y campos existentes. Los anchos responden al tipo de dato,
+la dirección ocupa toda la grilla y el NIT se valida con dígito verificador. Los errores de API
+se mapean a campos, incluidos los del logo; no se guardan archivos en borradores. El logo SVG
+se muestra como imagen aislada en la vista previa y se reemplaza por el PNG validado tras guardar.
+
+Ayuda `empresa-v1-5` explica datos, carga, vista previa, guardado auditado y perfil de firma.
+AvisoEmpresa muestra el problema antes de descargar/aprobar en nómina, prestaciones y solicitudes.
+Los botones de aprobación se deshabilitan con explicación cuando se conoce un requisito faltante;
+el backend revalida siempre. Los recorridos de las tres pantallas y de Usuarios fueron actualizados.
+ADMIN puede usar Vincular ficha de firmante desde Usuarios, con búsqueda, motivo, confirmación
+y borrador. No reemplaza una cuenta o expediente que ya tenga otro vínculo.
+
+## Constructor de horarios — V1-6
+
+`features/horarios/ConstructorHorario` es controlado y reutilizable: recibe bloques y onChange.
+Rangos Lun–Vie/Lun–Sáb/Lun–Dom/Fin de semana, Personalizado y chips accesibles; selectores nativos
+cerrados de 48 horas, descanso 30/60 y cruce explícito. Muestra horas por bloque, semana, jornada,
+descansos y límites vigentes de la API. Reutiliza los tokens/componentes existentes del mockup.
+Las reglas puras de `backend/src/shared/horarios/modelo.ts` se importan también en frontend;
+no contienen Node, SQL ni dependencias de servidor. Docker web copia únicamente esa carpeta compartida.
+
+Catálogo usa RHF y borrador versión 4; duplicar tiene clave independiente por horario original.
+`CrearHorarioModal` incorpora el mismo formulario dentro del expediente, con su propio proveedor
+de ayuda. Crear selecciona el ID retornado y refresca opciones sin enviar ni perder el empleado.
+La ayuda del empleado y de horas extra explica el flujo y las horas efectivas del patrón.
+El borrador valida su JSON antes de renderizar el constructor y descarta versiones anteriores.
+
+## V1-7 — Alta, edición y entrega privada
+
+Empleado usa borrador versión 7 y fecha inicial del servidor en America/Guatemala. La ubicación
+se consulta por IDs INE (sin asumir IDs Oracle); cambio de departamento limpia puesto/jefatura.
+Contrato consulta REQUIERE_FECHA_FIN: bloquea/vacía indefinido, requiere fecha posterior en contratos
+con plazo. Parentescos se leen de la API y los textos históricos fuera del catálogo exigen revisión.
+Credenciales y PDF se mantienen en estado de React, fuera del formulario, caché Query y borradores.
+Copiar o descargar habilita la confirmación; Escape/Cerrar no descartan la entrega sin confirmarla.
+Una sola descarga del PDF y limpieza al cerrar. El restablecimiento tiene motivo, borrador y recorrido.
+Ayuda de credenciales/horario/restablecimiento usa un HelpProvider propio para conservar la página.
+
+## Vacaciones A9 — V1-8
+
+Portal, Inicio y RRHH muestran acumulados, tomados/aprobados, disponibles decimales y solicitables
+enteros. El saldo se recalcula en API al consultar; se refresca al enfocar, cada minuto y tras operar.
+El calendario admite descansos en los extremos y cuenta únicamente trabajo según V1-6 y feriados.
+Enviar y Aprobar se bloquean con explicación cuando no alcanza. Abrir detalle/resolución refresca
+la comparación; no permite confirmar mientras carga/falla. El servidor siempre revalida.
+
+Ver solicitud conserva solicitante, rango, días, aprobación y cancelación. Cancelar vacaciones
+aprobadas exige motivo/confirmación y devuelve el débito original solo antes del día de inicio.
+El motivo tiene borrador y ayuda contextual. Recorridos vacaciones-v1-8/tableros-v1-8 y hints
+explican floor, fracciones, compensaciones v0, días laborales y cancelación.
+
+## Novedades mensuales — V1-9
+
+`MonthField` utiliza selectores de mes/año y deshabilita meses futuros/cerrados según las restricciones
+reales de API. Horas extra y comisiones reemplazan la fecha por mes; Consumo en tienda usa el mismo
+contrato mensual. Las vistas previas muestran importes y advertencias del servidor; edición excluye
+su propio registro al verificar el total mensual. Borradores de novedades/resolución pasan a versión 9.
+
+Rutas añadidas: `/novedades/pendientes`, `/novedades/parqueo`, `/configuracion/parqueo` y
+`/mis-gestiones/parqueo`, con carga diferida y skeletons. Navegación y paleta incluyen estos destinos
+según el rol. Pendientes resume cargas reales por empleado/departamento, con filtros, orden y CSV;
+«Sin registro» orienta a comprobar respaldos. Las tablas desplazables admiten foco y teclado.
+
+Solicitar parqueo exige Carro/Moto, con placa opcional. Resolver consulta la tarifa vigente del servidor,
+la muestra en la confirmación y bloquea Aprobar mientras falte vehículo/tarifa o su consulta falle.
+Mi parqueo consulta solo suscripciones propias; RH gestiona baja/suspensión y vehículos migrados.
+Ayudas `novedades-*-v1-9`, `novedades-pendientes-v1-9`, `parqueo-v1-9`, `tarifas-parqueo-v1-9` y
+`solicitudes-v1-9` explican el flujo, los cierres, importes y borradores.

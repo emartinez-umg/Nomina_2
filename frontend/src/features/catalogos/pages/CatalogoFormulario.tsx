@@ -1,17 +1,19 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Catalogo, Fila } from '../api/catalogos';
-import { guardar } from '../api/catalogos';
-import { valoresIniciales, schemaFormulario, cuerpo } from '../api/validacion';
+import { guardar, restricciones } from '../api/catalogos';
+import { valoresIniciales, schemaFormulario, cuerpo, bloquesDesdeJson } from '../api/validacion';
 import { CampoEditor } from './CampoEditor';
-import { HorarioEditor } from './HorarioEditor';
+import { ConstructorHorario } from '../../horarios/ConstructorHorario';
+import type { BloqueHorario } from '../api/catalogos';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
-import { FormErrorSummary, TextAreaField } from '../../../components/forms';
+import { FormErrorSummary, TextAreaField, UbicacionSelect } from '../../../components/forms';
 import { useToast } from '../../../components/ui/Toast';
 import { HelpButton, HelpOffer } from '../../../components/help/HelpProvider';
 import { mapearErrores } from '../../../lib/http';
@@ -47,17 +49,31 @@ export function CatalogoFormulario({
   actual,
   cierre,
   onCerrar,
+  duplicar = false,
+  onGuardado,
 }: {
   cat: Catalogo;
   actual?: Fila | undefined;
   cierre: string | null;
   onCerrar: () => void;
+  duplicar?: boolean;
+  onGuardado?: (fila: Fila) => void;
 }) {
   const cliente = useQueryClient();
   const toast = useToast();
   const [revision, setRevision] = useState<Record<string, string> | null>(null);
   const [motivoError, setMotivoError] = useState<string>();
-  const resolver = useMemo(() => zodResolver(schemaFormulario(cat, cierre)), [cat, cierre]);
+  const reglasHorario = useQuery({
+    queryKey: ['catalogos', 'restricciones'],
+    queryFn: ({ signal }) => restricciones(signal),
+    enabled: cat.slug === 'horarios',
+  });
+  const limites = reglasHorario.data?.limitesHorario ?? null;
+  const anteriores = !duplicar ? (actual?.bloques as BloqueHorario[] | undefined) : undefined;
+  const resolver = useMemo(
+    () => zodResolver(schemaFormulario(cat, cierre, limites, anteriores)),
+    [cat, cierre, limites, anteriores],
+  );
   const form = useForm<Record<string, string>>({
     resolver,
     mode: 'onBlur',
@@ -69,9 +85,9 @@ export function CatalogoFormulario({
     setError,
     formState: { errors },
   } = form;
-  const draft = useFormDraft(`catalogo-${cat.slug}`, actual?.id, {
+  const draft = useFormDraft(`catalogo-${cat.slug}${duplicar ? '-duplicado' : ''}`, actual?.id, {
     form,
-    version: 1,
+    version: cat.slug === 'horarios' ? 4 : cat.slug === 'centros-trabajo' ? 3 : 2,
     alDescartar: () => {
       setRevision(null);
       setMotivoError(undefined);
@@ -93,16 +109,18 @@ export function CatalogoFormulario({
           ...cuerpo(cat, datos),
           ...(cat.legal ? { motivo: motivo.trim(), confirmado: true } : {}),
         },
-        actual?.id,
+        duplicar ? undefined : actual?.id,
       ),
-    onSuccess: () => {
+    onSuccess: (fila) => {
       draft.limpiar();
       void cliente.invalidateQueries({ queryKey: ['catalogos'] });
+      void cliente.invalidateQueries({ queryKey: ['empleados', 'opciones'] });
+      onGuardado?.(fila);
       toast('Registro guardado y auditado.');
       onCerrar();
     },
     onError: (e) => {
-      mapearErrores(e, setError, [...cat.campos.map((f) => f.nombre), 'dias']);
+      mapearErrores(e, setError, [...cat.campos.map((f) => f.nombre), 'bloques']);
       setRevision(null);
     },
   });
@@ -111,7 +129,11 @@ export function CatalogoFormulario({
   };
   return (
     <>
-      <Modal abierto titulo={`${actual ? 'Editar' : 'Crear'} · ${cat.titulo}`} onCerrar={cerrar}>
+      <Modal
+        abierto
+        titulo={`${duplicar ? 'Duplicar' : actual ? 'Editar' : 'Crear'} · ${cat.titulo}`}
+        onCerrar={cerrar}
+      >
         <form
           noValidate
           className="catalogo-formulario"
@@ -136,78 +158,165 @@ export function CatalogoFormulario({
                 : 'Aún no hay periodos cerrados.'}
             </p>
           )}
-          {actual?.enUso && cat.slug === 'horarios' && (
+          {actual?.enUso && !duplicar && cat.slug === 'horarios' && (
             <p className="alerta">
               El patrón está asignado. Para cambiar días o jornada crea un nuevo horario.
             </p>
           )}
           <HelpOffer />
           <div className="form-grid">
-            {cat.campos.map((f) => (
-              <div
-                className={
-                  f.tipo === 'area'
-                    ? 'col-span-12'
-                    : [
-                          'codigo',
-                          'fecha',
-                          'entero',
-                          'dinero',
-                          'decimal',
-                          'booleano',
-                          'nit',
-                          'telefono',
-                        ].includes(f.tipo)
-                      ? 'col-span-12 md:col-span-4'
-                      : 'col-span-12 md:col-span-6'
-                }
-                key={f.nombre}
-                data-tour={`campo-${f.nombre}`}
-              >
-                <Controller
-                  control={control}
-                  name={f.nombre}
-                  render={({ field }) => (
-                    <CampoEditor
-                      campo={f}
-                      actual={actual}
-                      name={field.name}
-                      label={f.etiqueta}
-                      hint={f.hint}
-                      placeholder={f.hint.split('.')[0] ?? ''}
-                      value={field.value ?? ''}
-                      onValueChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      required={!!f.requerido}
-                      error={errors[f.nombre]?.message}
-                      disabled={
-                        mutation.isPending ||
-                        !!(
-                          actual &&
-                          cat.legal &&
-                          ['codigo', 'unidad', 'limiteInferior'].includes(f.nombre)
-                        ) ||
-                        !!(actual?.enUso && cat.slug === 'horarios' && f.nombre === 'jornada')
-                      }
-                      minFecha={
-                        f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
-                      }
+            {cat.campos
+              .filter(
+                (f) =>
+                  (cat.slug !== 'centros-trabajo' ||
+                    !['idDepartamentoGt', 'idMunicipioGt'].includes(f.nombre)) &&
+                  (cat.slug !== 'horarios' || f.nombre !== 'jornada'),
+              )
+              .map((f) => (
+                <div
+                  className={
+                    f.tipo === 'area'
+                      ? 'col-span-12'
+                      : [
+                            'codigo',
+                            'fecha',
+                            'entero',
+                            'dinero',
+                            'decimal',
+                            'booleano',
+                            'nit',
+                            'telefono',
+                          ].includes(f.tipo)
+                        ? 'col-span-12 md:col-span-4'
+                        : 'col-span-12 md:col-span-6'
+                  }
+                  key={f.nombre}
+                  data-tour={`campo-${f.nombre}`}
+                >
+                  {f.tipo === 'codigo' ? (
+                    <CampoCodigo
+                      entidad={cat.slug}
+                      palabra={form.watch('nombre')}
+                      codigo={!duplicar && actual?.codigo ? String(actual.codigo) : undefined}
+                    />
+                  ) : (
+                    <Controller
+                      control={control}
+                      name={f.nombre}
+                      render={({ field }) => (
+                        <CampoEditor
+                          campo={f}
+                          actual={actual}
+                          name={field.name}
+                          label={f.etiqueta}
+                          hint={f.hint}
+                          placeholder={f.hint.split('.')[0] ?? ''}
+                          value={field.value ?? ''}
+                          onValueChange={field.onChange}
+                          onBlur={field.onBlur}
+                          inputRef={field.ref}
+                          required={!!f.requerido}
+                          error={errors[f.nombre]?.message}
+                          disabled={
+                            mutation.isPending ||
+                            !!(
+                              actual &&
+                              cat.legal &&
+                              ['codigo', 'unidad', 'limiteInferior'].includes(f.nombre)
+                            ) ||
+                            !!(
+                              actual?.enUso &&
+                              !duplicar &&
+                              cat.slug === 'horarios' &&
+                              f.nombre === 'jornada'
+                            )
+                          }
+                          minFecha={
+                            f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
+                          }
+                        />
+                      )}
                     />
                   )}
+                </div>
+              ))}
+            {cat.slug === 'centros-trabajo' && (
+              <>
+                {actual?.localidadAnterior && (
+                  <div className="col-span-12 alerta" data-tour="ubicacion-anterior">
+                    <p>Localidad anterior: {String(actual.localidadAnterior)}</p>
+                    {!actual.idMunicipioGt && (
+                      <>
+                        <p>
+                          {actual.ubicacionPropuesta
+                            ? `Coincidencia propuesta: ${String(actual.ubicacionPropuesta)}. Revisa antes de guardar.`
+                            : 'Sin coincidencia única. Selecciona el departamento y municipio correctos antes de guardar.'}
+                        </p>
+                        {actual.idMunicipioGtPropuesto && (
+                          <Button
+                            icono="aprobar"
+                            variante="secundario"
+                            disabled={mutation.isPending}
+                            onClick={() => {
+                              form.setValue(
+                                'idDepartamentoGt',
+                                String(actual.idDepartamentoGtPropuesto),
+                                { shouldDirty: true, shouldValidate: true },
+                              );
+                              form.setValue(
+                                'idMunicipioGt',
+                                String(actual.idMunicipioGtPropuesto),
+                                { shouldDirty: true, shouldValidate: true },
+                              );
+                            }}
+                          >
+                            Usar coincidencia propuesta
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+                <UbicacionSelect
+                  value={{
+                    idDepartamentoGt: form.watch('idDepartamentoGt') ?? '',
+                    idMunicipioGt: form.watch('idMunicipioGt') ?? '',
+                  }}
+                  predeterminar={!actual}
+                  disabled={mutation.isPending}
+                  onChange={(valor, predeterminado) => {
+                    form.setValue('idDepartamentoGt', valor.idDepartamentoGt, {
+                      shouldDirty: !predeterminado,
+                      shouldValidate: !predeterminado,
+                    });
+                    form.setValue('idMunicipioGt', valor.idMunicipioGt, {
+                      shouldDirty: !predeterminado,
+                      shouldValidate: !predeterminado,
+                    });
+                  }}
+                  onBlur={(campo) => {
+                    void form.trigger(campo);
+                  }}
+                  errores={{
+                    idDepartamentoGt: errors.idDepartamentoGt?.message,
+                    idMunicipioGt: errors.idMunicipioGt?.message,
+                  }}
                 />
-              </div>
-            ))}
+              </>
+            )}
             {cat.slug === 'horarios' && (
               <Controller
                 control={control}
-                name="dias"
+                name="bloques"
                 render={({ field }) => (
-                  <HorarioEditor
-                    value={field.value ?? '[]'}
-                    onChange={field.onChange}
-                    disabled={mutation.isPending || !!actual?.enUso}
-                    error={errors.dias?.message}
+                  <ConstructorHorario
+                    value={bloquesDesdeJson(field.value ?? '[]')}
+                    onChange={(bloques) => {
+                      field.onChange(JSON.stringify(bloques));
+                      void form.trigger('bloques');
+                    }}
+                    disabled={mutation.isPending || (!!actual?.enUso && !duplicar)}
+                    error={errors.bloques?.message}
                   />
                 )}
               />
@@ -259,13 +368,19 @@ export function CatalogoFormulario({
                 </tr>
               </thead>
               <tbody>
-                {cat.campos.map((f) => (
-                  <tr key={f.nombre}>
-                    <th scope="row">{f.etiqueta}</th>
-                    <td>{valorCampo(f, actual?.[f.nombre])}</td>
-                    <td>{valorCampo(f, revision?.[f.nombre])}</td>
-                  </tr>
-                ))}
+                {cat.campos
+                  .filter(
+                    (f) =>
+                      cat.slug !== 'centros-trabajo' ||
+                      !['idDepartamentoGt', 'idMunicipioGt'].includes(f.nombre),
+                  )
+                  .map((f) => (
+                    <tr key={f.nombre}>
+                      <th scope="row">{f.etiqueta}</th>
+                      <td>{valorCampo(f, actual?.[f.nombre])}</td>
+                      <td>{valorCampo(f, revision?.[f.nombre])}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

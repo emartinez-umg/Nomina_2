@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -256,6 +257,7 @@ function Editor({
       data-tour="comunicacion-formulario"
     >
       <FormDraftNotice draft={draft} />
+      <CampoCodigo entidad={tipo} codigo={inicial?.codigo} />
       <fieldset disabled={m.isPending}>
         <div className="form-grid my-6">
           {campo('titulo', 'Título', 'Nombre breve que se mostrará en el tablero y en la campana.')}

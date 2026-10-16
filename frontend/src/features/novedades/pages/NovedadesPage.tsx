@@ -73,7 +73,9 @@ function filtros(tipo: Tipo): Campo[] {
       ref: tipo,
       hint: 'Tipo registrado en Catálogos.',
     });
-  if (tipo === 'comisiones' || tipo === 'horas-extra')
+  if (['comisiones', 'horas-extra', 'consumo-tienda'].includes(tipo))
+    f.push({ nombre: 'mes', label: 'Mes', tipo: 'mes', hint: 'Filtra por mes y año.' });
+  if (desc || tipo === 'ausencias')
     f.push({
       nombre: 'idPeriodo',
       label: 'Periodo',
@@ -87,8 +89,8 @@ function filtros(tipo: Tipo): Campo[] {
     tipo: 'opcion',
     opciones: desc
       ? ['VIGENTE', 'LIQUIDADO', 'CANCELADO']
-      : tipo === 'comisiones'
-        ? ['ACTIVA', 'INACTIVA']
+      : ['comisiones', 'horas-extra', 'consumo-tienda'].includes(tipo)
+        ? ['PENDIENTE', 'APLICADA']
         : ['PENDIENTE', 'APROBADA', 'RECHAZADA'],
     hint: 'Combina con fechas y empleado para revisar autorizaciones.',
   });
@@ -100,14 +102,6 @@ function filtros(tipo: Tipo): Campo[] {
       opciones: ['FIJO', 'CUOTAS', 'UNICO'],
       hint: 'Fijo, en cuotas o un único cobro.',
     });
-  if (tipo === 'horas-extra')
-    f.push({
-      nombre: 'jornada',
-      label: 'Jornada',
-      tipo: 'opcion',
-      opciones: ['DIURNA', 'MIXTA', 'NOCTURNA'],
-      hint: 'Jornada declarada al registrar horas.',
-    });
   if (tipo === 'ausencias')
     f.push({
       nombre: 'efecto',
@@ -118,7 +112,7 @@ function filtros(tipo: Tipo): Campo[] {
     });
   const rangos = desc
     ? ['monto', 'saldo', 'cuotas']
-    : tipo === 'comisiones'
+    : ['comisiones', 'consumo-tienda'].includes(tipo)
       ? ['monto']
       : tipo === 'horas-extra'
         ? ['horas']
@@ -165,10 +159,10 @@ function Listado({ tipo }: { tipo: Tipo }) {
       <NavegacionNovedades tipo={tipo} />
       <h2>{titulos[tipo]}</h2>
       <p className="my-3 text-secundario">
-        Registra y revisa los movimientos que alimentarán la planilla quincenal.
+        Registra y revisa los movimientos antes de calcular el pago.
       </p>
       <div className="my-5 flex flex-wrap gap-3">
-        {tipo !== 'comisiones' && (
+        {!['comisiones', 'consumo-tienda'].includes(tipo) && (
           <Button
             icono="configuracion"
             variante="secundario"
@@ -178,7 +172,7 @@ function Listado({ tipo }: { tipo: Tipo }) {
               )
             }
           >
-            {tipo === 'horas-extra' ? 'Configurar recargo y jornadas' : 'Configurar tipos'}
+            {tipo === 'horas-extra' ? 'Configurar recargo, tope y jornadas' : 'Configurar tipos'}
           </Button>
         )}
         <Button icono="crear" onClick={() => nav(`/novedades/${tipo}/nuevo`)}>
@@ -278,6 +272,16 @@ function Listado({ tipo }: { tipo: Tipo }) {
         <div data-tour="novedades-tabla">
           <Table<Fila>
             columnas={[
+              ...(tipo === 'descuentos' || tipo === 'prestamos'
+                ? [
+                    {
+                      id: 'codigo',
+                      titulo: 'Código',
+                      ordenable: true,
+                      render: (r: Fila) => r.codigo,
+                    },
+                  ]
+                : []),
               {
                 id: 'empleado',
                 titulo: 'Empleado',
@@ -289,15 +293,17 @@ function Listado({ tipo }: { tipo: Tipo }) {
                 : []),
               {
                 id: 'fechaInicio',
-                titulo: tipo === 'comisiones' ? 'Quincena' : 'Inicio',
+                titulo: ['comisiones', 'horas-extra', 'consumo-tienda'].includes(tipo)
+                  ? 'Mes'
+                  : 'Inicio',
                 ordenable: true,
-                render: (r) => fechaVisible(r.fechaInicio),
+                render: (r) => r.mes ?? fechaVisible(r.fechaInicio),
               },
               { id: 'fin', titulo: 'Fin', render: (r) => finVisible(r.fechaFin) },
               ...(desc
                 ? [{ id: 'modalidad', titulo: 'Modalidad', render: (r: Fila) => r.modalidad }]
                 : []),
-              ...(desc || tipo === 'comisiones'
+              ...(desc || ['comisiones', 'consumo-tienda'].includes(tipo)
                 ? [
                     {
                       id: 'monto',
@@ -322,12 +328,12 @@ function Listado({ tipo }: { tipo: Tipo }) {
                     {
                       id: 'horas',
                       titulo: 'Horas / jornada',
-                      render: (r: Fila) => `${r.horas} · ${r.jornada ?? 'Sin jornada'}`,
+                      render: (r: Fila) => r.horas,
                     },
                     {
                       id: 'estimado',
                       titulo: 'Valor estimado',
-                      render: (r: Fila) => r.advertencia ?? moneda(r.calculo?.monto),
+                      render: (r: Fila) => moneda(r.calculo?.monto ?? r.monto),
                     },
                   ]
                 : []),
@@ -338,7 +344,10 @@ function Listado({ tipo }: { tipo: Tipo }) {
                 id: 'estado',
                 titulo: 'Estado',
                 ordenable: true,
-                render: (r) => (r.activo ? r.estado : 'ANULADA'),
+                render: (r) =>
+                  r.activo
+                    ? `${r.estadoAplicacion ?? r.estado}${r.idPago ? ` · Pago #${r.idPago}` : ''}`
+                    : 'ANULADA',
               },
               {
                 id: 'acciones',
@@ -356,14 +365,19 @@ function Listado({ tipo }: { tipo: Tipo }) {
                       icono="editar"
                       variante="texto"
                       disabled={
-                        !!r.bloqueada || !r.activo || ['LIQUIDADO', 'CANCELADO'].includes(r.estado)
+                        r.autorizacion === 'RECHAZADA' ||
+                        !!r.bloqueada ||
+                        !r.activo ||
+                        ['LIQUIDADO', 'CANCELADO'].includes(r.estado)
                       }
                       motivoDeshabilitado={
-                        r.bloqueada
-                          ? 'Periodo cerrado o registro consumido por nómina.'
-                          : !r.activo || ['LIQUIDADO', 'CANCELADO'].includes(r.estado)
-                            ? 'Registro finalizado.'
-                            : undefined
+                        r.autorizacion === 'RECHAZADA'
+                          ? 'Se conserva el rechazo del registro v0.'
+                          : r.bloqueada
+                            ? 'Periodo cerrado o registro consumido por nómina.'
+                            : !r.activo || ['LIQUIDADO', 'CANCELADO'].includes(r.estado)
+                              ? 'Registro finalizado.'
+                              : undefined
                       }
                       onClick={() => nav(`/novedades/${tipo}/${r.id}/editar`)}
                     >

@@ -1,12 +1,15 @@
+import { AvisoEmpresa } from '../../empresa/pages/AvisoEmpresa';
+import { CrearHorarioModal } from '../../horarios/CrearHorarioModal';
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Decimal } from 'decimal.js';
-import { reglas, detalle, crear, editar } from '../api/empleados';
+import { reglas, detalle, crear, editar, opciones, parentescos } from '../api/empleados';
 import type { Empleado, Reglas, Credencial } from '../api/empleados';
 import { secciones, todosCampos, iniciales, schemaFormulario, cuerpo } from '../api/formulario';
 import { CampoEmpleado } from './CampoEmpleado';
@@ -15,12 +18,19 @@ import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { TextAreaField, DateField, FormErrorSummary } from '../../../components/forms';
+import {
+  TextAreaField,
+  DateField,
+  FormErrorSummary,
+  UbicacionSelect,
+  ZonaSelect,
+} from '../../../components/forms';
 import { usePageHelp } from '../../../components/help/HelpProvider';
 import { useToast } from '../../../components/ui/Toast';
 import { useSession } from '../../../app/session';
 import { fechaValida } from '../../../lib/validadores';
 import { mapearErrores } from '../../../lib/http';
+import { municipiosGt } from '../../ubicaciones/api/ubicaciones';
 import { ayudaEmpleados } from '../help/pasos';
 const ayuda = ayudaEmpleados('formulario');
 export function EmpleadoFormularioPage() {
@@ -71,13 +81,33 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
     toast = useToast();
   const [error, setErrorGeneral] = useState(''),
     [credenciales, setCredenciales] = useState<Credencial[] | null>(null);
+  const [pdf, setPdf] = useState('');
+  const [requiereFin, setRequiereFin] = useState<boolean | undefined>();
+  const [codigoMunicipio, setCodigoMunicipio] = useState('');
   const [destino, setDestino] = useState('');
+  const [crearHorario, setCrearHorario] = useState(false);
   const [seccionActual, setSeccionActual] = useState(0);
-  const resolver = useMemo(() => zodResolver(schemaFormulario(r, !!actual)), [r, actual]);
+  const catalogoParentescos = useQuery({
+    queryKey: ['empleados', 'parentescos'],
+    queryFn: ({ signal }) => parentescos(signal),
+  });
+  const resolver = useMemo(
+    () =>
+      zodResolver(
+        schemaFormulario(
+          r,
+          !!actual,
+          requiereFin,
+          codigoMunicipio,
+          catalogoParentescos.data?.map((p) => p.value),
+        ),
+      ),
+    [r, actual, requiereFin, codigoMunicipio, catalogoParentescos.data],
+  );
   const form = useForm<Record<string, string>>({
     mode: 'onBlur',
     resolver,
-    defaultValues: iniciales(actual),
+    defaultValues: iniciales(actual, r.hoy),
   });
   const {
     control,
@@ -88,7 +118,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
   } = form;
   const draft = useFormDraft('empleado', actual?.id, {
     form,
-    version: 1,
+    version: 7,
     alDescartar: () => setErrorGeneral(''),
     paso: seccionActual,
     restaurarPaso: (paso) => {
@@ -101,6 +131,30 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
     },
   });
   const vals = watch();
+  const contratos = useQuery({
+    queryKey: ['empleados', 'contrato', vals.idTipoContrato],
+    queryFn: ({ signal }) =>
+      opciones('idTipoContrato', '', 1, vals.idTipoContrato ?? '', undefined, signal),
+    enabled: !!vals.idTipoContrato,
+  });
+  const municipios = useQuery({
+    queryKey: ['ubicaciones', 'municipios', vals.idDepartamentoGt],
+    queryFn: ({ signal }) => municipiosGt(vals.idDepartamentoGt ?? '', signal),
+    enabled: !!vals.idDepartamentoGt,
+    staleTime: Infinity,
+  });
+  const contrato = contratos.data?.find((o) => o.value === vals.idTipoContrato);
+  useEffect(() => {
+    const fin = contrato ? contrato.requiereFechaFin === 1 : undefined;
+    setRequiereFin(fin);
+    if (fin === false && form.getValues('fechaFinContrato'))
+      form.setValue('fechaFinContrato', '', { shouldDirty: true, shouldValidate: true });
+  }, [contrato, form]);
+  useEffect(() => {
+    setCodigoMunicipio(
+      municipios.data?.find((m) => String(m.id) === vals.idMunicipioGt)?.codigo ?? '',
+    );
+  }, [municipios.data, vals.idMunicipioGt]);
   const reglaSalario = useQuery({
     queryKey: ['empleados', 'reglas', vals.fechaIngreso],
     queryFn: ({ signal }) => reglas(signal, vals.fechaIngreso),
@@ -114,6 +168,14 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
     new Decimal(vals.salarioBase!.replace(/,/g, '')).lt(minimo!);
   return (
     <>
+      {crearHorario && (
+        <CrearHorarioModal
+          onCerrar={() => setCrearHorario(false)}
+          onCreado={(id) =>
+            form.setValue('idHorario', id, { shouldDirty: true, shouldValidate: true })
+          }
+        />
+      )}
       <div className="my-4 flex justify-between gap-3">
         <h1>{actual ? 'Editar empleado' : 'Nuevo empleado'}</h1>
         <Link className="enlace-icono" to={actual ? `/empleados/${actual.id}` : '/empleados'}>
@@ -121,6 +183,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
         </Link>
       </div>
 
+      {!actual && <AvisoEmpresa />}
       <form
         noValidate
         onSubmit={handleSubmit(async (d) => {
@@ -134,14 +197,15 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
             } else {
               const saved = await crear(cuerpo(d));
               id = saved.empleado.id;
-              if (saved.credenciales) setCredenciales([saved.credenciales]);
+              setCredenciales([saved.credenciales]);
+              setPdf(saved.pdfCredenciales);
               for (const aviso of saved.advertencias) toast(aviso, 'peligro');
             }
             draft.limpiar();
             await cliente.invalidateQueries({ queryKey: ['empleados'] });
             toast('Expediente guardado y auditado.');
             const path = `/empleados/${id}`;
-            if (!actual && d.generarUsuario === 'true') setDestino(path);
+            if (!actual) setDestino(path);
             else nav(path);
           } catch (e) {
             mapearErrores(e, setError, [
@@ -176,54 +240,139 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                           : 'No hay mínimo mensual parametrizado. RRHH debe configurar SALARIO_MINIMO_MENSUAL con unidad QUETZALES.'}
                 </p>
               )}
+              {i === 0 && actual?.direccionAnterior && (
+                <p className="campo-hint mb-4">
+                  Dirección anterior (referencia): {String(actual.direccionAnterior)}
+                </p>
+              )}
+              {i === 3 && actual?.parentescoAnterior && (
+                <p className="campo-hint mb-4">
+                  Parentesco anterior (referencia): {String(actual.parentescoAnterior)}
+                </p>
+              )}
               <div className="form-grid">
-                {s.campos.map((f) => (
-                  <div
-                    key={f.nombre}
-                    className={
-                      f.ancho === 'ancho'
-                        ? 'col-span-12'
-                        : f.ancho === 'corto'
-                          ? 'col-span-12 md:col-span-4'
-                          : 'col-span-12 md:col-span-6'
-                    }
-                  >
-                    <Controller
-                      name={f.nombre}
-                      control={control}
-                      render={({ field }) => (
-                        <CampoEmpleado
-                          campo={f}
-                          name={field.name}
-                          label={f.label}
-                          hint={f.hint}
-                          placeholder={f.hint.split('.')[0] ?? ''}
-                          value={field.value ?? ''}
-                          onValueChange={(v) => {
-                            field.onChange(v);
+                {s.campos
+                  .filter((f) => f.nombre !== 'idMunicipioGt')
+                  .map((f) => (
+                    <div
+                      key={f.nombre}
+                      title={
+                        f.nombre === 'fechaFinContrato' && requiereFin === false
+                          ? 'Contrato indefinido: el fin queda vacío.'
+                          : undefined
+                      }
+                      className={
+                        f.nombre === 'idDepartamentoGt' || f.ancho === 'ancho'
+                          ? 'col-span-12'
+                          : f.ancho === 'corto'
+                            ? 'col-span-12 md:col-span-4'
+                            : 'col-span-12 md:col-span-6'
+                      }
+                    >
+                      {f.nombre === 'idDepartamentoGt' ? (
+                        <UbicacionSelect
+                          value={{
+                            idDepartamentoGt: vals.idDepartamentoGt ?? '',
+                            idMunicipioGt: vals.idMunicipioGt ?? '',
                           }}
-                          onBlur={field.onBlur}
-                          inputRef={field.ref}
-                          required={!!f.required}
-                          disabled={
-                            isSubmitting ||
-                            (!!actual && ['fechaIngreso', 'salarioBase'].includes(f.nombre))
+                          predeterminar={!actual && !draft.pendiente}
+                          disabled={isSubmitting}
+                          errores={{
+                            idDepartamentoGt: errors.idDepartamentoGt?.message,
+                            idMunicipioGt: errors.idMunicipioGt?.message,
+                          }}
+                          onBlur={(campo) => void form.trigger(campo)}
+                          onChange={(v, predeterminado) => {
+                            form.setValue('idDepartamentoGt', v.idDepartamentoGt, {
+                              shouldDirty: !predeterminado,
+                            });
+                            form.setValue('idMunicipioGt', v.idMunicipioGt, {
+                              shouldDirty: !predeterminado,
+                              shouldValidate: true,
+                            });
+                          }}
+                        />
+                      ) : f.nombre === 'zona' ? (
+                        <ZonaSelect
+                          name="zona"
+                          value={vals.zona ?? ''}
+                          codigoMunicipio={codigoMunicipio}
+                          disabled={isSubmitting}
+                          onValueChange={(v) =>
+                            form.setValue('zona', v, { shouldDirty: true, shouldValidate: true })
                           }
-                          error={errors[f.nombre]?.message}
-                          ancho={f.ancho ?? 'medio'}
-                          reglas={r}
-                          nacimiento={vals.fechaNacimiento}
-                          ingreso={vals.fechaIngreso}
-                          departamento={
-                            ['idPuesto', 'idJefatura'].includes(f.nombre)
-                              ? vals.idDepartamento
-                              : undefined
-                          }
+                          onBlur={() => void form.trigger('zona')}
+                          error={errors.zona?.message}
+                        />
+                      ) : f.nombre === 'codigo' ? (
+                        <CampoCodigo
+                          entidad="empleados"
+                          idDepartamento={vals.idDepartamento}
+                          codigo={actual?.codigo}
+                        />
+                      ) : (
+                        <Controller
+                          name={f.nombre}
+                          control={control}
+                          render={({ field }) => (
+                            <CampoEmpleado
+                              campo={f}
+                              name={field.name}
+                              label={f.label}
+                              hint={
+                                f.nombre === 'fechaFinContrato' && requiereFin === false
+                                  ? 'Contrato por tiempo indefinido: no tiene fecha de fin.'
+                                  : f.hint
+                              }
+                              placeholder={f.hint.split('.')[0] ?? ''}
+                              value={field.value ?? ''}
+                              onValueChange={(v) => {
+                                if (f.nombre === 'idDepartamento' && v !== field.value) {
+                                  form.setValue('idPuesto', '', { shouldDirty: true });
+                                  form.setValue('idJefatura', '', { shouldDirty: true });
+                                }
+                                field.onChange(v);
+                              }}
+                              onBlur={field.onBlur}
+                              inputRef={field.ref}
+                              required={
+                                f.nombre === 'fechaFinContrato'
+                                  ? requiereFin === true
+                                  : !!f.required
+                              }
+                              disabled={
+                                isSubmitting ||
+                                (!!actual && ['fechaIngreso', 'salarioBase'].includes(f.nombre)) ||
+                                (f.nombre === 'fechaFinContrato' && requiereFin !== true)
+                              }
+                              error={errors[f.nombre]?.message}
+                              ancho={f.ancho ?? 'medio'}
+                              reglas={r}
+                              nacimiento={vals.fechaNacimiento}
+                              ingreso={vals.fechaIngreso}
+                              departamento={
+                                ['idPuesto', 'idJefatura'].includes(f.nombre)
+                                  ? vals.idDepartamento
+                                  : undefined
+                              }
+                            />
+                          )}
                         />
                       )}
-                    />
-                  </div>
-                ))}
+                      {f.nombre === 'idHorario' && (
+                        <Button
+                          className="mt-2"
+                          icono="crear"
+                          variante="secundario"
+                          data-tour="empleado-crear-horario"
+                          disabled={isSubmitting}
+                          onClick={() => setCrearHorario(true)}
+                        >
+                          Crear horario personalizado
+                        </Button>
+                      )}
+                    </div>
+                  ))}
               </div>
               {i === 1 && actual && (
                 <div className="form-grid mt-4">
@@ -253,24 +402,13 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
         <Card>
           {!actual ? (
             <div data-tour="empleado-usuario">
-              <Controller
-                name="generarUsuario"
-                control={control}
-                render={({ field }) => (
-                  <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={field.value === 'true'}
-                      onChange={(e) => field.onChange(String(e.target.checked))}
-                      disabled={isSubmitting}
-                    />
-                    Generar usuario de empleado y contraseña temporal
-                  </label>
-                )}
-              />
+              <p>
+                El usuario nombre.apellido y la contraseña temporal se crean automáticamente al
+                guardar.
+              </p>
               <p className="campo-hint">
-                Usuario nombre.apellido. La contraseña se muestra una sola vez; cambio obligatorio
-                en el primer inicio.
+                Copia las credenciales o descarga su PDF membretado antes de cerrar. El primer
+                ingreso exige cambiar la contraseña.
               </p>
             </div>
           ) : (
@@ -293,6 +431,11 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
               )}
             />
           )}
+          {contratos.error && (
+            <p role="alert" className="campo-error">
+              No se pudo consultar la regla de contrato. Vuelve a seleccionar el tipo.
+            </p>
+          )}
           <FormErrorSummary
             mensajes={Object.values(errors).map((e) => e?.message)}
             mensajeServidor={error}
@@ -306,7 +449,18 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
             >
               Cancelar
             </Button>
-            <Button type="submit" icono="guardar" cargando={isSubmitting}>
+            <Button
+              type="submit"
+              icono="guardar"
+              cargando={isSubmitting}
+              disabled={
+                !!credenciales ||
+                !contrato ||
+                !!contratos.error ||
+                !codigoMunicipio ||
+                !catalogoParentescos.data
+              }
+            >
               Guardar empleado
             </Button>
           </div>
@@ -315,8 +469,10 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
       {credenciales && (
         <Credenciales
           datos={credenciales}
+          pdf={pdf}
           onCerrar={() => {
             setCredenciales(null);
+            setPdf('');
             nav(destino);
           }}
         />

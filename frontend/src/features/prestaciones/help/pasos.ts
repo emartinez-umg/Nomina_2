@@ -1,18 +1,31 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaPrestaciones: DefinicionAyuda = {
-  id: 'prestaciones',
+  id: 'prestaciones-v1-12',
   pasos: [
     {
-      elemento: 'prestaciones-calculo',
+      elemento: 'prestaciones-secciones',
+      titulo: 'Elegir la gestión de prestaciones',
+      descripcion:
+        'Bono 14 y aguinaldo abre la revisión y pago anual. Indemnización y finiquito calcula la baja individual; Constancias de salario prepara un documento de pagos registrados. Cambiar de sección no confirma pagos ni bajas. El historial permanece disponible debajo para consultar documentos y resultados anteriores.',
+    },
+    {
+      elemento: 'empresa-aviso',
+      titulo: 'Membrete y firma de aprobación',
+      descripcion:
+        'Antes de emitir PDF completa Configuración de empresa. Todos los documentos incluyen sus datos y logo si está cargado. Para aprobar, tu usuario debe estar vinculado a un expediente con nombres, apellidos y puesto activo. La firma conserva la identidad y fecha de quien aprobó.',
+      roles: ['RH', 'ADMIN'],
+    },
+    {
+      elemento: 'pago-objetivo',
       titulo: 'Ciclos y vista previa',
       descripcion:
-        'Bono 14 usa julio a junio; aguinaldo diciembre a noviembre. El año identifica el final del ciclo. Filtra un empleado o departamento, revisa importes por persona y los errores antes de guardar. El promedio incluye los conceptos afectos y comisiones reales; la bonificación incentivo conserva su bandera. Una fuente faltante o novedad pendiente bloquea el cálculo.',
+        'Bono 14 usa julio a junio; aguinaldo diciembre a noviembre. El mes de pago identifica julio o diciembre del año. La pantalla precalcula automáticamente la última prestación disponible al entrar. Filtra un empleado o departamento, revisa importes por persona y los errores antes de confirmar y pagar. El promedio incluye los conceptos afectos y comisiones reales; la bonificación incentivo conserva su bandera. Una fuente faltante o novedad pendiente bloquea el cálculo.',
     },
     {
       elemento: 'prestaciones-finiquito',
       titulo: 'Simulación de egreso',
       descripcion:
-        'Selecciona empleado, fecha no futura y causa. Despido injustificado incluye indemnización; renuncia y despido justificado conservan vacaciones y prestaciones proporcionales. El detalle muestra promedio de seis meses, tiempo trabajado, saldo de vacaciones y exenciones. Resolver reservas posteriores es obligatorio. Confirmar guarda la liquidación, consume vacaciones, registra la baja y revoca el acceso en una transacción; el pago se registra después.',
+        'Al seleccionar empleado, fecha no futura y causa el desglose se calcula automáticamente. Por defecto se usa hoy; cambiar la fecha recalcula y retira la confirmación anterior. Despido injustificado incluye indemnización; renuncia y despido justificado conservan vacaciones y prestaciones proporcionales. El detalle muestra paso a paso el promedio de seis meses × años y fracción, vacaciones pendientes × salario / 30 y aguinaldo y Bono 14 proporcionales por días / 365, con exenciones. Resolver reservas posteriores es obligatorio. Confirmar guarda la liquidación, consume vacaciones, registra la baja y revoca el acceso en una transacción; el pago se registra después.',
     },
     {
       elemento: 'prestaciones-constancia',

@@ -14,14 +14,14 @@ describe('Cuotas y saldos exactos', () => {
   it('distribuye centavos y liquida sin crear ni perder dinero', () => {
     const plan = amortizar('100.00', 3, '2028-02-15');
     expect(plan.map((c) => c.monto)).toEqual(['33.33', '33.33', '33.34']);
-    expect(plan.map((c) => c.fecha)).toEqual(['2028-02-15', '2028-02-29', '2028-03-15']);
+    expect(plan.map((c) => c.fecha)).toEqual(['2028-02-29', '2028-03-31', '2028-04-30']);
     expect(plan.at(-1)?.saldo).toBe('0.00');
     expect(plan.reduce((s, c) => s.plus(c.monto), new Decimal(0)).toFixed(2)).toBe('100.00');
   });
   it('pasa de diciembre a enero y conserva importe único', () => {
     expect(amortizar('2', 2, '2026-12-31').map((c) => c.fecha)).toEqual([
       '2026-12-31',
-      '2027-01-15',
+      '2027-01-31',
     ]);
     expect(amortizar('0.01', 1, '2027-01-01')[0]).toMatchObject({ monto: '0.01', saldo: '0.00' });
   });

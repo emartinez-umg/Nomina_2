@@ -1,3 +1,4 @@
+import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -198,6 +199,9 @@ export function UsuariosPage() {
                   {[
                     ['rol', 'Cambiar rol', 'editar'],
                     ['estado', u.activo ? 'Desactivar' : 'Activar', 'seguridad'],
+                    ...(u.rol === 'RH' || u.rol === 'ADMIN'
+                      ? [['expediente', 'Vincular ficha de firmante', 'editar']]
+                      : []),
                     ['restablecer-contrasena', 'Restablecer contraseña', 'seguridad'],
                   ].map(([tipo, label, icono]) => (
                     <Button
@@ -215,7 +219,11 @@ export function UsuariosPage() {
           ]}
         />
       </Card>
-      {accion && <Editor accion={accion} cerrar={() => setAccion(undefined)} />}
+      {accion?.tipo === 'expediente' ? (
+        <VincularFicha usuario={accion.usuario!} cerrar={() => setAccion(undefined)} />
+      ) : (
+        accion && <Editor accion={accion} cerrar={() => setAccion(undefined)} />
+      )}
     </>
   );
 }
@@ -386,6 +394,103 @@ function Editor({
           />
         </form>
       )}
+    </Modal>
+  );
+}
+
+function VincularFicha({ usuario, cerrar }: { usuario: Usuario; cerrar: () => void }) {
+  const toast = useToast(),
+    cache = useQueryClient();
+  const form = useForm<{ idEmpleado: string; motivo: string }>({
+    defaultValues: { idEmpleado: '', motivo: '' },
+    mode: 'onBlur',
+    resolver: zodResolver(
+      z.object({
+        idEmpleado: z.string().min(1, 'Selecciona una ficha.'),
+        motivo: z.string().trim().min(5, 'Explica el motivo, mínimo cinco caracteres.').max(1000),
+      }),
+    ),
+  });
+  const draft = useFormDraft('vincular-firmante', usuario.idUsuario, { form, version: 1 });
+  const [confirmar, setConfirmar] = useState(false);
+  const m = useMutation({
+    mutationFn: () =>
+      api.vincularFicha(
+        usuario.idUsuario,
+        Number(form.getValues('idEmpleado')),
+        form.getValues('motivo'),
+      ),
+    onSuccess: () => {
+      draft.limpiar();
+      toast('Ficha vinculada para la firma de documentos.');
+      void cache.invalidateQueries({ queryKey: ['empresa'] });
+      cerrar();
+    },
+  });
+  return (
+    <Modal abierto titulo={`Vincular ficha: ${usuario.usuario}`} onCerrar={cerrar}>
+      <form
+        noValidate
+        data-tour="usuarios-vincular"
+        onSubmit={form.handleSubmit(() => setConfirmar(true))}
+      >
+        <FormDraftNotice draft={draft} />
+        <p className="my-4">
+          Selecciona la ficha real de esta persona, sin otro usuario vinculado. Los documentos
+          usarán sus nombres, apellidos y puesto activo.
+        </p>
+        <div className="form-grid">
+          <Controller
+            control={form.control}
+            name="idEmpleado"
+            render={({ field, fieldState }) => (
+              <ReferenciaNovedad
+                referencia="empleados"
+                name={field.name}
+                value={field.value}
+                onValueChange={field.onChange}
+                onBlur={field.onBlur}
+                label="Ficha de empleado"
+                hint="Elige el expediente de la persona titular de esta cuenta. No se reemplazan vínculos existentes."
+                required
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="motivo"
+            render={({ field, fieldState }) => (
+              <TextAreaField
+                name={field.name}
+                value={field.value}
+                onValueChange={field.onChange}
+                onBlur={field.onBlur}
+                label="Motivo"
+                hint="Explica por qué vinculas esta cuenta, mínimo cinco caracteres."
+                required
+                maxLength={1000}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+        </div>
+        <FormErrorSummary
+          mensajes={Object.values(form.formState.errors).map((e) => e.message)}
+          mensajeServidor={m.error?.message}
+        />
+        <Button icono="guardar" type="submit">
+          Revisar vínculo
+        </Button>
+        <ConfirmModal
+          abierto={confirmar}
+          titulo="Confirmar identidad del firmante"
+          descripcion={`La cuenta ${usuario.usuario} usará la ficha seleccionada para firmar aprobaciones. Verifica que pertenece a la misma persona.`}
+          cargando={m.isPending}
+          onConfirmar={() => m.mutate()}
+          onCancelar={() => setConfirmar(false)}
+        />
+      </form>
     </Modal>
   );
 }

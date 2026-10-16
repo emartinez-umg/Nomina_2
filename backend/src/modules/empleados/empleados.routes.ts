@@ -6,6 +6,8 @@ export function crearEmpleadosRouter(s: ReturnType<typeof crearEmpleadosService>
   const r = Router(),
     c = crearEmpleadosController(s);
   r.use(permitirRoles('RH', 'ADMIN'));
+  r.get('/parentescos', c.parentescos);
+  r.post('/:id/restablecer-contrasena', c.restablecer);
   r.get('/reglas', c.reglas);
   r.get('/opciones/:referencia', c.opciones);
   r.get('/exportar', c.exportar);

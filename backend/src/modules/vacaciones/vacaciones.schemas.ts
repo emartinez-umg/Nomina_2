@@ -38,6 +38,16 @@ export const querySchema = z
     message: 'Hasta debe ser igual o posterior a Desde.',
   });
 export type Query = z.infer<typeof querySchema>;
+export const cancelarSchema = z
+  .object({
+    motivo: z
+      .string()
+      .trim()
+      .min(10, 'Explica la cancelación con al menos 10 caracteres.')
+      .max(500),
+    confirmado: z.literal(true),
+  })
+  .strict();
 export const resolverSchema = z
   .object({
     estado: z.enum(['APROBADA', 'RECHAZADA']),

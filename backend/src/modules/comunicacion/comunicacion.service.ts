@@ -140,8 +140,9 @@ export function crearComunicacionService(db: BaseDatos) {
             ).registros,
           );
         return escribirCsv([
-          ['Título', 'Contenido', 'Inicio', 'Fin', 'Lugar', 'Todos', 'Activo'],
+          ['Código', 'Título', 'Contenido', 'Inicio', 'Fin', 'Lugar', 'Todos', 'Activo'],
           ...filas.map((f) => [
+            f.codigo,
             f.titulo,
             f.contenido,
             f.inicio,

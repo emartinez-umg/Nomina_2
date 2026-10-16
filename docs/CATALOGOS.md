@@ -6,24 +6,25 @@ Las pantallas consultan Oracle; no contienen datos de ejemplo.
 
 ## Catálogos disponibles
 
-| Ruta `/catalogos/…`  | Datos                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `departamentos`      | Código, nombre, descripción y estado.                                               |
-| `puestos`            | Departamento, rango salarial referencial opcional y datos generales.                |
-| `jefaturas`          | Unidad, departamento y empleado responsable del mismo departamento.                 |
-| `horarios`           | Jornada y siete días independientes, con entrada/salida, descanso y cruce nocturno. |
-| `feriados`           | Calendario anual, fechas efectiva/nominal, ámbito, localidad, franja y fundamento.  |
-| `tipos-ausencia`     | Efecto con goce, sin goce o subsidio IGSS.                                          |
-| `tipos-descuento`    | Catálogo existente, incluyendo parqueo y consumo en tienda.                         |
-| `tipos-contrato`     | Indica si exige fecha de fin.                                                       |
-| `parametros-legales` | Valores, unidades, fundamento e historial de vigencias.                             |
-| `tramos-isr`         | Límites de renta, tasa, cuota fija e historial de vigencias.                        |
+| Ruta `/catalogos/…`  | Datos                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `departamentos`      | Código, nombre, descripción y estado.                                              |
+| `centros-trabajo`    | Código automático, nombre, departamento y municipio del INE, dirección y estado.   |
+| `puestos`            | Departamento, rango salarial referencial opcional y datos generales.               |
+| `jefaturas`          | Unidad, departamento y empleado responsable del mismo departamento.                |
+| `horarios`           | Bloques por rangos/chips, horas y descanso en desplegables; jornada calculada.     |
+| `feriados`           | Calendario anual, fechas efectiva/nominal, ámbito, localidad, franja y fundamento. |
+| `tipos-ausencia`     | Efecto con goce, sin goce o subsidio IGSS.                                         |
+| `tipos-descuento`    | Catálogo existente, incluyendo parqueo y consumo en tienda.                        |
+| `tipos-contrato`     | Indica si exige fecha de fin.                                                      |
+| `parametros-legales` | Valores, unidades, fundamento e historial de vigencias.                            |
+| `tramos-isr`         | Límites de renta, tasa, cuota fija e historial de vigencias.                       |
 
 Los rangos salariales no cambian el salario de ningún empleado. Jefaturas permite dejar pendiente
 el responsable hasta disponer de empleados reales; no se adelanta su CRUD de fase 5.
 Las horas efectivas se derivan de la salida menos entrada menos descanso, con cruce opcional de
-medianoche. El detalle conserva siete días y los horarios pueden variar entre lunes y viernes.
-Un patrón asignado conserva días/jornada; se crea otro para cambiar las asignaciones futuras.
+medianoche. Cada bloque comparte horas entre varios días y los días sin bloque son descansos.
+Un patrón asignado conserva su distribución; Duplicar crea otro para las asignaciones futuras.
 
 ## API
 
@@ -107,5 +108,79 @@ Migración aditiva V013: `SALARIO_MINIMO`/`SALARIO_MAXIMO` en PUESTOS, CHECK de 
 Los catálogos con dirección postal (centros y empresa) usan `direccionTexto` para filtrar ese dato.
 `direccion` conserva exclusivamente `asc`/`desc` del ordenamiento. El formulario de captura mantiene
 `direccion`; la separación impide que el sentido de ordenamiento se interprete como texto postal.
-Datos de empresa incorpora NIT validado, representante, correo y teléfono normalizado, conservando
+Configuración de empresa incorpora NIT validado, correo, teléfono, nombre comercial, sitio web y logo privado, conservando
 FORMATO_IGSS y documentos ya emitidos. Solo una empresa activa, según la restricción de Oracle.
+
+### Actualización v1-3
+
+Todos los códigos internos son de solo lectura, se derivan del nombre y se asignan al guardar.
+Renombrar conserva el código. Coincidencias prueban consonantes y después sufijos numéricos.
+La vista previa es orientativa y no reserva números. Los filtros de código consultan el código
+actual y el anterior preservado; también puede buscarse por ambos con la búsqueda general.
+Parámetros conserva su identidad entre vigencias y valida calendario/jornadas usando la clave
+interna inmutable, aunque su código visible ahora esté abreviado. En altas nuevas esa clave se
+deriva del nombre completo normalizado; el usuario no escribe códigos.
+
+## Ubicaciones oficiales — FASE V1-4
+
+`GET /api/ubicaciones/departamentos?buscar=…` devuelve los 22 departamentos.
+`GET /api/ubicaciones/municipios?buscar=…&idDepartamentoGt=…` devuelve los municipios
+(todos los 340 si se omite el departamento). Son colecciones pequeñas y completas, ordenadas
+por nombre; búsquedas sin distinguir acentos/mayúsculas. Los filtros están validados con Zod.
+Solo lectura para ADMIN/RH/EMPLEADO autenticados que ya cambiaron su contraseña temporal.
+Cada opción tiene `id`, `codigo` INE y `nombre`; municipio añade `idDepartamentoGt` y `departamento`.
+Los IDs identity se resuelven por API y no se asumen iguales a los códigos INE.
+
+Centros recibe `idDepartamentoGt` e `idMunicipioGt` obligatorios al crear/editar. El servidor
+comprueba existencia, estado y pertenencia; una FK compuesta también impide pares cruzados.
+Ya no acepta `localidad` libre. Listado, filtros, orden y CSV incluyen referencias geográficas
+(con nombres visibles en el CSV). El empleado conserva su formulario actual hasta A8.
+
+V022 conserva el texto previo en `LOCALIDAD_ANTERIOR`; S006 carga el catálogo y propone solo
+coincidencias completas únicas, ignorando acentos/separadores. También reconoce
+`GUATEMALA_CIUDAD`/`Ciudad de Guatemala` como 0101. No usa subcadenas ni alias inventados.
+Nombres ambiguos, como San José, y localidades desconocidas requieren selección manual.
+La propuesta se guarda aparte en `ID_MUNICIPIO_GT_PROPUESTO`: RH pulsa Usar coincidencia
+propuesta, revisa y guarda. Nunca se asigna Guatemala por defecto a una edición histórica.
+
+Para conservar el comportamiento de feriados de v0, `LOCALIDAD` se mantiene como clave
+operativa de compatibilidad: la primera confirmación estructurada de un centro histórico
+conserva esa clave. Al cambiar después un municipio ya confirmado, y en centros nuevos,
+se deriva del nombre INE normalizado con guiones bajos; 0101 usa `GUATEMALA_CIUDAD`.
+El texto original queda intacto. No se migran feriados ni se alteran cálculos/snapshots cerrados.
+
+### Actualización v1-5
+
+Empresa tiene una pantalla específica RH/ADMIN en `/catalogos/empresa`, con borrador de texto,
+vista previa, carga privada de logo y control de versión para no sobrescribir ediciones concurrentes.
+`GET/PATCH /api/empresa` obtiene/guarda la configuración. `GET /api/empresa/estado` permite a los
+tres roles conocer si se puede emitir PDF, sin entregar datos ni logo al empleado.
+El antiguo CRUD de empresa sigue disponible para consultas compatibles; las mutaciones explican
+que debe usarse Configuración de empresa. FORMATO_IGSS permanece separado de la identidad visual.
+La firma procede del expediente/puesto del aprobador y se guarda al aprobar, sin un campo manual.
+
+## Horarios por bloques — V1-6
+
+`HORARIO_BLOQUES` guarda entrada/salida/descanso/cruce y `HORARIO_BLOQUE_DIAS` sus días (1=lunes).
+V024 agrupa los días v0 con idénticos minutos, sin redondear ni cambiar la jornada histórica.
+`HORARIO_DIAS` queda como archivo histórico; ningún cálculo operativo lee esa tabla.
+POST/PATCH de horarios usa `bloques: [{ dias, entrada, salida, cruzaMedianoche, minutosDescanso }]`;
+`jornada` se deriva en el servidor. Código automático e inmutable, RBAC/CSRF y auditoría transaccional.
+
+Las nuevas horas son de media en media hora; descanso 30/60. La API rechaza pasos libres, solapes
+(incluso domingo→lunes), jornadas vacías y excesos diarios acumulados/semanales. Límites vigentes:
+`JORNADA_{DIURNA|MIXTA|NOCTURNA}_HORAS` y `_HORAS_SEMANA`, consultables en `/restricciones`.
+V024 incorpora solo límites semanales iniciales 44/42/36; los diarios conservan la configuración existente.
+Cambiar límites utiliza el flujo motivado/confirmado por vigencia de Parámetros legales.
+
+Los metadatos de un histórico pueden editarse conservando sus minutos exactos. Un duplicado debe
+ajustarse a las nuevas opciones antes de guardarse. Los patrones asignados siguen siendo inmutables;
+selecciona un nuevo horario desde Empleados con la fecha efectiva requerida.
+
+## V1-7 — Contratos y parentescos
+
+La opción Requiere fecha de fin escribe REQUIERE_FECHA_FIN, que la API de opciones de empleado
+expone junto al contrato. Indefinido queda sin fecha; plazo fijo y obra determinada requieren fin
+posterior al ingreso. REQUIERE_FIN conserva compatibilidad sincronizada por trigger.
+PARENTESCOS es un catálogo de lectura con las doce opciones A8, servido en /api/empleados/parentescos.
+Los textos históricos se conservan como referencia; el siguiente guardado exige seleccionar una opción.

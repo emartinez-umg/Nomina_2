@@ -8,6 +8,7 @@ import { CampoEmpleado } from './pages/CampoEmpleado';
 import { Credenciales } from './pages/Credenciales';
 import { CargaMasivaPage } from './pages/CargaMasiva';
 import { HelpProvider } from '../../components/help/HelpProvider';
+import { nitValido, formatearNit } from '../../lib/validadores';
 import { guardarCsrf } from '../../lib/http';
 vi.mock('../../app/session', () => ({ useSession: () => ({ usuario: { rol: 'RH' } }) }));
 const reglas = {
@@ -27,7 +28,10 @@ const d = {
   fechaNacimiento: '1995-05-15',
   sexo: 'F',
   estadoCivil: 'SOLTERO',
-  direccion: 'Dirección del empleado',
+  idDepartamentoGt: '1',
+  idMunicipioGt: '1',
+  zona: '1',
+  numeroCasa: '12-A',
   telefono: '5555 1234',
   correo: 'ana@example.test',
   idDepartamento: '1',
@@ -38,7 +42,7 @@ const d = {
   fechaIngreso: '2026-10-12',
   salarioBase: '5,000.01',
   contactoNombre: 'Persona Familiar',
-  contactoParentesco: 'Hermana',
+  contactoParentesco: 'Hermano/a',
   contactoTelefono: '5555 4321',
 };
 beforeEach(() => {
@@ -67,6 +71,39 @@ const ok = (data: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   });
 describe('Gestión de empleados: formularios y carga masiva', () => {
+  it.each([
+    ['1234567-9', true],
+    ['6-K', true],
+    ['6-k', true],
+    ['123456-0', true],
+    ['6-0', false],
+    ['1234567-4', false],
+    ['0-0', false],
+  ])('NIT módulo 11 frontend: %s válido=%s', (nit, valid) => expect(nitValido(nit)).toBe(valid));
+  it('sanea K solo al final y valida fin, zona y fecha predeterminada', () => {
+    expect(formatearNit('6k!')).toBe('6-K');
+    expect(formatearNit('K12a3K')).toBe('123-K');
+    expect(iniciales(undefined, reglas.hoy).fechaIngreso).toBe(reglas.hoy);
+    expect(schemaFormulario(reglas, false, true, '0101').safeParse(d).success).toBe(false);
+    expect(
+      schemaFormulario(reglas, false, true, '0101').safeParse({
+        ...d,
+        fechaFinContrato: '2027-01-01',
+      }).success,
+    ).toBe(true);
+    expect(
+      schemaFormulario(reglas, false, false, '0101').safeParse({
+        ...d,
+        fechaFinContrato: '2027-01-01',
+      }).success,
+    ).toBe(false);
+    expect(
+      schemaFormulario(reglas, false, false, '0101').safeParse({ ...d, zona: '' }).success,
+    ).toBe(false);
+    expect(
+      schemaFormulario(reglas, false, false, '0102').safeParse({ ...d, zona: '' }).success,
+    ).toBe(true);
+  });
   it('valida campos enmascarados y envía dinero y teléfonos canónicos', () => {
     const parse = schemaFormulario(reglas).parse(d);
     expect(parse.salarioBase).toBe('5000.01');
@@ -127,30 +164,65 @@ describe('Gestión de empleados: formularios y carga masiva', () => {
         onCerrar={cerrar}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Copiar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar credenciales' }));
     await waitFor(() =>
       expect(copiar).toHaveBeenCalledWith(expect.stringContaining('Temporal!2026')),
     );
-    fireEvent.click(screen.getByRole('button', { name: /Ya las guardé/ }));
+    expect(screen.getByRole('button', { name: 'Cerrar entrega' })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Ya copié o descargué las credenciales'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar entrega' }));
     expect(cerrar).toHaveBeenCalledOnce();
     rerender(<div />);
     expect(screen.queryByText('Temporal!2026')).not.toBeInTheDocument();
   });
+  it('entrega un PDF una sola vez y bloquea cierre/Escape hasta confirmar', async () => {
+    const cerrar = vi.fn();
+    const crearUrl = vi.fn(() => 'blob:credenciales');
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL = crearUrl;
+        static revokeObjectURL = vi.fn();
+      },
+    );
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(
+      <Credenciales
+        datos={[{ idUsuario: 1, usuario: 'ana.lopez', contrasenaTemporal: 'Temporal!2026' }]}
+        pdf={btoa('%PDF-prueba')}
+        onCerrar={cerrar}
+      />,
+    );
+    fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+    expect(cerrar).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Ya copié o descargué las credenciales')).toBeDisabled();
+    const b = screen.getByRole('button', { name: 'Descargar PDF' });
+    fireEvent.click(b);
+    expect(crearUrl).toHaveBeenCalledOnce();
+    expect(b).toBeDisabled();
+    fireEvent.click(b);
+    expect(crearUrl).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByLabelText('Ya copié o descargué las credenciales'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar entrega' }));
+    expect(cerrar).toHaveBeenCalledOnce();
+  });
   it('CSV: vista previa con errores bloquea todo o nada y permite solo válidas', async () => {
     const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValue(
-      ok({
-        id: 7,
-        filas: [
-          { numero: 2, nombre: 'Ana Lopez', errores: {}, advertencias: [] },
-          {
-            numero: 3,
-            nombre: 'Otra Persona',
-            errores: { telefono: ['Usa 8 dígitos.'] },
-            advertencias: [],
-          },
-        ],
-      }),
+    fetchMock.mockImplementation(async (url) =>
+      String(url).includes('/empresa/estado')
+        ? ok({ configurada: true, mensaje: null, firmante: null })
+        : ok({
+            id: 7,
+            filas: [
+              { numero: 2, nombre: 'Ana Lopez', errores: {}, advertencias: [] },
+              {
+                numero: 3,
+                nombre: 'Otra Persona',
+                errores: { telefono: ['Usa 8 dígitos.'] },
+                advertencias: [],
+              },
+            ],
+          }),
     );
     envolver(<CargaMasivaPage />);
     const f = new File(['cabecera\nfila'], 'empleados.csv', { type: 'text/csv' });
@@ -166,7 +238,9 @@ describe('Gestión de empleados: formularios y carga masiva', () => {
     expect(screen.getByRole('button', { name: 'Importar empleados' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Importar empleados' }));
     expect(screen.getByRole('dialog', { name: 'Confirmar alta masiva' })).toBeVisible();
-    fetchMock.mockResolvedValueOnce(ok({ id: 7, importadas: 1, credenciales: [] }));
+    fetchMock.mockResolvedValueOnce(
+      ok({ id: 7, importadas: 1, credenciales: [], pdfCredenciales: '' }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
     await screen.findByText('Importación completada');
     expect(fetchMock).toHaveBeenLastCalledWith(

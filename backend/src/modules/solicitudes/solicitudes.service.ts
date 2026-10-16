@@ -1,3 +1,5 @@
+import { membrete, firmante } from '../empresa/empresa.service.js';
+import { obtenerEmpresa } from '../empresa/empresa.repository.js';
 import { createHash } from 'node:crypto';
 import type { Connection } from 'oracledb';
 import type { BaseDatos } from '../../shared/db/pool.js';
@@ -15,11 +17,12 @@ import { revalidarActor } from '../auth/auth.service.js';
 import type { ActorAuditoria, Autenticacion } from '../auth/auth.types.js';
 import { propio, notificaciones, leerNotificacion } from '../vacaciones/vacaciones.repository.js';
 import { hoy } from '../novedades/novedades.repository.js';
-import { registrarParqueo } from '../novedades/novedades.service.js';
+import { aprobarParqueo } from '../novedades/parqueo.service.js';
 import { salario } from '../prestaciones/prestaciones.repository.js';
 import { escribirCsv } from '../empleados/empleados.csv.js';
 import { Decimal } from 'decimal.js';
 import {
+  confirmarSchema,
   crearSchema,
   resolverSchema,
   entregarSchema,
@@ -100,13 +103,19 @@ export function crearSolicitudesService(db: BaseDatos) {
   async function pdf(c: Connection, s: repo.Solicitud, e: repo.Empleado, a: ActorAuditoria) {
     const p = (await repo.plantillas(c)).find((p) => p.tipo === s.tipo);
     if (!p) throw new ErrorConflicto('Falta una plantilla vigente para este tipo de documento.');
-    const empresa = await repo.empresa(c);
+    await membrete(c);
+    const empresa = (await obtenerEmpresa(c))!;
+    const firma = await firmante(c, a.idUsuario);
     if (!empresa)
       throw new ErrorConflicto('Completa los datos reales de empresa antes de generar documentos.');
     const fecha = await hoy(c),
       base = await salario(c, e.id, fecha);
     const datos: Record<string, string | null> = {
-      ...empresa,
+      empresa: empresa.razonSocial,
+      nit_empresa: empresa.nit,
+      direccion_empresa: empresa.direccion,
+      firmante_nombre: firma.nombre,
+      firmante_cargo: firma.cargo,
       nombre: `${e.nombres} ${e.apellidos}`,
       dpi: e.dpi,
       nit: e.nit,
@@ -125,8 +134,10 @@ export function crearSolicitudesService(db: BaseDatos) {
       s,
       p,
       datos,
-      await solicitudPdf(p.nombre, texto, s.id, empresa.empresa),
+      await solicitudPdf(p.nombre, texto, s.id, empresa, firma),
       a.idUsuario,
+      firma,
+      empresa.version,
     );
   }
   return {
@@ -137,6 +148,7 @@ export function crearSolicitudesService(db: BaseDatos) {
         const s = await obtener(c, a, id);
         return {
           ...s,
+          requiereReemision: s.generaPdf ? !(await repo.documento(c, id))?.versionMembrete : false,
           datos: s.datos ? (JSON.parse(s.datos) as unknown) : null,
           historial: await repo.historial(c, id),
         };
@@ -159,7 +171,16 @@ export function crearSolicitudesService(db: BaseDatos) {
           : null;
         if (datos && JSON.stringify(datos.anterior) === JSON.stringify(datos.nuevo))
           throw new ErrorConflicto('No hay cambios en los datos críticos.');
-        const id = await repo.crear(c, e.id, t.id, d.observaciones, datos, a.idUsuario);
+        const id = await repo.crear(
+          c,
+          e.id,
+          t.id,
+          d.observaciones,
+          datos,
+          a.idUsuario,
+          d.vehiculo,
+          d.placa,
+        );
         await repo.registrarEstado(c, id, null, 'EN_PROCESO', d.observaciones, a.idUsuario);
         const s = (await repo.solicitud(c, id))!;
         await repo.notificar(c, s, 'EN_PROCESO', a.idUsuario);
@@ -172,24 +193,12 @@ export function crearSolicitudesService(db: BaseDatos) {
         const d = resolverSchema.parse(raw),
           s = await obtener(c, a, id);
         validarTransicion(s.estado, d.estado);
-        if (d.parqueo && s.tipo !== 'PARQUEO')
-          throw new ErrorConflicto('Los datos de parqueo solo aplican a esa gestión.');
         if (d.estado === 'APROBADA') {
           const e = await repo.empleado(c, s.idEmpleado);
           if (!e || e.estado !== 'ACTIVO')
             throw new ErrorConflicto('El empleado ya no está activo. Revisa el expediente.');
           if (s.tipo === 'PARQUEO') {
-            if (!d.parqueo)
-              throw new ErrorNegocio(
-                'Indica el monto por quincena y la fecha de inicio del parqueo.',
-                422,
-                'VALIDACION',
-                {
-                  monto: ['Completa la tarifa por quincena.'],
-                  fechaInicio: ['Selecciona el inicio del descuento.'],
-                },
-              );
-            await registrarParqueo(c, a, e.id, id, d.parqueo.monto, d.parqueo.fechaInicio);
+            await aprobarParqueo(c, a, e.id, id, s.vehiculo, s.placa);
           }
           if (s.tipo === 'ACTUALIZACION_DATOS') {
             const propuesto = JSON.parse(s.datos!) as { anterior: unknown; nuevo: unknown };
@@ -212,7 +221,40 @@ export function crearSolicitudesService(db: BaseDatos) {
           id,
           `SOLICITUD_${d.estado}`,
           { estado: s.estado },
-          { estado: d.estado, motivo: d.motivo, parqueo: d.parqueo },
+          { estado: d.estado, motivo: d.motivo, vehiculo: s.vehiculo },
+        );
+        return { id };
+      }),
+    reemitir: (auth: Autenticacion, ip: string, id: number, raw: unknown) =>
+      tx(auth, ip, async (c, a) => {
+        rh(a);
+        confirmarSchema.parse(raw);
+        const s = await obtener(c, a, id);
+        if (!s.generaPdf || !['APROBADA', 'ENTREGADA'].includes(s.estado))
+          throw new ErrorConflicto('Solo se reemiten documentos aprobados o entregados.');
+        const previo = await repo.documento(c, id);
+        if (!previo || previo.versionMembrete)
+          throw new ErrorConflicto('El documento ya tiene membrete. Conserva la versión emitida.');
+        const e = await repo.empleado(c, s.idEmpleado);
+        if (!e) throw new ErrorNoEncontrado();
+        await repo.archivarPdf(c, id, a.idUsuario);
+        await pdf(c, s, e, a);
+        await repo.registrarEstado(
+          c,
+          id,
+          s.estado,
+          'APROBADA',
+          'Reemisión con membrete y nueva aprobación de RRHH',
+          a.idUsuario,
+          true,
+        );
+        await audit(
+          c,
+          a,
+          id,
+          'REEMITIR_DOCUMENTO',
+          { documento: previo.id },
+          { estado: 'APROBADA', aprobadoPor: a.idUsuario },
         );
         return { id };
       }),
@@ -224,6 +266,10 @@ export function crearSolicitudesService(db: BaseDatos) {
         validarTransicion(s.estado, 'ENTREGADA');
         if (s.generaPdf) {
           const doc = await repo.documento(c, id);
+          if (!doc?.versionMembrete)
+            throw new ErrorConflicto(
+              'El documento anterior requiere reemisión con membrete desde el detalle.',
+            );
           if (!doc || doc.sha256.toString('hex') !== d.sha256)
             throw new ErrorConflicto(
               'Revisa la vista previa vigente antes de enviar el documento.',
@@ -256,6 +302,10 @@ export function crearSolicitudesService(db: BaseDatos) {
           throw new ErrorProhibido('El documento estará disponible cuando RRHH lo entregue.');
         const doc = await repo.documento(c, id);
         if (!doc?.pdf) throw new ErrorNoEncontrado();
+        if (!doc.versionMembrete)
+          throw new ErrorConflicto(
+            'Este documento histórico fue emitido sin el membrete actual. Solicita a RRHH reemitirlo desde el detalle.',
+          );
         const hash = createHash('sha256').update(doc.pdf).digest('hex');
         if (hash !== doc.sha256.toString('hex'))
           throw new ErrorConflicto(
@@ -339,7 +389,7 @@ export function crearSolicitudesService(db: BaseDatos) {
             throw new ErrorConflicto('Reduce los filtros para exportar hasta 10,000 solicitudes.');
           filas.push(
             ...r.registros.map((s) => [
-              s.id,
+              s.codigo,
               s.empleado,
               s.nombreTipo,
               s.estado,

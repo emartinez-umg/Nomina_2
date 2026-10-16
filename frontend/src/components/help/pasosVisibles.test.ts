@@ -65,10 +65,16 @@ describe('Ayuda final por contexto', () => {
   it('incluye todos los campos visibles con formato, errores y corrección', () => {
     visibles();
     document.body.innerHTML =
-      '<div data-campo="Monto"><input inputmode="decimal" required><p class="campo-hint">Importe por quincena.</p></div><div data-campo="Oculto" hidden><input></div>';
+      '<div data-campo="Monto"><input inputmode="decimal" required><p class="campo-hint">Importe por quincena.</p></div><div data-campo="Mes"><select required><option>Octubre</option></select><p class="campo-hint">Mes de la operación.</p></div><div data-campo="Código"><input readonly><p class="campo-hint">Código permanente.</p></div><div data-campo="Teléfono"><input inputmode="numeric"><p class="campo-hint">Ocho dígitos.</p></div><div data-campo="Fecha"><input inputmode="numeric" placeholder="dd/mm/aaaa"><p class="campo-hint">Fecha de la operación.</p></div><div data-campo="Oculto" hidden><input></div>';
     const pasos = pasosVisibles({ id: 'x', pasos: [] }, 'EMPLEADO', document);
-    expect(pasos).toHaveLength(1);
+    expect(pasos).toHaveLength(5);
     expect(pasos[0]!.popover!.description).toMatch(/centavos.*obligatorio.*servidor/);
+    expect(pasos[1]!.popover!.description).toMatch(/lista.*teclado.*texto libre/);
+    expect(pasos[2]!.popover!.description).toMatch(
+      /solo lectura.*automáticamente.*No debes escribir/,
+    );
+    expect(pasos[3]!.popover!.description).not.toMatch(/dd\/mm/);
+    expect(pasos[4]!.popover!.description).toMatch(/dd\/mm\/aaaa.*calendario/);
   });
   it('escapa contenido de API antes de pasarlo a driver', () => {
     visibles();

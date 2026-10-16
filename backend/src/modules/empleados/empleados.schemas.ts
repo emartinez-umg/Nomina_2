@@ -50,7 +50,10 @@ export const dinero = z
 const opcionalFecha = fecha.nullable();
 const datos = z
   .object({
-    codigo: texto(40).regex(/^[A-Z0-9_-]+$/, 'Usa mayúsculas, números, guion o guion bajo.'),
+    codigo: z
+      .unknown()
+      .optional()
+      .transform(() => ''),
     nombres: nombre,
     apellidos: nombre,
     dpi: z.string().regex(/^\d{13}$/, 'El DPI debe tener exactamente 13 dígitos.'),
@@ -58,15 +61,21 @@ const datos = z
       .string()
       .trim()
       .toUpperCase()
-      .refine(nitValido, 'El NIT o su dígito verificador no es válido. Revisa tu RTU.'),
+      .refine(nitValido, 'El dígito verificador del NIT no coincide. Revisa el número.'),
     afiliacionIgss: z
       .string()
       .regex(/^\d{1,20}$/, 'La afiliación IGSS solo admite hasta 20 dígitos.')
       .nullable(),
     fechaNacimiento: fecha,
-    sexo: z.enum(['F', 'M', 'O']),
+    sexo: z.enum(['F', 'M']),
     estadoCivil: z.enum(['SOLTERO', 'CASADO', 'UNIDO', 'DIVORCIADO', 'VIUDO']),
-    direccion: texto(500),
+    idDepartamentoGt: id,
+    idMunicipioGt: id,
+    zona: z.number().int().min(1).max(25).nullable(),
+    numeroCasa: texto(20).regex(
+      /^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/,
+      'Usa letras, números y guiones. Ejemplo: 12-A.',
+    ),
     telefono,
     correo: z
       .string()
@@ -94,7 +103,13 @@ const datos = z
     estado: z.enum(['ACTIVO', 'SUSPENDIDO']).default('ACTIVO'),
   })
   .strict();
-const banco = (d: z.infer<typeof datos>, ctx: z.RefinementCtx) => {
+const banco = (
+  d: Pick<
+    z.infer<typeof datos>,
+    'idBanco' | 'cuentaBancaria' | 'tipoCuenta' | 'fechaFinContrato' | 'fechaIngreso'
+  >,
+  ctx: z.RefinementCtx,
+) => {
   const presentes = [d.idBanco, d.cuentaBancaria, d.tipoCuenta].filter((v) => v !== null).length;
   if (presentes !== 0 && presentes !== 3)
     ctx.addIssue({
@@ -102,15 +117,17 @@ const banco = (d: z.infer<typeof datos>, ctx: z.RefinementCtx) => {
       path: ['cuentaBancaria'],
       message: 'Completa banco, cuenta y tipo de cuenta, o deja los tres vacíos.',
     });
-  if (d.fechaFinContrato && d.fechaFinContrato < d.fechaIngreso)
+  if (d.fechaFinContrato && d.fechaFinContrato <= d.fechaIngreso)
     ctx.addIssue({
       code: 'custom',
       path: ['fechaFinContrato'],
-      message: 'El fin de contrato no puede ser anterior al ingreso.',
+      message: 'El fin de contrato debe ser posterior al ingreso.',
     });
 };
-export const crearEmpleadoSchema = datos
-  .extend({ salarioBase: dinero, generarUsuario: z.boolean().default(false) })
+export const crearEmpleadoSchema = datos.extend({ salarioBase: dinero }).superRefine(banco);
+export const crearEmpleadoCsvSchema = datos
+  .omit({ idHorario: true })
+  .extend({ codigoHorario: texto(40), salarioBase: dinero })
   .superRefine(banco);
 export const editarEmpleadoSchema = datos
   .extend({ motivo: texto(500).min(5), fechaHorario: fecha.optional() })

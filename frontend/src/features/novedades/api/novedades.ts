@@ -1,11 +1,19 @@
 import { z } from 'zod';
 import { solicitar } from '../../../lib/http';
-export const tipos = ['descuentos', 'prestamos', 'comisiones', 'horas-extra', 'ausencias'] as const;
+export const tipos = [
+  'descuentos',
+  'prestamos',
+  'comisiones',
+  'horas-extra',
+  'ausencias',
+  'consumo-tienda',
+] as const;
 export type Tipo = (typeof tipos)[number];
 export const titulos: Record<Tipo, string> = {
   descuentos: 'Descuentos',
   prestamos: 'Préstamos y anticipos',
   comisiones: 'Comisiones',
+  'consumo-tienda': 'Consumo en tienda',
   'horas-extra': 'Horas extra',
   ausencias: 'Ausencias, permisos e incapacidades',
 };
@@ -23,6 +31,36 @@ const cuotaSchema = z.object({
   estado: z.string(),
 });
 const filaSchema = z.object({
+  mes: z.string().optional(),
+  estadoAplicacion: z.string().optional(),
+  idPago: z.number().nullable().optional(),
+  autorizacion: z.string().optional(),
+  descuento: z.string().nullable().optional(),
+  origenes: z
+    .array(
+      z.object({
+        entidad: z.string(),
+        id: z.number(),
+        fecha: z.string().nullable(),
+        descripcion: z.string().nullable(),
+        cantidad: z.string().nullable(),
+        monto: z.string().nullable(),
+        estado: z.string().nullable(),
+      }),
+    )
+    .optional(),
+  aplicaciones: z
+    .array(
+      z.object({
+        mes: z.string(),
+        dias: z.string(),
+        monto: z.string().nullable(),
+        estado: z.string(),
+        idPago: z.number().nullable(),
+      }),
+    )
+    .optional(),
+  codigo: z.string().nullable(),
   id: z.number(),
   idEmpleado: z.number(),
   empleado: z.string(),
@@ -59,6 +97,9 @@ export const previewSchema = z.object({
     z.object({ numero: z.number(), fecha: z.string(), monto: z.string(), saldo: z.string() }),
   ),
   calculo: calculoSchema.nullable(),
+  advertencia: z.string().nullable().optional(),
+  descuento: z.string().optional(),
+  meses: z.array(z.object({ mes: z.string(), dias: z.number(), monto: z.string() })).optional(),
 });
 export type Preview = z.infer<typeof previewSchema>;
 const qs = (q: Record<string, string>) =>
@@ -82,8 +123,11 @@ export const guardar = (tipo: Tipo, body: unknown, id?: number) =>
     body,
     timeoutMs: 60000,
   });
-export const previsualizar = (tipo: Tipo, body: unknown) =>
-  solicitar(`/novedades/${tipo}/previsualizar`, previewSchema, { method: 'POST', body });
+export const previsualizar = (tipo: Tipo, body: unknown, id?: number) =>
+  solicitar(`/novedades/${tipo}${id ? `/${id}` : ''}/previsualizar`, previewSchema, {
+    method: 'POST',
+    body,
+  });
 export const anular = (tipo: Tipo, id: number, motivo: string) =>
   solicitar(`/novedades/${tipo}/${id}/anular`, filaSchema, {
     method: 'POST',

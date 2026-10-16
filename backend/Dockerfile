@@ -8,7 +8,8 @@ COPY backend backend
 RUN npm run build --workspace backend
 
 FROM node:20-bookworm-slim AS runtime
-ENV NODE_ENV=production
+ENV NODE_ENV=production FONTCONFIG_FILE=/etc/fonts/fonts.conf
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core fontconfig-config && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json

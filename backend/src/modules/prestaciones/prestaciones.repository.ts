@@ -49,7 +49,7 @@ export async function empleados(c: Connection, q: Seleccion, inicio: string, fin
 export async function parametros(c: Connection) {
   return filas<Parametro>(
     c,
-    `SELECT ID_PARAMETRO_LEGAL "id",CODIGO "codigo",${str('VALOR')} "valor",UNIDAD "unidad",TO_CHAR(VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(VIGENTE_HASTA,'YYYY-MM-DD') "hasta" FROM PARAMETROS_LEGALES WHERE ACTIVO=1 ORDER BY CODIGO,VIGENTE_DESDE`,
+    `SELECT ID_PARAMETRO_LEGAL "id",CLAVE_INTERNA "codigo",${str('VALOR')} "valor",UNIDAD "unidad",TO_CHAR(VIGENTE_DESDE,'YYYY-MM-DD') "desde",TO_CHAR(VIGENTE_HASTA,'YYYY-MM-DD') "hasta" FROM PARAMETROS_LEGALES WHERE ACTIVO=1 ORDER BY CODIGO,VIGENTE_DESDE`,
   );
 }
 export async function salario(c: Connection, id: number, corte: string) {
@@ -65,7 +65,7 @@ export async function periodo(c: Connection, inicio: string) {
   return (
     await filas<Periodo>(
       c,
-      `SELECT ID_PERIODO_NOMINA "id",TO_CHAR(FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(FECHA_FIN,'YYYY-MM-DD') "fin",ESTADO "estado",VERSION_CALCULO "version" FROM PERIODOS_NOMINA WHERE FECHA_INICIO=${fecha('inicio')} AND ACTIVO=1`,
+      `SELECT ID_PERIODO_NOMINA "id",TO_CHAR(FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(FECHA_FIN,'YYYY-MM-DD') "fin",ESTADO "estado",MOTOR "motor",VERSION_CALCULO "version" FROM PERIODOS_NOMINA WHERE FECHA_INICIO=${fecha('inicio')} AND ACTIVO=1`,
       { inicio },
     )
   )[0];
@@ -80,6 +80,7 @@ export async function cerrado(c: Connection, id: number, p: Periodo) {
   )[0];
 }
 export interface Registro {
+  idNomina?: number | null;
   id: number;
   idEmpleado: number;
   empleado: string;
@@ -95,7 +96,7 @@ export interface Registro {
   referencia: string | null;
   motivo: string;
 }
-const select = `P.ID_PRESTACION "id",P.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",P.TIPO "tipo",TO_CHAR(P.FECHA_INICIO_BASE,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN_BASE,'YYYY-MM-DD') "fin",${str('P.SALARIO_PROMEDIO')} "promedio",${str('P.MONTO_TOTAL')} "total",P.ESTADO "estado",P.HASH_FUENTES "hash",P.SNAPSHOT "snapshot",TO_CHAR(P.FECHA_PAGO,'YYYY-MM-DD') "fechaPago",P.REFERENCIA_PAGO "referencia",P.MOTIVO "motivo"`;
+const select = `P.ID_NOMINA_EMPLEADO "idNomina",P.ID_PRESTACION "id",P.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",P.TIPO "tipo",TO_CHAR(P.FECHA_INICIO_BASE,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN_BASE,'YYYY-MM-DD') "fin",${str('P.SALARIO_PROMEDIO')} "promedio",${str('P.MONTO_TOTAL')} "total",P.ESTADO "estado",P.HASH_FUENTES "hash",P.SNAPSHOT "snapshot",TO_CHAR(P.FECHA_PAGO,'YYYY-MM-DD') "fechaPago",P.REFERENCIA_PAGO "referencia",P.MOTIVO "motivo"`;
 const from = 'PRESTACIONES P JOIN EMPLEADOS E ON E.ID_EMPLEADO=P.ID_EMPLEADO';
 export async function registro(c: Connection, id: number) {
   return (
@@ -277,7 +278,7 @@ export async function exencionUsada(
 export async function historialPagos(c: Connection, id: number, inicio: string, fin: string) {
   const ns = await filas<{ id: number; snapshot: string; fecha: string }>(
     c,
-    `SELECT N.ID_NOMINA_EMPLEADO "id",N.DATOS_EMPLEADO "snapshot",TO_CHAR(N.FECHA_PAGO,'YYYY-MM-DD') "fecha" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE N.ID_EMPLEADO=:id AND P.ESTADO='CERRADO' AND N.VERSION_CALCULO=P.VERSION_CALCULO AND N.FECHA_PAGO BETWEEN ${fecha('inicio')} AND ${fecha('fin')} ORDER BY N.FECHA_PAGO,N.ID_NOMINA_EMPLEADO`,
+    `SELECT N.ID_NOMINA_EMPLEADO "id",N.DATOS_EMPLEADO "snapshot",TO_CHAR(N.FECHA_PAGO,'YYYY-MM-DD') "fecha" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE N.ID_EMPLEADO=:id AND P.ESTADO='CERRADO' AND ((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.TIPO_PAGO='PAGO' AND PN.ESTADO='PAGADO'))) AND N.FECHA_PAGO BETWEEN ${fecha('inicio')} AND ${fecha('fin')} ORDER BY N.FECHA_PAGO,N.ID_NOMINA_EMPLEADO`,
     { id, inicio, fin },
   );
   const pagos = await filas<{ fecha: string; concepto: string; monto: string }>(
@@ -286,4 +287,55 @@ export async function historialPagos(c: Connection, id: number, inicio: string, 
     { id, inicio, fin },
   );
   return { ns, pagos };
+}
+
+export async function mensual(c: Connection, id: number, mes: string) {
+  const pagos = await filas<{ id: number; snapshot: string }>(
+    c,
+    `SELECT N.ID_NOMINA_EMPLEADO "id",N.DATOS_EMPLEADO "snapshot" FROM PAGOS_NOMINA P JOIN NOMINA_EMPLEADO N ON N.ID_NOMINA_EMPLEADO=P.ID_NOMINA_EMPLEADO WHERE P.ID_EMPLEADO=:id AND P.MES=TO_DATE(:mes||'-01','YYYY-MM-DD') AND P.TIPO_PAGO='PAGO' AND P.ESTADO='PAGADO'`,
+    { id, mes },
+  );
+  const novedades = await filas<{
+    id: number;
+    tipo: string;
+    cantidad: string;
+    monto: string;
+    autorizacion: string;
+  }>(
+    c,
+    `SELECT ID_NOVEDAD_MENSUAL "id",TIPO "tipo",${str('CANTIDAD')} "cantidad",${str('MONTO')} "monto",AUTORIZACION "autorizacion" FROM NOVEDADES_MENSUALES WHERE ID_EMPLEADO=:id AND MES=TO_DATE(:mes||'-01','YYYY-MM-DD') AND ACTIVO=1 AND TIPO IN ('COMISION','HORAS_EXTRA') AND AUTORIZACION<>'RECHAZADA' ORDER BY ID_NOVEDAD_MENSUAL`,
+    { id, mes },
+  );
+  return { pago: pagos[0], novedades };
+}
+export async function vincularBoleta(c: Connection, prestacion: number, nomina: number) {
+  await c.execute(
+    'UPDATE PRESTACIONES SET ID_NOMINA_EMPLEADO=:nomina WHERE ID_PRESTACION=:prestacion',
+    { prestacion, nomina },
+  );
+}
+export async function anularPorBoleta(c: Connection, nomina: number, actor: number) {
+  await c.execute(
+    "UPDATE PRESTACIONES SET ESTADO='ANULADA',MODIFICADO_POR=:actor WHERE ID_NOMINA_EMPLEADO=:nomina",
+    { nomina, actor },
+  );
+}
+
+export async function boletaPrestacionArchivada(c: Connection, id: number) {
+  const r = await c.execute<{ pdf: Buffer }>(
+    'SELECT B.CONTENIDO_PDF "pdf" FROM PRESTACIONES P JOIN BOLETAS_PAGO B ON B.ID_NOMINA_EMPLEADO=P.ID_NOMINA_EMPLEADO WHERE P.ID_PRESTACION=:id',
+    { id },
+    { outFormat: oracledb.OUT_FORMAT_OBJECT, fetchInfo: { pdf: { type: oracledb.BUFFER } } },
+  );
+  return r.rows?.[0]?.pdf;
+}
+
+export async function resumenFuentes(c: Connection, id: number, inicio: string, fin: string) {
+  return (
+    await filas<{ horasExtra: number; comisiones: number; ausencias: number }>(
+      c,
+      `SELECT (SELECT COUNT(*) FROM NOVEDADES_MENSUALES WHERE ID_EMPLEADO=:id AND TIPO='HORAS_EXTRA' AND ACTIVO=1 AND AUTORIZACION<>'RECHAZADA' AND MES BETWEEN TRUNC(${fecha('inicio')},'MM') AND TRUNC(${fecha('fin')},'MM')) "horasExtra",(SELECT COUNT(*) FROM NOVEDADES_MENSUALES WHERE ID_EMPLEADO=:id AND TIPO='COMISION' AND ACTIVO=1 AND AUTORIZACION<>'RECHAZADA' AND MES BETWEEN TRUNC(${fecha('inicio')},'MM') AND TRUNC(${fecha('fin')},'MM')) "comisiones",(SELECT COUNT(*) FROM AUSENCIAS WHERE ID_EMPLEADO=:id AND ACTIVO=1 AND ESTADO<>'RECHAZADA' AND FECHA_INICIO<=${fecha('fin')} AND FECHA_FIN>=${fecha('inicio')}) "ausencias" FROM DUAL`,
+      { id, inicio, fin },
+    )
+  )[0]!;
 }

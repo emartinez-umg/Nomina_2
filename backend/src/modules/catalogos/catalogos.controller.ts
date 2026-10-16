@@ -43,7 +43,9 @@ export function crearCatalogosController(service: ReturnType<typeof crearCatalog
     },
     async opciones(req: Request, res: Response) {
       const { referencia } = z
-        .object({ referencia: z.enum(['departamentos', 'empleados']) })
+        .object({
+          referencia: z.enum(['departamentos', 'empleados', 'departamentos-gt', 'municipios-gt']),
+        })
         .strict()
         .parse(req.params);
       const q = z

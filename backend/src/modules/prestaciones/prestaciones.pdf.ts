@@ -1,47 +1,22 @@
-import PDFDocument from 'pdfkit';
+import { generarPdf, bloqueFirma } from '../../shared/pdf/documento.js';
+import type { IdentidadEmpresa, FirmaDocumento } from '../../shared/pdf/documento.js';
 import { Decimal } from 'decimal.js';
 import type { Registro, Empleado } from './prestaciones.repository.js';
 import type { Snapshot } from './prestaciones.service.js';
 const visible = (s: string) => s.split('-').reverse().join('/');
 const q = (s: string) => `Q ${new Decimal(s).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-async function generar(titulo: string, contenido: (doc: PDFKit.PDFDocument) => void) {
-  const doc = new PDFDocument({
-      size: 'A4',
-      margin: 48,
-      bufferPages: true,
-      info: { Title: titulo, Author: 'nomina2' },
-    }),
-    partes: Buffer[] = [];
-  const listo = new Promise<Buffer>((resolve, reject) => {
-    doc.on('data', (b: Buffer) => partes.push(b));
-    doc.on('end', () => resolve(Buffer.concat(partes)));
-    doc.on('error', reject);
-  });
-  contenido(doc);
-  const pages = doc.bufferedPageRange();
-  for (let i = 0; i < pages.count; i++) {
-    doc.switchToPage(i);
-    doc.page.margins.bottom = 0;
-    doc
-      .font('Helvetica')
-      .fontSize(8)
-      .fillColor('#52606D')
-      .text(`Página ${i + 1} de ${pages.count}`, 48, doc.page.height - 30, {
-        width: 499,
-        align: 'right',
-        lineBreak: false,
-      });
-  }
-  doc.end();
-  return listo;
-}
 function cabecera(doc: PDFKit.PDFDocument, titulo: string, empresa: string) {
   doc.font('Helvetica-Bold').fontSize(20).fillColor('#213F60').text(titulo).moveDown(0.5);
   doc.fontSize(11).fillColor('#365D35').text(empresa).moveDown();
   doc.font('Helvetica').fontSize(10).fillColor('#25303B');
 }
-export function prestacionPdf(r: Registro, s: Snapshot) {
-  return generar('Prestaciones de ley', (doc) => {
+export function prestacionPdf(
+  r: Registro,
+  s: Snapshot,
+  empresa: IdentidadEmpresa,
+  firma: FirmaDocumento | null,
+) {
+  return generarPdf('Prestaciones de ley', empresa, (doc) => {
     const header = () => {
       cabecera(
         doc,
@@ -50,7 +25,7 @@ export function prestacionPdf(r: Registro, s: Snapshot) {
           : r.tipo === 'BONO_14'
             ? 'Bono 14'
             : 'Aguinaldo',
-        s.empresa?.nombre ?? 'Nómina',
+        empresa.razonSocial,
       );
       doc
         .text(s.empleado)
@@ -59,6 +34,12 @@ export function prestacionPdf(r: Registro, s: Snapshot) {
         .moveDown();
     };
     header();
+    if (r.estado === 'SIMULACION')
+      doc
+        .fillColor('#8A4617')
+        .text('SIMULACIÓN - Sin baja ni validez de pago')
+        .moveDown()
+        .fillColor('#25303B');
     if (r.estado !== 'PAGADA')
       doc
         .fillColor('#8A4617')
@@ -84,6 +65,7 @@ export function prestacionPdf(r: Registro, s: Snapshot) {
         .text(
           `Promedio mensual: ${q(l.promedio)} - Tiempo: ${l.tiempo}${l.concepto === 'VACACIONES_PENDIENTES' ? ' días' : ' años/fracción'}`,
         )
+        .text(`Cálculo: ${l.formula ?? `${l.promedio} × ${l.tiempo}`}`)
         .text(`Importe: ${q(l.monto)} - Exento ISR: ${q(l.exento)} - Gravado: ${q(l.gravado)}`)
         .moveDown();
     }
@@ -112,18 +94,20 @@ export function prestacionPdf(r: Registro, s: Snapshot) {
       .fontSize(8)
       .fillColor('#52606D')
       .text(`Motor ${s.versionMotor} - Huella de fuentes: ${s.hash}`, { width: 499 });
+    if (firma) bloqueFirma(doc, firma);
   });
 }
 export function constanciaPdf(
   e: Empleado,
   r: { inicio: string; fin: string },
   filas: { fecha: string; concepto: string; monto: string }[],
-  empresa: string,
+  empresa: IdentidadEmpresa,
   hoy: string,
+  firma: FirmaDocumento,
 ) {
-  return generar('Constancia de salario', (doc) => {
+  return generarPdf('Constancia de salario', empresa, (doc) => {
     const header = () => {
-      cabecera(doc, 'Constancia de salario', empresa);
+      cabecera(doc, 'Constancia de salario', empresa.razonSocial);
       doc
         .text(e.nombre)
         .text(`${e.puesto} - ${e.departamento}`)
@@ -167,10 +151,10 @@ export function constanciaPdf(
       .fontSize(10)
       .fillColor('#25303B')
       .text(`Emitida el ${visible(hoy)} para los usos que correspondan.`)
-      .moveDown(2)
-      .text('Recursos Humanos')
+      .moveDown(1)
       .fontSize(8)
       .fillColor('#52606D')
       .text('Documento generado desde registros del sistema; no incluye periodos abiertos.');
+    bloqueFirma(doc, firma);
   });
 }

@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -37,6 +38,8 @@ import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { descargar } from '../../empleados/api/empleados';
 import { fechaVisible, hoyGuatemala } from '../../../lib/validadores';
 import { mapearErrores } from '../../../lib/http';
+const fechaRegistro = (valor: string) =>
+  fechaVisible(valor.slice(0, 10)) + ' ' + valor.slice(11, 19);
 export function VacacionesPage() {
   const { usuario } = useSession();
   usePageHelp(ayudaVacaciones, usuario?.rol);
@@ -51,7 +54,7 @@ export function VacacionesPage() {
     </div>
   );
 }
-function SaldoCard({ s }: { s: Saldo }) {
+export function SaldoCard({ s }: { s: Saldo }) {
   const [kardex, setKardex] = useState(false);
   return (
     <Card data-tour="vacaciones-saldo" className="mb-5">
@@ -61,11 +64,24 @@ function SaldoCard({ s }: { s: Saldo }) {
           <p className="text-secundario">
             Al {fechaVisible(s.corte)} · meses cumplidos desde la contratación
           </p>
-          <p className="vacaciones-disponible">
-            {s.disponible} <span>días disponibles</span>
-          </p>
-          <p>
-            Apertura: {s.saldoInicial} · Acumulados: {s.acumulado}
+          <dl className="grid grid-cols-2 gap-4 my-4 sm:grid-cols-4">
+            {[
+              ['Acumulados', s.acumulado],
+              ['Tomados / aprobados', s.tomados],
+              ['Disponibles', s.disponible],
+              ['Solicitables', String(s.solicitables)],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-secundario">{label}</dt>
+                <dd className="text-2xl font-semibold">
+                  {value} <span className="text-sm">días</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="campo-hint">
+            {s.mesesCompletos} meses completos × {s.tasaMensual} días. Previas / ajustes:{' '}
+            {s.previas}. Solo se solicitan días enteros; la fracción se conserva.
           </p>
         </div>
         <Button
@@ -101,7 +117,10 @@ function SaldoCard({ s }: { s: Saldo }) {
             </tbody>
           </table>
           {!s.kardex.length && (
-            <p>No hay movimientos todavía. La acumulación empieza al cumplir el primer mes.</p>
+            <p>
+              No hay consumos ni ajustes. La acumulación se calcula al consultar, desde el primer
+              mes completo.
+            </p>
           )}
         </div>
       )}
@@ -133,6 +152,7 @@ function Portal() {
     fin = new Date(Date.parse(hoy) + 365 * 86400000).toISOString().slice(0, 10);
   const s = useQuery({
     queryKey: ['vacaciones', 'saldo'],
+    refetchInterval: 60000,
     queryFn: ({ signal }) => api.saldo(undefined, signal),
   });
   const c = useQuery({
@@ -143,6 +163,7 @@ function Portal() {
     hasta = rango?.to ? api.isoLocal(rango.to) : '';
   const p = useQuery({
     queryKey: ['vacaciones', 'preview', inicio, hasta],
+    refetchInterval: 60000,
     queryFn: ({ signal }) => api.preview(inicio, hasta, signal),
     enabled: !!inicio && !!hasta,
   });
@@ -195,13 +216,14 @@ function Portal() {
     <>
       <SaldoCard s={s.data!} />
       <FormDraftNotice draft={draft} />
+      <CampoCodigo entidad="solicitudes" />
       <Card className="mb-5">
         <div className="vacaciones-seleccion">
           <section data-tour="vacaciones-calendario">
             <h2>Solicitar vacaciones</h2>
             <p className="campo-hint">
-              Selecciona el inicio y el fin en días laborales. Los descansos y feriados intermedios
-              no consumen saldo.
+              Selecciona el inicio y el fin del rango. Solo se cuentan días laborales según tu
+              horario; los descansos y feriados no consumen saldo, incluso en los extremos.
             </p>
             <div className="calendario">
               <DayPicker
@@ -220,8 +242,10 @@ function Portal() {
                 disabled={(dia) => {
                   const f = api.isoLocal(dia),
                     d = dias.get(f);
-                  return f < c.data!.hoy || !d || !d.laborable || d.bloqueado;
+                  return f < c.data!.hoy || !d || d.motivo === 'Sin horario vigente' || d.bloqueado;
                 }}
+                modifiers={{ descanso: (dia) => dias.get(api.isoLocal(dia))?.laborable === false }}
+                modifiersClassNames={{ descanso: 'text-secundario' }}
                 onSelect={(r) => {
                   setError('');
                   if (
@@ -239,8 +263,8 @@ function Portal() {
               />
             </div>
             <p className="campo-hint">
-              Días atenuados: descanso, feriado, fecha pasada o bloqueo. Puedes navegar hasta un
-              año.
+              Días sin trabajo: no consumen saldo. Fechas pasadas, sin horario o bloqueadas no se
+              seleccionan. Puedes navegar hasta un año.
             </p>
             <Button
               icono="cancelar"
@@ -262,7 +286,9 @@ function Portal() {
                 className={`vacaciones-comparacion ${p.data.alcanza ? 'vacaciones-verde' : 'vacaciones-rojo'}`}
               >
                 <strong>{p.data.dias} días laborales</strong>
-                <p>{p.data.disponible} días disponibles</p>
+                <p>
+                  {p.data.disponible} días disponibles · {p.data.solicitables} solicitables
+                </p>
                 <p>{p.data.alcanza ? 'El saldo alcanza.' : 'El saldo no alcanza.'}</p>
               </div>
             )}
@@ -296,12 +322,17 @@ function Portal() {
     </>
   );
 }
-export function Semaforo({ f }: { f: Pick<Fila, 'disponible' | 'dias' | 'alcanza' | 'bloqueo'> }) {
+export function Semaforo({
+  f,
+}: {
+  f: Pick<Fila, 'disponible' | 'solicitables' | 'dias' | 'alcanza' | 'bloqueo'>;
+}) {
   return (
     <div className={`vacaciones-comparacion ${f.alcanza ? 'vacaciones-verde' : 'vacaciones-rojo'}`}>
       <strong>{f.alcanza ? 'Saldo suficiente' : 'Saldo insuficiente o no verificable'}</strong>
       <p>
-        Disponible: {f.disponible ?? 'Sin verificar'} · Solicita: {f.dias} días
+        Disponible: {f.disponible ?? 'Sin verificar'} · Solicitables:{' '}
+        {f.solicitables ?? 'Sin verificar'} · Rango: {f.dias} días laborales
       </p>
       {f.bloqueo && <p>{f.bloqueo}</p>}
     </div>
@@ -321,6 +352,7 @@ export function AprobarVacaciones({ f, onClick }: { f: Fila; onClick: () => void
     </Button>
   );
 }
+type AccionVacaciones = 'APROBADA' | 'RECHAZADA' | 'CANCELADA' | 'VER';
 function Bandeja({ empleado }: { empleado: boolean }) {
   const cache = useQueryClient(),
     toast = useToast();
@@ -334,9 +366,10 @@ function Bandeja({ empleado }: { empleado: boolean }) {
     idEmpleado: empleado ? '' : (params.get('empleado') ?? ''),
   });
   const [filtros, setFiltros] = useState(false),
-    [resolucion, setResolucion] = useState<{ fila: Fila; estado: 'APROBADA' | 'RECHAZADA' }>();
+    [resolucion, setResolucion] = useState<{ fila: Fila; estado: AccionVacaciones }>();
   const datos = useQuery({
     queryKey: ['vacaciones', 'solicitudes', q],
+    refetchInterval: 60000,
     queryFn: ({ signal }) => api.listar(q, signal),
   });
   const exportacion = useMutation({
@@ -380,7 +413,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
                 <TextField
                   name="buscar"
                   label="Buscar empleado"
-                  hint="Nombre, apellido o código del expediente."
+                  hint="Nombre, apellido o código del expediente o solicitud."
                   value={q.buscar ?? ''}
                   onValueChange={(v) => cambiar('buscar', v)}
                 />
@@ -463,6 +496,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
         error={datos.error?.message ?? ''}
         onReintentar={() => void datos.refetch()}
         columnas={[
+          { id: 'codigo', titulo: 'Código', render: (f) => f.codigo },
           ...(!empleado
             ? [
                 {
@@ -500,6 +534,37 @@ function Bandeja({ empleado }: { empleado: boolean }) {
                 </Badge>
                 {f.motivo && <p>{f.motivo}</p>}
               </>
+            ),
+          },
+          {
+            id: 'detalle',
+            titulo: 'Detalle y cancelación',
+            render: (f: Fila) => (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  icono="ver"
+                  variante="secundario"
+                  onClick={() => setResolucion({ fila: f, estado: 'VER' })}
+                >
+                  Ver solicitud
+                </Button>
+                {f.estado === 'APROBADA' && (
+                  <Button
+                    icono="cancelar"
+                    variante="peligro"
+                    disabled={!f.puedeCancelar}
+                    motivoDeshabilitado={
+                      !f.puedeCancelar
+                        ? 'Solo se cancela antes del día de inicio y fuera de periodos cerrados.'
+                        : undefined
+                    }
+                    onClick={() => setResolucion({ fila: f, estado: 'CANCELADA' })}
+                  >
+                    Cancelar vacaciones
+                  </Button>
+                )}
+                {f.motivoCancelacion && <p>Cancelación: {f.motivoCancelacion}</p>}
+              </div>
             ),
           },
           ...(!empleado
@@ -554,7 +619,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
   );
 }
 const motivoSchema = z.object({
-  motivo: z.string().trim().min(10, 'Explica el rechazo con al menos 10 caracteres.').max(500),
+  motivo: z.string().trim().min(10, 'Explica el motivo con al menos 10 caracteres.').max(500),
 });
 function Resolver({
   fila,
@@ -563,7 +628,7 @@ function Resolver({
   resuelto,
 }: {
   fila: Fila;
-  estado: 'APROBADA' | 'RECHAZADA';
+  estado: AccionVacaciones;
   cerrar: () => void;
   resuelto: () => void;
 }) {
@@ -572,17 +637,24 @@ function Resolver({
   const form = useForm<{ motivo: string }>({
     defaultValues: { motivo: '' },
     mode: 'onBlur',
-    resolver: zodResolver(estado === 'RECHAZADA' ? motivoSchema : z.object({ motivo: z.string() })),
+    resolver: zodResolver(
+      ['RECHAZADA', 'CANCELADA'].includes(estado) ? motivoSchema : z.object({ motivo: z.string() }),
+    ),
   });
   const draft = useFormDraft(`vacaciones-${estado}`, fila.id, { form, version: 1 });
   const m = useMutation({
-    mutationFn: () => api.resolver(fila.id, estado, form.getValues('motivo')),
+    mutationFn: () =>
+      estado === 'CANCELADA'
+        ? api.cancelar(fila.id, form.getValues('motivo'))
+        : api.resolver(fila.id, estado, form.getValues('motivo')),
     onSuccess: () => {
       draft.limpiar();
       toast(
         estado === 'APROBADA'
           ? 'Vacaciones aprobadas; saldo actualizado.'
-          : 'Solicitud rechazada y empleado notificado.',
+          : estado === 'CANCELADA'
+            ? 'Vacaciones canceladas; días devueltos al saldo.'
+            : 'Solicitud rechazada y empleado notificado.',
       );
       resuelto();
     },
@@ -591,65 +663,143 @@ function Resolver({
       void cache.invalidateQueries({ queryKey: ['vacaciones'] });
     },
   });
+  const detalle = useQuery({
+    queryKey: ['vacaciones', 'detalle', fila.id],
+    queryFn: ({ signal }) => api.detalle(fila.id, signal),
+    refetchOnMount: 'always',
+    refetchInterval: 60000,
+  });
+  const habilitado =
+    !!detalle.data &&
+    !detalle.error &&
+    (estado === 'APROBADA'
+      ? detalle.data.puedeAprobar
+      : estado === 'CANCELADA'
+        ? detalle.data.puedeCancelar
+        : estado === 'RECHAZADA' && detalle.data.estado === 'EN_PROCESO');
   return (
     <Modal
       abierto
-      titulo={estado === 'APROBADA' ? 'Confirmar aprobación' : 'Rechazar vacaciones'}
+      titulo={
+        estado === 'APROBADA'
+          ? 'Confirmar aprobación'
+          : estado === 'CANCELADA'
+            ? 'Cancelar vacaciones aprobadas'
+            : estado === 'VER'
+              ? 'Detalle de vacaciones'
+              : 'Rechazar vacaciones'
+      }
       onCerrar={() => {
         if (!m.isPending) cerrar();
       }}
     >
-      <p className="my-4" data-tour="vacaciones-resolver">
+      <p
+        className="my-4"
+        data-tour={estado === 'CANCELADA' ? 'vacaciones-cancelar' : 'vacaciones-resolver'}
+      >
         {fila.empleado} · {fechaVisible(fila.inicio)} al {fechaVisible(fila.fin)}
       </p>
-      <Semaforo f={fila} />
-      <FormDraftNotice draft={draft} />
-      <form onSubmit={form.handleSubmit(() => m.mutate())} noValidate>
-        <FormErrorSummary
-          mensajes={Object.values(form.formState.errors).map((e) => e.message)}
-          mensajeServidor={m.error?.message}
+      {detalle.isPending && <Skeleton lineas={4} />}
+      {detalle.error && (
+        <EmptyState
+          titulo="No se pudo actualizar la solicitud"
+          descripcion={detalle.error.message}
+          accion={
+            <Button icono="actualizar" onClick={() => void detalle.refetch()}>
+              Reintentar
+            </Button>
+          }
         />
-        {estado === 'RECHAZADA' && (
-          <div className="form-grid my-4">
-            <Controller
-              control={form.control}
-              name="motivo"
-              render={({ field, fieldState }) => (
-                <TextAreaField
-                  name={field.name}
-                  label="Motivo de rechazo"
-                  hint="El empleado recibirá esta explicación. Indica cómo puede corregir la solicitud."
-                  placeholder="Ejemplo: las fechas coinciden con…"
-                  required
-                  maxLength={500}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  onBlur={field.onBlur}
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
+      )}
+      {detalle.data && (
+        <>
+          {detalle.data.saldo && <SaldoCard s={detalle.data.saldo} />}
+          {detalle.data.estado === 'EN_PROCESO' && <Semaforo f={detalle.data} />}
+          <p>
+            Solicitante: {detalle.data.solicitadoPor ?? 'Histórico'} ·{' '}
+            {fechaRegistro(detalle.data.solicitadoEn)}
+          </p>
+          <p>Días registrados: {detalle.data.diasRegistrados}</p>
+          {detalle.data.aprobadoPor && (
+            <p>
+              Resuelto por: {detalle.data.aprobadoPor} ·{' '}
+              {detalle.data.aprobadoEn ? fechaRegistro(detalle.data.aprobadoEn) : '—'}
+            </p>
+          )}
+          {detalle.data.canceladoPor && (
+            <p>
+              Cancelado por: {detalle.data.canceladoPor} ·{' '}
+              {detalle.data.canceladoEn ? fechaRegistro(detalle.data.canceladoEn) : '—'}.{' '}
+              {detalle.data.motivoCancelacion}
+            </p>
+          )}
+        </>
+      )}
+      <FormDraftNotice draft={draft} />
+      {estado !== 'VER' && (
+        <form
+          onSubmit={form.handleSubmit(() => {
+            if (habilitado && !detalle.isFetching && !m.isPending) m.mutate();
+          })}
+          noValidate
+        >
+          <FormErrorSummary
+            mensajes={Object.values(form.formState.errors).map((e) => e.message)}
+            mensajeServidor={m.error?.message}
+          />
+          {['RECHAZADA', 'CANCELADA'].includes(estado) && (
+            <div className="form-grid my-4">
+              <Controller
+                control={form.control}
+                name="motivo"
+                render={({ field, fieldState }) => (
+                  <TextAreaField
+                    name={field.name}
+                    label={estado === 'CANCELADA' ? 'Motivo de cancelación' : 'Motivo de rechazo'}
+                    hint="Explica la razón con al menos 10 caracteres. Queda en el historial y se notifica al empleado."
+                    placeholder="Ejemplo: las fechas coinciden con…"
+                    required
+                    maxLength={500}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+            </div>
+          )}
+          <p className="my-4">
+            {estado === 'APROBADA'
+              ? `Se descontarán ${detalle.data?.dias ?? fila.dias} días. El servidor volverá a comprobar el saldo y el calendario.`
+              : estado === 'CANCELADA'
+                ? 'Se devolverá el débito original. La aprobación y el motivo de cancelación se conservan; el servidor revalida que aún no haya iniciado.'
+                : 'El rechazo conserva el historial y no descuenta días.'}
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button icono="cancelar" variante="secundario" disabled={m.isPending} onClick={cerrar}>
+              Cancelar
+            </Button>
+            <Button
+              icono={estado === 'APROBADA' ? 'aprobar' : 'rechazar'}
+              disabled={!habilitado || detalle.isFetching}
+              motivoDeshabilitado={
+                !habilitado
+                  ? (detalle.data?.bloqueo ??
+                    'Actualiza la solicitud; la acción ya no está disponible.')
+                  : detalle.isFetching
+                    ? 'Actualizando saldo y calendario…'
+                    : undefined
+              }
+              type="submit"
+              variante={estado === 'APROBADA' ? 'primario' : 'peligro'}
+              cargando={m.isPending}
+            >
+              Confirmar
+            </Button>
           </div>
-        )}
-        <p className="my-4">
-          {estado === 'APROBADA'
-            ? `Se descontarán ${fila.dias} días. El servidor volverá a comprobar el saldo y el calendario.`
-            : 'El rechazo conserva el historial y no descuenta días.'}
-        </p>
-        <div className="flex gap-3 justify-end">
-          <Button icono="cancelar" variante="secundario" disabled={m.isPending} onClick={cerrar}>
-            Cancelar
-          </Button>
-          <Button
-            icono={estado === 'APROBADA' ? 'aprobar' : 'rechazar'}
-            type="submit"
-            variante={estado === 'APROBADA' ? 'primario' : 'peligro'}
-            cargando={m.isPending}
-          >
-            Confirmar
-          </Button>
-        </div>
-      </form>
+        </form>
+      )}
     </Modal>
   );
 }
@@ -675,6 +825,7 @@ function GestionSaldo() {
     [carga, setCarga] = useState(false);
   const s = useQuery({
     queryKey: ['vacaciones', 'saldo', id],
+    refetchInterval: 60000,
     queryFn: ({ signal }) => api.saldo(id, signal),
     enabled: !!id,
   });

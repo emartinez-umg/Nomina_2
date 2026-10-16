@@ -18,7 +18,7 @@ export function crearPrestacionesController(s: ReturnType<typeof crearPrestacion
       ok(res, await s.detalle(id(r)));
     },
     operar:
-      (op: 'previsualizar' | 'calcular' | 'simular' | 'liquidar') =>
+      (op: 'previsualizar' | 'calcular' | 'simular' | 'liquidar' | 'previewFiniquito') =>
       async (r: Request, res: Response) => {
         sinDatos.parse(r.query);
         ok(

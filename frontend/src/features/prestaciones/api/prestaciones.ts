@@ -11,6 +11,8 @@ export const componente = z.object({
   monto: z.string(),
   exento: z.string(),
   gravado: z.string(),
+  dias: z.number().optional(),
+  formula: z.string().optional(),
 });
 export type Componente = z.infer<typeof componente>;
 export const vista = z.object({
@@ -93,3 +95,6 @@ export const constancia = (q: Record<string, string>) =>
   solicitar(`/prestaciones/constancia?${query(q)}`, archivo, { timeoutMs: 120000 });
 export const exportar = (q: Record<string, string>) =>
   solicitar(`/prestaciones/exportar?${query(q)}`, archivo, { timeoutMs: 120000 });
+
+export const previewFiniquito = (body: unknown) =>
+  solicitar('/prestaciones/simular/pdf', archivo, { method: 'POST', body, timeoutMs: 120000 });

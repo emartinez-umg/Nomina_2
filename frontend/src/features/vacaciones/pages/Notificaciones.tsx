@@ -55,6 +55,18 @@ export function Notificaciones({ abierto, onClick }: { abierto: boolean; onClick
                   <strong>{n.titulo}</strong>
                   <p>{n.mensaje}</p>
                   <div className="flex flex-wrap gap-2">
+                    {n.clave.startsWith('NOMINA:') && (
+                      <Button
+                        icono="ver"
+                        variante="texto"
+                        onClick={() => {
+                          nav(usuario?.rol === 'EMPLEADO' ? '/mis-gestiones/boletas' : '/planilla');
+                          onClick();
+                        }}
+                      >
+                        Ver boletas
+                      </Button>
+                    )}
                     {n.clave.startsWith('VACACIONES:') && (
                       <Button
                         icono="ver"

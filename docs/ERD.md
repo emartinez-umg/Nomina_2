@@ -510,7 +510,8 @@ erDiagram
 ## 9. Vacaciones
 
 Migraciones: [V009__vacaciones.sql](../db/migrations/V009__vacaciones.sql) y
-[V015__vacaciones_saldo_inicial.sql](../db/migrations/V015__vacaciones_saldo_inicial.sql).
+[V015__vacaciones_saldo_inicial.sql](../db/migrations/V015__vacaciones_saldo_inicial.sql) y
+[V026__vacaciones_deterministas_cancelacion.sql](../db/migrations/V026__vacaciones_deterministas_cancelacion.sql).
 
 ```mermaid
 erDiagram
@@ -520,6 +521,9 @@ erDiagram
         DATE FECHA_INICIO
         DATE FECHA_FIN
         NUMBER RESUELTO_POR FK
+        NUMBER CANCELADO_POR FK
+        DATE CANCELADO_EN
+        VARCHAR2 MOTIVO_CANCELACION
         NUMBER ID_SOLICITUD FK
     }
     VACACIONES_MOVIMIENTOS {
@@ -532,7 +536,7 @@ erDiagram
         VARCHAR2 CLAVE_ORIGEN
     }
     EMPLEADOS ||--o{ VACACIONES_SOLICITUDES : "ID_EMPLEADO"
-    USUARIOS ||--o{ VACACIONES_SOLICITUDES : "RESUELTO_POR"
+    USUARIOS ||--o{ VACACIONES_SOLICITUDES : "RESUELTO_POR, CANCELADO_POR"
     SOLICITUDES ||--o{ VACACIONES_SOLICITUDES : "ID_SOLICITUD, ID_EMPLEADO"
     EMPLEADOS ||--o{ VACACIONES_MOVIMIENTOS : "ID_EMPLEADO"
     VACACIONES_SOLICITUDES ||--o{ VACACIONES_MOVIMIENTOS : "ID_VACACIONES_SOLICITUD, ID_EMPLEADO"
@@ -930,3 +934,344 @@ UNIQUE. No modifica tablas, relaciones ni migraciones anteriores. Los filtros ha
 en `db/filtros.json`; `db:verify` comprueba sus índices y las 21 migraciones V000–V020.
 CONFIGURACION_EMPRESA se administra desde el catálogo Datos de empresa; mantiene una sola empresa
 activa. El formato IGSS existente y snapshots de documentos no se sobrescriben al editar sus datos.
+
+## V1-3 — Identificadores automáticos (V021)
+
+V021 conserva PK, FK y snapshots; renumera los once catálogos con código editable de v0,
+`TIPOS_SOLICITUD`, empleados y las cinco entidades transaccionales indicadas en A4.
+`CODIGO_ANTERIOR` conserva el valor previo; es nulo en entidades que no tenían código.
+Los empleados se recorren por `FECHA_INGRESO, ID_EMPLEADO`. Las transacciones se numeran
+por año de `FECHA_CREACION` y por fecha/id, incluyendo registros inactivos.
+
+```mermaid
+erDiagram
+    CONFIG_CODIGOS ||--o{ SECUENCIAS_CODIGOS : configura
+    CONFIG_CODIGOS ||--o{ REGISTRO_CODIGOS : reserva
+    CONFIG_CODIGOS {
+        number ID_CONFIG_CODIGO PK
+        varchar ENTIDAD UK
+        varchar PREFIJO
+        number LONGITUD_MAXIMA
+        varchar PATRON
+    }
+    SECUENCIAS_CODIGOS {
+        number ID_SECUENCIA_CODIGO PK
+        varchar ENTIDAD FK
+        varchar AMBITO "UNIQUE entidad/ámbito"
+        number ULTIMO_NUMERO
+    }
+    REGISTRO_CODIGOS {
+        number ID_REGISTRO_CODIGO PK
+        varchar ENTIDAD FK
+        varchar CODIGO "UNIQUE entidad/código"
+        varchar LEGADO
+    }
+```
+
+Estas tres tablas de infraestructura tienen identity ALWAYS, auditoría y FKs indexadas.
+`N2_CODIGOS.ASIGNAR` crea el contador tolerando su creación simultánea, bloquea su fila
+con `SELECT ... FOR UPDATE` y registra la reserva dentro de la transacción llamante.
+No usa transacciones autónomas ni commits internos. El rollback revierte contador y reserva.
+El ámbito es GENERAL para catálogos, ID de departamento para empleados y año para transacciones.
+La reserva permanece tras eliminación física, impidiendo reutilización de identificadores.
+Los triggers de las entidades asignan el código al insertar y prohíben modificarlo después,
+independientemente del cliente. UNIQUE protege cada tabla; parámetros conserva UNIQUE por
+código/vigencia, compartiendo identidad entre sus versiones.
+
+Los parámetros tienen `CLAVE_INTERNA` inmutable: V021 copia su clave original y las altas
+la derivan automáticamente del nombre completo normalizado (p. ej. Salario mínimo mensual →
+SALARIO_MINIMO_MENSUAL). Sus nuevas vigencias heredan la clave y el código. Los cálculos
+consultan esa clave; los tipos de trámite conservan la referencia semántica mediante
+`NVL(CODIGO_ANTERIOR,CODIGO)`. Los seeds buscan también por dicha clave, conservando su idempotencia.
+Los códigos de roles, conceptos de nómina, plantillas y las referencias oficiales de IGSS
+no son identificadores introducidos por los formularios de A4 y conservan su significado.
+
+## Ubicaciones de Guatemala — V022 (FASE V1-4)
+
+```mermaid
+erDiagram
+  DEPARTAMENTOS_GT ||--|{ MUNICIPIOS_GT : contiene
+  DEPARTAMENTOS_GT o|--o{ CENTROS_TRABAJO : departamento_confirmado
+  MUNICIPIOS_GT o|--o{ CENTROS_TRABAJO : municipio_confirmado
+  MUNICIPIOS_GT o|--o{ CENTROS_TRABAJO : coincidencia_propuesta
+  DEPARTAMENTOS_GT {
+    number ID_DEPARTAMENTO_GT PK
+    varchar CODIGO_INE UK "2 posiciones"
+    varchar NOMBRE UK
+  }
+  MUNICIPIOS_GT {
+    number ID_MUNICIPIO_GT PK
+    number ID_DEPARTAMENTO_GT FK
+    varchar CODIGO_INE UK "4 posiciones"
+    varchar NOMBRE
+  }
+  CENTROS_TRABAJO {
+    number ID_CENTRO_TRABAJO PK
+    number ID_DEPARTAMENTO_GT FK
+    number ID_MUNICIPIO_GT FK
+    number ID_MUNICIPIO_GT_PROPUESTO FK
+    varchar LOCALIDAD_ANTERIOR "Referencia histórica inalterada"
+    varchar LOCALIDAD "Compatibilidad con feriados v0"
+  }
+```
+
+PK identity ALWAYS y códigos INE únicos; municipio único por departamento/nombre y por
+par ID_MUNICIPIO_GT/ID_DEPARTAMENTO_GT. La FK compuesta de centros y CHECK ambos-nulos/o-ambos
+impiden pares cruzados/parciales. Las referencias se admiten nulas para históricos pendientes;
+la API exige ambas para altas/ediciones. Todas las FKs/filtros están indexados. Los dos catálogos
+incluyen auditoría y ACTIVO, sin endpoints de escritura. S006 idempotente carga 22/340 desde
+la fuente íntegra versionada en db/data/ine, conservando nombres y códigos del INE.
+
+## V023 — Identidad privada y firma de documentos
+
+```mermaid
+erDiagram
+  CONFIGURACION_EMPRESA ||--|| IDENTIDAD_EMPRESA : amplia
+  USUARIOS ||--o{ FIRMAS_DOCUMENTO : aprueba
+  USUARIOS ||--o{ DOCUMENTOS_GENERADOS : firma
+  EMPLEADOS ||--o{ CONSTANCIAS_SALARIO_PDF : recibe
+  USUARIOS ||--o{ CONSTANCIAS_SALARIO_PDF : aprueba
+  IDENTIDAD_EMPRESA {
+    number ID_IDENTIDAD_EMPRESA PK
+    number ID_CONFIGURACION_EMPRESA FK,UK
+    varchar NOMBRE_COMERCIAL
+    varchar SITIO_WEB
+    blob LOGO_PNG "Privado, normalizado sin metadatos"
+    varchar LOGO_SHA256
+    number VERSION
+  }
+  FIRMAS_DOCUMENTO {
+    number ID_FIRMA_DOCUMENTO PK
+    varchar ENTIDAD "PERIODOS_NOMINA o PRESTACIONES"
+    number ID_REGISTRO "Único junto con entidad"
+    number ID_USUARIO FK
+    varchar NOMBRE "Snapshot del expediente"
+    varchar CARGO "Snapshot del puesto"
+    date APROBADO_EN
+  }
+  DOCUMENTOS_GENERADOS {
+    number APROBADO_POR FK
+    date APROBADO_EN
+    varchar FIRMANTE_NOMBRE
+    varchar FIRMANTE_CARGO
+    number VERSION_MEMBRETE
+  }
+  CONSTANCIAS_SALARIO_PDF {
+    number ID_CONSTANCIA_SALARIO_PDF PK
+    number ID_EMPLEADO FK
+    number APROBADO_POR FK
+    date APROBADO_EN
+    varchar FIRMANTE_NOMBRE
+    varchar FIRMANTE_CARGO
+    number VERSION_MEMBRETE
+    blob CONTENIDO_PDF
+    varchar SHA256
+  }
+```
+
+Las tres tablas incluyen auditoría y ACTIVO, PK identity ALWAYS y FKs indexadas. Se migra cada
+configuración existente sin alterar sus claves ni FORMATO_IGSS. Las firmas históricas recuperables
+usan el aprobador/fecha ya registrados y su expediente/puesto; no se inventan identidades faltantes.
+Las plantillas activas se versionan, preservando originales y archivos emitidos. Las columnas
+antiguas de firma quedan únicamente como datos históricos de la configuración; la aplicación ya
+no las consulta ni las ofrece para captura. Las constancias de salario guardan archivo/huella y
+aprobación en la misma transacción de auditoría. Los PDFs de solicitudes se versionan al reemitir.
+
+## V1-6 — Horarios por bloques (V024)
+
+```mermaid
+erDiagram
+    HORARIOS ||--o{ HORARIO_BLOQUES : contiene
+    HORARIO_BLOQUES ||--|{ HORARIO_BLOQUE_DIAS : trabaja
+    HORARIOS ||--o{ EMPLEADO_HORARIO : asignado
+    EMPLEADOS ||--o{ EMPLEADO_HORARIO : conserva_vigencias
+    HORARIO_BLOQUES {
+        NUMBER ID_HORARIO_BLOQUE PK
+        NUMBER ID_HORARIO FK
+        NUMBER MINUTO_ENTRADA
+        NUMBER MINUTO_SALIDA
+        NUMBER CRUZA_MEDIANOCHE
+        NUMBER MINUTOS_DESCANSO
+    }
+    HORARIO_BLOQUE_DIAS {
+        NUMBER ID_HORARIO_BLOQUE_DIA PK
+        NUMBER ID_HORARIO_BLOQUE FK
+        NUMBER DIA_SEMANA
+    }
+```
+
+Ambas tablas incluyen auditoría, ACTIVO, identities ALWAYS, CHECK e índices de FK/filtros.
+UNIQUE bloque/día evita repetidos. V024 agrupa tiempos v0 idénticos y mantiene `HORARIO_DIAS`
+como archivo; no cambia códigos, asignaciones, tiempos exactos, jornada histórica ni snapshots.
+Las lecturas operativas expanden bloques/días y generan los descansos que no tienen bloque.
+Para horas extra se suman los minutos efectivos de todos los bloques de cada día de entrada.
+Los solapes y límites vigentes se verifican en servicio dentro del bloqueo común de catálogos y empleados.
+Las 61 tablas de negocio quedan cubiertas por `db/filtros.json` y `db:verify`.
+
+## V1-7 — Empleados automatizados (V025)
+
+```mermaid
+erDiagram
+    DEPARTAMENTOS_GT ||--o{ EMPLEADOS : residencia
+    MUNICIPIOS_GT ||--o{ EMPLEADOS : municipio_del_departamento
+    USUARIOS |o--o| EMPLEADOS : acceso_automatico
+    PARENTESCOS {
+        NUMBER ID_PARENTESCO PK
+        VARCHAR NOMBRE UK
+        NUMBER ACTIVO
+    }
+    EMPLEADOS {
+        NUMBER ID_DEPARTAMENTO_GT FK
+        NUMBER ID_MUNICIPIO_GT FK
+        NUMBER ZONA
+        VARCHAR NUMERO_CASA
+        VARCHAR DIRECCION_ANTERIOR
+        VARCHAR SEXO_ANTERIOR
+    }
+    EMPLEADO_CONTACTOS_EMERGENCIA {
+        VARCHAR PARENTESCO
+        VARCHAR PARENTESCO_ANTERIOR
+    }
+    TIPOS_CONTRATO {
+        NUMBER REQUIERE_FECHA_FIN
+    }
+```
+
+PARENTESCOS contiene las 12 opciones A8, identity ALWAYS, auditoría, CHECK y FKs de actor indexadas.
+El servicio valida el nombre exacto contra este catálogo de lectura; el texto histórico se conserva.
+FK compuesta en EMPLEADOS impide cruzar municipio/departamento. Zona y casa tienen CHECK;
+la API exige ubicación/casa y zona en 0101. DIRECCION se deriva para consumidores documentales v0.
+No se asignan ubicaciones ficticias a históricos: DIRECCION_ANTERIOR conserva todo el texto.
+SEXO_ANTERIOR preserva el valor original; antiguos O quedan pendientes (NULL), sin reinterpretarlos.
+REQUIERE_FECHA_FIN es la bandera operativa; REQUIERE_FIN queda sincronizado por trigger como alias
+para seeds/herramientas históricas. Obra determinada requiere fecha final en nuevas escrituras.
+Las altas nuevas siempre vinculan usuario en la misma transacción. Históricos sin cuenta conservan
+su vínculo previo. Contraseñas/PDF no se persisten; se devuelve solo la entrega inicial en memoria.
+Las 62 tablas se verifican con db:verify; V000–V024 permanecen intactas.
+
+## Vacaciones deterministas y cancelación — V1-8
+
+V026 añade CANCELADO_POR (FK indexada a USUARIOS), CANCELADO_EN y MOTIVO_CANCELACION a
+VACACIONES_SOLICITUDES. Conserva CREADO_POR/FECHA_CREACION y RESUELTO_POR/RESUELTO_EN:
+cancelar no sobrescribe aprobación. SOLICITUDES admite CANCELADA; SOLICITUD_HISTORIAL registra
+APROBADA → CANCELADA con actor/fecha/motivo. Los nuevos campos tienen CHECK de integridad.
+
+VACACIONES_MOVIMIENTOS conserva ACUMULACION v0 como respaldo. AJUSTE MIGRACION_V1_8 compensa
+diferencias al corte sin alterar solicitudes/snapshots/débitos. DISFRUTE SOLICITUD:id reserva al
+aprobar; REVERSO CANCELACION:id devuelve exactamente el débito. UNIQUE empleado/clave protege
+idempotencia. El saldo y los solicitables son derivados, sin nuevas tablas ni acumulación materializada.
+
+## V1-9 — Novedades mensuales y suscripciones (V027–V028)
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ NOVEDADES_MENSUALES : recibe
+  NOMINA_EMPLEADO ||--o{ NOVEDADES_MENSUALES : aplica
+  AUSENCIAS ||--o{ NOVEDADES_MENSUALES : desglosa_por_mes
+  NOVEDADES_MENSUALES ||--o{ NOVEDADES_ORIGEN : conserva
+  EMPLEADOS ||--o{ PARQUEO_SUSCRIPCIONES : solicita
+  SOLICITUDES ||--o| PARQUEO_SUSCRIPCIONES : aprueba
+  DESCUENTOS_EMPLEADO ||--o| PARQUEO_SUSCRIPCIONES : origen_v0
+  PARQUEO_SUSCRIPCIONES ||--o{ NOVEDADES_MENSUALES : cargo_mensual
+  PARQUEO_TARIFAS {
+    number ID_PARQUEO_TARIFA PK
+    varchar VEHICULO "CARRO o MOTO"
+    number MONTO
+    date VIGENTE_DESDE
+    date VIGENTE_HASTA
+  }
+  PARQUEO_SUSCRIPCIONES {
+    number ID_PARQUEO_SUSCRIPCION PK
+    number ID_EMPLEADO FK
+    number ID_SOLICITUD FK
+    number ID_DESCUENTO_ORIGEN FK
+    varchar VEHICULO "nullable solo legado por completar"
+    varchar PLACA
+    date MES_INICIO
+    date MES_FIN "último mes cobrado completo"
+    varchar ESTADO "ACTIVA, BAJA, SUSPENDIDA"
+    number BAJA_SOLICITADA
+    number MONTO_ANTERIOR "cuota v0 de referencia"
+  }
+  NOVEDADES_MENSUALES {
+    number ID_NOVEDAD_MENSUAL PK
+    number ID_EMPLEADO FK
+    varchar TIPO "HORAS_EXTRA, COMISION, CONSUMO_TIENDA, AUSENCIA, PARQUEO"
+    date MES "primer día del mes"
+    number CANTIDAD "horas, días o unidad"
+    number MONTO "nullable histórico aún sin valoración"
+    number VALOR_UNITARIO
+    number RECARGO
+    varchar REFERENCIA
+    varchar CLAVE_REFERENCIA UK "cargas v1: clase/empleado/mes/referencia; NULL legado"
+    varchar DESCRIPCION
+    varchar AUTORIZACION "preserva autorización v0 y de ausencias"
+    varchar ESTADO "PENDIENTE o APLICADA"
+    number ID_NOMINA_EMPLEADO FK
+    number ID_AUSENCIA FK
+    number ID_PARQUEO_SUSCRIPCION FK
+  }
+  NOVEDADES_ORIGEN {
+    number ID_NOVEDAD_ORIGEN PK
+    number ID_NOVEDAD_MENSUAL FK
+    varchar ENTIDAD
+    number ID_ORIGEN
+  }
+```
+
+Las cuatro tablas tienen identity ALWAYS, auditoría, ACTIVO e índices de FK/filtros. Índices
+UNIQUE condicionales evitan la colisión de claves parcialmente NULL en Oracle: cargo por
+suscripción/mes, ausencia/mes/pago y horas pendientes por empleado/mes. V028 agrega CLAVE_REFERENCIA
+para cargas v1 por clase/empleado/mes; las referencias históricas repetidas conservan su texto/origen.
+La FK
+compuesta (pago, empleado) impide aplicar una novedad a otra persona. Estado/pago tienen CHECK
+coherente. SOLICITUDES añade VEHICULO/PLACA. Se agrega HORAS_EXTRA_TOPE_MENSUAL como parámetro
+operativo vigente. V027 migra orígenes y snapshots sin alterar las tablas/migraciones anteriores;
+los cobros de parqueo v0 conservan todas sus aplicaciones a través de NOVEDADES_ORIGEN.
+
+## V1-10: identidad del pago y boleta archivada
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ PAGOS_NOMINA : recibe
+  PERIODOS_NOMINA ||--o{ NOMINA_EMPLEADO : contiene
+  NOMINA_EMPLEADO ||--o| PAGOS_NOMINA : referencia_vigente
+  NOMINA_EMPLEADO ||--o| BOLETAS_PAGO : archiva
+  NOMINA_EMPLEADO ||--o{ NOVEDADES_MENSUALES : aplica
+  PAGOS_NOMINA {
+    number ID_PAGO_NOMINA PK
+    number ID_EMPLEADO FK
+    date MES "UNIQUE empleado-mes-tipo"
+    string TIPO_PAGO "ANTICIPO o PAGO"
+    number ID_NOMINA_EMPLEADO FK
+    string ESTADO "PAGADO o REVERTIDO"
+    string MOTIVO_REVERSION
+    number REVERTIDO_POR
+    date REVERTIDO_EN
+  }
+  BOLETAS_PAGO {
+    number ID_BOLETA_PAGO PK
+    number ID_NOMINA_EMPLEADO FK "UNIQUE"
+    blob CONTENIDO_PDF
+    string SHA256
+  }
+```
+
+V029 agrega MOTOR V0/V1 a PERIODOS_NOMINA, PERIODICIDAD mensual/FECHA_FIN_ANTERIOR a descuentos
+(incluidos préstamos) y FECHA_VENCIMIENTO_ANTERIOR a cuotas. Guarda PDFs y versiones anteriores al
+revertir/reemitir un pago; la referencia UNIQUE se actualiza al volver a pagar. No altera snapshots v0.
+
+## V1-11 — Prestaciones automáticas (V030)
+
+```mermaid
+erDiagram
+  NOMINA_EMPLEADO ||--o| PRESTACIONES : acredita_pago_anual
+  PRESTACIONES {
+    number ID_PRESTACION PK
+    number ID_NOMINA_EMPLEADO FK "nullable, UNIQUE; históricos conservados"
+  }
+```
+
+PAGOS_NOMINA admite ANTICIPO, PAGO, BONO_14 y AGUINALDO conservando UNIQUE empleado/mes/tipo.
+Las prestaciones anuales conservan fuente/detalle/exención y enlazan su boleta BLOB inmutable.
+PRESTACIONES_DIAS_ANIO parametriza el divisor de proporcionalidad. No se modifica V000–V029.

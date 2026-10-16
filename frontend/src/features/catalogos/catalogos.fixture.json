@@ -190,5 +190,58 @@
         "max": 500
       }
     ]
+  },
+  {
+    "slug": "centros-trabajo",
+    "titulo": "Centros de trabajo",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "descripcion",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      },
+      {
+        "nombre": "idDepartamentoGt",
+        "etiqueta": "Departamento de Guatemala",
+        "tipo": "referencia",
+        "hint": "Departamento geográfico del catálogo oficial del INE. Busca por nombre; al cambiarlo vuelve a elegir el municipio.",
+        "requerido": true,
+        "referencia": "departamentos-gt"
+      },
+      {
+        "nombre": "idMunicipioGt",
+        "etiqueta": "Municipio",
+        "tipo": "referencia",
+        "hint": "Busca y selecciona un municipio del departamento elegido. No se permite escribir una localidad libre.",
+        "requerido": true,
+        "referencia": "municipios-gt"
+      },
+      {
+        "nombre": "direccion",
+        "etiqueta": "Dirección",
+        "tipo": "area",
+        "hint": "Ubicación del centro de trabajo.",
+        "max": 500
+      }
+    ],
+    "legal": false
   }
 ]

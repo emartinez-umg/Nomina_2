@@ -1,3 +1,4 @@
+import { horasDiariasEnFecha } from '../../shared/horarios/horas.js';
 import { Decimal } from 'decimal.js';
 import { dinero } from '../../shared/utils/dinero.js';
 import { ErrorConflicto, ErrorNegocio } from '../../shared/errors/errors.js';
@@ -240,9 +241,8 @@ export function calcularNomina(e: Entrada): Resultado {
       continue;
     }
     if (h.estado !== 'APROBADA') continue;
-    if (!h.jornada) throw new ErrorConflicto(`Completa la jornada de las horas extra ${h.id}.`);
     const salario = vigente(e.salarios, h.fecha, 'salario').monto,
-      jornada = p(`JORNADA_${h.jornada}_HORAS`, h.fecha),
+      jornada = horasDiariasEnFecha(e.jornadas ?? [], h.fecha),
       divisor = p('SALARIO_DIAS_MES', h.fecha),
       recargo = p('HORAS_EXTRA_RECARGO_PORCENTAJE', h.fecha);
     if (jornada.lte(0) || divisor.lte(0))

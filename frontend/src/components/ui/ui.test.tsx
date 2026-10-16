@@ -122,7 +122,7 @@ describe('interacciones reutilizables', () => {
     );
     expect(screen.getByLabelText('Recorrido de bienvenida')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Ahora no' }));
-    expect(localStorage.getItem('nomina2:ayuda:login:publico')).toBe('vista');
+    expect(localStorage.getItem('nomina2:ayuda:login:publico:v1-12')).toBe('vista');
     await userEvent.click(screen.getByRole('button', { name: 'Ayuda de esta página' }));
     expect(await screen.findByText('Bienvenido a Nómina')).toBeInTheDocument();
     rect.mockRestore();

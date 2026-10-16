@@ -159,6 +159,9 @@
   .campo-etiqueta .tooltip {
     @apply text-secundario;
   }
+  .horario-select {
+    @apply min-h-11 w-full rounded-control border border-borde bg-superficie px-3;
+  }
   .control-grupo {
     @apply flex min-h-11 items-center rounded-control border border-borde bg-superficie;
   }

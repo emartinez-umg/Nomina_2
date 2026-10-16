@@ -1,123 +1,96 @@
-# Prestaciones de ley — FASE 9
+# Prestaciones automáticas — V1-11 / A12
 
-Acceso RH/ADMIN: `/prestaciones`. La acción **Liquidar y dar de baja** del expediente abre
-la simulación con el empleado seleccionado. El portal EMPLEADO no tiene acceso a cálculos masivos,
-liquidaciones ni constancias de otros empleados.
+RH/ADMIN dispone de Bono 14 y Aguinaldo en **Nómina → Simular pago** y en **Prestaciones**.
+La pantalla de Prestaciones consulta automáticamente la prestación disponible del año al abrirse
+(julio: Bono 14; diciembre: Aguinaldo). Consultar no registra cálculos ni desembolsos.
+Indemnización/finiquito es individual; **Liquidar y dar de baja** abre el empleado seleccionado.
 
 ## Cálculos y fuentes
 
-- Bono 14: ciclo julio–junio. Aguinaldo: diciembre–noviembre. El año identifica el cierre.
-  Inicio y límite de pago se leen de parámetros vigentes; la vista previa muestra el vencimiento.
-- Ingresos devengados: conceptos con `AFECTA_PRESTACIONES`, menos ausencias sin goce afectas.
-  Las banderas de nóminas cerradas provienen del snapshot original. Las demás quincenas usan el
-  mismo motor de nómina con salarios y novedades reales registrados; no se presupone que se pagaron.
-  Novedades pendientes, huecos de vigencia y fuentes incoherentes bloquean el cálculo.
-- Promedio mensual = suma devengada / meses equivalentes. Los meses equivalentes se obtienen
-  de cantidades de salario base / divisor mensual vigente, conservando la convención quincenal
-  de FASE 8 (quincena completa = medio mes; parcial = días calendario, tope quincenal).
-  Las ausencias disminuyen el importe devengado sin acortar el tiempo contractual.
-- Prestación anual = promedio × fracción del año × porcentaje vigente. No se aplica dos veces
-  la proporcionalidad: seis meses de Q3,000 dan Q1,500; aumentar a Q5,000 desde abril y devengar
-  Q1,800 en comisiones durante enero–junio da promedio Q4,300 y Bono 14 Q2,150.
-- Indemnización, conforme a la fórmula solicitada en RF-12: promedio devengado de los últimos
-  seis meses (o desde ingreso si es posterior) × años y fracción × porcentaje vigente.
-  Los años se cuentan por aniversarios; la fracción usa la duración real del año del aniversario,
-  incluidos bisiestos. El corte es inclusivo; la ventana comienza el día posterior al mismo día
-  de seis meses atrás, ajustado al fin del mes cuando ese día no existe.
-- Finiquito: indemnización cuando la causa es despido injustificado, vacaciones pendientes
-  valoradas por la primitiva de FASE 7, aguinaldo y Bono 14 del ciclo en curso al egreso.
-  Renuncia/despido justificado dejan indemnización cero y conservan los otros componentes.
-  Al egresar al cierre de un ciclo, descuenta la prestación ya pagada para evitar otro desembolso.
-- La bonificación incentivo y los demás conceptos respetan sus banderas reales. Comisiones
-  registradas en la quincena abierta final se consideran ya devengadas y se incluyen completas;
-  RRHH debe capturar el importe definitivo antes de confirmar. Una comisión cerrada se atribuye
-  al final de su quincena, sin repartirla artificialmente por días.
-- `decimal.js`, half-up y dos decimales en importes. Promedios, fuentes, parámetros, tiempo y
-  componentes se conservan en JSON; la reproducción usa precisiones internas, no la cifra visible.
+- Bono 14: 1 julio–30 junio. Aguinaldo: 1 diciembre–30 noviembre. Ciclos, fecha límite,
+  porcentajes, meses de promedio, divisor mensual y límite exento proceden de parámetros Oracle.
+- Promedio mensual = ingresos afectos a prestaciones / meses equivalentes de contrato.
+  Incluye salario con sus aumentos, comisiones y horas extra; resta ausencias sin goce afectas.
+  Bonificación incentivo respeta la bandera del concepto, inicialmente excluida.
+- Menos de un año: promedio × días calendario inclusivos / PRESTACIONES_DIAS_ANIO (referencia 365).
+  Un año o más: 100 % del promedio de los últimos doce meses; nunca supera el 100 % en bisiestos.
+  Ejemplo: enero–junio 2026 son 181 días. Salario Q3,000 constante produce Q1,487.67.
+  Tres meses Q3,000, tres Q5,000 y Q1,800 de comisión: promedio Q4,300, pago Q2,132.33.
+- V1 consulta contrato, salarios y libro mensual. El pago mensual conserva sus importes/banderas
+  archivados; el anticipo no se suma de nuevo. Una comisión retroactiva pertenece al mes de origen.
+  Cargas adicionales al snapshot se incorporan sin duplicar las ya archivadas. Sin pago previo,
+  se calcula desde fuentes reales; no requiere aperturas fiscales para calcular prestaciones.
+- Historia v0 conserva sus snapshots cerrados y motor quincenal. No se modifican sus importes.
+  Salarios/parámetros sin vigencia, novedades pendientes y historia incoherente producen un error
+  que indica qué completar; nunca se inventan ingresos ni vigencias históricas.
+- Horas extra aún no pagadas se valoran con salario/horario y recargo vigentes al corte.
+  Una carga mensual se atribuye al cierre del mes o al corte de baja, sin dividir comisiones por días.
+- Indemnización: promedio de los últimos seis meses (desde ingreso si es posterior) × años y
+  fracción por aniversarios. El corte incluye su último día. Se conserva la convención previa
+  de fracción sobre la duración real del año de aniversario, incluidos bisiestos.
+- Finiquito suma indemnización por despido injustificado, vacaciones pendientes × salario / divisor
+  mensual, aguinaldo y Bono 14 proporcionales. Renuncia/despido justificado dejan indemnización cero.
+  Las vacaciones se consultan al corte desde el saldo A9, incluidos sus decimales. Los pagos anuales
+  anteriores se descuentan de la obligación cuando corresponden al mismo ciclo.
+- Dinero usa Decimal y redondeo half-up a dos decimales. Promedios/fracciones se calculan con
+  precisión interna; el desglose muestra rango, promedio, días, fórmula, importe y base fiscal.
 
-## Aprobación, pago y baja
+## Revisión, pago y baja
 
-1. Generar vista previa masiva por empleado/departamento (máximo 500). Cada fila explica su error.
-2. Corregir errores y guardar el lote con motivo/confirmación. Se revalida la huella SHA-256;
-   todo el lote se confirma o revierte. Guardar no registra pago.
-3. Abrir detalle y aprobar. Las fuentes se revalidan nuevamente. Una prestación anual calculada
-   o aprobada puede anularse con motivo y calcularse de nuevo; se conserva el registro anulado.
-4. Registrar el pago realizado con fecha, referencia y motivo. No transfiere dinero a un banco.
-   Fecha no futura, desde el corte y posterior al último cierre, dentro del año fiscal actual.
-   Reintentos y dos aprobaciones simultáneas no producen pagos/estados duplicados.
-5. El finiquito se simula antes de confirmar; se rechazan reservas/movimientos posteriores,
-   prestaciones pendientes, ciclos anuales anteriores sin pago registrado y nóminas aprobadas/cerradas que excedan el egreso. Confirmar guarda
-   la liquidación aprobada, debita vacaciones, da de baja, desactiva usuario y revoca sesiones
-   en una transacción auditada. La liquidación confirmada conserva la baja y no puede anularse.
-6. Su pago debe registrarse en la quincena final y antes de cerrarla para incorporar las bases
-   gravadas en nómina. Los documentos indican claramente si el pago está pendiente o registrado.
+1. Seleccionar tipo, mes y objetivo (empleado/departamento/todos). Solo julio para Bono 14 y
+   diciembre para Aguinaldo según configuración. Simular devuelve filas, totales, alertas, contadores
+   de fuentes del ciclo y PDF con **SIMULACIÓN**. No consume novedades ni cuotas de nómina.
+2. Revisar historia salarial, comisiones/HE y exenciones; marcar la casilla obligatoria y confirmar.
+   El servidor recalcula y compara SHA-256. Un cambio exige nueva simulación.
+3. Confirmar guarda PRESTACIONES/detalle, NOMINA_EMPLEADO, firma RH, PDF inmutable, notificación
+   y auditoría en la misma transacción. UNIQUE empleado/mes/tipo, bloqueo y conflictos de ciclo
+   previenen duplicados. Se conservan las filas bloqueadas sin cobrar.
+4. Boletas individuales y ZIP por departamento; publicación inmediata en el portal propio.
+   El PDF archivado también se devuelve desde el historial de Prestaciones. No transfiere dinero.
+5. ADMIN puede revertir con motivo antes del cierre, después de resolver pagos/finiquitos dependientes.
+   La prestación queda ANULADA, el PDF anterior se conserva y volver a pagar crea otra versión.
+   Un pago mensual del mismo mes consume sus bases fiscales: hay que revertirlo antes de añadir
+   o revertir una prestación anual. Si hay anticipos salariales, cerrar exige completar todos. Un periodo que contiene solo prestaciones anuales se cierra sin forzar anticipos; las novedades del salario se revisan en su pago mensual.
+6. Finiquito se calcula automáticamente al elegir empleado/fecha/causa, por defecto hoy de Guatemala.
+   PDF de simulación disponible antes de confirmar. Fecha no futura y no anterior al ingreso;
+   reservas posteriores, prestaciones pendientes y ciclos anteriores sin registrar pago bloquean la baja.
+   Confirmar con motivo guarda liquidación aprobada, debita vacaciones, registra baja y revoca acceso
+   en una transacción. Su pago se registra en el historial, antes del cierre de la nómina final.
 
-El sistema aplica el límite exento por tipo y empleado, resta exenciones ya usadas en el año
-fiscal y vuelve a comprobarlo al pagar. Guarda `MONTO_EXENTO_ISR`; solo el excedente y vacaciones
-pagadas se incorporan a la renta del motor de FASE 8. La indemnización permanece exenta.
-La retención se calcula en nómina, no se inventa una deducción ni un desembolso en prestaciones.
-Un cierre que sustenta una prestación vigente no puede reabrirse: hay que anular los cálculos
-anuales sin pagar que lo referencian; los aprobados/pagados que se conservan protegen su historia.
+La exención anual se limita al sueldo mensual × parámetro de meses exentos, menos lo consumido
+por el mismo tipo/año. Solo el excedente y vacaciones pagadas entran al ISR mensual; no se retiene
+ISR ni IGSS al desembolsar la prestación. Indemnización conserva su tratamiento exento.
+La historia fiscal excluye las boletas anuales del salario mensual y toma el excedente desde
+PRESTACION_DETALLE, una sola vez. IGSS excluye boletas anuales y anticipos.
 
-## Constancias y PDF
+Las operaciones históricas calcular → aprobar → registrar pago siguen disponibles para registros
+v0 y su regularización; las nuevas pantallas anuales usan la confirmación integrada de A11.
 
-La constancia RF-17 filtra por **fecha de pago**, incluye ingresos brutos de nóminas cerradas
-(versiones actuales) y componentes salariales de prestaciones pagadas; excluye indemnizaciones.
-El rango máximo es cinco años y no puede terminar en el futuro. Incluye empresa real, empleado,
-puesto, departamento, ingreso, detalle por fecha, total y fecha de emisión. Sin empresa o sin
-pagos no se emite un documento vacío. Vista previa y descarga quedan auditadas con SHA-256.
-Los PDF de prestaciones utilizan la instantánea conservada y el estado/fecha/referencia actuales.
+## API y documentos
 
-## API
+`/api/nomina/simular`, `/simular/:id/pdf`, `/pagar`, `/pagos/:id/revertir`, `/pagos/zip` aceptan
+los tipos ANTICIPO, PAGO, BONO_14 y AGUINALDO. Se mantienen RBAC, propiedad del portal y CSRF.
+`/api/prestaciones/simular` consulta finiquito; `/simular/pdf` genera su preview sin baja;
+`/liquidar` confirma con selección/hash/motivo. Listado, filtros, detalle, CSV, transiciones y
+constancias conservan sus endpoints anteriores. Zod estricto y binds en todas las consultas.
 
-Todos los endpoints usan `/api/prestaciones`, sesión, cambio de clave completado y RBAC RH/ADMIN.
-Escrituras requieren CSRF; campos/IDs/fechas/órdenes se validan con Zod estricto.
+Todos los PDF usan shared/pdf: membrete de empresa, logo opcional, pie/paginación, identidad y
+fecha de aprobación RH conservadas. La constancia filtra por fecha de pago, incluye salarios de
+nóminas cerradas y componentes salariales de prestaciones pagadas, excluyendo indemnización.
+Las prestaciones anuales no duplican el salario de esa constancia.
 
-| Método | Ruta                          | Uso                                          |
-| ------ | ----------------------------- | -------------------------------------------- |
-| GET    | `/`                           | Filtros, búsqueda, orden y paginación Oracle |
-| POST   | `/previsualizar`              | `{tipo, anio, idDepartamento?, idEmpleado?}` |
-| POST   | `/calcular`                   | `{seleccion, hash, motivo, confirmado:true}` |
-| POST   | `/simular`                    | `{idEmpleado, corte, causa}`                 |
-| POST   | `/liquidar`                   | `{seleccion, hash, motivo, confirmado:true}` |
-| GET    | `/:id`                        | Detalle y snapshot                           |
-| POST   | `/:id/aprobar`, `/:id/anular` | `{hash, motivo, confirmado:true}`            |
-| POST   | `/:id/pagar`                  | Lo anterior más `fechaPago` y `referencia`   |
-| GET    | `/:id/pdf`                    | PDF de prestación o finiquito                |
-| GET    | `/constancia`                 | `idEmpleado, inicio, fin` (fechas de pago)   |
-| GET    | `/exportar`                   | CSV de toda la consulta, máximo 10,000       |
+## Decisiones y verificación
 
-Filtros: `buscar, idEmpleado, idDepartamento, tipo, estado, desde, hasta` (ciclos que intersectan
-el rango); `pagina, limite, ordenarPor, direccion`. Respuestas uniformes y errores en español.
-Bloqueo compartido con módulos existentes, revalidación del actor y binds Oracle, incluidos CLOB.
+A12 pide incluir comisiones/HE y usar promedio × tiempo para indemnización: no se añaden alícuotas
+al promedio ni modalidades de pago externas al alcance solicitado. RH configura vigencias reales
+históricas antes de liquidar si faltan; no hay respaldos de parámetros inventados en código.
 
-## Supuestos y revisión legal
+La exención conserva los límites del [Decreto 10-2012, artículo 70](https://www.tse.org.gt/images/UECFFPP/leyes/decreto_10-2012_Ley_actualizacion_tributaria.pdf).
+Se contrastaron también las fuentes de [Bono 14 del MINTRAB](https://www.mintrabajo.gob.gt/doc/Ley_de_Bonificacin_Anual_Para_Trabajadores_del_Sector_Privado_y_Pblico_Decreto_42-92.pdf)
+y [aguinaldo del Congreso](https://www.congreso.gob.gt/detalle_pdf/decretos/2730), el 15/10/2026.
+Las fórmulas implementadas siguen el alcance explícito A12 del proyecto.
 
-Se implementa la fórmula explícita del proyecto para indemnización (`promedio × tiempo`).
-No se añade automáticamente una integración de alícuotas de aguinaldo/Bono 14 al promedio.
-Antes de uso laboral real, RH debe validar esa base, banderas, vigencias y obligaciones pendientes
-anteriores al ciclo actual; los pagos históricos deben quedar registrados antes del egreso.
-Las constancias certifican el historial registrado, no una firma electrónica ni un trámite ante SAT.
-No se automatizan transferencias, fraccionamientos de aguinaldo ni declaraciones fiscales externas.
-
-Referencias oficiales consultadas el 12/10/2026:
-
-- [MINTRAB: aguinaldo](https://mintrabajo.gob.gt/aguinaldo/): ciclo y proporcionalidad;
-  la modalidad de pago único hasta 15/12 sigue la instrucción del proyecto.
-- [Gobierno de Guatemala: Bono 14](https://guatemala.gob.gt/que-es-el-bono-14-cuanto-deben-pagarte-por-concepto-del-bono-14/):
-  promedio anual julio–junio y pago durante primera quincena de julio.
-- [Congreso: Decreto 10-2012, art. 70](https://www.congreso.gob.gt/assets/uploads/info_legislativo/decretos/2012/010-2012.pdf):
-  exención limitada de aguinaldo/bonificación anual e indemnización.
-- [Corte de Constitucionalidad: guía de prestaciones](https://cc.gob.gt/wp-content/uploads/2023/07/Guia-para-el-calculo-de-Prestaciones-Laborales-Indemnizacion-y-Vacaciones-v.2.1-Infomacion-Publica.pdf):
-  referencia de integración de bases, con régimen institucional propio; requiere contraste por RH
-  con el régimen laboral aplicable a la empresa, no se adopta silenciosamente su fórmula.
-
-## Verificación
-
-`npm run lint`, `npm test`, `npm run typecheck`, `npm run build`, `npm run format:check`.
-`npm run verify:prestaciones` crea y elimina un esquema N2SEC, sin fixtures en la aplicación:
-RBAC/CSRF, fuentes cambiadas, salarios/comisiones, aprobación concurrente, pago único, PDF,
-constancia, filtros/CSV, finiquito y rollback real de baja/usuario/kardex/auditoría.
-`npm run verify:security` conserva las 72 pruebas de fases anteriores; `npm run db:verify`
-verifica V000–V017 y seeds idempotentes. `--docker` usa la imagen de pruebas Node 20 documentada
-para ambos verificadores. Los PDF temporales de QA se guardan en `tmp/pdfs/`, fuera de Git.
+Verificar con npm run lint, npm run typecheck, npm test, npm run build, npm run format:check,
+npm run db:verify, npm run verify:prestaciones, npm run verify:pagos y
+npm run test:e2e -- --grep 'FASE V1-11'. Oracle/E2E usan esquemas temporales; PDFs QA en tmp/pdfs.
+V030 amplía tipos de pago y vincula boletas a prestaciones sin alterar migraciones ni datos previos.

@@ -3,6 +3,7 @@ import { fechaValida } from '../../../lib/validadores';
 import { solicitar } from '../../../lib/http';
 export type Tipo = 'anuncios' | 'eventos';
 export const filaSchema = z.object({
+  codigo: z.string(),
   id: z.number(),
   titulo: z.string(),
   contenido: z.string(),

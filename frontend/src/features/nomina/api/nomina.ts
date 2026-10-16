@@ -1,3 +1,4 @@
+import { componente } from '../../prestaciones/api/prestaciones';
 import { z } from 'zod';
 import { solicitar } from '../../../lib/http';
 const totales = z.object({
@@ -7,6 +8,7 @@ const totales = z.object({
   patronal: z.string(),
 });
 const fila = z.object({
+  tipoPago: z.string().nullable().optional(),
   id: z.number(),
   idEmpleado: z.number(),
   empleado: z.string(),
@@ -23,6 +25,7 @@ const fila = z.object({
 });
 export type Fila = z.infer<typeof fila>;
 const periodo = z.object({
+  motor: z.string().optional(),
   id: z.number(),
   inicio: z.string(),
   fin: z.string(),
@@ -190,3 +193,71 @@ export const formato = () =>
   );
 export const guardarFormato = (body: unknown) =>
   solicitar('/nomina/igss/formato', z.object({ guardado: z.boolean() }), { method: 'POST', body });
+export interface ObjetivoPago {
+  mes: string;
+  tipoPago: 'ANTICIPO' | 'PAGO' | 'BONO_14' | 'AGUINALDO';
+  objetivo: 'EMPLEADO' | 'DEPARTAMENTO' | 'TODOS';
+  idEmpleado?: number;
+  idDepartamento?: number;
+}
+const resultadoPago = detalleSchema.shape.resultado.extend({
+  tipoPago: z.enum(['ANTICIPO', 'PAGO', 'BONO_14', 'AGUINALDO']),
+  mes: z.string(),
+  componentes: z.array(componente).optional(),
+  devengado: z.string(),
+  anticipo: z.string(),
+});
+const filaSimulada = z.object({
+  idEmpleado: z.number(),
+  empleado: z.string(),
+  departamento: z.string(),
+  idDepartamento: z.number(),
+  resultado: resultadoPago.nullable(),
+  alertas: z.array(z.string()),
+  pagado: z.boolean(),
+});
+const simulacion = z.object({
+  mes: z.string(),
+  tipoPago: z.enum(['ANTICIPO', 'PAGO', 'BONO_14', 'AGUINALDO']),
+  fechaPago: z.string(),
+  hash: z.string(),
+  registros: z.array(filaSimulada),
+  totales,
+  verificacion: z.object({
+    horasExtra: z.number(),
+    comisiones: z.number(),
+    consumos: z.number(),
+    ausencias: z.number(),
+    retroactivas: z.number(),
+    conAlertas: z.number(),
+  }),
+});
+export type Simulacion = z.infer<typeof simulacion>;
+export const simular = (body: ObjetivoPago) =>
+  solicitar('/nomina/simular', simulacion, { method: 'POST', body, timeoutMs: 120000 });
+export const previewPago = (body: ObjetivoPago, id: number) =>
+  solicitar(`/nomina/simular/${id}/pdf`, archivo, { method: 'POST', body, timeoutMs: 120000 });
+export const pagar = (body: ObjetivoPago, hash: string) =>
+  solicitar(
+    '/nomina/pagar',
+    z.object({
+      idPeriodo: z.number(),
+      pagados: z.array(z.number()),
+      bloqueados: z.array(filaSimulada),
+      mensaje: z.string(),
+    }),
+    {
+      method: 'POST',
+      body: { ...body, hash, confirmado: true, novedadesCompletas: true },
+      timeoutMs: 120000,
+    },
+  );
+export const revertirPago = (id: number, motivo: string) =>
+  solicitar(`/nomina/pagos/${id}/revertir`, z.object({ revertido: z.boolean() }), {
+    method: 'POST',
+    body: { motivo, confirmado: true },
+  });
+export const zipPagos = (mes: string, idDepartamento = '', idEmpleado = '') =>
+  solicitar(`/nomina/pagos/zip?${query({ mes, idDepartamento, idEmpleado })}`, archivo, {
+    timeoutMs: 120000,
+  });

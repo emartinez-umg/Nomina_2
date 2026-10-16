@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -165,19 +166,17 @@ export function SolicitudesPage() {
             Exportar CSV
           </Button>
         </div>
-        {!empleado && (
-          <div className="form-grid">
-            <TextField
-              name="buscar"
-              label="Buscar empleado"
-              hint="Nombre, apellido o código del empleado."
-              placeholder="Nombre o código…"
-              value={q.buscar!}
-              onValueChange={(v) => cambiar('buscar', v)}
-              maxLength={200}
-            />
-          </div>
-        )}
+        <div className="form-grid">
+          <TextField
+            name="buscar"
+            label={empleado ? 'Buscar código de solicitud' : 'Buscar empleado o solicitud'}
+            hint="Nombre o código del empleado o de la solicitud."
+            placeholder="Nombre, EMP… o SOL…"
+            value={q.buscar!}
+            onValueChange={(v) => cambiar('buscar', v)}
+            maxLength={200}
+          />
+        </div>
         {filtros && (
           <div className="form-grid mt-4">
             <SelectField
@@ -265,7 +264,7 @@ export function SolicitudesPage() {
             {...(consulta.error ? { error: consulta.error.message } : {})}
             onReintentar={() => void consulta.refetch()}
             columnas={[
-              { id: 'id', titulo: 'Solicitud', ordenable: true, render: (s) => `#${s.id}` },
+              { id: 'codigo', titulo: 'Solicitud', ordenable: true, render: (s) => s.codigo },
               { id: 'empleado', titulo: 'Empleado', ordenable: true, render: (s) => s.empleado },
               { id: 'tipo', titulo: 'Gestión', ordenable: true, render: (s) => s.nombreTipo },
               {
@@ -364,19 +363,37 @@ function Nueva({ tipo, onCerrar }: { tipo: string; onCerrar: () => void }) {
   const cache = useQueryClient(),
     toast = useToast(),
     [confirmar, setConfirmar] = useState(false);
-  const f = useForm<{ observaciones: string }>({
-    resolver: zodResolver(z.object({ observaciones: z.string().max(1000) })),
-    defaultValues: { observaciones: '' },
+  const f = useForm<{ observaciones: string; vehiculo: string; placa: string }>({
+    resolver: zodResolver(
+      z.object({
+        observaciones: z.string().max(1000),
+        vehiculo: z
+          .string()
+          .refine(
+            (v) => tipo !== 'PARQUEO' || ['CARRO', 'MOTO'].includes(v),
+            'Selecciona Carro o Moto.',
+          ),
+        placa: z.string().max(12),
+      }),
+    ),
+    defaultValues: { observaciones: '', vehiculo: '', placa: '' },
     mode: 'onBlur',
   });
   const draft = useFormDraft(`solicitud-${tipo}`, undefined, {
     form: f,
-    version: 1,
+    version: 9,
     alDescartar: () => setConfirmar(false),
   });
   const m = useMutation({
     mutationFn: () =>
-      api.crear({ tipo, observaciones: f.getValues('observaciones'), confirmado: true }),
+      api.crear({
+        tipo,
+        observaciones: f.getValues('observaciones'),
+        confirmado: true,
+        ...(tipo === 'PARQUEO'
+          ? { vehiculo: f.getValues('vehiculo'), placa: f.getValues('placa') }
+          : {}),
+      }),
     onSuccess: () => {
       draft.limpiar();
       toast('Solicitud enviada. RRHH recibió una notificación.');
@@ -397,13 +414,58 @@ function Nueva({ tipo, onCerrar }: { tipo: string; onCerrar: () => void }) {
       >
         <form data-tour="solicitudes-nueva" onSubmit={f.handleSubmit(() => setConfirmar(true))}>
           <FormDraftNotice draft={draft} />
+          <CampoCodigo entidad="solicitudes" />
           <HelpButton />
           <p className="my-4">
             RRHH revisará tu solicitud y te avisará de cada cambio.{' '}
             {tipo === 'PARQUEO' &&
-              'Al aprobarse, el parqueo genera un descuento automático por quincena; RRHH te informará la tarifa.'}
+              'Al aprobarse, comienza la suscripción mensual completa de Carro o Moto. Consulta la tarifa con RRHH y solicita la baja desde Mi parqueo.'}
           </p>
           <div className="form-grid">
+            {tipo === 'PARQUEO' && (
+              <>
+                <div className="col-span-12 md:col-span-6">
+                  <Controller
+                    control={f.control}
+                    name="vehiculo"
+                    render={({ field, fieldState }) => (
+                      <SelectField
+                        name={field.name}
+                        label="Tipo de vehículo"
+                        hint="Carro o Moto determina la tarifa mensual vigente al aprobar."
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        onBlur={field.onBlur}
+                        error={fieldState.error?.message}
+                        opciones={[
+                          { value: 'CARRO', label: 'Carro' },
+                          { value: 'MOTO', label: 'Moto' },
+                        ]}
+                        required
+                      />
+                    )}
+                  />
+                </div>
+                <div className="col-span-12 md:col-span-6">
+                  <Controller
+                    control={f.control}
+                    name="placa"
+                    render={({ field }) => (
+                      <TextField
+                        name={field.name}
+                        label="Placa (opcional)"
+                        hint="Letras, números y guion; hasta 12 caracteres."
+                        value={field.value}
+                        onValueChange={(v) =>
+                          field.onChange(v.toUpperCase().replace(/[^A-Z0-9-]/g, ''))
+                        }
+                        maxLength={12}
+                      />
+                    )}
+                  />
+                </div>
+              </>
+            )}
             <Controller
               control={f.control}
               name="observaciones"

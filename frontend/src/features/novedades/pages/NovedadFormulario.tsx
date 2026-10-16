@@ -1,3 +1,4 @@
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -70,7 +71,8 @@ function Cargar({ tipo, id }: { tipo: Tipo; id: string | undefined }) {
     );
   if (
     actual.data &&
-    (actual.data.bloqueada ||
+    (actual.data.autorizacion === 'RECHAZADA' ||
+      actual.data.bloqueada ||
       !actual.data.activo ||
       ['LIQUIDADO', 'CANCELADO'].includes(actual.data.estado))
   )
@@ -108,7 +110,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
   } = form;
   const draft = useFormDraft(`novedad-${tipo}`, actual?.id, {
     form,
-    version: 1,
+    version: 9,
     alDescartar: () => {
       setPreview(null);
       setPendiente(null);
@@ -147,13 +149,18 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
         onSubmit={handleSubmit(async (vals) => {
           setErrorGeneral('');
           try {
-            setPendiente(await preparar(vals));
+            const body = await preparar(vals);
+            if (tipo === 'horas-extra') setPreview(await previsualizar(tipo, body, actual?.id));
+            setPendiente(body);
           } catch (e) {
             fallo(e);
           }
         })}
       >
         <FormDraftNotice draft={draft} />
+        {(tipo === 'descuentos' || tipo === 'prestamos') && (
+          <CampoCodigo entidad={tipo} codigo={actual?.codigo ?? undefined} />
+        )}
         <Card>
           <div className="form-grid" data-tour="novedad-campos">
             {defs.map((f) => (
@@ -245,7 +252,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
               )}
             </div>
           )}
-          {(['prestamos', 'horas-extra'].includes(tipo) ||
+          {(['prestamos', 'horas-extra', 'ausencias'].includes(tipo) ||
             (tipo === 'descuentos' && d.modalidad !== 'FIJO')) && (
             <div className="my-5" data-tour="novedad-preview">
               <Button
@@ -258,7 +265,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
                     setRevisando(true);
                     setErrorGeneral('');
                     try {
-                      setPreview(await previsualizar(tipo, await preparar(vals)));
+                      setPreview(await previsualizar(tipo, await preparar(vals), actual?.id));
                     } catch (e) {
                       fallo(e);
                     } finally {
@@ -267,7 +274,9 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
                   })()
                 }
               >
-                {tipo === 'horas-extra' ? 'Revisar cálculo' : 'Revisar amortización'}
+                {tipo === 'horas-extra' || tipo === 'ausencias'
+                  ? 'Revisar cálculo'
+                  : 'Revisar amortización'}
               </Button>
               {preview && <VistaPrevia datos={preview} />}
             </div>
@@ -299,7 +308,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
       <ConfirmModal
         abierto={!!pendiente}
         titulo="Confirmar novedad"
-        descripcion={`Empleado: ${r.data?.empleado?.nombre ?? actual?.empleado ?? 'selección pendiente'} · Monto: ${moneda(String(pendiente?.monto ?? '').replace(/,/g, ''))} · Fecha: ${fechaVisible(String(pendiente?.fecha ?? pendiente?.fechaInicio ?? ''))} · Cuotas: ${String(pendiente?.cuotas ?? '—')} · Horas: ${String(pendiente?.horas ?? '—')} · Estado: ${String(pendiente?.estado ?? 'VIGENTE')}. Se guardará con tu usuario y motivo en auditoría.`}
+        descripcion={`Empleado: ${r.data?.empleado?.nombre ?? actual?.empleado ?? 'selección pendiente'} · Monto: ${moneda(String(pendiente?.monto ?? '').replace(/,/g, ''))} · Mes: ${String(pendiente?.mes ?? '—')} · Fecha: ${fechaVisible(String(pendiente?.fecha ?? pendiente?.fechaInicio ?? ''))} · Cuotas: ${String(pendiente?.cuotas ?? '—')} · Horas: ${String(pendiente?.horas ?? '—')} · Estado: ${String(pendiente?.estado ?? 'VIGENTE')}. Se guardará con tu usuario y motivo en auditoría. ${preview?.advertencia ?? ''}`}
         cargando={enviando}
         onCancelar={() => setPendiente(null)}
         onConfirmar={() => {
@@ -326,6 +335,18 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
 export function VistaPrevia({ datos }: { datos: Preview }) {
   return (
     <div className="my-4" aria-live="polite">
+      {datos.advertencia && <p className="alerta">{datos.advertencia}</p>}
+      {datos.descuento !== undefined && (
+        <p className="banda-informativa">
+          Descuento por ausencias: {moneda(datos.descuento)}. Valor día = salario / 30; las
+          ausencias con goce no restan.
+        </p>
+      )}
+      {datos.meses?.map((m) => (
+        <p key={m.mes}>
+          {m.mes}: {m.dias} días · {moneda(m.monto)}
+        </p>
+      ))}
       {datos.calculo && (
         <p className="banda-informativa">
           Valor hora: {moneda(datos.calculo.valorHora)} · Recargo: {datos.calculo.recargo}% · Total

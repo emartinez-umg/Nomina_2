@@ -94,6 +94,27 @@ const compartidos: GrupoNavegacion[] = [
     icono: 'tiempo',
     items: [
       acceso(
+        'novedades-pendientes',
+        'Novedades pendientes',
+        '/novedades/pendientes',
+        'planilla',
+        'Revisa cargas por empleado y departamento antes de pagar.',
+      ),
+      acceso(
+        'parqueo',
+        'Suscripciones de parqueo',
+        '/novedades/parqueo',
+        'planilla',
+        'Gestiona altas, bajas y suspensiones de parqueo.',
+      ),
+      acceso(
+        'consumo-tienda',
+        'Consumo en tienda',
+        '/novedades/consumo-tienda',
+        'planilla',
+        'Carga consumos por empleado y mes.',
+      ),
+      acceso(
         'novedades',
         'Todas las novedades',
         '/novedades',
@@ -106,7 +127,7 @@ const compartidos: GrupoNavegacion[] = [
         '/novedades/descuentos',
         'planilla',
         'Gestiona descuentos fijos, únicos y en cuotas.',
-        ['parqueo', 'consumo', 'tienda', 'embargos'],
+        ['embargos'],
       ),
       acceso(
         'prestamos',
@@ -188,6 +209,14 @@ const compartidos: GrupoNavegacion[] = [
     titulo: 'Nómina',
     icono: 'planilla',
     items: [
+      acceso(
+        'simular-pago',
+        'Simular pago',
+        '/nomina/simular',
+        'planilla',
+        'Simula anticipo o pago mensual y confirma boletas.',
+        ['anticipo', 'simulación', 'pago mensual'],
+      ),
       acceso(
         'planilla',
         'Planilla y boletas',
@@ -271,6 +300,13 @@ const compartidos: GrupoNavegacion[] = [
     titulo: 'Configuración',
     icono: 'configuracion',
     items: [
+      acceso(
+        'tarifas-parqueo',
+        'Tarifas de parqueo',
+        '/configuracion/parqueo',
+        'configuracion',
+        'Configura Carro y Moto con vigencia y auditoría.',
+      ),
       catalogo(
         'parametros-legales',
         'Parámetros legales',
@@ -282,7 +318,7 @@ const compartidos: GrupoNavegacion[] = [
       ]),
       catalogo(
         'empresa',
-        'Datos de empresa',
+        'Configuración de empresa',
         'Administra los datos empresariales para documentos.',
       ),
     ],
@@ -340,6 +376,13 @@ export const navigation: Record<Rol, GrupoNavegacion[]> = {
       titulo: 'Mis gestiones',
       icono: 'documento',
       items: [
+        acceso(
+          'mi-parqueo',
+          'Mi parqueo',
+          '/mis-gestiones/parqueo',
+          'planilla',
+          'Consulta tu suscripción y solicita la baja.',
+        ),
         acceso(
           'mis-boletas',
           'Boletas de pago',

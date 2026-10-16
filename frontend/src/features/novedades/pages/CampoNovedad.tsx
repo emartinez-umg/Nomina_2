@@ -1,3 +1,4 @@
+import { MonthField } from '../../../components/forms/MonthField';
 import { useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { opciones } from '../api/novedades';
@@ -73,6 +74,16 @@ export function CampoNovedad({
   tipoN?: string;
   inicio?: string | undefined;
 }) {
+  if (campo.tipo === 'mes')
+    return (
+      <MonthField
+        {...props}
+        max={hoy?.slice(0, 7)}
+        deshabilitar={(mes) =>
+          !!r?.cierres.some((x) => x.inicio.slice(0, 7) <= mes && x.fin.slice(0, 7) >= mes)
+        }
+      />
+    );
   if (campo.tipo === 'referencia') return <ReferenciaNovedad {...props} referencia={campo.ref!} />;
   if (campo.tipo === 'opcion')
     return (
@@ -90,8 +101,8 @@ export function CampoNovedad({
       <NumberField
         {...props}
         decimales={campo.nombre.startsWith('horas') ? 2 : 0}
-        min={/Min$|Max$/.test(campo.nombre) ? '0' : campo.nombre.startsWith('horas') ? '0.01' : '1'}
-        max={campo.nombre.startsWith('horas') ? '24' : '600'}
+        min={/Min$|Max$/.test(campo.nombre) ? '0' : campo.nombre.startsWith('horas') ? '0.5' : '1'}
+        max={campo.nombre.startsWith('horas') ? '9999999999' : '600'}
       />
     );
   if (campo.tipo === 'fecha') {

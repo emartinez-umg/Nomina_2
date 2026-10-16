@@ -1,3 +1,4 @@
+import { prepararFirmantePrueba } from '../../shared/pdf/empresa.fixture.js';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -17,8 +18,7 @@ import { crearUsuariosService, crearUsuarioInterno } from '../usuarios/usuarios.
 import { crearAuditoriaService } from '../auditoria/auditoria.service.js';
 import { crearSolicitudesService } from './solicitudes.service.js';
 import { crearNovedadesService } from '../novedades/novedades.service.js';
-import { fuentes } from '../nomina/nomina.repository.js';
-import { quincena } from '../novedades/novedades.reglas.js';
+import { pendientes } from '../novedades/pendientes.repository.js';
 import { crearVacacionesService } from '../vacaciones/vacaciones.service.js';
 import type { ActorAuditoria } from '../auth/auth.types.js';
 let db: BaseDatos, app: Express, empleado: number, segundo: number, admin: ActorAuditoria;
@@ -47,8 +47,19 @@ async function entrar(usuario: string, contrasena: string) {
 const post = (s: typeof rh, ruta: string, datos: object, status = 200) =>
   s.agent.post(`/api/solicitudes${ruta}`).set('X-CSRF-Token', s.csrf).send(datos).expect(status);
 async function solicitar(tipo: string, datos?: object) {
-  return (await post(propio, '', { tipo, ...(datos ? { datos } : {}), confirmado: true }, 201)).body
-    .data.id as number;
+  return (
+    await post(
+      propio,
+      '',
+      {
+        tipo,
+        ...(datos ? { datos } : {}),
+        ...(tipo === 'PARQUEO' ? { vehiculo: 'CARRO' } : {}),
+        confirmado: true,
+      },
+      201,
+    )
+  ).body.data.id as number;
 }
 async function hoy() {
   return String(
@@ -130,7 +141,9 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     ajeno = await entrar(cuentas[2]!.usuario, cuentas[2]!.contrasenaTemporal);
     await ejecutar("INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('F10','Gestiones')");
     const dep = Number(
-      await escalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO='F10'"),
+      await escalar(
+        "SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F10'",
+      ),
     );
     await ejecutar(
       "INSERT INTO PUESTOS (CODIGO,NOMBRE,ID_DEPARTAMENTO) VALUES ('F10','Analista de gestiones',:dep)",
@@ -140,16 +153,20 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
       "INSERT INTO CENTROS_TRABAJO (CODIGO,NOMBRE,LOCALIDAD) VALUES ('F10','Oficina de pruebas','PRUEBA')",
     );
     await ejecutar(
-      "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,REPRESENTANTE) VALUES ('Empresa de pruebas F10','1234567-9','Dirección de pruebas','Representante de pruebas')",
+      "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION) VALUES ('Empresa de pruebas F10','1234567-9','Dirección de pruebas')",
     );
-    const puesto = Number(await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE CODIGO='F10'")),
+    const puesto = Number(
+        await escalar("SELECT ID_PUESTO FROM PUESTOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F10'"),
+      ),
       centro = Number(
-        await escalar("SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE CODIGO='F10'"),
+        await escalar(
+          "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NVL(CODIGO_ANTERIOR,CODIGO)='F10'",
+        ),
       ),
       contrato = Number(await escalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO'));
     for (const i of [1, 2]) {
       await ejecutar(
-        "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'Gestiones',:dpi,:nit,:igss,DATE '1995-01-01','O','SOLTERO','Dirección','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
+        "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'Gestiones',:dpi,:nit,:igss,DATE '1995-01-01','F','SOLTERO','Dirección','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
         {
           codigo: `F10_${i}`,
           usuario: cuentas[i]!.idUsuario,
@@ -165,7 +182,9 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
         },
       );
       const e = Number(
-        await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO=:c', { c: `F10_${i}` }),
+        await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO)=:c', {
+          c: `F10_${i}`,
+        }),
       );
       if (i === 1) empleado = e;
       else segundo = e;
@@ -212,6 +231,31 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     await post(propio, `/${documento}/resolver`, { estado: 'APROBADA', confirmado: true }, 403);
     await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(403);
   });
+  it('bloquea aprobación sin ficha completa y permite completarla', async () => {
+    const r = await post(
+      rh,
+      `/${documento}/resolver`,
+      { estado: 'APROBADA', confirmado: true },
+      409,
+    );
+    expect(r.body.error.mensaje).toMatch(/empresa|ficha/);
+    await ejecutar(
+      "UPDATE CONFIGURACION_EMPRESA SET TELEFONO='55551234',CORREO='empresa@example.test' WHERE ACTIVO=1",
+    );
+    const sinFicha = await post(
+      rh,
+      `/${documento}/resolver`,
+      { estado: 'APROBADA', confirmado: true },
+      409,
+    );
+    expect(sinFicha.body.error.mensaje).toContain('ficha de empleado');
+    const usuario = Number(
+      await escalar(
+        "SELECT U.ID_USUARIO FROM USUARIOS U JOIN ROLES R ON R.ID_ROL=U.ID_ROL WHERE R.CODIGO='RH'",
+      ),
+    );
+    await prepararFirmantePrueba(db, usuario);
+  });
   it('aprobación concurrente única genera PDF privado, snapshot y aviso', async () => {
     const r = await Promise.all(
       [1, 2].map(() =>
@@ -225,6 +269,17 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     const pdf = await rh.agent.get(`/api/solicitudes/${documento}/documento`).expect(200);
     const bytes = Buffer.from(pdf.body.data.base64, 'base64');
     expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(
+      await escalar('SELECT FIRMANTE_NOMBRE FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id', {
+        id: documento,
+      }),
+    ).toBe('ZZ Firmante Pruebas');
+    expect(
+      await escalar(
+        'SELECT COUNT(*) FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id AND APROBADO_POR IS NOT NULL AND APROBADO_EN IS NOT NULL AND VERSION_MEMBRETE>0',
+        { id: documento },
+      ),
+    ).toBe(1);
     sha256 = pdf.body.data.sha256;
     await mkdir('../tmp/pdfs', { recursive: true });
     await writeFile('../tmp/pdfs/solicitud-oracle.pdf', bytes);
@@ -317,6 +372,9 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     await propio.agent.get(`/api/solicitudes/${otro}/documento`).expect(404);
   });
   it('fallo de auditoría revierte parqueo y datos críticos junto con la resolución', async () => {
+    await ejecutar(
+      "INSERT INTO PARQUEO_TARIFAS(VEHICULO,MONTO,VIGENTE_DESDE,MOTIVO) VALUES('CARRO',125.50,DATE '2026-01-01','Tarifa mensual de prueba')",
+    );
     const p = await solicitar('PARQUEO');
     const d = (await propio.agent.get('/api/solicitudes/mis-datos').expect(200)).body.data.criticos;
     const id = await solicitar('ACTUALIZACION_DATOS', { ...d, nombres: 'Propuesta temporal' });
@@ -329,7 +387,6 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
         `/${p}/resolver`,
         {
           estado: 'APROBADA',
-          parqueo: { monto: '75.25', fechaInicio: await hoy() },
           confirmado: true,
         },
         500,
@@ -340,7 +397,9 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     }
     expect(
       Number(
-        await escalar('SELECT COUNT(*) FROM DESCUENTOS_EMPLEADO WHERE ID_SOLICITUD=:id', { id: p }),
+        await escalar('SELECT COUNT(*) FROM PARQUEO_SUSCRIPCIONES WHERE ID_SOLICITUD=:id', {
+          id: p,
+        }),
       ),
     ).toBe(0);
     expect(
@@ -357,51 +416,26 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
       });
     }
   });
-  it('parqueo: aprobación atómica crea un fijo de Fase 6 y evita doble cargo', async () => {
+  it('parqueo: aprobación atómica crea suscripción mensual y evita doble cargo', async () => {
     const id = await solicitar('PARQUEO');
-    const parqueo = { monto: '125.50', fechaInicio: await hoy() };
-    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', confirmado: true }, 422);
-    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', parqueo, confirmado: true });
-    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', parqueo, confirmado: true }, 409);
-    expect(
-      String(
-        await escalar('SELECT MONTO_QUINCENA FROM DESCUENTOS_EMPLEADO WHERE ID_SOLICITUD=:id', {
-          id,
-        }),
-      ),
-    ).toBe('125.5');
-    const listado = await rh.agent
-      .get('/api/novedades/descuentos')
-      .query({ idEmpleado: empleado })
-      .expect(200);
+    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', confirmado: true });
+    await post(rh, `/${id}/resolver`, { estado: 'APROBADA', confirmado: true }, 409);
+    const actual = (await hoy()).slice(0, 7);
+    const listado = await rh.agent.get('/api/novedades/parqueo').query({ mes: actual }).expect(200);
     expect(listado.body.data.total).toBe(1);
-    const entrada = await db.conConexion((c) =>
-      fuentes(
-        c,
-        {
-          id: 0,
-          ...quincena(parqueo.fechaInicio),
-          estado: 'ABIERTO',
-          version: 0,
-          hash: null,
-          alertas: '[]',
-          empleados: 0,
-          ingresos: '0',
-          descuentos: '0',
-          neto: '0',
-          patronal: '0',
-        },
-        empleado,
-      ),
-    );
-    expect(entrada[0]!.descuentos).toEqual(
+    expect(listado.body.data.registros[0]).toMatchObject({
+      vehiculo: 'CARRO',
+      inicio: actual,
+      tarifa: '125.5',
+    });
+    const cargos = await db.conConexion((c) => pendientes(c, actual, empleado));
+    expect(cargos).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ codigo: 'PARQUEO', modalidad: 'FIJO', monto: '125.5' }),
+        expect.objectContaining({ tipo: 'PARQUEO', monto: '125.5', mes: actual }),
       ]),
     );
-
     const nuevo = await solicitar('PARQUEO');
-    await post(rh, `/${nuevo}/resolver`, { estado: 'APROBADA', parqueo, confirmado: true }, 409);
+    await post(rh, `/${nuevo}/resolver`, { estado: 'APROBADA', confirmado: true }, 409);
     await post(rh, `/${nuevo}/resolver`, {
       estado: 'RECHAZADA',
       motivo: 'Ya tiene parqueo vigente.',
@@ -532,5 +566,28 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
         ),
       ),
     ).toBe(0);
+  });
+  it('reemite un histórico conservando archivo original y exige revisar la nueva entrega', async () => {
+    await ejecutar('UPDATE DOCUMENTOS_GENERADOS SET VERSION_MEMBRETE=NULL WHERE ID_SOLICITUD=:id', {
+      id: documento,
+    });
+    await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(409);
+    await post(rh, `/${documento}/reemitir`, { confirmado: true });
+    expect(
+      await escalar('SELECT COUNT(*) FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id', {
+        id: documento,
+      }),
+    ).toBe(2);
+    expect(
+      await escalar(
+        'SELECT COUNT(*) FROM DOCUMENTOS_GENERADOS WHERE ID_SOLICITUD=:id AND ACTIVO=0 AND VERSION=1',
+        { id: documento },
+      ),
+    ).toBe(1);
+    await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(403);
+    const nuevo = (await rh.agent.get(`/api/solicitudes/${documento}/documento`).expect(200)).body
+      .data;
+    await post(rh, `/${documento}/entregar`, { confirmado: true, sha256: nuevo.sha256 });
+    await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(200);
   });
 });

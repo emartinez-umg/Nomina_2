@@ -1,7 +1,6 @@
 import { ErrorValidacion } from '../../shared/errors/errors.js';
-import { crearEmpleadoSchema } from './empleados.schemas.js';
+import { crearEmpleadoCsvSchema } from './empleados.schemas.js';
 export const columnasCsv = [
-  'codigo',
   'nombres',
   'apellidos',
   'dpi',
@@ -10,7 +9,10 @@ export const columnasCsv = [
   'fechaNacimiento',
   'sexo',
   'estadoCivil',
-  'direccion',
+  'idDepartamentoGt',
+  'idMunicipioGt',
+  'zona',
+  'numeroCasa',
   'telefono',
   'correo',
   'idDepartamento',
@@ -18,7 +20,7 @@ export const columnasCsv = [
   'idJefatura',
   'idTipoContrato',
   'idCentroTrabajo',
-  'idHorario',
+  'codigoHorario',
   'fechaIngreso',
   'fechaFinContrato',
   'salarioBase',
@@ -29,7 +31,6 @@ export const columnasCsv = [
   'contactoParentesco',
   'contactoTelefono',
   'estado',
-  'generarUsuario',
 ] as const;
 export const celdaCsv = (v: unknown) =>
   `"${String(v ?? '')
@@ -91,16 +92,14 @@ export function leerCsv(texto: string) {
       columnasCsv.map((key, j) => [key, valores[j] ?? '']),
     );
     for (const key of columnasCsv) {
-      if (key.startsWith('id')) d[key] = d[key] === '' ? null : Number(d[key]);
+      if (key.startsWith('id') || key === 'zona') d[key] = d[key] === '' ? null : Number(d[key]);
       if (
         ['afiliacionIgss', 'fechaFinContrato', 'cuentaBancaria', 'tipoCuenta'].includes(key) &&
         d[key] === ''
       )
         d[key] = null;
     }
-    d.generarUsuario =
-      d.generarUsuario === 'true' ? true : d.generarUsuario === 'false' ? false : d.generarUsuario;
-    const p = crearEmpleadoSchema.safeParse(d);
+    const p = crearEmpleadoCsvSchema.safeParse(d);
     const errores: Record<string, string[]> =
       valores.length !== columnasCsv.length
         ? { csv: ['El número de columnas no coincide con la plantilla.'] }
@@ -116,7 +115,6 @@ export const plantillaCsv = () =>
   escribirCsv([
     Array.from(columnasCsv),
     [
-      'EMP_001',
       'Ana',
       'Lopez',
       '1234567890123',
@@ -125,7 +123,10 @@ export const plantillaCsv = () =>
       '1995-05-15',
       'F',
       'SOLTERO',
-      'Dirección real del empleado',
+      '1',
+      '1',
+      '1',
+      '12-A',
       '55551234',
       'empleado@empresa.com',
       '1',
@@ -133,17 +134,16 @@ export const plantillaCsv = () =>
       '',
       '1',
       '1',
-      '1',
-      '2026-10-12',
+      'LAV',
+      '2026-10-15',
       '',
       '5000.00',
       '',
       '',
       '',
       'Contacto de emergencia',
-      'Familiar',
+      'Hermano/a',
       '55554321',
       'ACTIVO',
-      'true',
     ],
   ]);

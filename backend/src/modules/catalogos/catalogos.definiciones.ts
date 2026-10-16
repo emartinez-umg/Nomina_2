@@ -1,3 +1,4 @@
+import type { BloqueHorario } from '../../shared/horarios/modelo.js';
 export type TipoCampo =
   | 'nit'
   | 'correo'
@@ -23,7 +24,7 @@ export interface CampoCatalogo {
   max?: number;
   decimales?: number;
   opciones?: string[];
-  referencia?: 'departamentos' | 'empleados';
+  referencia?: 'departamentos' | 'empleados' | 'departamentos-gt' | 'municipios-gt';
 }
 export interface Catalogo {
   slug: string;
@@ -47,7 +48,7 @@ const codigo = (max = 40) =>
     'CODIGO',
     'Código',
     'codigo',
-    'Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.',
+    'Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.',
     { requerido: true, max },
   );
 const nombre = (max = 120) =>
@@ -139,14 +140,6 @@ export const catalogos: Catalogo[] = [
         { requerido: true, max: 500 },
       ),
       campo(
-        'representante',
-        'REPRESENTANTE',
-        'Representante',
-        'nombre',
-        'Nombre completo de quien firma las constancias; no se agrega firma electrónica.',
-        { requerido: true, max: 200 },
-      ),
-      campo(
         'correo',
         'CORREO',
         'Correo de empresa',
@@ -181,12 +174,20 @@ export const catalogos: Catalogo[] = [
       nombre(),
       descripcion,
       campo(
-        'localidad',
-        'LOCALIDAD',
-        'Localidad',
-        'texto',
-        'Localidad real para aplicar feriados locales.',
-        { requerido: true, max: 120 },
+        'idDepartamentoGt',
+        'ID_DEPARTAMENTO_GT',
+        'Departamento de Guatemala',
+        'referencia',
+        'Departamento geográfico del catálogo oficial del INE. Busca por nombre; al cambiarlo vuelve a elegir el municipio.',
+        { requerido: true, referencia: 'departamentos-gt' },
+      ),
+      campo(
+        'idMunicipioGt',
+        'ID_MUNICIPIO_GT',
+        'Municipio',
+        'referencia',
+        'Busca y selecciona un municipio del departamento elegido. No se permite escribir una localidad libre.',
+        { requerido: true, referencia: 'municipios-gt' },
       ),
       campo('direccion', 'DIRECCION', 'Dirección', 'area', 'Ubicación del centro de trabajo.', {
         max: 500,
@@ -247,7 +248,7 @@ export const catalogos: Catalogo[] = [
         'JORNADA',
         'Tipo de jornada',
         'opcion',
-        'Jornada del patrón semanal; configura cada día por separado.',
+        'Se calcula automáticamente a partir de las horas de los bloques.',
         { requerido: true, opciones: ['DIURNA', 'MIXTA', 'NOCTURNA'] },
       ),
       descripcion,
@@ -348,7 +349,7 @@ export const catalogos: Catalogo[] = [
       nombre(),
       campo(
         'requiereFin',
-        'REQUIERE_FIN',
+        'REQUIERE_FECHA_FIN',
         'Requiere fecha de fin',
         'booleano',
         'Actívalo para contratos que deben tener fecha de finalización.',
@@ -432,5 +433,8 @@ export interface DiaHorario {
   cruzaMedianoche: boolean;
   minutosDescanso: number;
 }
-export type DatosCatalogo = Record<string, string | number | boolean | null | DiaHorario[]>;
+export type DatosCatalogo = Record<
+  string,
+  string | number | boolean | null | DiaHorario[] | BloqueHorario[]
+>;
 export type FilaCatalogo = DatosCatalogo & { id: number; activo: boolean; enUso: boolean };

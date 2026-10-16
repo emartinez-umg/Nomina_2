@@ -77,6 +77,7 @@ export interface Entrada {
   prestaciones: { id: number; tipo: string; monto: string; exento?: string }[];
 }
 export interface Linea {
+  novedad?: number;
   concepto: Concepto;
   descripcion: string;
   base: string;
@@ -120,6 +121,7 @@ export interface Resultado {
 }
 export type Estado = 'ABIERTO' | 'CALCULADO' | 'REVISADO' | 'APROBADO' | 'CERRADO';
 export interface Periodo {
+  motor?: string;
   id: number;
   inicio: string;
   fin: string;
