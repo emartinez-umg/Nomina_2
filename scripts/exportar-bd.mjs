@@ -14,6 +14,7 @@ import {
   generarEsquema,
   leerCatalogos,
   generarCatalogos,
+  generarScriptCompleto,
   sentencia,
   auditarSeguridad,
 } from './exportar-bd-modelo.mjs';
@@ -274,6 +275,12 @@ SET DEFINE OFF SQLBLANKLINES ON
     '05_verificar.sql': generarVerificacion(original, datos, migraciones),
   };
   const seguridad = auditarSeguridad(archivos, hashAdmin, privado);
+  archivos['nomina2_completo.sql'] = generarScriptCompleto(archivos);
+  auditarSeguridad(
+    { 'nomina2_completo.sql': archivos['nomina2_completo.sql'] },
+    hashAdmin,
+    privado,
+  );
   console.log('Reconstruyendo V000–V030 en un esquema desechable para contrastar definiciones…');
   const referencia = crearTemporal();
   let preparacion;
@@ -303,7 +310,7 @@ SET DEFINE OFF SQLBLANKLINES ON
     await writeFile(join(carpetaHost, nombre), contenido);
   docker(['exec', '-T', 'nomina2-db', 'mkdir', '-p', '--', carpetaContenedor]);
   docker(['cp', carpetaHost + '/.', 'nomina2-db:' + carpetaContenedor]);
-  sqlplus(`@${carpetaContenedor}/00_instalar_todo.sql`, destino);
+  sqlplus(`@${carpetaContenedor}/nomina2_completo.sql`, destino);
   const nueva = metadatos(destino);
   const diferenciasImportacion = diferencias(original, nueva);
   assert.deepEqual(diferenciasImportacion, [], 'La importación no reproduce el esquema original.');
@@ -362,6 +369,7 @@ SET DEFINE OFF SQLBLANKLINES ON
     idempotencia: true,
     insercion_identity_y_codigo: true,
     instalador_sqlplus: true,
+    instalador_unico: true,
     sha256: Object.fromEntries(
       Object.entries(archivos).map(([n, c]) => [n, createHash('sha256').update(c).digest('hex')]),
     ),

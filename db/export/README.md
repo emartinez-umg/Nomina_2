@@ -5,6 +5,24 @@ migraciones V000–V030 e importada en un esquema nuevo. El informe exacto de ob
 restricciones, catálogos, diferencias y SHA-256 está en [verificacion.json](verificacion.json).
 El DDL procede de `DBMS_METADATA`, no de una concatenación de migraciones.
 
+## Archivo único para compartir
+
+**`nomina2_completo.sql` contiene toda la instalación en un solo archivo**: esquema,
+catálogos, ADMIN genérico, historial de migraciones y verificación. Se puede copiar o enviar
+ese archivo directamente; no contiene instrucciones `@@` ni necesita los otros SQL.
+
+Conectar con el usuario de aplicación de un esquema vacío en XEPDB1 y ejecutar el archivo
+completo como script. En SQLPlus/SQLcl, desde la carpeta que contiene el archivo:
+
+```sql
+@nomina2_completo.sql
+```
+
+También se puede abrir en SQL Developer y usar **Ejecutar script**. El encabezado incluye
+instrucciones y las credenciales del ADMIN inicial. La instalación comprueba primero que
+el usuario no sea SYS/SYSTEM y que su esquema esté vacío. Las sentencias SQL terminan en
+`;` y los bloques PL/SQL conservan su `/` final.
+
 ## Requisitos
 
 - Docker con capacidad para Oracle XE: arquitectura amd64 (emulación en Apple Silicon),
@@ -65,6 +83,7 @@ sql -L nomina2@//localhost:1522/XEPDB1 @db/export/00_instalar_todo.sql
 
 | Archivo                | Contenido                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------ |
+| `nomina2_completo.sql` | Instalación autónoma completa; archivo recomendado para compartir.                         |
 | `00_instalar_todo.sql` | Ejecuta los cinco archivos siguientes con rutas relativas `@@`.                            |
 | `01_esquema.sql`       | Objetos completos, columnas identity, PK/UNIQUE/CHECK, índices, FK, comentarios y PL/SQL.  |
 | `02_catalogos.sql`     | MERGE aditivos de los catálogos permitidos y sus reservas de códigos.                      |
@@ -148,7 +167,7 @@ npm run db:export
 
 Lee credenciales del entorno interno de `nomina2-db`, obtiene DDL y catálogos por SQLPlus,
 reconstruye las migraciones en un esquema aleatorio y realiza una segunda importación limpia.
-Esta importación ejecuta `00_instalar_todo.sql` dentro del contenedor, incluidas sus rutas `@@`.
+Esta importación ejecuta `nomina2_completo.sql` dentro del contenedor, sin dependencias de archivos.
 Compara definiciones, columnas, constraints, comentarios, estado de triggers y conteos;
 repite los MERGE y valida hash/cambio obligatorio e inserción identity/código con rollback.
 Solo publica archivos después de superar esas verificaciones. El esquema operativo es de solo

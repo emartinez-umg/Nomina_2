@@ -7,6 +7,7 @@ import {
   normalizarDdl,
   diferencias,
   generarCatalogos,
+  generarScriptCompleto,
 } from './exportar-bd-modelo.mjs';
 
 test('literales preservan comillas y entradas SQL; identificadores rechazan inyección', () => {
@@ -130,4 +131,23 @@ test('auditoría admite solo credencial sintética y rechaza datos privados/patr
       auditarSeguridad({ ...seguro, '02.sql': contaminacion }, hash, ['dato privado de origen']),
     );
   }
+});
+
+test('instalador único contiene todas las partes y preserva delimitadores SQL/PLSQL', () => {
+  const archivos = {
+    '01_esquema.sql': '-- Cabecera\nSET DEFINE OFF\nCREATE TABLE EJEMPLO (ID NUMBER)\n/\n',
+    '02_catalogos.sql':
+      'MERGE INTO EJEMPLO D USING (SELECT 1 ID FROM DUAL) O ON (D.ID=O.ID) WHEN NOT MATCHED THEN INSERT (ID) VALUES (O.ID)\n/\n',
+    '03_admin_inicial.sql': 'SET DEFINE OFF\nDECLARE N NUMBER; BEGIN N:=1; END;\n/\nCOMMIT;\n',
+    '04_versiones.sql': 'CREATE OR REPLACE EDITIONABLE PACKAGE EJEMPLO_P AS PROCEDURE P; END;\n/\n',
+    '05_verificar.sql': 'BEGIN NULL; END;\n/\n',
+  };
+  const sql = generarScriptCompleto(archivos);
+  assert.ok(!/^\s*@/m.test(sql));
+  assert.ok(sql.includes('CREATE TABLE EJEMPLO (ID NUMBER);\n'));
+  assert.ok(!sql.includes('CREATE TABLE EJEMPLO (ID NUMBER);\n/'));
+  assert.ok(sql.includes('DECLARE N NUMBER; BEGIN N:=1; END;\n/'));
+  assert.ok(sql.includes('PACKAGE EJEMPLO_P AS PROCEDURE P; END;\n/'));
+  assert.ok(sql.includes('BEGIN NULL; END;\n/'));
+  assert.throws(() => generarScriptCompleto({ ...archivos, '02_catalogos.sql': undefined }));
 });

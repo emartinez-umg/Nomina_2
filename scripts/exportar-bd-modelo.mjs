@@ -247,6 +247,58 @@ export function sentencia(sql) {
   return `${sql.trim()}\n/\n`;
 }
 
+export function generarScriptCompleto(archivos) {
+  const nombres = [
+    '01_esquema.sql',
+    '02_catalogos.sql',
+    '03_admin_inicial.sql',
+    '04_versiones.sql',
+    '05_verificar.sql',
+  ];
+  const cabecera = `-- NOMINA2: instalación completa y autónoma para Oracle 21c XE.
+-- Comparte únicamente este archivo; no necesita otros archivos SQL.
+-- Conectar con un usuario de aplicación de un esquema VACÍO en XEPDB1.
+-- Ejecutar en modo SCRIPT completo (SQLPlus/SQLcl o Ejecutar script en SQL Developer).
+-- ADMIN de la aplicación: admin.inicial / Nomina2!Temporal2026 (cambio obligatorio).
+WHENEVER OSERROR EXIT FAILURE
+WHENEVER SQLERROR EXIT FAILURE ROLLBACK
+SET DEFINE OFF
+SET SQLBLANKLINES ON
+SET SERVEROUTPUT ON
+DECLARE
+  N NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO N FROM USER_TABLES;
+  IF USER IN ('SYS','SYSTEM') OR N<>0 THEN
+    RAISE_APPLICATION_ERROR(-20093,'Conéctate con un usuario de aplicación cuyo esquema esté vacío y ejecuta el archivo completo.');
+  END IF;
+END;
+/
+`;
+  const partes = nombres.map((nombre) => {
+    assert.ok(typeof archivos[nombre] === 'string' && archivos[nombre].trim(), `Falta ${nombre}.`);
+    // SQL normal termina en ; y PL/SQL en END; seguido de /. Así no se ejecuta
+    // dos veces un DDL al abrir el archivo en clientes con ejecución de scripts.
+    const contenido = archivos[nombre]
+      .split(/^[\t ]*\/[\t ]*\r?$/m)
+      .map((bloque) => {
+        const original = bloque.trim();
+        if (!original) return '';
+        const significativo = original
+          .replace(/^[\t ]*(?:--[^\n]*|(?:WHENEVER|SET|PROMPT)\b[^\n]*)$/gim, '')
+          .replace(/^(?:\s|\/\*[\s\S]*?\*\/)+/, '');
+        const plsql =
+          /^(?:DECLARE|BEGIN|CREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:NON)?EDITIONABLE\s+)?(?:PACKAGE|TRIGGER|PROCEDURE|FUNCTION|TYPE))\b/i.test(
+            significativo,
+          );
+        return plsql ? original + '\n/\n' : original.replace(/;\s*$/, '') + ';\n';
+      })
+      .join('\n');
+    return `\n-- ==================== ${nombre} ====================\n${contenido}`;
+  });
+  return cabecera + partes.join('\n');
+}
+
 export function generarEsquema(meta) {
   const bloques = [
     `-- DDL real de Oracle 21c XE mediante DBMS_METADATA. Ejecutar en un esquema vacío.

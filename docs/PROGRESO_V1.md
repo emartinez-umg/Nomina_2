@@ -1322,3 +1322,22 @@ Estado: completada el 15/10/2026. Rama `v1`; sin cambios de lógica ni migracion
 - Informe reproducible: db/export/verificacion.json. Los esquemas exclusivos N2EXP se eliminan al terminar.
 
 <!-- EXPORTACION_VERIFICACION_FIN -->
+
+## Entrega de la exportación en un único SQL
+
+Estado: completada el 16/10/2026. Rama `v1`; esquema y lógica de aplicación conservados.
+
+- El usuario confirmó que no pudo descargar el archivo anterior. Se entrega
+  `db/export/nomina2_completo.sql` (524,573 bytes), con una copia verificada en Descargas.
+- Contiene esquema, catálogos, ADMIN inicial, historial y verificación, sin referencias `@@`.
+  `npm run db:export` lo regenera y prueba como instalador autónomo. Se preserva la alternativa
+  por archivos; SQL termina en punto y coma y PL/SQL conserva el separador `/`.
+- Añadida comprobación inicial de esquema vacío y de usuario de aplicación. README actualizado;
+  no se eliminan objetos existentes ni se modifican migraciones o lógica de negocio.
+- Instalación real en esquema Oracle temporal: 73 tablas, 763 índices, 73 secuencias identity,
+  82 triggers y paquete/cuerpo; cero diferencias respecto al original y las migraciones.
+  Catálogos repetibles, ADMIN, privacidad y siguiente identity/código aprobados. Temporales retirados.
+- 561 pruebas aprobadas (328 backend, 226 frontend y siete de exportación), lint y formato.
+  SHA-256 de la copia en Descargas idéntico al registrado en `verificacion.json`.
+- Cómo usar: compartir únicamente `nomina2_completo.sql`; conectar con un usuario de aplicación
+  de un esquema vacío en XEPDB1 y ejecutarlo completo como script. Sin pendientes técnicos.

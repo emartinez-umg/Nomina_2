@@ -63,12 +63,14 @@
   "idempotencia": true,
   "insercion_identity_y_codigo": true,
   "instalador_sqlplus": true,
+  "instalador_unico": true,
   "sha256": {
     "00_instalar_todo.sql": "377c74a65dfb5eb107d6b32650559355ea9b0738389351bac1ac52fab7f77398",
     "01_esquema.sql": "0878739a80e4465411f3fa43bdae21717fadd513f6fabfb7a1ad222a27aa8579",
     "02_catalogos.sql": "cfa71f582fe4f3b90f39d16fb7242323986f4487525f806fcd385d50c99f70f6",
     "03_admin_inicial.sql": "8b2c5b0c815647d8fcde8a00ba478ad9188a6b505e4200cac06fb29b43d3ad2c",
     "04_versiones.sql": "e5983ceae0f2ffafa87976b2eda5b70a32c0e3199a211557dc484a1fc276480e",
-    "05_verificar.sql": "57e9801b754cb82ae2abdd6c3ab4f2e7a5a4a58ffeedb7368792f41ea4d9888b"
+    "05_verificar.sql": "57e9801b754cb82ae2abdd6c3ab4f2e7a5a4a58ffeedb7368792f41ea4d9888b",
+    "nomina2_completo.sql": "61ee1a85ffbc033386f4ade0006618e6c246734b8c62fcc126e0934f5ee4dc5e"
   }
 }
