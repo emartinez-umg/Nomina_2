@@ -1,7 +1,13 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaPrestaciones: DefinicionAyuda = {
-  id: 'prestaciones-v1-11',
+  id: 'prestaciones-v1-12',
   pasos: [
+    {
+      elemento: 'prestaciones-secciones',
+      titulo: 'Elegir la gestión de prestaciones',
+      descripcion:
+        'Bono 14 y aguinaldo abre la revisión y pago anual. Indemnización y finiquito calcula la baja individual; Constancias de salario prepara un documento de pagos registrados. Cambiar de sección no confirma pagos ni bajas. El historial permanece disponible debajo para consultar documentos y resultados anteriores.',
+    },
     {
       elemento: 'empresa-aviso',
       titulo: 'Membrete y firma de aprobación',

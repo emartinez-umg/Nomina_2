@@ -1143,3 +1143,101 @@ Estado: completada el 15/10/2026. Rama v1, alcance A12.
 4. npm run lint; npm run typecheck; npm test; npm run build; npm run format:check;
    npm run db:verify; npm run verify:pagos; npm run verify:prestaciones; npm run verify:security;
    npm run test:e2e; npm run verify:infra. Suites Oracle/E2E en esquemas temporales y en secuencia.
+
+## FASE V1-12 — Auditoría y aceptación de cierre
+
+Estado: completada el 15/10/2026. Rama `v1`.
+
+### Hecho
+
+- Leídos AGENTS.md/adendo y progreso v1 completo; inicio limpio. Migraciones V000–V030 intactas.
+- Matriz Playwright ampliada a consumo en tienda (listado/alta/detalle/edición), pendientes,
+  parqueo RH/empleado y tarifas. Recorre todos los pasos de ayuda, incluidos menú horizontal,
+  buscador, sesión/campana y formularios de catálogos. Verifica hints, iconos, teclado, ausencia
+  de desbordamiento y axe A/AA; portal a 390 px. Reporte por rol/ruta/pasos en tmp/auditoria-ui-v1.json.
+- Corregida pérdida de foco al cerrar ayuda durante la animación de driver.js, encontrada al
+  avanzar hasta el último paso. Ampliadas ayudas de campos de catálogos que repetían solo el hint.
+  Ayuda compartida incluye selectores nativos, campos bloqueados y solo lectura; los numéricos
+  ya no reciben instrucciones de fecha. Versión v1-12 ofrece nuevamente los recorridos actualizados.
+- Corregido contraste transitorio al alternar los botones de Prestaciones; sus colores cambian
+  sin interpolación. Se añade orientación de las tres gestiones y se actualiza su ayuda v1-12.
+- Nuevas aserciones E2E de endpoints v1 anónimos/RBAC, parqueo mensual de Q150 efectivamente
+  descontado/boleta y Aguinaldo proporcional confirmado con propiedad de PDF. Conservados los
+  escenarios de credenciales copiar/PDF, horarios, vacaciones 6.25/6, novedades, anticipo/pago
+  por departamento, Bono 14, reversión y finiquito. Login y salud se auditan también fuera del layout.
+- verify:migration reconstruye una copia desechable desde `v0.0` con servicios/migraciones/seeds
+  originales y datos de regresión. Aplica V021–V030; compara conteos de las 55 tablas anteriores,
+  todas las PK/columnas originales, hashes de credenciales, documentos/adjuntos BLOB, snapshots,
+  prestaciones, vacaciones y saldos/cuotas. Verifica constraints/objetos e idempotencia. Reporte
+  sin datos personales en tmp/migracion-v0-v1.json; copia/esquema se retiran al terminar.
+- db:verify usa `node --import tsx` con imports ESM de TypeScript, corrigiendo la incompatibilidad
+  Node 20 del runner previo; ya no requiere Node 24. verify:migration incorporado a verify:all.
+- verify:clean retira también sus imágenes de proyecto temporal y audita ayuda/axe del login y
+  cambio obligatorio, además de comprobar que las contraseñas no aparecen en localStorage.
+- README corregido a V030, con actualización v0, regresión y operación v1. DECISIONES consolida
+  A2–A12, fórmulas/archivos históricos, supuestos, límites y mejoras futuras.
+
+### Decisiones y supuestos
+
+- El bloqueo de meses futuros se conserva. El E2E de Aguinaldo usa historia exclusiva de 2025
+  (Q5,000 × 183/365 = Q2,506.85), anterior a los pagos de 2026. No se adelanta el reloj ni se
+  añaden vigencias ficticias a la aplicación: salarios/conceptos/parámetros pertenecen solo al
+  esquema N2E2E. El ejemplo de Bono 14 de enero–junio conserva 181/365 y Q2,479.45.
+- El E2E de parqueo completa mediante la API los pagos reales de su fixture de febrero a
+  septiembre y retira la ausencia pendiente exclusiva de la matriz. El intento de apertura
+  posterior al cierre se rechazó correctamente; no se relaja el control de historia fiscal.
+- Siete suites Oracle conservaban cantidades de migraciones anteriores a V029/V030. Se actualizan
+  sus esperados a V030 sin reducir aserciones de negocio, conservación, permisos ni rollback.
+- Los días numéricos del calendario son celdas seleccionables; los botones de acciones/navegación
+  tienen iconos. No se agregan iconos dentro de cada fecha.
+- No se proporcionó un respaldo externo de empresa v0: la prueba utiliza una copia reproducible
+  de la etiqueta v0.0 y datos históricos de regresión, nunca el esquema operativo. El despliegue
+  debe complementar esta cobertura con restauración/ensayo de su respaldo real.
+- La primera instalación aislada falló por espacio del disco Docker. Se retiraron caché sin uso,
+  imágenes de aceptación finalizadas e imágenes antiguas de pruebas de nomina2 sin contenedores.
+  Contenedores/volúmenes/credenciales operativos y otros proyectos conservados. El arranque repetido pasó.
+
+### Validación realizada
+
+- Node 20.20.2: lint, TypeScript strict (backend/frontend/E2E), builds y formato aprobados;
+  554 unitarias (328 backend, 226 frontend). La última repetición cubre la ayuda y contraste finales.
+- Doce suites Oracle/Supertest, 183 casos aprobados: empleados 2, pagos 15, novedades 14,
+  vacaciones 2, horarios 6, empresa 6, ubicaciones 6, códigos 9, seguridad/regresión 79,
+  prestaciones 10, solicitudes 18 y comunicación/tableros 16. Todos los esquemas retirados.
+- db:verify V000–V030 desde cero aprobado: 68 tablas de negocio y objetos/constraints válidos,
+  FK/índices, identities y seeds repetibles. Migración v0: 55 tablas previas, 157 registros originales
+  conservados; 167 después, por adición de un concepto, seis parámetros y tres versiones de plantillas.
+  PK, valores anteriores, documentos/adjuntos, snapshots, préstamos/cuotas, saldos y hashes íntegros;
+  segunda migración/seeds sin cambios. Copia y esquema desechables retirados.
+- 29 E2E aprobados con Chromium/API/Oracle reales: 28 en regresión completa (5 min), incluido
+  parqueo con descuento/boleta, y subpantallas por ADMIN/RH repetidas tras corregir su contraste.
+  Matriz: 128 vistas (ADMIN 57, RH 55, EMPLEADO 8 escritorio + 8 móvil), 1,804 pasos de ayuda,
+  más modales/formularios. Axe A/AA sin infracciones en las vistas verificadas. La nueva selección
+  de Prestaciones se comprueba también en el recorrido de sus subpantallas.
+- Inspeccionadas capturas de portal/boletas/simulación móvil y navegación de escritorio: sin
+  desbordamiento del documento; tablas con desplazamiento interno. Skeletons y vacíos orientativos
+  visibles. Reportes/capturas locales en tmp y playwright-report, ignorados por Git.
+- Auditoría de seguridad: RBAC/CSRF y propiedad en endpoints/documentos v1, cambio obligatorio,
+  logo privado y normalizado, rollback, ausencia de contraseñas en filas/auditoría y borradores.
+  Logs sin cuerpos/binds y con errores depurados. npm audit --omit=dev: cero vulnerabilidades.
+- verify:infra aprobado. Instalación aislada final con docker compose up --build, Oracle/volúmenes
+  nuevos, migraciones/seeds, TLS, primer login/cambio, ayuda/axe y secretos fuera de localStorage.
+  Contenedores, volúmenes, imágenes y credenciales exclusivos de aceptación retirados. Frontend
+  local actualizado conservando API, Oracle, volumen y credenciales; sin fixtures en la aplicación.
+- Ejecutadas todas las etapas de verify:all; tras encontrar fixtures/expectativas obsoletas y el
+  contraste, se repitieron las etapas afectadas. Migraciones históricas intactas, revisión de
+  secretos y git diff --check aprobados. El aviso no bloqueante de tamaño de chunk Vite se conserva.
+
+### Pendientes
+
+- Ningún pendiente técnico de V1-12. Commit de cierre en la rama v1; mejoras futuras en DECISIONES.
+- Operación: RH revisa datos/empresa/firmantes/vigencias/tarifas e historia real; backups, TLS y
+  calendarios posteriores conforme a README/DECISIONES. Sin integraciones bancarias/SAT/IGSS externas.
+
+### Cómo probar
+
+1. Copiar/configurar .env.example; `docker compose up --build -d --wait --wait-timeout 900`.
+2. Con Node 20, npm ci, Oracle saludable y Chromium instalado: `npm run verify:all`.
+3. Migración independiente: `npm run verify:migration` (requiere etiqueta Git v0.0).
+4. Revisar tmp/migracion-v0-v1.json, tmp/auditoria-ui-v1.json y playwright-report; son artefactos
+   locales ignorados. El esquema operativo no recibe fixtures ni cambios de credenciales.

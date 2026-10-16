@@ -18,7 +18,7 @@ docker compose up --build
 ```
 
 También: `docker compose up --build -d --wait --wait-timeout 900`. La primera preparación tarda
-varios minutos. La API espera Oracle saludable, aplica V000–V022 y seeds y luego inicia nginx.
+varios minutos. La API espera Oracle saludable, aplica V000–V030 y seeds y luego inicia nginx.
 No necesitas SQL manual, Instant Client ni instalar Node en el host para utilizar el sistema.
 
 - **Aplicación:** [https://localhost:8443/login](https://localhost:8443/login).
@@ -131,6 +131,7 @@ npm run build
 npm run format:check
 npm run verify:secrets
 npm run db:verify
+npm run verify:migration
 npm run verify:security
 npm run verify:prestaciones
 npm run verify:solicitudes
@@ -144,12 +145,12 @@ npm run verify:all
 ```
 
 `db:verify` aplica el esquema desde cero, comprueba idempotencia, constraints, identities,
-compilación, índices de FK/filtros y seeds repetibles. Las cuatro suites Oracle/Supertest verifican
+compilación, índices de FK/filtros y seeds repetibles. Las suites Oracle/Supertest verifican
 permisos, fechas, cálculos, propiedad, concurrencia y rollback real de auditoría. Administran únicamente
 esquemas aleatorios `N2TEST_*`/`N2SEC_*`; la API usa un usuario dedicado sin privilegios administrativos.
 
 `test:e2e` crea un esquema `N2E2E_*`, levanta API/Vite en 3018/5178 y ejecuta Chromium con autenticación,
-cookies y CSRF reales. Prueba los tres roles, alta de empleado, vacaciones/aprobación, quincena/cierre,
+cookies y CSRF reales. Prueba los tres roles, alta de empleado, vacaciones/aprobación, anticipo/pago mensual/cierre,
 constancia/entrega/descarga y recorre las páginas por rol con ayuda, hints, axe y portal móvil a 390 px.
 No reutiliza sesiones ni respuestas simuladas. Fixtures solo en el esquema desechable, retirado al salir.
 El informe local queda en `playwright-report`; no se graban trazas ni videos con credenciales.
@@ -303,3 +304,34 @@ con promedio de seis meses, vacaciones y proporcionales, preview PDF y confirmac
 Detalles, supuestos y endpoints en [Prestaciones](docs/PRESTACIONES.md).
 Pruebas: `npm run verify:pagos`, `npm run verify:prestaciones` y
 `npm run test:e2e -- --grep 'FASE V1-11'` (esquemas temporales).
+
+## Cierre y actualización de v0 a v1
+
+La rama `v1` incluye A2–A12. Antes de actualizar una instalación, respalda Oracle y conserva su
+volumen y `.env`. Ejecuta `docker compose up --build -d --wait --wait-timeout 900`: la API aplica
+V021–V030 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
+ni elimines el volumen. Un fallo de migración detiene el arranque para revisión.
+
+`npm run verify:migration` exige Git con la etiqueta `v0.0`, Node 20, `npm ci` y Oracle saludable.
+Reconstruye una copia aislada de v0 con sus servicios/seeds originales, añade historia de regresión
+y la migra a V030. Compara conteos de las 55 tablas anteriores, todas sus PK y columnas, préstamos,
+cuotas cobradas/pendientes, vacaciones, snapshots y bytes documentales; admite únicamente cambios
+con archivo del original o versionado explícito. Comprueba idempotencia y retira la copia. El reporte
+local `tmp/migracion-v0-v1.json` contiene conteos y huella, sin datos personales ni contraseñas.
+Esta prueba reproducible se complementa al desplegar con un ensayo del respaldo real de la empresa.
+
+Tras migrar, RH revisa ubicaciones/sexo/parentescos históricos pendientes, vehículos/tarifas de
+parqueo, vigencias legales, empresa/logo y fichas firmantes. Los textos/códigos anteriores permanecen
+como referencia; los periodos históricos conservan cálculos y motor v0. Las cuotas pendientes pasan
+a vencimiento mensual manteniendo importes, capital, cantidad y saldo.
+
+La aceptación completa es `npm run verify:all`: calidad, unitarias, Oracle/Supertest, migración v0,
+Playwright, infraestructura y arranque con volúmenes nuevos. Ejecuta las suites Oracle en secuencia.
+Playwright recorre todos los pasos de ayuda, botones e hints, páginas y formularios de los tres roles,
+menú/buscador con teclado, portal a 390 px, borradores, credenciales, horarios, vacaciones 6.25/6,
+novedades, parqueo cobrado, anticipo/pago por departamento, boletas, prestaciones y finiquito.
+`verify:clean` usa puertos, credenciales, contenedores, imágenes y volúmenes exclusivos de aceptación
+y los retira al finalizar. Requiere suficiente espacio libre **dentro del disco de Docker**.
+
+Consulta [decisiones y mejoras futuras](docs/DECISIONES.md#v1--automatización-y-cierre-v1-12) y
+[el resultado del cierre](docs/PROGRESO_V1.md).

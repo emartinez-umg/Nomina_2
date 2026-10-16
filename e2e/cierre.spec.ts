@@ -49,7 +49,7 @@ async function elegir(page: Page, label: string, texto?: string) {
   await expect(opcion).toBeVisible();
   await opcion.click();
 }
-async function tour(page: Page, ventana = false) {
+async function tour(page: Page, ventana = false, completo = false) {
   if (!ventana) await oferta(page);
   const activador = page
     .getByRole('button', {
@@ -62,8 +62,39 @@ async function tour(page: Page, ventana = false) {
   expect((await page.locator('.driver-popover-description').innerText()).length).toBeGreaterThan(
     80,
   );
+  const titulos: string[] = [];
+  if (completo) {
+    for (let paso = 0; paso < 160; paso++) {
+      const titulo = await page.locator('.driver-popover-title').innerText();
+      titulos.push(titulo);
+      expect(
+        (await page.locator('.driver-popover-description').innerText()).length,
+      ).toBeGreaterThan(80);
+      const siguiente = page
+        .locator('.driver-popover')
+        .getByRole('button', { name: 'Siguiente', exact: true });
+      if (!(await siguiente.isVisible())) break;
+      const avance = await page.locator('.driver-popover-progress-text').innerText();
+      await siguiente.click();
+      await expect(page.locator('.driver-popover-progress-text')).not.toHaveText(avance);
+    }
+    if (!ventana && (await page.locator('[data-tour="navegacion"]').count())) {
+      for (const titulo of [
+        'Navegación según tu rol',
+        'Encontrar una sección',
+        'Avisos y seguimiento',
+        'Tu sesión',
+        'Volver a consultar la ayuda',
+      ])
+        expect(titulos).toContain(titulo);
+    }
+    await expect(
+      page.locator('.driver-popover').getByRole('button', { name: 'Terminar', exact: true }),
+    ).toBeVisible();
+  }
   await page.getByRole('button', { name: 'Cerrar recorrido', exact: true }).click();
   await expect(activador).toBeFocused();
+  return titulos;
 }
 async function revisarUi(page: Page) {
   await expect(page.locator('h1').first()).toBeVisible();
@@ -74,7 +105,7 @@ async function revisarUi(page: Page) {
       campos
         .filter(
           (c) =>
-            !!c.querySelector('input:not([type=hidden]), textarea') &&
+            !!c.querySelector('input:not([type=hidden]), textarea, select') &&
             (!c.querySelector('.campo-hint')?.textContent?.trim() || !c.querySelector('label')),
         )
         .map((c) => c.textContent),
@@ -89,7 +120,15 @@ async function revisarUi(page: Page) {
   expect(axe.violations.map((v) => ({ id: v.id, nodos: v.nodes.map((n) => n.target) }))).toEqual(
     [],
   );
-  await tour(page);
+  const sinIcono = await page
+    .locator('button:visible')
+    .evaluateAll((botones) =>
+      botones
+        .filter((b) => !b.querySelector('svg') && !b.closest('.rdp-root'))
+        .map((b) => b.textContent),
+    );
+  expect(sinIcono).toEqual([]);
+  return tour(page, false, true);
 }
 
 test.describe('Cierre del proyecto con API y Oracle reales', () => {
@@ -217,6 +256,58 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       await page.keyboard.press('Escape');
       await expect(buscar).toBeFocused();
     });
+  test('FASE V1-12: aguinaldo proporcional confirmado y boleta privada', async ({
+    page,
+    browser,
+  }) => {
+    await entrar(page, 'RH');
+    await page.goto('/nomina/simular');
+    await oferta(page);
+    await elegir(page, 'Tipo de pago', 'Aguinaldo');
+    await page
+      .getByRole('combobox', { name: 'Año de mes del pago', exact: true })
+      .selectOption('2025');
+    await elegir(page, 'Objetivo', 'Un empleado');
+    await page.getByRole('combobox', { name: 'Empleado', exact: true }).fill('Persona E2E');
+    await page.getByRole('option').filter({ hasText: 'Persona E2E' }).click();
+    await page.getByRole('button', { name: 'Simular', exact: true }).click();
+    // Junio–noviembre 2025: 183 días; Q5,000 × 183 / 365 = Q2,506.85.
+    await expect(page.getByRole('table')).toContainText('2,506.85');
+    await expect(page.getByRole('table')).toContainText('183 / 365');
+    await page
+      .getByRole('checkbox', {
+        name: 'Confirmo que la historia salarial, comisiones y horas extra del ciclo están completas',
+      })
+      .check();
+    await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+    const pago = page.waitForResponse((r) => r.url().endsWith('/api/nomina/pagar'));
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    const respuesta = await pago;
+    expect(respuesta.status()).toBe(201);
+    const id = (await respuesta.json()).data.pagados[0];
+    const descarga = page.waitForEvent('download');
+    await page.getByRole('button', { name: `Boleta ${id}`, exact: true }).click();
+    expect((await descarga).suggestedFilename()).toMatch(/\.pdf$/);
+    await salir(page);
+    await entrar(page, 'EMPLEADO');
+    expect((await page.request.get(`/api/nomina/boletas/${id}/pdf`)).status()).toBe(200);
+    const ajeno = await browser.newContext();
+    const token = (await (await ajeno.request.get('http://127.0.0.1:5178/api/auth/csrf')).json())
+      .data.csrfToken;
+    expect(
+      (
+        await ajeno.request.post('http://127.0.0.1:5178/api/auth/login', {
+          headers: { 'X-CSRF-Token': token },
+          data: { usuario: 'ajeno.pruebas', contrasena: process.env.E2E_PASSWORD },
+        })
+      ).status(),
+    ).toBe(200);
+    expect(
+      (await ajeno.request.get(`http://127.0.0.1:5178/api/nomina/boletas/${id}/pdf`)).status(),
+    ).toBe(403);
+    await ajeno.close();
+  });
+
   test('FASE V1-7: alta guiada de empleado y validaciones de formato/fechas', async ({ page }) => {
     await entrar(page, 'RH');
     await page.goto('/empleados/nuevo');
@@ -790,6 +881,13 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       '/notificaciones',
       '/comunicacion/anuncios',
       '/tableros/admin',
+      '/empresa',
+      '/ubicaciones/departamentos',
+      '/codigos/vista-previa?entidad=departamentos&palabra=Ingeniería',
+      '/novedades/parqueo',
+      '/novedades/parqueo/tarifas',
+      '/novedades/pendientes?mes=2026-01',
+      '/nomina/pagos/zip?mes=2026-01',
     ])
       expect((await anon.request.get(`http://127.0.0.1:5178/api${ruta}`)).status()).toBe(401);
     await anon.close();
@@ -805,6 +903,9 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       '/solicitudes/plantillas',
       '/vacaciones/empleados/2/saldo',
       '/tableros/admin',
+      '/empresa',
+      '/novedades/pendientes?mes=2026-01',
+      '/nomina/pagos/zip?mes=2026-01',
     ])
       expect((await page.request.get(`/api${ruta}`)).status()).toBe(403);
     const propias = (await (await page.request.get('/api/solicitudes')).json()).data.registros;
@@ -851,7 +952,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
   test('todas las páginas por rol, ayuda, hints, teclado, accesibilidad y móvil', async ({
     page,
   }) => {
-    test.setTimeout(480000);
+    test.setTimeout(900000);
+    const auditoria: { rol: string; ruta: string; ancho: number; pasos: string[] }[] = [];
     const errores: string[] = [];
     page.on('pageerror', (e) => errores.push(e.message));
     await entrar(page, 'ADMIN');
@@ -877,6 +979,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         fechaDesembolso: hoy,
         referencia: 'AUDITORIA_PRESTAMO',
       },
+      'consumo-tienda': { mes: '2026-02', monto: '20.00', referencia: 'AUDITORIA_TIENDA' },
       comisiones: { mes: '2026-02', monto: '100.00', referencia: 'AUDITORIA_COMISION' },
       'horas-extra': { mes: '2026-02', horas: '1.00' },
       ausencias: {
@@ -909,6 +1012,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
           ? [
               '/mis-gestiones',
               '/mis-gestiones/boletas',
+              '/mis-gestiones/parqueo',
               '/mis-gestiones/vacaciones',
               '/mis-gestiones/solicitudes',
               '/mis-gestiones/datos',
@@ -924,6 +1028,9 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
               '/empleados/1/editar',
               '/empleados/carga-masiva',
               '/novedades',
+              '/novedades/pendientes',
+              '/novedades/parqueo',
+              '/configuracion/parqueo',
               '/planilla',
               '/nomina/simular',
               '/prestaciones',
@@ -937,17 +1044,25 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         const cs = await page.request.get('/api/catalogos');
         const cats = (await cs.json()).data as { slug: string }[];
         rutas.push(...cats.map((c) => `/catalogos/${c.slug}`), ...detalles);
-        for (const tipo of ['descuentos', 'prestamos', 'comisiones', 'horas-extra', 'ausencias'])
+        for (const tipo of [
+          'descuentos',
+          'prestamos',
+          'comisiones',
+          'consumo-tienda',
+          'horas-extra',
+          'ausencias',
+        ])
           rutas.push(`/novedades/${tipo}`, `/novedades/${tipo}/nuevo`);
       }
       for (const ruta of rutas) {
         await page.goto(ruta);
-        await revisarUi(page);
+        const pasos = await revisarUi(page);
+        auditoria.push({ rol, ruta, ancho: page.viewportSize()!.width, pasos });
         if (ruta === '/mis-gestiones/solicitudes')
           await expect(page.getByLabel('Buscar empleado', { exact: true })).toHaveCount(0);
         if (ruta.startsWith('/catalogos/') && ruta !== '/catalogos/empresa') {
           await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
-          await tour(page, true);
+          await tour(page, true, true);
           const a11y = await new AxeBuilder({ page })
             .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
             .analyze();
@@ -959,7 +1074,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         await page.setViewportSize({ width: 390, height: 844 });
         for (const ruta of rutas) {
           await page.goto(ruta);
-          await revisarUi(page);
+          const pasos = await revisarUi(page);
+          auditoria.push({ rol, ruta, ancho: 390, pasos });
           // Una captura completa debe comenzar arriba para ubicar correctamente elementos sticky.
           await page.evaluate(() => window.scrollTo(0, 0));
           await page.screenshot({
@@ -981,6 +1097,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       }
     }
     expect(errores).toEqual([]);
+    await mkdir('tmp', { recursive: true });
+    await writeFile('tmp/auditoria-ui-v1.json', JSON.stringify(auditoria, null, 2));
   });
 });
 
@@ -1417,6 +1535,81 @@ test('FASE V1-9: novedades mensuales, tarifas y ciclo de parqueo con ayuda y mó
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Dar de baja', exact: true })).toBeDisabled();
   await revisarUi(page);
+  // La auditoría dejó una ausencia pendiente histórica; se retira exclusivamente esa fixture.
+  const pendientes = (
+    await (await page.request.get('/api/novedades/ausencias?idEmpleado=1&estado=PENDIENTE')).json()
+  ).data.registros;
+  const csrf = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+  for (const ausencia of pendientes) {
+    expect(
+      (
+        await page.request.post(`/api/novedades/ausencias/${ausencia.id}/anular`, {
+          headers: { 'X-CSRF-Token': csrf },
+          data: {
+            motivo: 'Retiro de fixture pendiente para comprobar el pago mensual',
+            confirmado: true,
+          },
+        })
+      ).status(),
+    ).toBe(200);
+  }
+  // Completa la historia real de la fixture; no abre un acumulado sobre nóminas cerradas.
+  for (let numero = 2; numero <= 9; numero++) {
+    const body = {
+      mes: `2026-${String(numero).padStart(2, '0')}`,
+      tipoPago: 'PAGO',
+      objetivo: 'EMPLEADO',
+      idEmpleado: 1,
+    };
+    const simulacionPrevia = await page.request.post('/api/nomina/simular', {
+      headers: { 'X-CSRF-Token': csrf },
+      data: body,
+    });
+    expect(simulacionPrevia.status()).toBe(200);
+    const resultadoPrevio = (await simulacionPrevia.json()).data;
+    expect(resultadoPrevio.registros[0].alertas).toEqual([]);
+    expect(
+      (
+        await page.request.post('/api/nomina/pagar', {
+          headers: { 'X-CSRF-Token': csrf },
+          data: { ...body, hash: resultadoPrevio.hash, confirmado: true, novedadesCompletas: true },
+        })
+      ).status(),
+    ).toBe(201);
+  }
+  await page.goto('/nomina/simular');
+  await oferta(page);
+  await elegir(page, 'Tipo de pago', 'Pago del mes');
+  await elegir(page, 'Objetivo', 'Un empleado');
+  await page.getByRole('combobox', { name: 'Empleado', exact: true }).fill('Persona E2E');
+  await page.getByRole('option').filter({ hasText: 'Persona E2E' }).click();
+  const simulacion = page.waitForResponse((r) => r.url().endsWith('/api/nomina/simular'));
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  const resultado = (await (await simulacion).json()).data.registros[0];
+  expect(resultado.alertas).toEqual([]);
+  expect(
+    resultado.resultado.lineas.find(
+      (l: { concepto: { codigo: string } }) => l.concepto.codigo === 'PARQUEO',
+    ).monto,
+  ).toBe('150.00');
+  await page
+    .getByRole('checkbox', { name: 'Confirmo que las novedades del mes están completas' })
+    .check();
+  await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+  const pago = page.waitForResponse((r) => r.url().endsWith('/api/nomina/pagar'));
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  const respuesta = await pago;
+  expect(respuesta.status()).toBe(201);
+  const id = (await respuesta.json()).data.pagados[0];
+  const detallePago = (await (await page.request.get(`/api/nomina/boletas/${id}`)).json()).data;
+  expect(
+    detallePago.resultado.lineas.find(
+      (l: { concepto: { codigo: string } }) => l.concepto.codigo === 'PARQUEO',
+    ).monto,
+  ).toBe('150.00');
+  const descarga = page.waitForEvent('download');
+  await page.getByRole('button', { name: `Boleta ${id}`, exact: true }).click();
+  expect((await descarga).suggestedFilename()).toMatch(/\.pdf$/);
 });
 
 test('FASE V1-10: pagar departamento, revertir como ADMIN y volver a pagar empleado', async ({
@@ -1565,4 +1758,59 @@ test('FASE V1-11: finiquito al elegir empleado y cambiar egreso, PDF y baja conf
   expect((await liquidacion).status()).toBe(201);
   const ficha = await page.request.get('/api/empleados/2');
   expect((await ficha.json()).data.estado).toBe('EGRESADO');
+});
+
+// Estas páginas existen fuera del layout autenticado y conservan su propia ayuda.
+test('FASE V1-12: ayuda, hints y accesibilidad en login y salud', async ({ page }) => {
+  for (const ruta of ['/login', '/salud']) {
+    await page.goto(ruta);
+    await revisarUi(page);
+  }
+});
+
+test('FASE V1-12: subpantallas de planilla, prestaciones y plantillas por rol', async ({
+  page,
+}) => {
+  test.setTimeout(180000);
+  for (const rol of ['ADMIN', 'RH'] as const) {
+    await entrar(page, rol);
+    await page.goto('/planilla');
+    await oferta(page);
+    await page.getByRole('button', { name: 'Historial por mes y año', exact: true }).click();
+    await revisarUi(page);
+    for (const nombre of ['Historia fiscal y deducciones', 'Configurar IGSS']) {
+      await page.getByRole('button', { name: nombre, exact: true }).click();
+      const modal = page.locator('dialog[open]').last();
+      await expect(modal.locator('[role="status"]').filter({ hasText: 'Cargando' })).toHaveCount(0);
+      await tour(page, true, true);
+      const axe = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(axe.violations.map((v) => v.id)).toEqual([]);
+      await modal.getByRole('button', { name: 'Cerrar ventana', exact: true }).click();
+    }
+    await page.goto('/prestaciones');
+    await oferta(page);
+    for (const nombre of ['Indemnización y finiquito', 'Constancias de salario']) {
+      await page.getByRole('button', { name: nombre, exact: true }).click();
+      await revisarUi(page);
+    }
+    await page.goto('/solicitudes');
+    await oferta(page);
+    await page.getByRole('button', { name: 'Plantillas de documentos', exact: true }).click();
+    await expect(
+      page.getByRole('textbox', { name: 'Texto de la plantilla', exact: true }),
+    ).toBeVisible();
+    await tour(page, true, true);
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+    await page
+      .locator('dialog[open]')
+      .last()
+      .getByRole('button', { name: 'Cerrar ventana', exact: true })
+      .click();
+    await salir(page);
+  }
 });

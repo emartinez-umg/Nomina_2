@@ -50,17 +50,27 @@ export function pasosVisibles(
   // Complementa las secciones declarativas de cada módulo con todos los campos realmente visibles.
   for (const campo of alcance.querySelectorAll('[data-campo]')) {
     if (!visible(campo)) continue;
-    const control = campo.querySelector<HTMLInputElement>('input:not([type="hidden"]), textarea');
-    if (!control || control.disabled) continue;
+    const control = campo.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input:not([type="hidden"]), textarea, select',
+    );
+    if (!control) continue;
     const hint = campo.querySelector('.campo-hint')?.textContent?.trim() ?? '';
     const seleccion = control.getAttribute('role') === 'combobox';
-    const formato = seleccion
-      ? 'Escribe para buscar y elige una opción de la lista con clic o con las flechas y Enter. Escribir un nombre sin seleccionarlo no asigna el registro. Escape cierra las opciones.'
-      : control.inputMode === 'numeric'
-        ? 'Usa únicamente dígitos y los separadores mostrados. Las fechas se ingresan como dd/mm/aaaa; el calendario deshabilita fechas inválidas. Al pegar se retiran caracteres incompatibles: verifica el resultado.'
-        : control.inputMode === 'decimal'
-          ? 'Escribe el importe sin signo negativo y con los decimales indicados. En moneda, Q es quetzales y el punto separa centavos. Revisa el valor después de pegarlo.'
-          : 'Respeta el formato y la longitud indicados; al pegar se retiran caracteres incompatibles. Revisa el contenido antes de guardar.';
+    const formato = control.disabled
+      ? 'El campo está bloqueado por las condiciones de esta operación. Revisa la explicación y completa o cambia primero el dato del que depende; el servidor mantiene la misma restricción.'
+      : control instanceof HTMLSelectElement
+        ? 'Selecciona una opción de la lista. Con teclado usa Tab para enfocar, flechas para recorrer y Enter para elegir; no se admite texto libre fuera del catálogo.'
+        : control.readOnly
+          ? 'Este dato es de solo lectura. El sistema lo obtiene automáticamente; revisa la vista previa y el valor definitivo después de guardar. No debes escribirlo ni modificarlo.'
+          : seleccion
+            ? 'Escribe para buscar y elige una opción de la lista con clic o con las flechas y Enter. Escribir un nombre sin seleccionarlo no asigna el registro. Escape cierra las opciones.'
+            : control.inputMode === 'numeric'
+              ? control.getAttribute('placeholder')?.includes('dd/mm')
+                ? 'Ingresa la fecha como dd/mm/aaaa. El calendario deshabilita fechas inválidas; comprueba los límites y la relación con otras fechas antes de guardar.'
+                : 'Usa únicamente los dígitos y separadores del formato indicado. Al escribir o pegar se retiran caracteres incompatibles; verifica la longitud y el resultado antes de guardar.'
+              : control.inputMode === 'decimal'
+                ? 'Escribe el importe sin signo negativo y con los decimales indicados. En moneda, Q es quetzales y el punto separa centavos. Revisa el valor después de pegarlo.'
+                : 'Respeta el formato y la longitud indicados; al pegar se retiran caracteres incompatibles. Revisa el contenido antes de guardar.';
     agregar(
       campo,
       campo.getAttribute('data-campo')!,

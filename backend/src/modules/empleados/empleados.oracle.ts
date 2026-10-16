@@ -48,7 +48,7 @@ describe('FASE V1-7: migración de empleados sin pérdida', () => {
       );
     });
     codigo = String(await scalar('SELECT CODIGO FROM EMPLEADOS'));
-    expect(await ejecutarMigraciones(db, logger)).toBe(4);
+    expect(await ejecutarMigraciones(db, logger)).toBe(6);
   });
   afterAll(async () => {
     await db?.cerrar();

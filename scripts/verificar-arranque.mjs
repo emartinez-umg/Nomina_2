@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { chromium } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 const proyecto = `nomina2-aceptacion-${randomBytes(4).toString('hex')}`;
 const carpeta = await mkdtemp(join(tmpdir(), 'nomina2-aceptacion-'));
 const archivo = join(carpeta, '.env');
@@ -57,6 +58,27 @@ async function compose(args) {
     );
   });
 }
+async function auditarAcceso(page) {
+  const omitir = page.getByRole('button', { name: 'Ahora no', exact: true });
+  if (await omitir.isVisible()) await omitir.click();
+  const ayuda = page.getByRole('button', { name: 'Ayuda de esta página', exact: true });
+  await ayuda.click();
+  const recorrido = page.locator('.driver-popover');
+  for (let paso = 0; paso < 50; paso++) {
+    assert.ok((await recorrido.locator('.driver-popover-description').innerText()).length > 80);
+    const siguiente = recorrido.getByRole('button', { name: 'Siguiente', exact: true });
+    if (!(await siguiente.isVisible())) break;
+    await siguiente.click();
+  }
+  assert.ok(await recorrido.getByRole('button', { name: 'Terminar', exact: true }).isVisible());
+  await recorrido.getByRole('button', { name: 'Cerrar recorrido', exact: true }).click();
+  assert.ok(await ayuda.evaluate((b) => b === document.activeElement));
+  const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  assert.deepEqual(
+    a11y.violations.map((v) => v.id),
+    [],
+  );
+}
 let navegador;
 try {
   assert.match(proyecto, /^nomina2-aceptacion-[a-f0-9]{8}$/);
@@ -71,16 +93,20 @@ try {
   const errores = [];
   page.on('pageerror', (e) => errores.push(e.message));
   await page.goto(`https://127.0.0.1:${WEB_HTTPS_PORT}/login`);
+  await auditarAcceso(page);
   await page.getByLabel('Usuario', { exact: true }).fill('admin.instalacion');
   await page.getByLabel('Contraseña', { exact: true }).fill(contrasena);
   if (await page.getByRole('button', { name: 'Ahora no', exact: true }).isVisible())
     await page.getByRole('button', { name: 'Ahora no', exact: true }).click();
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
   await page.waitForURL('**/cambiar-contrasena');
+  await auditarAcceso(page);
   await page.getByLabel('Contraseña actual', { exact: true }).fill(contrasena);
   const nueva = `Aa!${randomBytes(16).toString('hex')}`;
   await page.getByLabel('Nueva contraseña', { exact: true }).fill(nueva);
   await page.getByLabel('Confirmar nueva contraseña', { exact: true }).fill(nueva);
+  const almacenamiento = await page.evaluate(() => JSON.stringify({ ...localStorage }));
+  assert.ok(!almacenamiento.includes(contrasena) && !almacenamiento.includes(nueva));
   if (await page.getByRole('button', { name: 'Ahora no', exact: true }).isVisible())
     await page.getByRole('button', { name: 'Ahora no', exact: true }).click();
   await page.getByRole('button', { name: 'Guardar contraseña', exact: true }).click();
@@ -104,6 +130,6 @@ try {
 } finally {
   await navegador?.close();
   // Solo retira el proyecto de aceptación generado en esta ejecución.
-  await compose(['down', '--volumes', '--remove-orphans']);
+  await compose(['down', '--volumes', '--remove-orphans', '--rmi', 'local']);
   await rm(carpeta, { recursive: true, force: true });
 }

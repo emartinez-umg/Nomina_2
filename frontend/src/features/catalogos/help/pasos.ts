@@ -2,7 +2,7 @@ import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 import type { Catalogo } from '../api/catalogos';
 export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyuda {
   return {
-    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}${cat.slug === 'centros-trabajo' ? '-v1-4' : cat.slug === 'horarios' ? '-v1-6' : ''}`,
+    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}-v1-12`,
     pasos: formulario
       ? [
           {
@@ -18,7 +18,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             descripcion:
               f.tipo === 'codigo'
                 ? 'El código se genera a partir del nombre: iniciales sin conectores o primeras letras. Ante coincidencias usa consonantes y luego un número. La vista previa no reserva el código; al guardar se asigna sin duplicados y será permanente aunque renombres el registro.'
-                : `${f.hint} ${f.requerido ? 'Es obligatorio.' : 'Puede dejarse vacío.'} ${f.tipo === 'referencia' ? 'Escribe para buscar registros reales; puedes cargar más opciones. Un registro inactivo no se acepta para nuevas asignaciones.' : ''}`,
+                : `${f.hint} ${f.requerido ? 'Es obligatorio.' : 'Puede dejarse vacío.'} ${f.tipo === 'referencia' ? 'Escribe para buscar registros reales; puedes cargar más opciones. Un registro inactivo no se acepta para nuevas asignaciones.' : 'Respeta el formato y la longitud indicados. Revisa el resultado al pegar; al salir del campo verás cómo corregir un dato inválido. Guardar vuelve a comprobar duplicados y referencias en el servidor.'}`,
           })),
           ...(cat.slug === 'centros-trabajo'
             ? [

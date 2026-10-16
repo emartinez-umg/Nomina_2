@@ -8,7 +8,6 @@ import process from 'node:process';
 const requireBackend = createRequire(new URL('../backend/package.json', import.meta.url));
 const oracledb = requireBackend('oracledb');
 const { verify } = requireBackend('argon2');
-const { tsImport } = requireBackend('tsx/esm/api');
 
 // DDL administrativo exclusivo de esta prueba. Los identificadores son aleatorios y validados;
 // Oracle no permite binds para nombres de esquema. Nunca se borra el esquema de aplicación.
@@ -41,21 +40,12 @@ const admin = {
 };
 process.env.TZ = 'America/Guatemala';
 oracledb.fetchAsString = [oracledb.CLOB];
-const { crearBaseDatos } = await tsImport('../backend/src/shared/db/pool.ts', import.meta.url);
-const { validarEntorno } = await tsImport('../backend/src/config/env.schema.ts', import.meta.url);
-const { crearLogger } = await tsImport('../backend/src/config/logger.ts', import.meta.url);
-const { ejecutarMigraciones } = await tsImport(
-  '../backend/src/shared/db/migraciones.ts',
-  import.meta.url,
-);
-const { ejecutarSeeds, aplicarSeeds } = await tsImport(
-  '../backend/src/shared/db/seeds.ts',
-  import.meta.url,
-);
-const { crearSeedsRepository } = await tsImport(
-  '../backend/src/shared/db/seeds.repository.ts',
-  import.meta.url,
-);
+const { crearBaseDatos } = await import('../backend/src/shared/db/pool.ts');
+const { validarEntorno } = await import('../backend/src/config/env.schema.ts');
+const { crearLogger } = await import('../backend/src/config/logger.ts');
+const { ejecutarMigraciones } = await import('../backend/src/shared/db/migraciones.ts');
+const { ejecutarSeeds, aplicarSeeds } = await import('../backend/src/shared/db/seeds.ts');
+const { crearSeedsRepository } = await import('../backend/src/shared/db/seeds.repository.ts');
 const logger = crearLogger('silent');
 let db;
 let creado = false;

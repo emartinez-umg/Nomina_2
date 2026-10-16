@@ -285,7 +285,7 @@ describe('FASE V1-9: migración, novedades mensuales y parqueo con Oracle real',
         "INSERT INTO COMISIONES(ID_EMPLEADO,ID_PERIODO_NOMINA,MONTO,DESCRIPCION,REFERENCIA) SELECT :id,ID_PERIODO_NOMINA,60,'Comisión con referencia repetida válida v0','MIGRADA_PAGADA' FROM PERIODOS_NOMINA WHERE FECHA_INICIO=TO_DATE(:fecha,'YYYY-MM-DD')",
         { id, fecha },
       );
-    expect(await ejecutarMigraciones(db, logger)).toBe(3);
+    expect(await ejecutarMigraciones(db, logger)).toBe(4);
   });
   afterAll(async () => {
     await db?.cerrar();

@@ -150,7 +150,7 @@ export function PrestacionesPage() {
       <p className="mb-5 text-secundario">
         Promedios reales, liquidaciones y constancias de salario.
       </p>
-      <div className="my-4 flex flex-wrap gap-2">
+      <div className="my-4 flex flex-wrap gap-2" data-tour="prestaciones-secciones">
         {[
           ['anual', 'Bono 14 y aguinaldo'],
           ['finiquito', 'Indemnización y finiquito'],
@@ -160,6 +160,7 @@ export function PrestacionesPage() {
             key={t}
             icono={t === 'constancia' ? 'documento' : 'planilla'}
             variante={tab === t ? 'primario' : 'secundario'}
+            className="transition-none"
             onClick={() => setTab(t!)}
           >
             {label}
