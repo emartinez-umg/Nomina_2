@@ -1,0 +1,74 @@
+{
+  "version": "V000–V030",
+  "original": {
+    "INDEX": 763,
+    "LOB": 22,
+    "PACKAGE": 1,
+    "PACKAGE BODY": 1,
+    "SEQUENCE": 73,
+    "TABLE": 73,
+    "TRIGGER": 82
+  },
+  "desde_migraciones": {
+    "INDEX": 763,
+    "LOB": 22,
+    "PACKAGE": 1,
+    "PACKAGE BODY": 1,
+    "SEQUENCE": 73,
+    "TABLE": 73,
+    "TRIGGER": 82
+  },
+  "importada": {
+    "INDEX": 763,
+    "LOB": 22,
+    "PACKAGE": 1,
+    "PACKAGE BODY": 1,
+    "SEQUENCE": 73,
+    "TABLE": 73,
+    "TRIGGER": 82
+  },
+  "restricciones": {
+    "C": 943,
+    "P": 73,
+    "R": 249,
+    "U": 93
+  },
+  "identities": 73,
+  "catalogos": {
+    "ROLES": 3,
+    "CONFIG_CODIGOS": 18,
+    "DEPARTAMENTOS_GT": 22,
+    "MUNICIPIOS_GT": 340,
+    "TIPOS_CONTRATO": 3,
+    "TIPOS_DESCUENTO": 6,
+    "TIPOS_AUSENCIA": 5,
+    "TIPOS_SOLICITUD": 8,
+    "PARENTESCOS": 12,
+    "CONCEPTOS_NOMINA": 22,
+    "PARAMETROS_LEGALES": 44,
+    "TIPOS_DEDUCCION_ISR": 3,
+    "TRAMOS_ISR": 2,
+    "FERIADOS": 13,
+    "PLANTILLAS_DOCUMENTO": 6
+  },
+  "diferencias_migraciones": [],
+  "diferencias_importacion": [],
+  "seguridad": {
+    "hashes_reales": 0,
+    "correos_reales": 0,
+    "dpi": 0,
+    "rutas_locales": 0,
+    "hash_admin_sintetico": 1
+  },
+  "idempotencia": true,
+  "insercion_identity_y_codigo": true,
+  "instalador_sqlplus": true,
+  "sha256": {
+    "00_instalar_todo.sql": "377c74a65dfb5eb107d6b32650559355ea9b0738389351bac1ac52fab7f77398",
+    "01_esquema.sql": "0878739a80e4465411f3fa43bdae21717fadd513f6fabfb7a1ad222a27aa8579",
+    "02_catalogos.sql": "cfa71f582fe4f3b90f39d16fb7242323986f4487525f806fcd385d50c99f70f6",
+    "03_admin_inicial.sql": "8b2c5b0c815647d8fcde8a00ba478ad9188a6b505e4200cac06fb29b43d3ad2c",
+    "04_versiones.sql": "e5983ceae0f2ffafa87976b2eda5b70a32c0e3199a211557dc484a1fc276480e",
+    "05_verificar.sql": "57e9801b754cb82ae2abdd6c3ab4f2e7a5a4a58ffeedb7368792f41ea4d9888b"
+  }
+}

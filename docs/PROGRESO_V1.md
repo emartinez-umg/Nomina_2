@@ -1241,3 +1241,84 @@ Estado: completada el 15/10/2026. Rama `v1`.
 3. Migración independiente: `npm run verify:migration` (requiere etiqueta Git v0.0).
 4. Revisar tmp/migracion-v0-v1.json, tmp/auditoria-ui-v1.json y playwright-report; son artefactos
    locales ignorados. El esquema operativo no recibe fixtures ni cambios de credenciales.
+
+## Exportación compartible de Oracle — tarea independiente
+
+Estado: completada el 15/10/2026. Rama `v1`; sin cambios de lógica ni migraciones.
+
+### Hecho y decisiones
+
+- Leídos AGENTS.md/adendo y PROGRESO_V1.md completos. Inicio limpio en `v1`.
+- `npm run db:export` consulta el contenedor Oracle por SQLPlus/DBMS_METADATA, exporta DDL
+  portable y catálogos de una lista explícita y contrasta con migraciones reconstruidas.
+  Importa en un segundo esquema vacío; solo los esquemas aleatorios propios reciben escrituras.
+- `db/export/00_instalar_todo.sql` coordina esquema, catálogos MERGE, ADMIN sintético,
+  historial técnico V000–V030 y verificación de instalación. README explica Docker/SQLPlus/SQLcl.
+- Se conservan identidades, constraints, índices, PL/SQL, comentarios y códigos de catálogos.
+  Las FK se difieren para resolver ciclos; secuencias identity e índices internos no se duplican.
+  Las reservas se reconstruyen únicamente para catálogos, sin contadores transaccionales originales.
+- La lista de datos excluye empleados/salarios, usuarios reales, sesiones/tokens, auditoría,
+  notificaciones, empresa/logo, documentos/firmas/PDF y registros de operación. Se eliminan
+  autores/fechas/motivos originales de catálogos; las vigencias de negocio sí se conservan.
+- ADMIN de ejemplo `admin.inicial`, correo reservado y contraseña pública documentada;
+  hash argon2id exclusivo de la exportación, cambio obligatorio y MERGE que nunca lo restablece.
+  No se consulta ni reutiliza ADMIN_PASSWORD del entorno. La auditoría solo permite ese hash.
+- Diagrama completo generado desde las FK reales; se preserva la documentación histórica del ERD.
+
+### Supuestos
+
+- Se exportan los catálogos solicitados y TIPOS_DEDUCCION_ISR por su función fiscal. Organización,
+  bancos, empresa, tarifas de parqueo y fichas se completan en destino; no se inventan datos.
+- Un nombre oficial del INE que coincide con una dirección histórica no es un dato privado del
+  catálogo público: la comparación de direcciones exceptúa esa coincidencia exacta. No se copian
+  filas de empleados. Cualquier otro dato privado/patrón encontrado bloquea la entrega.
+- Los nombres SYS_C/columnas internas y contadores identity se normalizan al comparar esquemas;
+  Oracle también reordena constraints al recrear tablas: se ordenan solo las restricciones,
+  conservando orden de columnas y contenido exacto de literales. Las reglas, columnas, tipos,
+  índices, estados y código PL/SQL deben coincidir.
+- Las 73 tablas reales son las 68 del manifiesto funcional más CONFIG_CODIGOS,
+  SECUENCIAS_CODIGOS, REGISTRO_CODIGOS, VERSION_ESQUEMA y PRUEBA_INFRAESTRUCTURA.
+  El conteo histórico de 68 no incluía estas cinco; no representa divergencia con migraciones.
+
+### Validación y pendientes
+
+- Lint y TypeScript strict aprobados. Node 20.20.2: 328 pruebas backend y 226 frontend aprobadas.
+  Supertest necesitó permisos de puertos locales tras EPERM del sandbox, sin cambios en las pruebas.
+- Seis pruebas del exportador aprobadas: escaping, dependencias/ciclos, detección de cambios
+  reales, orden de constraints/literales, CLOB JSON y rechazo de datos privados/rutas de macOS,
+  Linux y Windows. Integradas en `npm test` y scripts incluidos en lint; 560 pruebas en total.
+- Verificación Oracle completada: original, V000–V030 reconstruidas y nueva instalación con
+  idénticos objetos/columnas/reglas. `00_instalar_todo.sql` ejecutado realmente dentro del
+  contenedor; 15 catálogos y reservas repetidos sin cambios, hash/cambio obligatorio válidos,
+  siguiente inserción identity/código con rollback y tablas privadas vacías. Informe adjunto.
+- La serialización contempla CLOB JSON, UTF-8, comillas, saltos de línea y límites de SQLPlus.
+  Los literales multilineales usan CHR para evitar interpretar contenido como comandos.
+  Se comprueba el cierre de cada respuesta de Oracle, incluso cuando no devuelve filas.
+- Las secciones generadas pasan Prettier automáticamente. Todos los esquemas y carpetas de
+  pruebas exclusivos se retiran; no se cambia ninguna credencial ni dato del esquema operativo.
+- Comprobación final: cero esquemas N2EXP restantes; esquema operativo con 31 migraciones
+  aplicadas y cero objetos inválidos. Los seis SHA-256 de los scripts entregados coinciden con
+  el informe; auditoría final de scripts y README sin datos privados ni rutas locales.
+- Sin pendientes técnicos. El receptor completa organización/empresa/firmantes y revisa vigencias
+  y calendarios para su operación, conforme al README de la exportación.
+
+### Cómo probar
+
+1. Oracle saludable y dependencias instaladas: `npm run db:export`.
+2. Seguir `db/export/README.md` en un contenedor/esquema nuevo; ejecutar `00_instalar_todo.sql`.
+3. Revisar `db/export/verificacion.json`, `05_verificar.sql` y el ERD.
+4. `npm run lint`; `npm test`; `npm run typecheck`; `npm run format:check`.
+
+<!-- EXPORTACION_VERIFICACION_INICIO -->
+
+### Comprobación automática de la exportación (V000–V030)
+
+- Objetos originales/importados: INDEX 763/763, LOB 22/22, PACKAGE 1/1, PACKAGE BODY 1/1, SEQUENCE 73/73, TABLE 73/73, TRIGGER 82/82.
+- Restricciones originales/importadas: {"C":943,"P":73,"R":249,"U":93}; 73 identities.
+- Diferencias frente a migraciones reconstruidas: 0. Ninguna.
+- Diferencias de la importación: 0. MERGE repetidos, ADMIN sintético argon2id/cambio obligatorio,
+  tablas privadas vacías e inserción identity/código verificados. Ningún dato operativo modificado.
+- Auditoría: cero hashes/correos/DPI reales, tokens o rutas locales; un hash sintético público permitido.
+- Informe reproducible: db/export/verificacion.json. Los esquemas exclusivos N2EXP se eliminan al terminar.
+
+<!-- EXPORTACION_VERIFICACION_FIN -->
