@@ -73,7 +73,13 @@ function FormularioRestablecer({ empleado, cerrar }: { empleado: Empleado; cerra
         </p>
       )}
       <div data-tour="restablecer-confirmar" className="my-4 flex justify-end gap-3">
-        <Button icono="cancelar" variante="secundario" disabled={ocupado} onClick={cerrar}>
+        <Button
+          icono="cancelar"
+          variante="secundario"
+          disabled={ocupado}
+          onClick={cerrar}
+          cancelarFormulario
+        >
           Cancelar
         </Button>
         {!revision ? (

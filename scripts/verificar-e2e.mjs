@@ -1,7 +1,11 @@
+import process from 'node:process';
+import console from 'node:console';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 const usuario = `N2E2E_${randomBytes(6).toString('hex').toUpperCase()}`;
 const clave = `T${randomBytes(12).toString('hex')}`;
+const produccion = process.argv.includes('--production');
+const imagen = `nomina2-r2-e2e-${randomBytes(6).toString('hex')}`;
 function administrar(sql) {
   const r = spawnSync(
     'docker',
@@ -21,14 +25,26 @@ try {
     `CREATE USER ${usuario} IDENTIFIED BY "${clave}" DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;\nGRANT CONNECT, RESOURCE TO ${usuario};`,
   );
   creado = true;
+  if (produccion) {
+    const build = spawnSync('docker', ['build', '-f', 'frontend/Dockerfile', '-t', imagen, '.'], {
+      stdio: 'inherit',
+    });
+    if (build.status !== 0) throw new Error('No se pudo construir el frontend de producción.');
+  }
   const r = spawnSync(
     process.execPath,
-    ['node_modules/@playwright/test/cli.js', 'test', ...process.argv.slice(2)],
+    [
+      'node_modules/@playwright/test/cli.js',
+      'test',
+      ...process.argv.slice(2).filter((a) => a !== '--production'),
+    ],
     {
       stdio: 'inherit',
       env: {
         ...process.env,
         NODE_ENV: 'test',
+        E2E_PRODUCTION: produccion ? '1' : '0',
+        E2E_WEB_IMAGE: imagen,
         TZ: 'America/Guatemala',
         DB_USER: usuario,
         DB_PASSWORD: clave,
@@ -43,6 +59,10 @@ try {
   );
   process.exitCode = r.status ?? 1;
 } finally {
+  if (produccion) {
+    spawnSync('docker', ['rm', '-f', `${imagen}-web`], { stdio: 'ignore' });
+    spawnSync('docker', ['image', 'rm', imagen], { stdio: 'ignore' });
+  }
   if (creado) {
     administrar(`DROP USER ${usuario} CASCADE;`);
     console.log('✓ Esquema E2E temporal eliminado.');

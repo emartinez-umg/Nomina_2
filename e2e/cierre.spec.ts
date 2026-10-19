@@ -7,7 +7,14 @@ async function oferta(page: Page) {
   const dialogos = page.locator('dialog[open]');
   const alcance = (await dialogos.count()) ? dialogos.last() : page;
   const b = alcance.getByRole('button', { name: 'Ahora no', exact: true }).last();
-  if (await b.isVisible()) await b.click();
+  if (await b.isVisible()) {
+    try {
+      await b.click({ timeout: 2000 });
+    } catch (error) {
+      // La oferta opcional puede retirarse al restaurar la preferencia de esa página.
+      if (await b.isVisible()) throw error;
+    }
+  }
 }
 async function entrar(page: Page, rol: 'ADMIN' | 'RH' | 'EMPLEADO') {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -1270,6 +1277,7 @@ test.describe('FASE V1-4: ubicaciones oficiales', () => {
     await page.getByRole('combobox', { name: 'Municipio', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: 'tmp/pdfs/ubicaciones-centro.png', fullPage: true });
     await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await page.getByRole('button', { name: 'Conservar borrador y salir', exact: true }).click();
     await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
     await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
@@ -1337,6 +1345,7 @@ test('FASE V1-6: bloques, borrador, duplicado y horario desde empleado', async (
   ).toBe(48);
   await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await page.getByRole('button', { name: 'Conservar borrador y salir', exact: true }).click();
   await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(page.getByText('Horas semanales: 44.00 · Jornada diurna')).toBeVisible();

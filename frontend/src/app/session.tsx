@@ -24,6 +24,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       try {
         return await consultarSesion(signal);
       } catch (e) {
+        if (signal.aborted) throw e;
         if (e instanceof ErrorApi && e.estado === 401) {
           if (client.getQueryData(claveSesion)) setExpirada(true);
           return null;
@@ -47,6 +48,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   );
   useEffect(() => {
     const vencer = () => {
+      if (!client.getQueryData(claveSesion)) return;
       establecer(null);
       setExpirada(true);
     };

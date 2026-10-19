@@ -777,7 +777,13 @@ function Resolver({
                 : 'El rechazo conserva el historial y no descuenta días.'}
           </p>
           <div className="flex gap-3 justify-end">
-            <Button icono="cancelar" variante="secundario" disabled={m.isPending} onClick={cerrar}>
+            <Button
+              icono="cancelar"
+              variante="secundario"
+              disabled={m.isPending}
+              onClick={cerrar}
+              cancelarFormulario
+            >
               Cancelar
             </Button>
             <Button
@@ -1003,7 +1009,13 @@ function CargarPrevias({ id, cerrar }: { id: string; cerrar: () => void }) {
           </p>
         )}
         <div className="flex gap-3 justify-end mt-5">
-          <Button icono="cancelar" variante="secundario" disabled={m.isPending} onClick={cerrar}>
+          <Button
+            icono="cancelar"
+            variante="secundario"
+            disabled={m.isPending}
+            onClick={cerrar}
+            cancelarFormulario
+          >
             Cancelar
           </Button>
           {confirmar ? (

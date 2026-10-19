@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import { DraftExitContext } from './DraftExitContext';
 import type { FormDraft } from '../../hooks/useFormDraft';
 import { Button } from '../ui/Button';
-import { ConfirmModal } from '../ui/Modal';
+import { ConfirmModal, Modal } from '../ui/Modal';
 import { iconos } from '../ui/icons';
 
 export function FormDraftNotice({ draft }: { draft: FormDraft }) {
+  const scope = useContext(DraftExitContext);
+  useEffect(() => scope.registrar(draft), [scope, draft]);
   const [confirmar, setConfirmar] = useState(false);
   const [ahora, setAhora] = useState(Date.now());
   useEffect(() => {
@@ -43,7 +46,7 @@ export function FormDraftNotice({ draft }: { draft: FormDraft }) {
                 ? 'Borrador guardado'
                 : 'Autoguardado de borrador activado'}
           </p>
-          {draft.guardado && (
+          {(draft.guardado || draft.modificado) && (
             <Button icono="eliminar" variante="texto" onClick={() => setConfirmar(true)}>
               Descartar borrador
             </Button>
@@ -51,9 +54,10 @@ export function FormDraftNotice({ draft }: { draft: FormDraft }) {
         </div>
       )}
       <p className="campo-hint mt-2">
-        Se guarda en este navegador mientras escribes. Al volver, pulsa Continuar para retomarlo.
-        Guardar con éxito o cerrar sesión elimina el borrador. Contraseñas, tokens y archivos quedan
-        excluidos; vuelve a seleccionar los adjuntos.
+        Se guarda en este navegador mientras escribes. Al volver, pulsa Continuar para retomarlo. Al
+        cancelar puedes conservarlo o descartarlo y salir. Descartar reinicia los campos y elimina
+        el borrador. Guardar con éxito o cerrar sesión elimina el borrador. Contraseñas, tokens y
+        archivos quedan excluidos; vuelve a seleccionar los adjuntos.
       </p>
       {draft.error && (
         <p className="campo-hint">
@@ -72,6 +76,25 @@ export function FormDraftNotice({ draft }: { draft: FormDraft }) {
             setConfirmar(false);
           }}
         />
+      )}
+      {draft.salida && (
+        <Modal abierto titulo="Salir del formulario" onCerrar={draft.volver}>
+          <p className="my-6">Elige qué hacer con los datos que escribiste antes de salir.</p>
+          {draft.error && (
+            <p role="alert">
+              No se pudo conservar el borrador. Revisa el almacenamiento del navegador o vuelve al
+              formulario.
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button icono="guardar" onClick={draft.conservarYSalir}>
+              Conservar borrador y salir
+            </Button>
+            <Button icono="eliminar" variante="peligro" onClick={draft.descartarYSalir}>
+              Descartar y salir
+            </Button>
+          </div>
+        </Modal>
       )}
     </aside>
   );

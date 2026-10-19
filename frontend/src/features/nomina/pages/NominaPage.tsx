@@ -786,6 +786,7 @@ function Planilla({
         <FormErrorSummary mensajes={[error]} />
         <div className="flex justify-end gap-3 mt-4">
           <Button
+            cancelarFormulario
             icono="cancelar"
             variante="secundario"
             disabled={actuar.isPending}
@@ -1014,6 +1015,7 @@ function RevertirPagoControl({ id }: { id: number }) {
           <FormErrorSummary mensajes={[error]} />
           <div className="flex justify-end gap-3 mt-4">
             <Button
+              cancelarFormulario
               icono="cancelar"
               variante="secundario"
               disabled={m.isPending}

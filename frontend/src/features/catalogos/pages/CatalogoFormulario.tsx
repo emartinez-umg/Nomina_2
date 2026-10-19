@@ -145,7 +145,7 @@ export function CatalogoFormulario({
             }
           })}
         >
-          <FormDraftNotice draft={draft} />
+          {!revision && <FormDraftNotice draft={draft} />}
           <div className="my-4 flex justify-between gap-3">
             <p className="text-sm text-secundario">Los campos con * son obligatorios.</p>
             <HelpButton />
@@ -334,6 +334,7 @@ export function CatalogoFormulario({
               variante="secundario"
               disabled={mutation.isPending}
               onClick={cerrar}
+              cancelarFormulario
             >
               Cancelar
             </Button>

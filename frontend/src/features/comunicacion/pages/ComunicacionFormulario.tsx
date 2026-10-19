@@ -392,7 +392,13 @@ function Editor({
         mensajeServidor={m.error?.message}
       />
       <div className="flex gap-3 justify-end">
-        <Button icono="cancelar" variante="secundario" disabled={m.isPending} onClick={onCerrar}>
+        <Button
+          icono="cancelar"
+          variante="secundario"
+          disabled={m.isPending}
+          onClick={onCerrar}
+          cancelarFormulario
+        >
           Cancelar
         </Button>
         <Button icono="guardar" type="submit" cargando={m.isPending}>

@@ -1341,3 +1341,107 @@ Estado: completada el 16/10/2026. Rama `v1`; esquema y lógica de aplicación co
   SHA-256 de la copia en Descargas idéntico al registrado en `verificacion.json`.
 - Cómo usar: compartir únicamente `nomina2_completo.sql`; conectar con un usuario de aplicación
   de un esquema vacío en XEPDB1 y ejecutarlo completo como script. Sin pendientes técnicos.
+
+## Ronda 2
+
+### FASE R2-1 — Login, módulos de producción y borradores
+
+Estado: completada el 19/10/2026. Rama `v1.1`, ya existente y descendiente de `v1`.
+Al iniciar, únicamente AGENTS.md tenía cambios del usuario (adendo v1.1); se conservan.
+Alcance limitado a B1, sin migraciones ni cambios de cálculo de nómina.
+
+#### Reproducción y causas raíz
+
+- **Login:** con cookie de sesión vencida, `/auth/sesion` devuelve 401 sin retirarla. El primer
+  `/auth/csrf` intenta autenticar esa cookie, la retira y responde 401 antes de que se envíen las
+  credenciales. El cliente perdía la intención `notificarSesion: false` del login al obtener CSRF,
+  propagando el aviso «Inicia sesión para continuar.» al formulario. Además, el catch de la consulta
+  inicial podía marcar expirada una sesión nueva por un resultado 401 cancelado, y el guard no
+  distinguía la llegada directa al login de una redirección desde una ruta protegida.
+  Regresión nueva del cliente: primer GET CSRF 401, segundo 200 y un solo POST login; falló antes.
+- **Anuncios/Eventos:** reproducido contra el nginx original de `https://localhost:8443`:
+  `/assets/inexistente.js` respondía **200, Content-Type text/html**, con el index y sin Cache-Control.
+  La ubicación genérica de SPA incluía también los JS; solo `.mjs` tenía un 404 explícito. Un hash
+  anterior después de sustituir la imagen reproducía así el error MIME comunicado. No se disponía
+  del hash exacto del navegador original. Se verifican el chunk actual de ComunicacionPage y el
+  grafo completo del manifiesto, además de simular en Playwright un módulo perdido entre visitas.
+  El Dockerfile ya excluía dist del contexto: no se encontró mezcla de chunks en ese paso.
+- **Borradores:** después de descartar, el hook levantaba la supresión en un microtask. Un cambio
+  posterior de paso o un valor derivado programaba nuevamente el autoguardado; el desmontaje además
+  vaciaba ese debounce y recreaba la clave eliminada. Los valores iniciales tenían referencias
+  compartidas, y Cancelar solo cerraba, conservando incondicionalmente. Regresión nueva reproduce
+  edición → descarte → valor derivado/paso → debounce/desmontaje/reapertura; falló antes del arreglo.
+- Verificación previa: **561 pruebas aprobadas** (328 backend, 226 frontend, siete exportador) con
+  Node 20.20.2; tres logins Playwright/API/Oracle anteriores aprobados. La primera corrida de Supertest
+  encontró EPERM del sandbox; la repetición autorizada pasó sin cambiar las pruebas.
+
+#### Correcciones y decisiones
+
+- Solo el GET CSRF previo al login puede repetirse una vez después de que el servidor retire las
+  cookies vencidas; el POST de credenciales nunca se repite. Se mantiene CSRF y los errores reales.
+  Se propaga el contexto de aviso, se ignoran respuestas canceladas y 401 de generaciones anteriores;
+  sin una sesión establecida un evento global no anuncia una expiración. El guard aporta el motivo
+  de redirección y el login exitoso reemplaza la ruta sin conservar ese estado.
+- nginx separa `/assets/` con 404 real de texto y `nosniff`; index/rutas HTML usan no-store y los
+  assets con hash exitosos un año/immutable, conservando cabeceras de seguridad. Imagen con raíz
+  limpia, Vite emptyOutDir y manifiesto; el build verifica archivos y dependencias del grafo.
+- `vite:preloadError` registra en sessionStorage una recarga única por versión del bundle. Si el
+  fallo persiste, React Router muestra «Algo salió mal», Reintentar y Recargar. Reintentar reinicia
+  el cargador lazy de la ruta; sin almacenamiento disponible se evita la recarga automática.
+- Descartar cancela el debounce antes del reset, copia los valores iniciales y suprime autoguardados
+  posteriores hasta otra edición real. Guardar correctamente también limpia y cancela. Cancelar,
+  Cerrar y Escape en modales usan un alcance compartido por ventana: permiten conservar y salir
+  (vaciando inmediatamente el debounce) o descartar y salir; sin datos salen directamente. Los
+  formularios de empleado/novedades integran el mismo flujo de salida. No se bloquea la navegación
+  general, conforme a A3. Hints y ayuda de login/borradores actualizados.
+- La conservación y el descarte siguen excluyendo contraseñas, tokens y archivos. Las pruebas E2E
+  usan API/Oracle reales en un esquema desechable; los datos operativos y credenciales se conservan.
+  El modo `--production` prueba el build real en nginx/Docker por TLS, separado del servicio local.
+- Se actualizan a propósito los E2E anteriores que cancelaban esperando conservar: ahora eligen
+  «Conservar borrador y salir»; se preservan sus restantes aserciones.
+
+#### Validación y pendientes
+
+- Node 20.20.2: **574 pruebas aprobadas** (328 backend, 239 frontend, siete exportador), incluyendo
+  las regresiones nuevas de guard/401/CSRF, consulta cancelada, recarga controlada, error de ruta,
+  debounce/descarte/valores derivados, nueva edición y decisiones de salida antes del debounce.
+  Se comprueban también la limpieza tras éxito, el caso de escribir y borrar todo, y las reglas A3.
+- Lint, TypeScript strict, builds backend/frontend y Prettier aprobados; auditoría de secretos sin
+  hallazgos. Se conserva el aviso previo de tamaño de chunk Vite, sin errores de compilación.
+- **29 E2E anteriores aprobados** en una corrida completa (5.1 min), con Oracle/API reales, matriz
+  de rutas/roles, todos los recorridos, hints, axe A/AA, teclado, móvil y flujos de negocio previos.
+  La primera corrida encontró una carrera del helper opcional de ayuda: la oferta desaparecía
+  entre comprobarla y pulsar. Se tolera únicamente que ya no esté visible; se mantienen todas las
+  comprobaciones del recorrido. Un caso de catálogo pasó aislado y en la repetición completa;
+  la falta de historia fiscal era consecuencia de los casos seriales omitidos, no un cambio de reglas.
+- **10 E2E Docker de R2-1 aprobados**: seis logins (tres roles × cookie ausente/vencida) observando
+  avisos transitorios; descarte/reapertura/conservación/éxito; assets 404 sin HTML y cabeceras;
+  integridad/MIME/caché del grafo del manifiesto; todas las rutas lazy; pérdida de ComunicacionPage,
+  una sola recarga automática, fallo persistente amigable y recuperación manual. Repetición final
+  sobre el código de entrega: **10/10 aprobados (31.1 s)**, con limpieza del entorno de pruebas.
+- Frontend local reconstruido y saludable en https://localhost:8443. Comprobación real del asset
+  ausente: 404 text/plain, no-store, nosniff y cabeceras de seguridad conservadas. verify:infra
+  aprobado para API/Oracle, rutas SPA, bundles y worker PDF. Solo se recrea el servicio web;
+  API, Oracle, TLS, volumen, datos y credenciales se conservan. Sin migraciones modificadas.
+- Los esquemas, contenedores e imágenes exclusivos de las pruebas se retiran al terminar.
+- Sin pendientes técnicos de R2-1. B2–B7 permanecen fuera de esta fase.
+
+#### Supuestos y límites de la verificación
+
+- El modo E2E de producción usa el frontend compilado y nginx reales en Docker, con el mismo
+  Dockerfile/configuración del servicio local. Solo cambia el upstream hacia la API E2E existente
+  (Express real en el host, sin interceptar respuestas) y Oracle usa un esquema temporal dedicado.
+- No se conoce el hash antiguo concreto que tenía la pestaña del usuario: se reproduce el recurso
+  ausente y se inyecta un fallo de transporte del chunk actual para probar ambas recuperaciones.
+- El autoguardado por navegación general de A3 se conserva. La nueva elección se aplica al botón
+  Cancelar y al cierre de ventanas; no se añade un bloqueador global de navegación.
+
+#### Cómo probar
+
+1. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. Oracle saludable y Chromium instalado: `npm run test:e2e -- --production ronda2.spec.ts`.
+3. Regresión anterior: `npm run test:e2e -- cierre.spec.ts`.
+4. `docker compose up --build -d nomina2-web`; entrar por https://localhost:8443 con cada rol.
+   Abrir Anuncios/Eventos; pedir `/assets/inexistente.js` debe devolver 404 de texto, nunca HTML.
+5. Escribir en un formulario; descartar/reabrir no debe ofrecer borrador. Cancelar permite conservar
+   y recuperar o descartar definitivamente; guardar con éxito elimina. Probar también Cerrar/Escape.

@@ -442,10 +442,13 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
           />
           <div className="mt-5 flex justify-end gap-3" data-tour="empleado-guardar">
             <Button
+              cancelarFormulario
               icono="cancelar"
               variante="secundario"
               disabled={isSubmitting}
-              onClick={() => nav(actual ? `/empleados/${actual.id}` : '/empleados')}
+              onClick={() =>
+                draft.cancelar(() => nav(actual ? `/empleados/${actual.id}` : '/empleados'))
+              }
             >
               Cancelar
             </Button>

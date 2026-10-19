@@ -1,6 +1,8 @@
 import { SimularPagoPage } from '../features/nomina/pages/SimularPagoPage';
 import { EmpresaPage } from '../features/empresa/pages/EmpresaPage';
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazyPagina as lazy } from './lazyPagina';
+import { RouteError } from './RouteError';
 const PendientesPage = lazy(() =>
   import('../features/novedades/pages/PendientesPage').then((m) => ({ default: m.PendientesPage })),
 );
@@ -85,8 +87,9 @@ import { AppLayout } from '../components/layout/AppLayout';
 import { Entrada, RequireSession, SessionGate } from './guards';
 import { Outlet } from 'react-router-dom';
 export const rutas = [
-  { path: '/salud', element: <SaludPage /> },
+  { path: '/salud', element: <SaludPage />, errorElement: <RouteError /> },
   {
+    errorElement: <RouteError />,
     element: (
       <SessionGate>
         <Outlet />

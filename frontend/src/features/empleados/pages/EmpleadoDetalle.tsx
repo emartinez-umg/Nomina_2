@@ -402,7 +402,13 @@ function Accion({
           </div>
         )}
         <div className="my-5 flex justify-end gap-3" data-tour="empleado-cambio-confirmar">
-          <Button icono="cancelar" variante="secundario" disabled={ocupado} onClick={cerrar}>
+          <Button
+            icono="cancelar"
+            variante="secundario"
+            disabled={ocupado}
+            onClick={cerrar}
+            cancelarFormulario
+          >
             Cancelar
           </Button>
           {!revision ? (

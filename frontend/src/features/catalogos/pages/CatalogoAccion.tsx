@@ -107,6 +107,7 @@ export function CatalogoAccion({
           variante="secundario"
           disabled={accion.isPending}
           onClick={onCerrar}
+          cancelarFormulario
         >
           Cancelar
         </Button>

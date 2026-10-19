@@ -13,12 +13,18 @@ import {
 import type { Borrador } from '../lib/formDraft';
 
 export interface FormDraft {
+  modificado: boolean;
   pendiente: Borrador | null;
   guardado: number | null;
   error: boolean;
   continuar: () => void;
   descartar: () => void;
   limpiar: () => void;
+  cancelar: (salir: () => void) => void;
+  salida: boolean;
+  volver: () => void;
+  conservarYSalir: () => void;
+  descartarYSalir: () => void;
 }
 interface Opciones<T extends FieldValues> {
   form: UseFormReturn<T>;
@@ -45,21 +51,29 @@ export function useFormDraft<T extends FieldValues>(
     guardado: null,
     error: false,
   });
+  const [modificado, setModificado] = useState(false);
+  const [salida, setSalida] = useState(false);
+  const salirPendiente = useRef<(() => void) | null>(null);
   const acciones = useRef({
     continuar: () => {},
     descartar: () => {},
     limpiar: () => {},
     cambioPaso: () => {},
+    cancelar: (salir: () => void) => salir(),
+    conservarYSalir: () => {},
   });
   useEffect(() => {
     setEstado({ pendiente: null, guardado: null, error: false });
+    setModificado(false);
     if (!clave || !idUsuario || !enabled) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let bloqueado = false;
     let aplicando = false;
+    let descartado = false;
+    let editado = false;
     let pendiente: Borrador | null = null;
     let cambios: Borrador | null = null;
-    let iniciales = form.getValues();
+    let iniciales = structuredClone(form.getValues());
     let pasoInicial = actual.current.paso;
     const capturar = (): Borrador => ({
       version,
@@ -81,7 +95,7 @@ export function useFormDraft<T extends FieldValues>(
     }
     const guardar = () => {
       clearTimeout(timer);
-      if (!cambios || bloqueado || pendiente) return;
+      if (!cambios || bloqueado || pendiente || descartado) return;
       try {
         if (!sesionPermiteBorrador(idUsuario)) {
           cancelar();
@@ -97,8 +111,13 @@ export function useFormDraft<T extends FieldValues>(
         setEstado((s) => ({ ...s, error: true }));
       }
     };
-    const programar = () => {
-      if (aplicando || bloqueado || pendiente) return;
+    const programar = (edicion = false) => {
+      if (aplicando || bloqueado || pendiente || (descartado && !edicion)) return;
+      descartado = false;
+      if (edicion) {
+        editado = true;
+        setModificado(true);
+      }
       const d = capturar();
       if (firma(d) === ultimo) {
         cancelar();
@@ -112,12 +131,16 @@ export function useFormDraft<T extends FieldValues>(
     const limpiar = () => {
       cancelar();
       pendiente = null;
+      descartado = true;
+      editado = false;
+      setModificado(false);
       ultimo = firma(capturar());
       aplicando = true;
       queueMicrotask(() => {
-        iniciales = form.getValues();
+        iniciales = structuredClone(form.getValues());
         pasoInicial = actual.current.paso;
         ultimo = firma(capturar());
+        form.reset(structuredClone(iniciales));
         aplicando = false;
       });
       try {
@@ -127,11 +150,58 @@ export function useFormDraft<T extends FieldValues>(
         setEstado({ pendiente: null, guardado: null, error: true });
       }
     };
+    const descartar = () => {
+      cancelar();
+      pendiente = null;
+      descartado = true;
+      editado = false;
+      setModificado(false);
+      aplicando = true;
+      form.reset(structuredClone(iniciales));
+      if (pasoInicial !== undefined) actual.current.restaurarPaso?.(pasoInicial);
+      actual.current.alDescartar?.();
+      ultimo = firma(capturar());
+      aplicando = false;
+      try {
+        localStorage.removeItem(clave);
+        setEstado({ pendiente: null, guardado: null, error: false });
+      } catch {
+        setEstado({ pendiente: null, guardado: null, error: true });
+      }
+    };
+    const salir = () => {
+      const callback = salirPendiente.current;
+      salirPendiente.current = null;
+      setSalida(false);
+      callback?.();
+    };
     acciones.current = {
       limpiar,
+      cancelar: (callback) => {
+        if (
+          !pendiente &&
+          (!editado ||
+            descartado ||
+            JSON.stringify(sanearBorrador(form.getValues())) ===
+              JSON.stringify(sanearBorrador(iniciales)))
+        ) {
+          limpiar();
+          callback();
+          return;
+        }
+        salirPendiente.current = callback;
+        setSalida(true);
+      },
+      conservarYSalir: () => {
+        guardar();
+        // Un fallo de almacenamiento no debe prometer que se conservaron los datos.
+        if (!cambios) salir();
+      },
       continuar: () => {
         if (!pendiente || bloqueado) return;
         const d = pendiente;
+        editado = true;
+        setModificado(true);
         pendiente = null;
         aplicando = true;
         // Conserva los valores excluidos y los campos nuevos; RHF y el servidor revalidan al enviar.
@@ -141,26 +211,19 @@ export function useFormDraft<T extends FieldValues>(
         aplicando = false;
         setEstado({ pendiente: null, guardado: d.guardado, error: false });
       },
-      descartar: () => {
-        aplicando = true;
-        form.reset(iniciales);
-        if (pasoInicial !== undefined) actual.current.restaurarPaso?.(pasoInicial);
-        actual.current.alDescartar?.();
-        aplicando = false;
-        limpiar();
-      },
+      descartar,
       cambioPaso: programar,
     };
     const subscription = form.watch((_datos, info) => {
       // Un reset de datos de la API no es una edición del usuario.
       if (!info.name && !aplicando) {
-        iniciales = form.getValues();
+        iniciales = structuredClone(form.getValues());
         pasoInicial = actual.current.paso;
         ultimo = firma(capturar());
         cancelar();
         return;
       }
-      programar();
+      programar(info.type === 'change' || (!!info.name && form.getFieldState(info.name).isDirty));
     });
     const ocultar = () => {
       if (document.visibilityState === 'hidden') guardar();
@@ -201,6 +264,8 @@ export function useFormDraft<T extends FieldValues>(
         descartar: () => {},
         limpiar: () => {},
         cambioPaso: () => {},
+        cancelar: (salir: () => void) => salir(),
+        conservarYSalir: () => {},
       };
     };
   }, [clave, idUsuario, form, version, enabled]);
@@ -210,7 +275,31 @@ export function useFormDraft<T extends FieldValues>(
   const continuar = useCallback(() => acciones.current.continuar(), []);
   const descartar = useCallback(() => acciones.current.descartar(), []);
   const limpiar = useCallback(() => acciones.current.limpiar(), []);
-  return { ...estado, continuar, descartar, limpiar };
+  const cancelar = useCallback((salir: () => void) => acciones.current.cancelar(salir), []);
+  const volver = useCallback(() => {
+    salirPendiente.current = null;
+    setSalida(false);
+  }, []);
+  const conservarYSalir = useCallback(() => acciones.current.conservarYSalir(), []);
+  const descartarYSalir = useCallback(() => {
+    acciones.current.descartar();
+    const callback = salirPendiente.current;
+    salirPendiente.current = null;
+    setSalida(false);
+    callback?.();
+  }, []);
+  return {
+    ...estado,
+    modificado,
+    continuar,
+    descartar,
+    limpiar,
+    cancelar,
+    salida,
+    volver,
+    conservarYSalir,
+    descartarYSalir,
+  };
 }
 
 // Adaptador de los editores controlados existentes: sus valores también viven en React Hook Form.

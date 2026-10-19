@@ -32,7 +32,7 @@ if (!/^N2E2E_[A-F0-9]{12}$/.test(process.env.DB_USER ?? ''))
   throw new Error('E2E exige un esquema desechable.');
 const config = validarEntorno({
     ...process.env,
-    HOST: '127.0.0.1',
+    HOST: process.env.E2E_PRODUCTION === '1' ? '0.0.0.0' : '127.0.0.1',
     PORT: '3018',
     NODE_ENV: 'test',
     LOGIN_RATE_LIMIT: '1000',
