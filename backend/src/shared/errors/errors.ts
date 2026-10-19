@@ -4,6 +4,7 @@ export class ErrorNegocio extends Error {
     public readonly estado = 422,
     public readonly codigo = 'REGLA_NEGOCIO',
     public readonly campos?: Record<string, string[]>,
+    public readonly duplicado?: { id: number; activo: boolean },
   ) {
     super(mensaje);
     this.name = new.target.name;

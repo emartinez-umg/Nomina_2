@@ -184,3 +184,57 @@ expone junto al contrato. Indefinido queda sin fecha; plazo fijo y obra determin
 posterior al ingreso. REQUIERE_FIN conserva compatibilidad sincronizada por trigger.
 PARENTESCOS es un catálogo de lectura con las doce opciones A8, servido en /api/empleados/parentescos.
 Los textos históricos se conservan como referencia; el siguiente guardado exige seleccionar una opción.
+
+## Ronda 2 — Reglas comunes (R2-4)
+
+`validarNombreCatalogo` y sus funciones de recorte/normalización residen en
+`backend/src/shared/catalogos/nombre.ts`, sin dependencias de servidor. La API, el servicio y el
+formulario genérico usan esa única regla al crear y editar: espacios recortados/colapsados,
+mínimo dos caracteres y una letra; letras con acentos, dígitos, espacios y `. , - / & ( ) '`.
+`CampoEditor` bloquea los otros caracteres al escribir/pegar y normaliza al salir.
+
+V031 agrega NOMBRE_NORMALIZADO e índices únicos, independientes del estado. El servicio verifica
+antes de guardar, bajo el mismo bloqueo transaccional de catálogos, y traduce también el UNIQUE
+como 409 `DUPLICADO`, con `campos.nombre` y `duplicado: { id, activo }`. Reactivar abre la misma
+confirmación con motivo del registro existente, sin crear otra fila ni aplicar los datos del alta.
+
+Los parámetros y conceptos conservan versiones por identidad/código: el índice físico incluye
+VIGENTE_DESDE, y el servicio permite repetir el nombre únicamente para versiones de la misma
+identidad; una nueva alta equivalente es duplicada incluso con otra vigencia. Los municipios INE
+son únicos por departamento (existen homónimos oficiales). Roles/geografía siguen de solo lectura.
+
+Además de los catálogos anteriores se integran en el mismo CRUD los existentes `parentescos`,
+`conceptos`, `tipos-solicitud` y `tipos-deduccion-isr`. Se conservan los códigos semánticos antiguos;
+las nuevas altas obtienen códigos automáticos. No existen tablas de países, zonas, motivos de baja,
+tipos de día ni tipos de ingreso en este esquema; no se inventan catálogos ni datos para ellos.
+La zona del domicilio continúa siendo el selector numérico existente y los ingresos son conceptos.
+
+La migración conserva PK/FK/códigos y el nombre más antiguo (FECHA_CREACION, luego PK). Renombra
+los restantes con un sufijo libre `(duplicado N)`, los inactiva y conserva los nombres originales
+en CATALOGOS_NOMBRES_CORREGIDOS. Nunca elimina ni reasigna referencias. Para revisar el reporte:
+`SELECT TABLA, ID_REGISTRO, NOMBRE_ANTERIOR, NOMBRE_NUEVO FROM CATALOGOS_NOMBRES_CORREGIDOS`.
+
+Cada fila entrega `usos` y `enUso`. La verificación descubre todas las FK del diccionario Oracle,
+cuenta una fila una sola vez por tabla aunque tenga varias FK al mismo catálogo e incluye referencias
+inactivas/históricas. Excluye únicamente los bloques/días propios del horario, que se eliminan junto
+al patrón. Se añaden las referencias sin FK: parentesco por texto de contactos y parámetro de tope por clave interna de deducciones ISR. Un parentesco utilizado
+no puede renombrarse porque esa referencia aún no es una FK.
+
+Eliminar lógico o físico devuelve 409 `REGISTRO_EN_USO` con el conteo y la sugerencia de inactivar.
+La tabla y CSV muestran En uso, la papelera tiene tooltip, e inactivar con referencias advierte antes
+de confirmar. Inactivar/activar también se permite en versiones utilizadas, con motivo y confirmación legal; conserva los valores/documentos cerrados. Activar revalida que no se traslapen versiones. Editar valores o eliminar versiones cerradas mantiene sus protecciones. Referencias inactivas
+se mantienen al editar su registro original, sin permitir nuevas asignaciones.
+
+`CatalogoAcciones` unifica Ver/Editar/Desactivar–Activar/Historial/Eliminar. El historial usa
+`GET /:catalogo/:id/historial`, limitado a los últimos 100 cambios de esa entidad/ID; está disponible
+para RH/ADMIN sin ampliar el acceso a la bitácora global ni publicar IP u otros registros.
+
+Verificación: `npm run verify:catalogos` usa Oracle/Supertest en un esquema desechable, incluyendo
+migración con duplicados/sufijos ocupados, paridad TS/Oracle, UNIQUE, edición inválida, versiones,
+reactivación, conteo y eliminación bloqueada. E2E: `npm run test:e2e -- --production ronda2.spec.ts --grep R2-4`.
+
+V032 retira los UNIQUE exactos antiguos de parentescos y geografía, conservando índices de
+búsqueda y la protección normalizada. El runner la anticipa exclusivamente al checksum conocido
+de V031 antes de su DDL, para poder recortar al registro más antiguo aunque otro tenga ya ese
+nombre exacto. Ambas versiones solo se completan tras terminar. Si V031 ya está aplicada, V032
+se ejecuta normalmente sin modificar su archivo ni checksum; otros fallos requieren revisión.

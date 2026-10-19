@@ -120,7 +120,10 @@ export function crearEmpleadosService(db: BaseDatos) {
       errores.idMunicipioGt = ['Selecciona un municipio activo del departamento elegido.'];
     if (lugar && !zonaValida(lugar.codigo, d.zona))
       errores.zona = ['Selecciona una zona del 1 al 25 para el municipio de Guatemala.'];
-    if (!(await repo.parentescos(c)).some((p) => p.value === d.contactoParentesco))
+    if (
+      antes?.contactoParentesco !== d.contactoParentesco &&
+      !(await repo.parentescos(c)).some((p) => p.value === d.contactoParentesco)
+    )
       errores.contactoParentesco = ['Selecciona un parentesco del catálogo.'];
     if (Object.keys(errores).length) rechazar(errores, 409);
     return `Casa ${d.numeroCasa}${d.zona ? ', zona ' + d.zona : ''}, ${lugar!.nombre}, ${lugar!.departamento}`;

@@ -61,6 +61,7 @@ export function manejarErrores(logger: Logger): ErrorRequestHandler {
           ? esperado.message
           : 'Ocurrió un error interno. Intenta nuevamente en unos momentos.',
         ...(esperado?.campos ? { campos: esperado.campos } : {}),
+        ...(esperado?.duplicado ? { duplicado: esperado.duplicado } : {}),
       },
     };
     res.status(estado).json(respuesta);

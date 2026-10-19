@@ -12,6 +12,7 @@ export function crearCatalogosRouter(service: ReturnType<typeof crearCatalogosSe
   router.get('/opciones/:referencia', c.opciones);
   router.get('/:catalogo', c.listar);
   router.get('/:catalogo/:id', c.detalle);
+  router.get('/:catalogo/:id/historial', c.historial);
   router.use('/empresa', () => {
     throw new ErrorConflicto(
       'Usa Configuración → Configuración de empresa para actualizar la identidad y el logo.',

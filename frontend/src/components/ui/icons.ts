@@ -1,5 +1,6 @@
 import {
   Copy,
+  History,
   Activity,
   AlertCircle,
   CheckCircle2,
@@ -45,6 +46,7 @@ import {
 } from 'lucide-react';
 export const iconos = {
   copiar: Copy,
+  historial: History,
   salud: Activity,
   baseDatos: Database,
   ayuda: HelpCircle,

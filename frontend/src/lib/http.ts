@@ -5,6 +5,7 @@ const errorSchema = z.object({
     codigo: z.string(),
     mensaje: z.string(),
     campos: z.record(z.array(z.string())).optional(),
+    duplicado: z.object({ id: z.number(), activo: z.boolean() }).optional(),
   }),
 });
 export class ErrorApi extends Error {
@@ -13,6 +14,7 @@ export class ErrorApi extends Error {
     public codigo: string,
     mensaje: string,
     public campos?: Record<string, string[]>,
+    public duplicado?: { id: number; activo: boolean },
   ) {
     super(mensaje);
   }
@@ -95,6 +97,7 @@ export async function solicitar<T>(
             parseado.data.error.codigo,
             parseado.data.error.mensaje,
             parseado.data.error.campos,
+            parseado.data.error.duplicado,
           )
         : new ErrorApi(
             response.status,

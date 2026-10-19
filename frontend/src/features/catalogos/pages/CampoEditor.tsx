@@ -1,3 +1,10 @@
+import { InputField } from '../../../components/forms/Field';
+import {
+  hintNombreCatalogo,
+  validarNombreCatalogo,
+  recortarNombreCatalogo,
+  sanearNombreCatalogo,
+} from '../../../../../backend/src/shared/catalogos/nombre';
 import { useEffect, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { Campo, Fila } from '../api/catalogos';
@@ -33,7 +40,12 @@ export function Referencia({
     getNextPageParam: (ultima, todas) => (ultima.length === 100 ? todas.length + 1 : undefined),
   });
   const lista = q.data?.pages.flat() ?? [];
-  if (props.value && !lista.some((o) => o.value === props.value))
+  if (
+    props.value &&
+    actual &&
+    String(actual[campo.nombre]) === props.value &&
+    !lista.some((o) => o.value === props.value)
+  )
     lista.unshift({
       value: props.value,
       label: String(actual?.[campo.nombre + 'Etiqueta'] ?? `Registro ${props.value}`),
@@ -76,6 +88,18 @@ export function CampoEditor({
   minFecha,
   ...props
 }: CampoProps & { campo: Campo; actual?: Fila | undefined; minFecha?: string | undefined }) {
+  if (campo.nombre === 'nombre')
+    return (
+      <InputField
+        {...props}
+        hint={hintNombreCatalogo}
+        maxLength={campo.max ?? 120}
+        sanitizar={sanearNombreCatalogo}
+        alSalir={recortarNombreCatalogo}
+        validar={(v) => validarNombreCatalogo(v, campo.max)}
+        pattern={String.raw`[\p{L}\p{M}0-9 .,\-\/&\(\)']+`}
+      />
+    );
   switch (campo.tipo) {
     case 'nit':
       return <NitField {...props} />;

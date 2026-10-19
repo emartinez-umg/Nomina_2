@@ -38,6 +38,7 @@ export const catalogoSchema = z.object({
   titulo: z.string(),
   campos: z.array(campoSchema),
   legal: z.boolean(),
+  singular: z.string().optional(),
 });
 export type Campo = z.infer<typeof campoSchema>;
 export type Catalogo = z.infer<typeof catalogoSchema>;
@@ -55,7 +56,7 @@ const limitesSchema = z.object({
   NOCTURNA: limiteSchema,
 });
 export const filaSchema = z
-  .object({ id: z.number(), activo: z.boolean(), enUso: z.boolean() })
+  .object({ id: z.number(), activo: z.boolean(), enUso: z.boolean(), usos: z.number().optional() })
   .catchall(z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(bloqueSchema)]));
 export type Fila = z.infer<typeof filaSchema>;
 const listadoSchema = z.object({
@@ -106,14 +107,29 @@ export function csv(cat: Catalogo, filas: Fila[]) {
   return (
     '\uFEFF' +
     [
-      ['ID', ...cat.campos.map((f) => f.etiqueta), 'Estado'],
+      ['ID', ...cat.campos.map((f) => f.etiqueta), 'Estado', 'En uso'],
       ...filas.map((r) => [
         r.id,
         ...cat.campos.map((f) => r[f.nombre + 'Etiqueta'] ?? r[f.nombre]),
         r.activo ? 'Activo' : 'Inactivo',
+        r.usos,
       ]),
     ]
       .map((r) => r.map(celda).join(','))
       .join('\r\n')
   );
 }
+
+export const historial = (slug: string, id: number, signal?: AbortSignal) =>
+  solicitar(
+    `/catalogos/${slug}/${id}/historial`,
+    z.array(
+      z.object({
+        id: z.number(),
+        accion: z.string(),
+        fecha: z.string(),
+        motivo: z.string().nullable(),
+      }),
+    ),
+    { signal },
+  );

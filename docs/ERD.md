@@ -1873,3 +1873,30 @@ erDiagram
 PAGOS_NOMINA admite ANTICIPO, PAGO, BONO_14 y AGUINALDO conservando UNIQUE empleado/mes/tipo.
 Las prestaciones anuales conservan fuente/detalle/exención y enlazan su boleta BLOB inmutable.
 PRESTACIONES_DIAS_ANIO parametriza el divisor de proporcionalidad. No se modifica V000–V029.
+
+## R2-4 — Nombres de catálogos y correcciones
+
+V031 añade `NOMBRE_NORMALIZADO` a los catálogos con nombre, con UNIQUE por catálogo (por vigencia
+para parámetros/conceptos, por departamento para municipios oficiales). `CONCEPTOS_NOMINA` y
+`TIPOS_DEDUCCION_ISR` conservan códigos anteriores y permiten códigos automáticos en altas.
+Los nombres anteriores de las filas duplicadas se conservan sin alterar PK/FK:
+
+```mermaid
+erDiagram
+  CATALOGOS_NOMBRES_CORREGIDOS {
+    NUMBER ID_CATALOGO_NOMBRE_CORREGIDO PK
+    VARCHAR2 TABLA
+    NUMBER ID_REGISTRO
+    VARCHAR2 NOMBRE_ANTERIOR
+    VARCHAR2 NOMBRE_NUEVO
+    DATE FECHA
+    NUMBER CREADO_POR FK
+    NUMBER MODIFICADO_POR FK
+  }
+  USUARIOS ||--o{ CATALOGOS_NOMBRES_CORREGIDOS : audita
+```
+
+TABLA/ID_REGISTRO identifican el registro corregido; no son una FK polimórfica. El reporte conserva
+la corrección aun si después ADMIN elimina físicamente un registro sin uso.
+
+V032 retira los UNIQUE exactos redundantes de nombres y conserva índices de nombre y la FK de municipio a departamento. Los UNIQUE normalizados de V031 siguen vigentes; el runner prepara V032 antes de V031 en instalaciones nuevas sin modificar su checksum aplicado.

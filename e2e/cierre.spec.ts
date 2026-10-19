@@ -1210,12 +1210,16 @@ test.describe('FASE V1-3: códigos automáticos con API real', () => {
     await entrar(page, 'RH');
     await page.goto('/catalogos/departamentos');
     const codigos: string[] = [];
-    for (const esperado of ['VC', 'VNT', 'VC2']) {
+    for (const [nombre, esperado] of [
+      ['Ventas de códigos', 'VC'],
+      ['Ventas de cuentas', 'VNT'],
+      ['Ventas de cobros', 'VC2'],
+    ]) {
       await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
       const codigo = page.getByLabel('Código', { exact: true });
       await expect(codigo).toHaveAttribute('readonly');
-      await page.getByLabel('Nombre', { exact: true }).fill('Ventas de códigos');
-      await expect(codigo).toHaveValue(esperado);
+      await page.getByLabel('Nombre', { exact: true }).fill(nombre!);
+      await expect(codigo).toHaveValue(esperado!);
       const respuesta = page.waitForResponse(
         (r) => r.request().method() === 'POST' && r.url().endsWith('/catalogos/departamentos'),
       );
@@ -1228,7 +1232,7 @@ test.describe('FASE V1-3: códigos automáticos con API real', () => {
     expect(new Set(codigos).size).toBe(3);
     await page.getByLabel('Buscar', { exact: true }).fill('VC2');
     await page.getByRole('button', { name: 'Aplicar búsqueda y filtros', exact: true }).click();
-    const fila = page.getByRole('row').filter({ hasText: 'Ventas de códigos' });
+    const fila = page.getByRole('row').filter({ hasText: 'Ventas de cobros' });
     await expect(fila).toHaveCount(1);
     await fila.getByRole('button', { name: /^Editar registro/ }).click();
     await page.getByLabel('Nombre', { exact: true }).fill('Nombre renombrado');

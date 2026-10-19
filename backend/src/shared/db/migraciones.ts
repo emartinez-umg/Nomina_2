@@ -29,10 +29,26 @@ export async function aplicarMigraciones(
     throw new ErrorMigracion('No se permiten migraciones anteriores a la última versión aplicada.');
   }
   let reparacionAnticipada: Migracion | undefined;
+  let preparacionCatalogos: Migracion | undefined;
   for (const migracion of pendientes) {
-    if (migracion === reparacionAnticipada) continue;
+    if (migracion === reparacionAnticipada || migracion === preparacionCatalogos) continue;
     await repository.iniciar(migracion);
     try {
+      // V031 conserva su checksum aplicado. Se retiran antes sus UNIQUE exactos redundantes,
+      // porque el DDL de ese bloque no puede revertirse/repetirse después de una colisión.
+      const prepararNombres = pendientes.find(
+        (m) => m.version === 32 && m.archivo === 'V032__preparar_nombres_catalogos.sql',
+      );
+      if (
+        migracion.version === 31 &&
+        migracion.archivo === 'V031__reglas_comunes_catalogos.sql' &&
+        migracion.checksum === 'a45e338a8583252d32c997ac6a7c9c3ac5eac48f688e7f8f9906f3444c955fb2' &&
+        prepararNombres
+      ) {
+        preparacionCatalogos = prepararNombres;
+        await repository.iniciar(prepararNombres);
+        for (const sql of prepararNombres.sentencias) await repository.ejecutar(sql);
+      }
       for (const sql of migracion.sentencias) {
         try {
           await repository.ejecutar(sql);
@@ -64,12 +80,18 @@ export async function aplicarMigraciones(
       }
       await repository.completar(migracion.version);
       logger.info({ archivo: migracion.archivo }, 'Migración aplicada');
+      if (preparacionCatalogos && migracion.version === 31) {
+        await repository.completar(preparacionCatalogos.version);
+        logger.info({ archivo: preparacionCatalogos.archivo }, 'Preparación de nombres aplicada');
+      }
       if (reparacionAnticipada && migracion.version === 27) {
         await repository.completar(reparacionAnticipada.version);
         logger.info({ archivo: reparacionAnticipada.archivo }, 'Reparación aplicada');
       }
     } catch (error) {
       await repository.fallar(migracion.version);
+      if (preparacionCatalogos && migracion.version === 31)
+        await repository.fallar(preparacionCatalogos.version);
       if (reparacionAnticipada && migracion.version === 27)
         await repository.fallar(reparacionAnticipada.version);
       throw error;

@@ -1,3 +1,5 @@
+import { CatalogoAcciones } from './CatalogoAcciones';
+import { CatalogoHistorial } from './CatalogoHistorial';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -130,6 +132,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
   const [formulario, setFormulario] = useState(false);
   const [actual, setActual] = useState<Fila>();
   const [duplicar, setDuplicar] = useState(false);
+  const [historia, setHistoria] = useState<Fila>();
   const [ver, setVer] = useState<Fila>();
   const [accion, setAccion] = useState<{ fila: Fila; tipo: 'eliminar' | 'estado' }>();
   const [ocupado, setOcupado] = useState(false);
@@ -491,55 +494,24 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 ),
               },
               {
+                id: 'usos',
+                titulo: 'En uso',
+                render: (fila: Fila) => (fila.enUso ? `${fila.usos} registro(s)` : 'Sin uso'),
+              },
+              {
                 id: 'acciones',
                 titulo: 'Acciones',
                 render: (fila: Fila) => (
-                  <div className="flex gap-1">
-                    <Button
-                      icono="ver"
-                      variante="texto"
-                      soloIcono
-                      aria-label={`Ver registro ${fila.id}`}
-                      disabled={ocupado}
-                      onClick={() => void abrir(fila, false)}
-                    />
-                    <Button
-                      icono="editar"
-                      variante="texto"
-                      soloIcono
-                      aria-label={`Editar registro ${fila.id}`}
-                      disabled={ocupado || !permitidoCrear}
-                      onClick={() => void abrir(fila, true)}
-                    />
-                    {cat.slug === 'horarios' && (
-                      <Button
-                        icono="copiar"
-                        variante="texto"
-                        soloIcono
-                        aria-label={`Duplicar horario ${fila.id}`}
-                        disabled={ocupado}
-                        onClick={() => void abrir(fila, true, true)}
-                      />
-                    )}
-                    <Button
-                      icono={fila.activo ? 'rechazar' : 'aprobar'}
-                      variante="texto"
-                      soloIcono
-                      aria-label={`${fila.activo ? 'Desactivar' : 'Activar'} registro ${fila.id}`}
-                      onClick={() => setAccion({ fila, tipo: 'estado' })}
-                    />
-                    <Button
-                      icono="eliminar"
-                      variante="texto"
-                      soloIcono
-                      aria-label={`Eliminar registro ${fila.id}`}
-                      disabled={fila.enUso}
-                      motivoDeshabilitado={
-                        fila.enUso ? 'El registro está en uso. Puedes desactivarlo.' : undefined
-                      }
-                      onClick={() => setAccion({ fila, tipo: 'eliminar' })}
-                    />
-                  </div>
+                  <CatalogoAcciones
+                    cat={cat}
+                    fila={fila}
+                    ocupado={ocupado}
+                    puedeEditar={permitidoCrear}
+                    abrir={(editar, copia) => void abrir(fila, editar, copia)}
+                    estado={() => setAccion({ fila, tipo: 'estado' })}
+                    eliminar={() => setAccion({ fila, tipo: 'eliminar' })}
+                    historial={() => setHistoria(fila)}
+                  />
                 ),
               },
             ]}
@@ -601,6 +573,9 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
           cierre={reglas.data?.ultimoCierre ?? null}
           onCerrar={() => setFormulario(false)}
         />
+      )}
+      {historia && (
+        <CatalogoHistorial cat={cat} fila={historia} onCerrar={() => setHistoria(undefined)} />
       )}
       {accion && (
         <CatalogoAccion

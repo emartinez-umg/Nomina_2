@@ -1,3 +1,4 @@
+import { normalizarNombreCatalogo } from '../../shared/catalogos/nombre.js';
 import { nombrePersonaSql } from '../../shared/utils/nombre.js';
 import { distribucionHorarioSql } from '../../shared/horarios/horarios.repository.js';
 import { normalizarBloques } from '../../shared/horarios/modelo.js';
@@ -66,12 +67,61 @@ async function referencias(c: Connection, cat: Catalogo) {
 }
 async function usoSql(c: Connection, cat: Catalogo) {
   const refs = await referencias(c, cat);
-  return refs.length
-    ? `CASE WHEN ${refs.map((r) => `EXISTS (SELECT 1 FROM ${r.TABLA} R WHERE R.${r.COLUMNA}=T.${cat.pk})`).join(' OR ')} THEN 1 ELSE 0 END`
-    : '0';
+  const tablas = new Map<string, string[]>();
+  for (const ref of refs) tablas.set(ref.TABLA, [...(tablas.get(ref.TABLA) ?? []), ref.COLUMNA]);
+  const cuentas = [...tablas].map(
+    ([tabla, columnas]) =>
+      `(SELECT COUNT(*) FROM ${tabla} R WHERE ${columnas.map((col) => `R.${col}=T.${cat.pk}`).join(' OR ')})`,
+  );
+  // El modelo histórico guarda el parentesco como texto, sin FK.
+  if (cat.slug === 'parentescos')
+    cuentas.push(
+      '(SELECT COUNT(*) FROM EMPLEADO_CONTACTOS_EMERGENCIA R WHERE N2_NOMBRE_NORMALIZADO(R.PARENTESCO)=T.NOMBRE_NORMALIZADO)',
+    );
+  if (cat.slug === 'parametros-legales')
+    cuentas.push(
+      '(SELECT COUNT(*) FROM TIPOS_DEDUCCION_ISR R WHERE R.CODIGO_PARAMETRO_TOPE=T.CLAVE_INTERNA)',
+    );
+  return cuentas.length ? cuentas.join('+') : '0';
 }
 function convertir(row: Record<string, unknown>): FilaCatalogo {
-  return { ...row, activo: row.activo === 1, enUso: row.enUso === 1 } as FilaCatalogo;
+  const usos = Number(row.usos ?? 0);
+  return { ...row, activo: row.activo === 1, usos, enUso: usos > 0 } as FilaCatalogo;
+}
+export async function duplicado(
+  c: Connection,
+  cat: Catalogo,
+  nombre: string,
+  id: number,
+  d: DatosCatalogo,
+) {
+  if (!cat.campos.some((f) => f.nombre === 'nombre') || cat.slug === 'empresa') return null;
+  const version =
+    cat.slug === 'parametros-legales' && id > 0
+      ? ' AND CLAVE_INTERNA<>:identidad'
+      : cat.slug === 'conceptos' && d.codigo
+        ? ' AND CODIGO<>:identidad'
+        : '';
+  const r = await c.execute<{ id: number; nombre: string; activo: number }>(
+    `SELECT ${cat.pk} "id",NOMBRE "nombre",ACTIVO "activo" FROM ${cat.tabla} WHERE NOMBRE_NORMALIZADO=:nombre AND ${cat.pk}<>:id${version} ORDER BY FECHA_CREACION,${cat.pk} FETCH FIRST 1 ROW ONLY`,
+    {
+      nombre: normalizarNombreCatalogo(nombre),
+      id,
+      ...(version
+        ? { identidad: String(cat.slug === 'parametros-legales' ? d.claveInterna : d.codigo) }
+        : {}),
+    },
+    opciones,
+  );
+  return r.rows?.[0] ?? null;
+}
+export async function historial(c: Connection, cat: Catalogo, id: number) {
+  const r = await c.execute<{ id: number; accion: string; fecha: string; motivo: string | null }>(
+    `SELECT ID_BITACORA_AUDITORIA "id",ACCION "accion",TO_CHAR(FECHA_CREACION,'DD/MM/YYYY HH24:MI') "fecha",MOTIVO "motivo" FROM BITACORA_AUDITORIA WHERE ENTIDAD=:entidad AND ID_ENTIDAD=:id ORDER BY ID_BITACORA_AUDITORIA DESC FETCH FIRST 100 ROWS ONLY`,
+    { entidad: cat.tabla, id },
+    opciones,
+  );
+  return r.rows ?? [];
 }
 export async function bloquearCatalogos(c: Connection, legal: boolean) {
   // Mismo orden que administración de usuarios; serializa cambios y comprobaciones de vigencia.
@@ -161,7 +211,7 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
         : cat.campos.find((f) => f.nombre === q.ordenarPor)!.columna;
   const dir = q.direccion === 'asc' ? 'ASC' : 'DESC';
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT T.${cat.pk} "id", T.ACTIVO "activo", ${await usoSql(c, cat)} "enUso",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T${where} ORDER BY T.${orden} ${dir},T.${cat.pk} ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+    `SELECT T.${cat.pk} "id", T.ACTIVO "activo", ${await usoSql(c, cat)} "usos",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T${where} ORDER BY T.${orden} ${dir},T.${cat.pk} ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
     { ...binds, offset: (q.pagina - 1) * q.limite, limite: q.limite },
     opciones,
   );
@@ -174,7 +224,7 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
 }
 export async function detalle(c: Connection, cat: Catalogo, id: number) {
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT T.${cat.pk} "id",T.ACTIVO "activo",${await usoSql(c, cat)} "enUso",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T WHERE T.${cat.pk}=:id`,
+    `SELECT T.${cat.pk} "id",T.ACTIVO "activo",${await usoSql(c, cat)} "usos",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T WHERE T.${cat.pk}=:id`,
     { id },
     opciones,
   );
@@ -201,7 +251,9 @@ export async function guardar(
   id?: number,
 ) {
   const campos = cat.campos.filter(
-    (f) => f.tipo !== 'codigo' || (cat.slug === 'parametros-legales' && !id && d.codigo),
+    (f) =>
+      f.tipo !== 'codigo' ||
+      (['parametros-legales', 'conceptos'].includes(cat.slug) && !id && d.codigo),
   );
   const columnas = campos.map((f) => f.columna);
   const valores = campos.map((f) => expresion(f));
@@ -309,14 +361,15 @@ export async function referenciaActiva(
   c: Connection,
   ref: NonNullable<CampoCatalogo['referencia']>,
   id: number,
+  historica = false,
 ) {
   const r = await c.execute<{ DEPARTAMENTO: number }>(
     ref === 'departamentos-gt' || ref === 'municipios-gt'
-      ? `SELECT ${ref === 'municipios-gt' ? 'ID_DEPARTAMENTO_GT' : referenciasGt[ref][1]} DEPARTAMENTO FROM ${referenciasGt[ref][0]} WHERE ${referenciasGt[ref][1]}=:id AND ACTIVO=1`
+      ? `SELECT ${ref === 'municipios-gt' ? 'ID_DEPARTAMENTO_GT' : referenciasGt[ref][1]} DEPARTAMENTO FROM ${referenciasGt[ref][0]} WHERE ${referenciasGt[ref][1]}=:id AND (:historica=1 OR ACTIVO=1)`
       : ref === 'departamentos'
-        ? 'SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM DEPARTAMENTOS WHERE ID_DEPARTAMENTO=:id AND ACTIVO=1'
-        : "SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM EMPLEADOS WHERE ID_EMPLEADO=:id AND ACTIVO=1 AND ESTADO='ACTIVO'",
-    { id },
+        ? 'SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM DEPARTAMENTOS WHERE ID_DEPARTAMENTO=:id AND (:historica=1 OR ACTIVO=1)'
+        : "SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM EMPLEADOS WHERE ID_EMPLEADO=:id AND (:historica=1 OR (ACTIVO=1 AND ESTADO='ACTIVO'))",
+    { id, historica: Number(historica) },
     opciones,
   );
   return r.rows?.[0];
@@ -343,13 +396,17 @@ export async function versiones(c: Connection, cat: Catalogo, d: DatosCatalogo, 
   const where =
     cat.slug === 'parametros-legales'
       ? 'T.CLAVE_INTERNA=:claveInterna'
-      : `T.LIMITE_INFERIOR=${numero('inferior')}`;
+      : cat.slug === 'conceptos'
+        ? 'T.CODIGO=:codigo'
+        : `T.LIMITE_INFERIOR=${numero('inferior')}`;
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT T.${cat.pk} "id",T.ACTIVO "activo",0 "enUso",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T WHERE ${where} AND T.${cat.pk}<>:id`,
+    `SELECT T.${cat.pk} "id",T.ACTIVO "activo",0 "usos",${cat.campos.some((f) => f.tipo === 'codigo') ? `T.CODIGO_ANTERIOR "codigoAnterior",${cat.slug === 'parametros-legales' ? 'T.CLAVE_INTERNA "claveInterna",' : ''}` : ''}${cat.campos.map(seleccionar).join(',')}${etiquetas(cat)} FROM ${cat.tabla} T WHERE ${where} AND T.${cat.pk}<>:id`,
     {
       ...(cat.slug === 'parametros-legales'
         ? { claveInterna: d.claveInterna as string }
-        : { inferior: d.limiteInferior as string }),
+        : cat.slug === 'conceptos'
+          ? { codigo: d.codigo as string }
+          : { inferior: d.limiteInferior as string }),
       id,
     },
     opciones,

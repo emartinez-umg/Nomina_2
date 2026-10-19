@@ -1,3 +1,7 @@
+import {
+  validarNombreCatalogo,
+  recortarNombreCatalogo,
+} from '../../../../../backend/src/shared/catalogos/nombre';
 import type { LimitesHorario, BloqueHorario } from './catalogos';
 import {
   analizarHorario,
@@ -44,6 +48,11 @@ export function schemaFormulario(
     for (const f of cat.campos) {
       if (f.tipo === 'codigo' || (cat.slug === 'horarios' && f.nombre === 'jornada')) continue;
       const v = d[f.nombre]?.trim() ?? '';
+      if (f.nombre === 'nombre') {
+        const mensaje = validarNombreCatalogo(d[f.nombre] ?? '', f.max);
+        if (mensaje) error(f.nombre, mensaje);
+        continue;
+      }
       if (!v) {
         if (f.requerido) error(f.nombre, 'Este campo es obligatorio. Ingresa el dato solicitado.');
         continue;
@@ -161,7 +170,10 @@ export function cuerpo(cat: Catalogo, d: Record<string, string>) {
   const body: Record<string, unknown> = {};
   for (const f of cat.campos) {
     if (f.tipo === 'codigo') continue;
-    const original = d[f.nombre]?.trim() ?? '';
+    const original =
+      f.nombre === 'nombre'
+        ? recortarNombreCatalogo(d[f.nombre] ?? '')
+        : (d[f.nombre]?.trim() ?? '');
     const v =
       f.tipo === 'telefono'
         ? original.replace(/\s/g, '')

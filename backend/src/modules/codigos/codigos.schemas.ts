@@ -10,6 +10,8 @@ export const entidades = [
   'tipos-ausencia',
   'tipos-solicitud',
   'bancos',
+  'conceptos',
+  'tipos-deduccion-isr',
   'feriados',
   'parametros-legales',
   'empleados',

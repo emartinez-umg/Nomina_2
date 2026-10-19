@@ -70,7 +70,7 @@ describe('FASE V1-8: migración de vacaciones sin alterar aprobaciones', () => {
           )
         ).rows![0]!,
     );
-    expect(await ejecutarMigraciones(db, logger)).toBe(5);
+    expect(await ejecutarMigraciones(db, logger)).toBe(7);
   });
   afterAll(async () => {
     await db?.cerrar();

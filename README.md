@@ -18,7 +18,7 @@ docker compose up --build
 ```
 
 También: `docker compose up --build -d --wait --wait-timeout 900`. La primera preparación tarda
-varios minutos. La API espera Oracle saludable, aplica V000–V030 y seeds y luego inicia nginx.
+varios minutos. La API espera Oracle saludable, aplica V000–V032 y seeds y luego inicia nginx.
 No necesitas SQL manual, Instant Client ni instalar Node en el host para utilizar el sistema.
 
 - **Aplicación:** [https://localhost:8443/login](https://localhost:8443/login).
@@ -309,7 +309,7 @@ Pruebas: `npm run verify:pagos`, `npm run verify:prestaciones` y
 
 La rama `v1` incluye A2–A12. Antes de actualizar una instalación, respalda Oracle y conserva su
 volumen y `.env`. Ejecuta `docker compose up --build -d --wait --wait-timeout 900`: la API aplica
-V021–V030 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
+V021–V032 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
 ni elimines el volumen. Un fallo de migración detiene el arranque para revisión.
 
 `npm run verify:migration` exige Git con la etiqueta `v0.0`, Node 20, `npm ci` y Oracle saludable.
@@ -335,3 +335,14 @@ y los retira al finalizar. Requiere suficiente espacio libre **dentro del disco 
 
 Consulta [decisiones y mejoras futuras](docs/DECISIONES.md#v1--automatización-y-cierre-v1-12) y
 [el resultado del cierre](docs/PROGRESO_V1.md).
+
+### Ronda 2: catálogos comunes (R2-4)
+
+V031 unifica validación de nombres, duplicados normalizados y bloqueo de eliminación por uso.
+Incluye parentescos, conceptos, tipos de solicitud y deducciones ISR en el CRUD existente.
+Los duplicados previos conservan su registro y se reportan en CATALOGOS_NOMBRES_CORREGIDOS.
+Consultar [CATALOGOS](docs/CATALOGOS.md) y [progreso](docs/PROGRESO_V1.md) para reglas y excepciones
+de identidades versionadas/geografía oficial. Pruebas: `npm run verify:catalogos` y
+`npm run test:e2e -- --production ronda2.spec.ts --grep R2-4`.
+
+V032 prepara las restricciones exactas antiguas antes de V031 al migrar desde v0/v1; sobre V031 ya aplicada retira solamente esas restricciones redundantes. El runner conserva y verifica el checksum original de V031.

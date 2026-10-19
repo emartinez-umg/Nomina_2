@@ -2,7 +2,7 @@ import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 import type { Catalogo } from '../api/catalogos';
 export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyuda {
   return {
-    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}-v1-12`,
+    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}-r2-4`,
     pasos: formulario
       ? [
           {
@@ -10,7 +10,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             titulo: `Registrar ${cat.titulo.toLowerCase()}`,
             descripcion: cat.legal
               ? 'Los valores se conservan por vigencia. Para cambiar un valor histórico, selecciona una fecha posterior al último periodo cerrado; no cambies el código ni su unidad. Al guardar revisarás una advertencia con los valores anteriores y nuevos.'
-              : 'Completa los campos obligatorios. Los formatos se guían mientras escribes; los errores se muestran al salir de cada campo y antes de guardar.',
+              : 'Los nombres requieren dos caracteres y una letra. Se recortan y colapsan espacios; se permiten letras con acentos, ñ/ü, números y punto, coma, guion, barra, &, paréntesis y apóstrofo. Los demás símbolos se bloquean al escribir o pegar. No se admiten duplicados aunque cambien acentos o mayúsculas. Si existe uno inactivo, Reactivar abre su confirmación con motivo. Completa los campos obligatorios. Los formatos se guían mientras escribes; los errores se muestran al salir de cada campo y antes de guardar.',
           },
           ...cat.campos.map((f) => ({
             elemento: `campo-${f.nombre}`,
@@ -81,7 +81,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             elemento: 'catalogo-tabla',
             titulo: 'Orden, páginas y acciones',
             descripcion:
-              'Los encabezados ordenan todas las filas desde el servidor. Anterior y Siguiente cambian de página. Ver muestra el detalle, Editar abre el formulario y Desactivar conserva el historial. En horarios, Duplicar copia los bloques a un alta con código nuevo; revisa nombre y distribución antes de guardar. Eliminar se bloquea cuando existen referencias; en ese caso usa Desactivar.',
+              'Los encabezados ordenan todas las filas desde el servidor. Anterior y Siguiente cambian de página. Ver muestra el detalle, Editar revalida las mismas reglas de creación y Desactivar conserva el historial. La columna En uso cuenta registros que lo referencian, incluso históricos; la papelera se bloquea y su tooltip explica el motivo. Puedes inactivarlo tras revisar la advertencia: desaparece de nuevas selecciones y permanece en las existentes. Historial muestra las acciones y motivos de este registro. En horarios, Duplicar copia los bloques a un alta con código nuevo; revisa nombre y distribución antes de guardar. Eliminar se bloquea cuando existen referencias; en ese caso usa Desactivar.',
           },
           {
             elemento: 'catalogo-exportar',
@@ -119,7 +119,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
                   elemento: 'catalogo-tabla',
                   titulo: 'Vigencias y valores legales',
                   descripcion:
-                    'Editar con una fecha posterior crea una versión y termina la anterior el día previo. Las vigencias no se traslapan. Las versiones utilizadas o que afectan un periodo cerrado se conservan. Al guardar se exige motivo y confirmación del valor anterior frente al nuevo.',
+                    'Editar con una fecha posterior crea una versión y termina la anterior el día previo. Las vigencias no se traslapan. Los valores utilizados o que afectan un periodo cerrado se conservan. Inactivar/Activar cambia la disponibilidad futura sin modificar esos valores; al activar se comprueba que no se traslapen vigencias. Al guardar se exige motivo y confirmación del valor anterior frente al nuevo.',
                 },
               ]
             : []),
@@ -136,3 +136,42 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
         ],
   };
 }
+
+export function ayudaAccionCatalogo(tipo: 'estado' | 'eliminar'): DefinicionAyuda {
+  return {
+    id: `catalogo-accion-${tipo}-r2-4`,
+    pasos: [
+      {
+        elemento: 'catalogo-accion-datos',
+        titulo: 'Revisa el registro y su uso',
+        descripcion:
+          tipo === 'eliminar'
+            ? 'Eliminar se bloquea si empleados u otras tablas usan este registro, incluidos históricos. La baja lógica conserva la fila; solo ADMIN puede elegir eliminación física irreversible. Si tiene uso, cancela y utiliza Desactivar.'
+            : 'Activar recupera el registro existente, con su mismo código. Desactivar lo retira de nuevas selecciones y conserva asignaciones existentes. Si está en uso, revisa el conteo antes de confirmar. Reactivar desde un aviso de duplicado conserva los datos del registro existente; no aplica los datos escritos en el alta.',
+      },
+      {
+        elemento: 'catalogo-accion-motivo',
+        titulo: 'Motivo obligatorio',
+        descripcion:
+          'Explica con 5 a 500 caracteres la razón de la acción. El motivo queda en el historial de este registro y en auditoría. El borrador conserva el texto; no confirma la acción por ti.',
+      },
+      {
+        elemento: 'catalogo-accion-confirmar',
+        titulo: 'Confirmación y nueva comprobación',
+        descripcion:
+          'Confirmar vuelve a comprobar permisos, duplicados y uso en el servidor y registra el cambio con su auditoría en una transacción. Espera el resultado sin enviar de nuevo. Cancelar permite conservar o descartar el borrador. El cambio de estado conserva los valores históricos y los documentos cerrados; una edición de valores sigue exigiendo una nueva vigencia cuando corresponde.',
+      },
+    ],
+  };
+}
+export const ayudaHistorialCatalogo: DefinicionAyuda = {
+  id: 'catalogo-historial-r2-4',
+  pasos: [
+    {
+      elemento: 'catalogo-historial',
+      titulo: 'Cambios de este registro',
+      descripcion:
+        'Consulta fecha, acción y motivo de los últimos 100 cambios. Solo se muestra la historia de este catálogo y registro; no la bitácora global. Sin cambios aparece un estado vacío. Si falla la consulta, Reintentar vuelve a cargarla. Cerrar vuelve al listado.',
+    },
+  ],
+};

@@ -177,3 +177,43 @@ describe('historial de migraciones', () => {
     expect(fallida.completar).not.toHaveBeenCalled();
   });
 });
+
+describe('R2-4: preparación de nombres sin modificar V031', () => {
+  const cargar = async () =>
+    (
+      await cargarMigraciones(fileURLToPath(new URL('../../../../db/migrations/', import.meta.url)))
+    ).filter((m) => m.version === 31 || m.version === 32);
+  it('ejecuta V032 antes del DDL de V031 y completa ambas al terminar', async () => {
+    const pendientes = await cargar(),
+      repo = repository();
+    expect(await aplicarMigraciones(pendientes, repo, logger)).toBe(2);
+    expect(repo.ejecutar.mock.calls.map(([sql]) => sql)).toEqual([
+      ...pendientes[1]!.sentencias,
+      ...pendientes[0]!.sentencias,
+    ]);
+    expect(repo.completar.mock.calls).toEqual([[31], [32]]);
+  });
+  it('aplica solo V032 si V031 ya está registrada, conservando su checksum', async () => {
+    const pendientes = await cargar(),
+      primera = pendientes[0]!;
+    const repo = repository([[31, primera.archivo, primera.checksum, 'APLICADA']]);
+    expect(await aplicarMigraciones(pendientes, repo, logger)).toBe(1);
+    expect(repo.iniciar.mock.calls).toEqual([[pendientes[1]]]);
+    expect(repo.ejecutar.mock.calls.map(([sql]) => sql)).toEqual(pendientes[1]!.sentencias);
+  });
+  it('no anticipa la preparación para un checksum desconocido', async () => {
+    const pendientes = await cargar(),
+      repo = repository();
+    pendientes[0] = { ...pendientes[0]!, checksum: 'f'.repeat(64) };
+    await aplicarMigraciones(pendientes, repo, logger);
+    expect(repo.ejecutar.mock.calls[0]).toEqual([pendientes[0]!.sentencias[0]]);
+  });
+  it('marca ambas como fallidas si se interrumpe la preparación', async () => {
+    const pendientes = await cargar(),
+      repo = repository();
+    repo.ejecutar.mockRejectedValueOnce(new Error('Preparación interrumpida'));
+    await expect(aplicarMigraciones(pendientes, repo, logger)).rejects.toThrow('interrumpida');
+    expect(repo.fallar.mock.calls).toEqual([[31], [32]]);
+    expect(repo.completar).not.toHaveBeenCalled();
+  });
+});

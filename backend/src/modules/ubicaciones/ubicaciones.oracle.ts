@@ -67,7 +67,7 @@ describe('FASE V1-4: ubicaciones con Oracle y API reales', () => {
         nombre: localidad,
         localidad,
       });
-    expect(await ejecutarMigraciones(db, logger)).toBe(9);
+    expect(await ejecutarMigraciones(db, logger)).toBe(11);
     await ejecutarSeeds(db, logger, seed);
     departamento = Number(
       await scalar("SELECT ID_DEPARTAMENTO_GT FROM DEPARTAMENTOS_GT WHERE CODIGO_INE='01'"),

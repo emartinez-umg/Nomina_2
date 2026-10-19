@@ -1,3 +1,4 @@
+import { CatalogoAccion } from './CatalogoAccion';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
@@ -7,7 +8,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Catalogo, Fila } from '../api/catalogos';
-import { guardar, restricciones } from '../api/catalogos';
+import { guardar, restricciones, detalle } from '../api/catalogos';
 import { valoresIniciales, schemaFormulario, cuerpo, bloquesDesdeJson } from '../api/validacion';
 import { CampoEditor } from './CampoEditor';
 import { ConstructorHorario } from '../../horarios/ConstructorHorario';
@@ -17,7 +18,7 @@ import { Button } from '../../../components/ui/Button';
 import { FormErrorSummary, TextAreaField, UbicacionSelect } from '../../../components/forms';
 import { useToast } from '../../../components/ui/Toast';
 import { HelpButton } from '../../../components/help/HelpProvider';
-import { mapearErrores } from '../../../lib/http';
+import { ErrorApi, mapearErrores } from '../../../lib/http';
 import { fechaVisible } from '../../../lib/validadores';
 import { formatoMoneda } from '../../../components/forms/MoneyField';
 import type { Campo } from '../api/catalogos';
@@ -62,6 +63,8 @@ export function CatalogoFormulario({
 }) {
   const cliente = useQueryClient();
   const toast = useToast();
+  const [reactivar, setReactivar] = useState<Fila>();
+  const [consultando, setConsultando] = useState(false);
   const [revision, setRevision] = useState<Record<string, string> | null>(null);
   const [motivoError, setMotivoError] = useState<string>();
   const reglasHorario = useQuery({
@@ -116,6 +119,7 @@ export function CatalogoFormulario({
       draft.limpiar();
       void cliente.invalidateQueries({ queryKey: ['catalogos'] });
       void cliente.invalidateQueries({ queryKey: ['empleados', 'opciones'] });
+      void cliente.invalidateQueries({ queryKey: ['empleados', 'parentescos'] });
       onGuardado?.(fila);
       toast('Registro guardado y auditado.');
       onCerrar();
@@ -308,6 +312,32 @@ export function CatalogoFormulario({
               mensajes={Object.values(errors).map((e) => e?.message)}
               mensajeServidor={mutation.error?.message}
             />
+            {mutation.error instanceof ErrorApi &&
+              mutation.error.codigo === 'DUPLICADO' &&
+              mutation.error.duplicado?.activo === false && (
+                <Button
+                  icono="aprobar"
+                  variante="secundario"
+                  cargando={consultando}
+                  onClick={() => {
+                    const id =
+                      mutation.error instanceof ErrorApi ? mutation.error.duplicado?.id : undefined;
+                    if (!id || consultando) return;
+                    setConsultando(true);
+                    void detalle(cat.slug, id)
+                      .then(setReactivar)
+                      .catch((e: unknown) =>
+                        toast(
+                          e instanceof Error ? e.message : 'No se pudo abrir el registro.',
+                          'peligro',
+                        ),
+                      )
+                      .finally(() => setConsultando(false));
+                  }}
+                >
+                  Reactivar registro existente
+                </Button>
+              )}
           </div>
           <div className="mt-5 flex justify-end gap-3" data-tour="catalogo-guardar">
             <Button
@@ -325,6 +355,18 @@ export function CatalogoFormulario({
           </div>
         </form>
       </Modal>
+      {reactivar && (
+        <CatalogoAccion
+          cat={cat}
+          fila={reactivar}
+          tipo="estado"
+          onCerrar={() => setReactivar(undefined)}
+          onExito={() => {
+            draft.limpiar();
+            onCerrar();
+          }}
+        />
+      )}
       <Modal
         abierto={!!revision}
         titulo="ADVERTENCIA · Cambio de parametrización legal"

@@ -100,7 +100,12 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
           !!actual,
           requiereFin,
           codigoMunicipio,
-          catalogoParentescos.data?.map((p) => p.value),
+          catalogoParentescos.data
+            ? [
+                ...catalogoParentescos.data.map((p) => p.value),
+                ...(actual?.contactoParentesco ? [String(actual.contactoParentesco)] : []),
+              ]
+            : undefined,
         ),
       ),
     [r, actual, requiereFin, codigoMunicipio, catalogoParentescos.data],
@@ -311,6 +316,11 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                           control={control}
                           render={({ field }) => (
                             <CampoEmpleado
+                              parentescoAnterior={
+                                actual?.contactoParentesco
+                                  ? String(actual.contactoParentesco)
+                                  : undefined
+                              }
                               campo={f}
                               name={field.name}
                               label={f.label}

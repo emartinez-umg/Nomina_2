@@ -66,20 +66,26 @@ export function RefField(props: CampoProps & { departamento?: string | undefined
     />
   );
 }
-function ParentescoField(props: CampoProps) {
+function ParentescoField({
+  parentescoAnterior,
+  ...props
+}: CampoProps & { parentescoAnterior?: string | undefined }) {
   const q = useQuery({
     queryKey: ['empleados', 'parentescos'],
     queryFn: ({ signal }) => parentescos(signal),
   });
+  const lista = [...(q.data ?? [])];
+  if (parentescoAnterior && !lista.some((p) => p.value === parentescoAnterior))
+    lista.unshift({ value: parentescoAnterior, label: `${parentescoAnterior} (actual)` });
   return (
     <SelectField
       {...props}
-      opciones={q.data ?? []}
+      opciones={lista}
       disabled={props.disabled || q.isPending}
       error={
         props.error ??
         q.error?.message ??
-        (q.data && props.value && !q.data.some((p) => p.value === props.value)
+        (q.data && props.value && !lista.some((p) => p.value === props.value)
           ? 'Selecciona un parentesco del catálogo; revisa el dato anterior.'
           : undefined)
       }
@@ -92,6 +98,7 @@ export function CampoEmpleado({
   nacimiento,
   ingreso,
   departamento,
+  parentescoAnterior,
   ...props
 }: CampoProps & {
   campo: Def;
@@ -99,8 +106,10 @@ export function CampoEmpleado({
   nacimiento?: string | undefined;
   ingreso?: string | undefined;
   departamento?: string | undefined;
+  parentescoAnterior?: string | undefined;
 }) {
-  if (campo.nombre === 'contactoParentesco') return <ParentescoField {...props} />;
+  if (campo.nombre === 'contactoParentesco')
+    return <ParentescoField {...props} parentescoAnterior={parentescoAnterior} />;
   if (campo.nombre === 'numeroCasa')
     return (
       <InputField

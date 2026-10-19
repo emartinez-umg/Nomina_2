@@ -15,6 +15,13 @@ const legal = {
   confirmado: true,
 };
 describe('Validación de catálogos', () => {
+  it('R2-4: rechaza nombres inválidos y normaliza espacios también al editar', () => {
+    for (const nombre of ['   ', 'A', '123456', '/*%$#&/@#^', 'Ventas!', 'Área <script>'])
+      expect(schema('departamentos').safeParse({ ...base, nombre }).success, nombre).toBe(false);
+    expect(
+      schema('departamentos').parse({ ...base, nombre: '  Área   de  Ingeniería  ' }).nombre,
+    ).toBe('Área de Ingeniería');
+  });
   it('exige rangos salariales completos y ordenados con precisión decimal', () => {
     const puesto = {
       ...base,

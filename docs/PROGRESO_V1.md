@@ -1624,3 +1624,132 @@ Se conserva fuera del commit el cambio previo del usuario en AGENTS.md.
 3. `docker compose up --build -d nomina2-web`; entrar a https://localhost:8443 y revisar
    Nuevo empleado, catálogos, novedades, empresa y publicaciones. Comparar datos cortos/nombres,
    abrir selectores y ayuda, provocar errores y repetir en móvil. No guardar datos de prueba.
+
+### FASE R2-4 — Reglas comunes de catálogos
+
+Estado: completada el 19/10/2026. Rama `v1.1`; alcance B4.
+El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
+
+#### Reproducción y causas raíz
+
+- El CRUD existente validaba Nombre como texto libre: una regresión de una sola letra falló
+  antes del arreglo. No había nombre normalizado ni defensa común contra duplicados por nombre.
+  La detección de uso solo entregaba un booleano; faltaban su columna y una acción común de historial.
+- Inventario: trece definiciones previas (empresa ya tiene pantalla propia y tramos no tiene nombre),
+  más parentescos, conceptos, tipos de solicitud y deducciones ISR en Oracle sin CRUD compartido.
+  No existen tablas de países, zonas, motivos de baja ni tipos de día/ingreso en esta versión.
+- Un UNIQUE exacto antiguo puede impedir recortar al más antiguo: `Padre` anterior a `Padre`
+  produce ORA-00001 al intentar conservar su nombre canónico. La regresión comprueba ese fallo
+  antes de migrar y verifica que la preparación nueva conserva al antiguo y renombra al otro.
+
+#### Hecho y decisiones
+
+- `shared/catalogos/nombre.ts` es el único validador, importado también por frontend: NFC, recorte,
+  espacios colapsados antes de validar, mínimo dos caracteres y una letra, longitud por catálogo y
+  puntuación explícita B4. API, servicio y formulario lo usan al crear/editar. El campo compartido
+  bloquea escritura/pegado inválidos, normaliza al salir y muestra hints y errores contextuales.
+- V031 agrega NOMBRE_NORMALIZADO e índices UNIQUE en catálogos con nombre; los triggers lo mantienen
+  también ante SQL directo. El servicio comprueba equivalencias sin acentos/mayúsculas/espacios
+  bajo el bloqueo transaccional común y traduce también el UNIQUE: 409 DUPLICADO, campos.nombre,
+  nombre existente y metadatos de su ID/estado. Se conservan nombres visibles con acentos.
+- Un duplicado inactivo ofrece Reactivar: consulta el registro real y abre la confirmación común
+  con motivo. Reactiva ese ID y conserva su código/datos; no genera otra fila ni aplica el alta
+  escrita. Éxito limpia el borrador y refresca catálogos/selectores; errores conservan entradas.
+- Migración ordenada por FECHA_CREACION/PK: conserva al más antiguo, elige sufijos `(duplicado N)`
+  libres incluso si ya existe `(duplicado 2)`, inactiva los restantes y guarda originales/nuevos
+  en CATALOGOS_NOMBRES_CORREGIDOS. No elimina filas ni modifica PK/FK/códigos.
+- V031 ya se había aplicado localmente al detectar la colisión del UNIQUE exacto. Se conserva su
+  archivo/checksum y se añade V032: retira los tres UNIQUE exactos redundantes de parentescos y
+  geografía, conservando índices de búsqueda. El runner la anticipa solo para el checksum conocido
+  de V031 antes de su DDL y completa ambas al terminar; otros fallos siguen requiriendo revisión.
+  Sobre V031 aplicada, V032 se ejecuta normalmente. Cuatro unitarias prueban orden, checksum,
+  aplicación posterior y fallo de preparación. V000–V030 permanecen intactas.
+- La verificación genérica de uso descubre FK en Oracle y cuenta filas por tabla, sin duplicar una
+  fila con varias FK ni ignorar referencias inactivas/históricas. Añade los vínculos sin FK existentes:
+  parentesco por texto de contacto y parámetro de tope por clave interna de deducción ISR. Solo excluye
+  bloques/días propios del horario, que forman parte del patrón y se retiran junto a él.
+- DELETE lógico/físico se bloquea con REGISTRO_EN_USO, conteo y sugerencia de inactivar. Tabla y CSV
+  muestran En uso; la papelera se deshabilita con tooltip. Inactivar advierte del conteo y conserva
+  referencias. Las selecciones nuevas ofrecen activos; editar mantiene su referencia inactiva,
+  incluido parentesco, y no permite asignarla a un registro nuevo.
+- B4 cambia a propósito el estado de versiones legales utilizadas: se permite inactivar/reactivar
+  con motivo y confirmación sin cambiar valores/documentos cerrados. Activar revalida traslapes;
+  editar valores y eliminar versiones cerradas conserva sus protecciones. Regresión previa ajustada.
+- Se reutiliza un solo servicio/formulario/tabla con metadatos, incluyendo los cuatro catálogos
+  Oracle adicionales. Conceptos conserva versiones y banderas. Códigos semánticos anteriores se
+  mantienen; altas nuevas usan el generador transaccional. Parentescos usado no permite renombrar
+  porque su vínculo histórico aún es texto. Flujos de tipos de solicitud usados se conservan.
+- `CatalogoAcciones` unifica Ver, Editar, Desactivar/Activar, Historial y Eliminar. Historial por
+  entidad/ID entrega los últimos 100 cambios a RH/ADMIN, sin ampliar la bitácora global ni exponer IP.
+  Confirmaciones e historial tienen ayuda declarativa propia y manual. Hints/recorridos, navegación,
+  Dockerfile del validador compartido, CATALOGOS, ERD y README actualizados.
+
+#### Supuestos y alcance
+
+- No se inventan tablas ni datos para los ejemplos B4 ausentes. La zona domiciliaria sigue siendo
+  el selector numérico ya existente; los ingresos se configuran mediante conceptos. Al añadir un
+  catálogo a futuro debe registrarse en los metadatos comunes y en su migración de nombres.
+- Parámetros/conceptos representan identidades con versiones: el UNIQUE físico incluye vigencia
+  y el servicio permite el mismo nombre solo para versiones de la misma identidad. Crear otra alta
+  equivalente sigue siendo DUPLICADO, aunque su vigencia sea distinta. Municipios oficiales son
+  únicos por departamento, preservando homónimos INE. Roles y geografía siguen de solo lectura.
+- El conteo es de referencias, no de empleados distintos: puede incluir puestos, jefaturas,
+  asignaciones y movimientos históricos. Se indica «registro(s) de empleados u otras tablas».
+- No se cambian fórmulas de nómina ni se adelantan B5–B7. La exportación SQL histórica V030 conserva
+  su entrega original; una nueva exportación se genera con el comando existente si se necesita.
+
+#### Validación
+
+- Validador y esquemas: vacíos/espacios, una letra, números/símbolos, acentos/ñ/ü/NFD, caracteres
+  permitidos/prohibidos y longitud después del recorte; cobertura de todas las definiciones en UI.
+- Oracle/Supertest: ocho casos nuevos aprobados con V031/V032, incluyendo colisiones preexistentes
+  en departamentos/parentescos, sufijos ocupados, antigüedad, reejecución, paridad TS/Oracle, UNIQUE,
+  edición inválida, duplicados en todos los CRUD, versiones, altas concurrentes, reactivación,
+  historial, referencias sin FK, eliminación bloqueada y conservación de referencia inactiva.
+- Regresiones anteriores adaptadas intencionalmente: colisiones de código usan nombres distintos
+  con las mismas abreviaturas; fixtures de departamentos/feriados ya no repiten nombre; el actor
+  salarial refleja el nombre de la ficha firmante creada por la prueba (regla B2). Se mantienen
+  las aserciones financieras, permisos y rollback. Conteos de migraciones reflejan V032.
+- Matriz de pantallas/roles, ayuda/hints, teclado, móvil y axe A/AA aprobada sobre nginx/TLS;
+  incluye los cuatro CRUD añadidos. Colisiones de códigos del navegador también aprobadas.
+- Supertest necesitó puertos locales fuera del sandbox. Pruebas simultáneas agotaron el disco de
+  Docker (ORA-01658); se liberaron 1.671 GB únicamente de caché de compilación sin uso >24 horas.
+  Las suites afectadas se repiten en secuencia. Contenedores, volúmenes y credenciales conservados.
+
+#### Resultado final y reporte de migración
+
+- Node 20.20.2: **642 pruebas aprobadas** (353 backend, 282 frontend, siete exportador), lint,
+  TypeScript strict, builds y Prettier. Se conserva el aviso previo de tamaño de chunk Vite.
+  Auditoría de secretos y diff --check aprobados, incluidos los archivos nuevos preparados para commit.
+- Ocho casos Oracle nuevos, 79 de seguridad/regresión y nueve de códigos aprobados. V000–V032
+  desde cero, UNIQUE, CHECK, identidades, FKs/índices y semillas repetibles aprobados. V032 conserva
+  también el índice de ID_DEPARTAMENTO_GT que cubría el UNIQUE compuesto antiguo de municipios.
+- Matriz de producción: **136 vistas y 1,911 pasos de ayuda** aprobados, más el caso previo de
+  colisiones de códigos. Ronda 2: quince regresiones aprobadas; el nuevo caso R2-4 pasó en su
+  repetición final (5.8 s, 21.4 s con preparación), con API/Oracle reales, reactivación, uso,
+  ayuda de confirmación/historial y axe A/AA. Las primeras comprobaciones del recorrido usaban
+  el título inicial equivocado y un selector de Siguiente inexistente/ambiguo con la paginación;
+  se corrige el E2E para recorrer el paso común y pulsar el botón real del recorrido. No se
+  suprimen comprobaciones ni se cambia la funcionalidad para satisfacer esa expectativa.
+- Capturas de escritorio/móvil inspeccionadas en tmp/pdfs/r2-4-catalogos-*.png. En móvil la tabla
+  conserva desplazamiento interno; sin desbordamiento del documento. Artefactos de pruebas ignorados.
+- API/web locales saludables en https://localhost:8443, V031/V032 aplicadas y verify:infra aprobado
+  para Oracle/API/nginx, SPA/assets y visor/worker PDF. Oracle, volumen y credenciales conservados.
+  Conteos antes/después idénticos: tres empleados, cinco usuarios, tres salarios, tres asignaciones,
+  dos solicitudes, un descuento y cero pagos/nóminas/préstamos. Cero objetos inválidos.
+- **Reporte real:** PUESTOS, ID 41: `DESARROLLADOR` → `DESARROLLADOR (duplicado 2)`; ID 42:
+  `DESARROLLADOR` → `DESARROLLADOR (duplicado 3)`. Ambos inactivos; el más antiguo conserva el nombre.
+  No hubo otras correcciones. Los originales permanecen en CATALOGOS_NOMBRES_CORREGIDOS y sus
+  referencias existentes se conservan. RH puede revisar estos puestos desde el filtro Inactivo.
+- Esquemas/contenedores/imágenes exclusivos de las pruebas retirados. Sin datos de prueba en la
+  aplicación. Sin pendientes técnicos de R2-4; B5–B7 permanecen reservadas a sus fases.
+
+#### Cómo probar
+
+1. Node 20: `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. Oracle saludable: `npm run verify:catalogos`; `npm run verify:security`; `npm run db:verify`.
+3. `npm run test:e2e -- --production ronda2.spec.ts`; matriz: `npm run test:e2e -- --production cierre.spec.ts --grep 'todas las páginas|vista previa, colisiones'`.
+4. `docker compose up --build -d nomina2-api nomina2-web`; entrar como RH/ADMIN. Crear/editar
+   nombres inválidos y equivalentes; inactivar y usar Reactivar; comprobar En uso, tooltip,
+   confirmación, historial, ayuda y selectores nuevos/existentes.
+5. Consultar CATALOGOS_NOMBRES_CORREGIDOS para revisar cada nombre corregido al migrar.

@@ -1,3 +1,4 @@
+import { recortarNombreCatalogo, validarNombreCatalogo } from '../../shared/catalogos/nombre.js';
 import { analizarHorario } from '../../shared/horarios/modelo.js';
 import { z } from 'zod';
 import { nitValido } from '../empleados/empleados.schemas.js';
@@ -74,6 +75,14 @@ export const bloqueSchema = z
   })
   .strict();
 function schemaCampo(f: CampoCatalogo): z.ZodTypeAny {
+  if (f.nombre === 'nombre')
+    return z
+      .string()
+      .transform(recortarNombreCatalogo)
+      .superRefine((v, ctx) => {
+        const mensaje = validarNombreCatalogo(v, f.max);
+        if (mensaje) ctx.addIssue({ code: 'custom', message: mensaje });
+      });
   let s: z.ZodTypeAny;
   switch (f.tipo) {
     case 'nit':

@@ -574,7 +574,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await empleado.agent.get('/api/catalogos').expect(403);
       const rh = await entrarCuenta('RH');
       const r = await rh.agent.get('/api/catalogos').expect(200);
-      expect(r.body.data).toHaveLength(13);
+      expect(r.body.data).toHaveLength(17);
       expect(r.text).not.toContain('columna');
       await rh.agent.post('/api/catalogos/departamentos').send(base).expect(403);
       await rh.agent.get('/api/catalogos/departamentos').query({ sql: 'SELECT' }).expect(400);
@@ -764,11 +764,20 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       const { agent, csrf } = await entrarAdmin();
       const crear = (slug: string, body: object) =>
         agent.post(`/api/catalogos/${slug}`).set('X-CSRF-Token', csrf).send(body).expect(201);
-      const dep = await crear('departamentos', { ...base, codigo: 'F4_RESP_DEP' });
-      const dep2 = await crear('departamentos', { ...base, codigo: 'F4_OTRO_DEP' });
+      const dep = await crear('departamentos', {
+        ...base,
+        nombre: 'Departamento responsable',
+        codigo: 'F4_RESP_DEP',
+      });
+      const dep2 = await crear('departamentos', {
+        ...base,
+        nombre: 'Departamento alterno',
+        codigo: 'F4_OTRO_DEP',
+      });
       const puesto = await crear('puestos', {
         ...base,
         codigo: 'F4_RESP_PUESTO',
+        nombre: 'Puesto del responsable',
         idDepartamento: dep.body.data.id,
         salarioMinimo: null,
         salarioMaximo: null,
@@ -796,6 +805,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await crear('jefaturas', {
         ...base,
         codigo: 'F4_RESP_JEFE',
+        nombre: 'Jefatura del responsable',
         idDepartamento: dep.body.data.id,
         idEmpleadoResponsable: empleado,
       });
@@ -957,7 +967,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         .send({ motivo: 'Baja de versión', confirmado: true })
         .expect(200);
     });
-    it('impide cualquier cambio legal retroactivo que afecte periodos cerrados', async () => {
+    it('protege valores legales cerrados y permite inactivar/reactivar sin alterarlos', async () => {
       await ejecutar(
         "INSERT INTO PERIODOS_NOMINA (FECHA_INICIO,FECHA_FIN,QUINCENA,ESTADO,APROBADO_EN,CERRADO_EN,APROBADO_POR,CERRADO_POR) VALUES (DATE '2026-12-01',DATE '2026-12-15',1,'CERRADO',SYSDATE,SYSDATE,:actor,:actor)",
         { actor: admin.idUsuario },
@@ -987,8 +997,17 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await agent
         .patch(`/api/catalogos/parametros-legales/${fila.id}/estado`)
         .set('X-CSRF-Token', csrf)
-        .send({ activo: false, motivo: 'Baja no permitida', confirmado: true })
-        .expect(409);
+        .send({
+          activo: false,
+          motivo: 'Inactivar sin alterar valores históricos',
+          confirmado: true,
+        })
+        .expect(200);
+      await agent
+        .patch(`/api/catalogos/parametros-legales/${fila.id}/estado`)
+        .set('X-CSRF-Token', csrf)
+        .send({ activo: true, motivo: 'Restaurar aplicación del parámetro', confirmado: true })
+        .expect(200);
       await agent
         .delete(`/api/catalogos/parametros-legales/${fila.id}`)
         .set('X-CSRF-Token', csrf)
@@ -1484,7 +1503,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         .then((r) => expect(r.body.data.salarioBase).toBe('5000.00'));
       const h = await agent.get(`/api/empleados/${id}/pestanas/salario`).expect(200);
       expect(h.body.data.registros[0]['Salario mensual']).toBe('7000.01');
-      expect(h.body.data.registros[0]['Registrado por']).toBe(seed.ADMIN_USER);
+      expect(h.body.data.registros[0]['Registrado por']).toBe('ZZ Pruebas');
     });
     it('rollback de alta y cambio salarial si falla auditoría', async () => {
       const { agent, csrf } = await entrarAdmin();
@@ -1713,7 +1732,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           ['F7_LOCAL', '2095-01-06', 'LOCAL', 'GUATEMALA_CIUDAD'],
         ])
           await ejecutar(
-            "INSERT INTO FERIADOS (CODIGO,NOMBRE,FECHA,FECHA_CONMEMORACION,AMBITO,LOCALIDAD,FUNDAMENTO) VALUES (:codigo,'Feriado prueba',TO_DATE(:fecha,'YYYY-MM-DD'),TO_DATE(:fecha,'YYYY-MM-DD'),:ambito,:localidad,'Prueba aislada')",
+            "INSERT INTO FERIADOS (CODIGO,NOMBRE,FECHA,FECHA_CONMEMORACION,AMBITO,LOCALIDAD,FUNDAMENTO) VALUES (:codigo,'Feriado prueba '||:ambito,TO_DATE(:fecha,'YYYY-MM-DD'),TO_DATE(:fecha,'YYYY-MM-DD'),:ambito,:localidad,'Prueba aislada')",
             { codigo: codigo!, fecha: fecha!, ambito: ambito!, localidad: localidad! },
           );
         const e = await empleado(),

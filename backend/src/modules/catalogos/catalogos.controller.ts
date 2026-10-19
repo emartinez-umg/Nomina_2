@@ -28,9 +28,10 @@ export function crearCatalogosController(service: ReturnType<typeof crearCatalog
       sinDatos.parse(req.query);
       res.json(
         respuestaOk(
-          catalogos.map(({ slug, titulo, campos, legal }) => ({
+          catalogos.map(({ slug, titulo, campos, legal, singular }) => ({
             slug,
             titulo,
+            singular,
             campos: campos.map(({ columna: _columna, ...f }) => f),
             legal: !!legal,
           })),
@@ -67,6 +68,11 @@ export function crearCatalogosController(service: ReturnType<typeof crearCatalog
       sinDatos.parse(req.query);
       const { cat, id } = contexto(req);
       res.json(respuestaOk(await service.detalle(cat, id!)));
+    },
+    async historial(req: Request, res: Response) {
+      sinDatos.parse(req.query);
+      const { cat, id } = contexto(req);
+      res.json(respuestaOk(await service.historial(cat, id!)));
     },
     async guardar(req: Request, res: Response) {
       sinDatos.parse(req.query);

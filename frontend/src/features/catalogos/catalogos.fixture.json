@@ -1,27 +1,179 @@
 [
   {
-    "slug": "departamentos",
-    "titulo": "Departamentos",
-    "legal": false,
+    "slug": "empresa",
+    "titulo": "Datos de empresa",
+    "tabla": "CONFIGURACION_EMPRESA",
+    "pk": "ID_CONFIGURACION_EMPRESA",
+    "campos": [
+      {
+        "nombre": "nombre",
+        "columna": "RAZON_SOCIAL",
+        "etiqueta": "Razón social",
+        "tipo": "texto",
+        "hint": "Nombre legal de la empresa que aparecerá en boletas y constancias.",
+        "requerido": true,
+        "max": 200
+      },
+      {
+        "nombre": "nit",
+        "columna": "NIT",
+        "etiqueta": "NIT de empresa",
+        "tipo": "nit",
+        "hint": "NIT del RTU con verificador válido. Ejemplo: 1234567-9.",
+        "requerido": true,
+        "max": 20
+      },
+      {
+        "nombre": "direccion",
+        "columna": "DIRECCION",
+        "etiqueta": "Dirección fiscal",
+        "tipo": "area",
+        "hint": "Dirección completa de la empresa, hasta 500 caracteres.",
+        "requerido": true,
+        "max": 500
+      },
+      {
+        "nombre": "correo",
+        "columna": "CORREO",
+        "etiqueta": "Correo de empresa",
+        "tipo": "correo",
+        "hint": "Correo de contacto institucional. Ejemplo: rh@empresa.com.",
+        "max": 254
+      },
+      {
+        "nombre": "telefono",
+        "columna": "TELEFONO",
+        "etiqueta": "Teléfono de empresa",
+        "tipo": "telefono",
+        "hint": "Ocho dígitos, sin código de país.",
+        "max": 8
+      }
+    ]
+  },
+  {
+    "slug": "bancos",
+    "singular": "banco",
+    "titulo": "Bancos",
+    "tabla": "BANCOS",
+    "pk": "ID_BANCO",
     "campos": [
       {
         "nombre": "codigo",
+        "columna": "CODIGO",
         "etiqueta": "Código",
         "tipo": "codigo",
-        "hint": "Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
         "requerido": true,
         "max": 40
       },
       {
         "nombre": "nombre",
+        "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
         "requerido": true,
         "max": 120
       },
       {
         "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "centros-trabajo",
+    "singular": "centro de trabajo",
+    "titulo": "Centros de trabajo",
+    "tabla": "CENTROS_TRABAJO",
+    "pk": "ID_CENTRO_TRABAJO",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      },
+      {
+        "nombre": "idDepartamentoGt",
+        "columna": "ID_DEPARTAMENTO_GT",
+        "etiqueta": "Departamento de Guatemala",
+        "tipo": "referencia",
+        "hint": "Departamento geográfico del catálogo oficial del INE. Busca por nombre; al cambiarlo vuelve a elegir el municipio.",
+        "requerido": true,
+        "referencia": "departamentos-gt"
+      },
+      {
+        "nombre": "idMunicipioGt",
+        "columna": "ID_MUNICIPIO_GT",
+        "etiqueta": "Municipio",
+        "tipo": "referencia",
+        "hint": "Busca y selecciona un municipio del departamento elegido. No se permite escribir una localidad libre.",
+        "requerido": true,
+        "referencia": "municipios-gt"
+      },
+      {
+        "nombre": "direccion",
+        "columna": "DIRECCION",
+        "etiqueta": "Dirección",
+        "tipo": "area",
+        "hint": "Ubicación del centro de trabajo.",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "departamentos",
+    "singular": "departamento",
+    "titulo": "Departamentos",
+    "tabla": "DEPARTAMENTOS",
+    "pk": "ID_DEPARTAMENTO",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
         "etiqueta": "Descripción",
         "tipo": "area",
         "hint": "Explica el propósito del registro (opcional).",
@@ -31,27 +183,32 @@
   },
   {
     "slug": "puestos",
+    "singular": "puesto",
     "titulo": "Puestos",
-    "legal": false,
+    "tabla": "PUESTOS",
+    "pk": "ID_PUESTO",
     "campos": [
       {
         "nombre": "codigo",
+        "columna": "CODIGO",
         "etiqueta": "Código",
         "tipo": "codigo",
-        "hint": "Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
         "requerido": true,
         "max": 40
       },
       {
         "nombre": "nombre",
+        "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
         "requerido": true,
         "max": 120
       },
       {
         "nombre": "idDepartamento",
+        "columna": "ID_DEPARTAMENTO",
         "etiqueta": "Departamento",
         "tipo": "referencia",
         "hint": "Selecciona un departamento activo. Crea primero el departamento si no aparece.",
@@ -60,6 +217,7 @@
       },
       {
         "nombre": "salarioMinimo",
+        "columna": "SALARIO_MINIMO",
         "etiqueta": "Salario mínimo referencial",
         "tipo": "dinero",
         "hint": "Monto en quetzales, sin signo negativo y con hasta dos decimales.",
@@ -68,6 +226,7 @@
       },
       {
         "nombre": "salarioMaximo",
+        "columna": "SALARIO_MAXIMO",
         "etiqueta": "Salario máximo referencial",
         "tipo": "dinero",
         "hint": "Monto en quetzales, sin signo negativo y con hasta dos decimales.",
@@ -76,6 +235,59 @@
       },
       {
         "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "jefaturas",
+    "singular": "jefatura",
+    "titulo": "Jefaturas",
+    "tabla": "JEFATURAS",
+    "pk": "ID_JEFATURA",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "idDepartamento",
+        "columna": "ID_DEPARTAMENTO",
+        "etiqueta": "Departamento",
+        "tipo": "referencia",
+        "hint": "Selecciona un departamento activo. Crea primero el departamento si no aparece.",
+        "requerido": true,
+        "referencia": "departamentos"
+      },
+      {
+        "nombre": "idEmpleadoResponsable",
+        "columna": "ID_EMPLEADO_RESPONSABLE",
+        "etiqueta": "Jefe responsable",
+        "tipo": "referencia",
+        "hint": "Empleado activo del departamento. Puede asignarse después de registrar empleados en la fase 5.",
+        "referencia": "empleados"
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
         "etiqueta": "Descripción",
         "tipo": "area",
         "hint": "Explica el propósito del registro (opcional).",
@@ -85,35 +297,41 @@
   },
   {
     "slug": "horarios",
+    "singular": "horario",
     "titulo": "Horarios laborales",
-    "legal": false,
+    "tabla": "HORARIOS",
+    "pk": "ID_HORARIO",
     "campos": [
       {
         "nombre": "codigo",
+        "columna": "CODIGO",
         "etiqueta": "Código",
         "tipo": "codigo",
-        "hint": "Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
         "requerido": true,
         "max": 40
       },
       {
         "nombre": "nombre",
+        "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
         "requerido": true,
         "max": 120
       },
       {
         "nombre": "jornada",
+        "columna": "JORNADA",
         "etiqueta": "Tipo de jornada",
         "tipo": "opcion",
-        "hint": "Jornada del patrón semanal; configura cada día por separado.",
+        "hint": "Se calcula automáticamente a partir de las horas de los bloques.",
         "requerido": true,
         "opciones": ["DIURNA", "MIXTA", "NOCTURNA"]
       },
       {
         "nombre": "descripcion",
+        "columna": "DESCRIPCION",
         "etiqueta": "Descripción",
         "tipo": "area",
         "hint": "Explica el propósito del registro (opcional).",
@@ -122,28 +340,430 @@
     ]
   },
   {
-    "slug": "parametros-legales",
-    "titulo": "Parámetros legales",
-    "legal": true,
+    "slug": "feriados",
+    "singular": "feriado",
+    "titulo": "Feriados",
+    "tabla": "FERIADOS",
+    "pk": "ID_FERIADO",
     "campos": [
       {
         "nombre": "codigo",
+        "columna": "CODIGO",
         "etiqueta": "Código",
         "tipo": "codigo",
-        "hint": "Identificador único en mayúsculas, números y guion bajo. Ejemplo: ADMINISTRACION.",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
         "requerido": true,
         "max": 60
       },
       {
         "nombre": "nombre",
+        "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "fecha",
+        "columna": "FECHA",
+        "etiqueta": "Fecha de descanso",
+        "tipo": "fecha",
+        "hint": "Fecha efectiva en el calendario anual.",
+        "requerido": true
+      },
+      {
+        "nombre": "fechaConmemoracion",
+        "columna": "FECHA_CONMEMORACION",
+        "etiqueta": "Fecha de conmemoración",
+        "tipo": "fecha",
+        "hint": "Fecha nominal; puede diferir cuando el descanso se traslada.",
+        "requerido": true
+      },
+      {
+        "nombre": "ambito",
+        "columna": "AMBITO",
+        "etiqueta": "Ámbito",
+        "tipo": "opcion",
+        "hint": "Nacional aplica a todo el país; local solo a la localidad indicada.",
+        "requerido": true,
+        "opciones": ["NACIONAL", "LOCAL"]
+      },
+      {
+        "nombre": "localidad",
+        "columna": "LOCALIDAD",
+        "etiqueta": "Localidad",
+        "tipo": "texto",
+        "hint": "Para nacional usa *. Para local indica la clave de localidad del centro de trabajo.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "minutoInicio",
+        "columna": "MINUTO_INICIO",
+        "etiqueta": "Inicio de descanso (minutos)",
+        "tipo": "entero",
+        "hint": "Minutos desde medianoche: 0 = 00:00; 720 = 12:00.",
+        "requerido": true
+      },
+      {
+        "nombre": "minutoFin",
+        "columna": "MINUTO_FIN",
+        "etiqueta": "Fin de descanso (minutos)",
+        "tipo": "entero",
+        "hint": "Hasta 1440 = fin del día. Debe superar el inicio.",
+        "requerido": true
+      },
+      {
+        "nombre": "fundamento",
+        "columna": "FUNDAMENTO",
+        "etiqueta": "Fundamento",
+        "tipo": "area",
+        "hint": "Indica la norma o autorización que respalda el valor.",
+        "requerido": true,
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "tipos-ausencia",
+    "singular": "tipo de ausencia",
+    "titulo": "Tipos de ausencia",
+    "tabla": "TIPOS_AUSENCIA",
+    "pk": "ID_TIPO_AUSENCIA",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "efecto",
+        "columna": "EFECTO",
+        "etiqueta": "Efecto en salario",
+        "tipo": "opcion",
+        "hint": "Determina si conserva el salario, descuenta días o aplica subsidio IGSS.",
+        "requerido": true,
+        "opciones": ["CON_GOCE", "SIN_GOCE", "SUBSIDIO_IGSS"]
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "tipos-descuento",
+    "singular": "tipo de descuento",
+    "titulo": "Tipos de descuento",
+    "tabla": "TIPOS_DESCUENTO",
+    "pk": "ID_TIPO_DESCUENTO",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "tipos-contrato",
+    "singular": "tipo de contrato",
+    "titulo": "Tipos de contrato",
+    "tabla": "TIPOS_CONTRATO",
+    "pk": "ID_TIPO_CONTRATO",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "requiereFin",
+        "columna": "REQUIERE_FECHA_FIN",
+        "etiqueta": "Requiere fecha de fin",
+        "tipo": "booleano",
+        "hint": "Actívalo para contratos que deben tener fecha de finalización.",
+        "requerido": true
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "parentescos",
+    "titulo": "Parentescos",
+    "singular": "parentesco",
+    "tabla": "PARENTESCOS",
+    "pk": "ID_PARENTESCO",
+    "campos": [
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 60
+      }
+    ]
+  },
+  {
+    "slug": "tipos-solicitud",
+    "titulo": "Tipos de solicitud",
+    "singular": "tipo de solicitud",
+    "tabla": "TIPOS_SOLICITUD",
+    "pk": "ID_TIPO_SOLICITUD",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      },
+      {
+        "nombre": "generaPdf",
+        "columna": "GENERA_PDF",
+        "etiqueta": "Genera PDF",
+        "tipo": "booleano",
+        "hint": "Indica si el trámite requiere un documento y una plantilla.",
+        "requerido": true
+      },
+      {
+        "nombre": "esDirecta",
+        "columna": "ES_DIRECTA",
+        "etiqueta": "Consulta directa",
+        "tipo": "booleano",
+        "hint": "Las consultas directas no crean un trámite en la bandeja.",
+        "requerido": true
+      }
+    ]
+  },
+  {
+    "slug": "tipos-deduccion-isr",
+    "titulo": "Tipos de deducción ISR",
+    "singular": "tipo de deducción ISR",
+    "tabla": "TIPOS_DEDUCCION_ISR",
+    "pk": "ID_TIPO_DEDUCCION_ISR",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      },
+      {
+        "nombre": "codigoParametroTope",
+        "columna": "CODIGO_PARAMETRO_TOPE",
+        "etiqueta": "Parámetro de tope",
+        "tipo": "texto",
+        "hint": "Clave interna del parámetro vigente que limita la deducción; vacío si no hay tope.",
+        "max": 60
+      }
+    ]
+  },
+  {
+    "slug": "conceptos",
+    "titulo": "Conceptos de nómina",
+    "singular": "concepto",
+    "tabla": "CONCEPTOS_NOMINA",
+    "pk": "ID_CONCEPTO_NOMINA",
+    "legal": true,
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "naturaleza",
+        "columna": "NATURALEZA",
+        "etiqueta": "Naturaleza",
+        "tipo": "opcion",
+        "hint": "Clasifica el concepto para el cálculo de nómina.",
+        "requerido": true,
+        "opciones": ["INGRESO", "DESCUENTO", "PATRONAL"]
+      },
+      {
+        "nombre": "afectaIgss",
+        "columna": "AFECTA_IGSS",
+        "etiqueta": "Afecta IGSS",
+        "tipo": "booleano",
+        "hint": "Determina la base de cálculo en la vigencia indicada. Revisa antes de confirmar.",
+        "requerido": true
+      },
+      {
+        "nombre": "afectaIsr",
+        "columna": "AFECTA_ISR",
+        "etiqueta": "Afecta ISR",
+        "tipo": "booleano",
+        "hint": "Determina la base de cálculo en la vigencia indicada. Revisa antes de confirmar.",
+        "requerido": true
+      },
+      {
+        "nombre": "afectaPrestaciones",
+        "columna": "AFECTA_PRESTACIONES",
+        "etiqueta": "Afecta prestaciones",
+        "tipo": "booleano",
+        "hint": "Determina la base de cálculo en la vigencia indicada. Revisa antes de confirmar.",
+        "requerido": true
+      },
+      {
+        "nombre": "vigenteDesde",
+        "columna": "VIGENTE_DESDE",
+        "etiqueta": "Vigente desde",
+        "tipo": "fecha",
+        "hint": "Primer día de aplicación. Una nueva versión debe comenzar después del último periodo cerrado.",
+        "requerido": true
+      },
+      {
+        "nombre": "vigenteHasta",
+        "columna": "VIGENTE_HASTA",
+        "etiqueta": "Vigente hasta",
+        "tipo": "fecha",
+        "hint": "Último día inclusive. Déjalo vacío para una vigencia abierta."
+      }
+    ]
+  },
+  {
+    "slug": "parametros-legales",
+    "singular": "parámetro legal",
+    "titulo": "Parámetros legales",
+    "tabla": "PARAMETROS_LEGALES",
+    "pk": "ID_PARAMETRO_LEGAL",
+    "legal": true,
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 60
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
         "requerido": true,
         "max": 150
       },
       {
         "nombre": "valor",
+        "columna": "VALOR",
         "etiqueta": "Valor",
         "tipo": "decimal",
         "hint": "Porcentajes en escala 0–100, montos o cantidades según la unidad. Hasta seis decimales.",
@@ -152,6 +772,7 @@
       },
       {
         "nombre": "unidad",
+        "columna": "UNIDAD",
         "etiqueta": "Unidad",
         "tipo": "opcion",
         "hint": "La unidad debe conservarse entre versiones del mismo código.",
@@ -170,6 +791,7 @@
       },
       {
         "nombre": "vigenteDesde",
+        "columna": "VIGENTE_DESDE",
         "etiqueta": "Vigente desde",
         "tipo": "fecha",
         "hint": "Primer día de aplicación. Una nueva versión debe comenzar después del último periodo cerrado.",
@@ -177,12 +799,14 @@
       },
       {
         "nombre": "vigenteHasta",
+        "columna": "VIGENTE_HASTA",
         "etiqueta": "Vigente hasta",
         "tipo": "fecha",
         "hint": "Último día inclusive. Déjalo vacío para una vigencia abierta."
       },
       {
         "nombre": "fundamento",
+        "columna": "FUNDAMENTO",
         "etiqueta": "Fundamento",
         "tipo": "area",
         "hint": "Indica la norma o autorización que respalda el valor.",
@@ -192,56 +816,63 @@
     ]
   },
   {
-    "slug": "centros-trabajo",
-    "titulo": "Centros de trabajo",
+    "slug": "tramos-isr",
+    "titulo": "Tramos ISR",
+    "tabla": "TRAMOS_ISR",
+    "pk": "ID_TRAMO_ISR",
+    "legal": true,
     "campos": [
       {
-        "nombre": "codigo",
-        "etiqueta": "Código",
-        "tipo": "codigo",
-        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "nombre": "limiteInferior",
+        "columna": "LIMITE_INFERIOR",
+        "etiqueta": "Límite inferior",
+        "tipo": "dinero",
+        "hint": "Monto en quetzales, sin signo negativo y con hasta dos decimales.",
         "requerido": true,
-        "max": 40
+        "decimales": 2
       },
       {
-        "nombre": "nombre",
-        "etiqueta": "Nombre",
-        "tipo": "texto",
-        "hint": "Nombre descriptivo que aparecerá en los formularios y listados.",
+        "nombre": "limiteSuperior",
+        "columna": "LIMITE_SUPERIOR",
+        "etiqueta": "Límite superior",
+        "tipo": "dinero",
+        "hint": "Monto en quetzales, sin signo negativo y con hasta dos decimales.",
+        "requerido": false,
+        "decimales": 2
+      },
+      {
+        "nombre": "tasaPorcentaje",
+        "columna": "TASA_PORCENTAJE",
+        "etiqueta": "Tasa (%)",
+        "tipo": "decimal",
+        "hint": "Porcentaje entre 0 y 100 con hasta cuatro decimales.",
         "requerido": true,
-        "max": 120
+        "decimales": 4
       },
       {
-        "nombre": "descripcion",
-        "etiqueta": "Descripción",
-        "tipo": "area",
-        "hint": "Explica el propósito del registro (opcional).",
-        "max": 500
-      },
-      {
-        "nombre": "idDepartamentoGt",
-        "etiqueta": "Departamento de Guatemala",
-        "tipo": "referencia",
-        "hint": "Departamento geográfico del catálogo oficial del INE. Busca por nombre; al cambiarlo vuelve a elegir el municipio.",
+        "nombre": "cuotaFija",
+        "columna": "CUOTA_FIJA",
+        "etiqueta": "Cuota fija",
+        "tipo": "dinero",
+        "hint": "Monto en quetzales, sin signo negativo y con hasta dos decimales.",
         "requerido": true,
-        "referencia": "departamentos-gt"
+        "decimales": 2
       },
       {
-        "nombre": "idMunicipioGt",
-        "etiqueta": "Municipio",
-        "tipo": "referencia",
-        "hint": "Busca y selecciona un municipio del departamento elegido. No se permite escribir una localidad libre.",
-        "requerido": true,
-        "referencia": "municipios-gt"
+        "nombre": "vigenteDesde",
+        "columna": "VIGENTE_DESDE",
+        "etiqueta": "Vigente desde",
+        "tipo": "fecha",
+        "hint": "Primer día de aplicación. Una nueva versión debe comenzar después del último periodo cerrado.",
+        "requerido": true
       },
       {
-        "nombre": "direccion",
-        "etiqueta": "Dirección",
-        "tipo": "area",
-        "hint": "Ubicación del centro de trabajo.",
-        "max": 500
+        "nombre": "vigenteHasta",
+        "columna": "VIGENTE_HASTA",
+        "etiqueta": "Vigente hasta",
+        "tipo": "fecha",
+        "hint": "Último día inclusive. Déjalo vacío para una vigencia abierta."
       }
-    ],
-    "legal": false
+    ]
   }
 ]

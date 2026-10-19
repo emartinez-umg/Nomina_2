@@ -462,3 +462,105 @@ async function mkdirCaptura(page: Page, nombre: string) {
   await mkdir('tmp/pdfs', { recursive: true });
   await page.screenshot({ path: `tmp/pdfs/${nombre}.png`, fullPage: true });
 }
+
+test('R2-4: nombres, duplicados inactivos, reactivación y bloqueo por uso con API real', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  await nuevoCatalogo(page);
+  let modal = page.getByRole('dialog', { name: 'Crear · Departamentos' });
+  const nombre = modal.getByRole('textbox', { name: 'Nombre', exact: true });
+  await nombre.pressSequentially('123@%$#');
+  await expect(nombre).toHaveValue('123');
+  await modal.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(nombre).toHaveAttribute('aria-invalid', 'true');
+  await nombre.fill('  Área   común Ronda dos  ');
+  const creado = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && r.url().endsWith('/catalogos/departamentos'),
+  );
+  await modal.getByRole('button', { name: 'Guardar', exact: true }).click();
+  const alta = await creado;
+  expect(alta.status()).toBe(201);
+  const fila = (await alta.json()).data;
+  expect(fila.nombre).toBe('Área común Ronda dos');
+  await expect(modal).toHaveCount(0);
+  const csrf = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+  const dependencia = await page.request.post('/api/catalogos/puestos', {
+    headers: { 'X-CSRF-Token': csrf },
+    data: {
+      nombre: 'Puesto común Ronda dos',
+      idDepartamento: fila.id,
+      salarioMinimo: null,
+      salarioMaximo: null,
+      descripcion: null,
+    },
+  });
+  expect(dependencia.status()).toBe(201);
+  await page.reload();
+  const row = page.getByRole('row').filter({ hasText: 'Área común Ronda dos' });
+  await expect(row.getByText('1 registro(s)', { exact: true })).toBeVisible();
+  await expect(
+    row.getByRole('button', { name: `Eliminar registro ${fila.id}`, exact: true }),
+  ).toBeDisabled();
+  await row.getByRole('button', { name: `Desactivar registro ${fila.id}`, exact: true }).click();
+  modal = page.getByRole('dialog', { name: 'Desactivar registro', exact: true });
+  await expect(modal.getByText(/Advertencia: lo usan 1 registro/)).toBeVisible();
+  await modal.getByRole('button', { name: 'Ayuda de esta ventana' }).click();
+  await expect(page.locator('.driver-popover-title')).toHaveText('Revisa antes de confirmar');
+  await page.locator('.driver-popover-next-btn').click();
+  await expect(page.locator('.driver-popover-title')).toHaveText('Revisa el registro y su uso');
+  await page.getByRole('button', { name: 'Cerrar recorrido' }).click();
+  await modal
+    .getByRole('textbox', { name: 'Motivo', exact: true })
+    .fill('Inactivar y preservar asignaciones');
+  await modal.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(modal).toHaveCount(0);
+  await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+  modal = page.getByRole('dialog', { name: 'Crear · Departamentos' });
+  await modal
+    .getByRole('textbox', { name: 'Nombre', exact: true })
+    .fill(' AREA   COMUN RONDA DOS ');
+  const conflicto = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && r.url().endsWith('/catalogos/departamentos'),
+  );
+  await modal.getByRole('button', { name: 'Guardar', exact: true }).click();
+  expect((await conflicto).status()).toBe(409);
+  await expect(modal.getByRole('textbox', { name: 'Nombre', exact: true })).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  await modal.getByRole('button', { name: 'Reactivar registro existente' }).click();
+  const activar = page.getByRole('dialog', { name: 'Activar registro', exact: true });
+  await activar
+    .getByRole('textbox', { name: 'Motivo', exact: true })
+    .fill('Recuperar departamento existente');
+  await activar.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await row.getByRole('button', { name: `Historial del registro ${fila.id}`, exact: true }).click();
+  const historia = page.getByRole('dialog', { name: 'Historial · Área común Ronda dos' });
+  await expect(
+    historia.getByText('Recuperar departamento existente', { exact: true }),
+  ).toBeVisible();
+  await historia.getByRole('button', { name: 'Ayuda de esta ventana' }).click();
+  await expect(page.locator('.driver-popover-title')).toHaveText('Revisa antes de confirmar');
+  await page.locator('.driver-popover-next-btn').click();
+  await expect(page.locator('.driver-popover-title')).toHaveText('Cambios de este registro');
+  await page.getByRole('button', { name: 'Cerrar recorrido' }).click();
+  const { AxeBuilder } = await import('@axe-core/playwright');
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await historia.getByRole('button', { name: 'Cerrar historial' }).click();
+  await page.getByRole('heading', { name: 'Departamentos', exact: true }).click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.mouse.move(0, 0);
+  await page.screenshot({ path: 'tmp/pdfs/r2-4-catalogos-escritorio.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: 'tmp/pdfs/r2-4-catalogos-movil.png', fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

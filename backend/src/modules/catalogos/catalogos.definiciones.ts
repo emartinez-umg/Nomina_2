@@ -1,3 +1,4 @@
+import { hintNombreCatalogo } from '../../shared/catalogos/nombre.js';
 import type { BloqueHorario } from '../../shared/horarios/modelo.js';
 export type TipoCampo =
   | 'nit'
@@ -33,6 +34,7 @@ export interface Catalogo {
   pk: string;
   campos: CampoCatalogo[];
   legal?: boolean;
+  singular?: string;
 }
 const campo = (
   nombre: string,
@@ -52,14 +54,7 @@ const codigo = (max = 40) =>
     { requerido: true, max },
   );
 const nombre = (max = 120) =>
-  campo(
-    'nombre',
-    'NOMBRE',
-    'Nombre',
-    'texto',
-    'Nombre descriptivo que aparecerá en los formularios y listados.',
-    { requerido: true, max },
-  );
+  campo('nombre', 'NOMBRE', 'Nombre', 'texto', hintNombreCatalogo, { requerido: true, max });
 const descripcion = campo(
   'descripcion',
   'DESCRIPCION',
@@ -159,6 +154,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'bancos',
+    singular: 'banco',
     titulo: 'Bancos',
     tabla: 'BANCOS',
     pk: 'ID_BANCO',
@@ -166,6 +162,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'centros-trabajo',
+    singular: 'centro de trabajo',
     titulo: 'Centros de trabajo',
     tabla: 'CENTROS_TRABAJO',
     pk: 'ID_CENTRO_TRABAJO',
@@ -196,6 +193,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'departamentos',
+    singular: 'departamento',
     titulo: 'Departamentos',
     tabla: 'DEPARTAMENTOS',
     pk: 'ID_DEPARTAMENTO',
@@ -203,6 +201,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'puestos',
+    singular: 'puesto',
     titulo: 'Puestos',
     tabla: 'PUESTOS',
     pk: 'ID_PUESTO',
@@ -217,6 +216,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'jefaturas',
+    singular: 'jefatura',
     titulo: 'Jefaturas',
     tabla: 'JEFATURAS',
     pk: 'ID_JEFATURA',
@@ -237,6 +237,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'horarios',
+    singular: 'horario',
     titulo: 'Horarios laborales',
     tabla: 'HORARIOS',
     pk: 'ID_HORARIO',
@@ -256,6 +257,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'feriados',
+    singular: 'feriado',
     titulo: 'Feriados',
     tabla: 'FERIADOS',
     pk: 'ID_FERIADO',
@@ -315,6 +317,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'tipos-ausencia',
+    singular: 'tipo de ausencia',
     titulo: 'Tipos de ausencia',
     tabla: 'TIPOS_AUSENCIA',
     pk: 'ID_TIPO_AUSENCIA',
@@ -334,6 +337,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'tipos-descuento',
+    singular: 'tipo de descuento',
     titulo: 'Tipos de descuento',
     tabla: 'TIPOS_DESCUENTO',
     pk: 'ID_TIPO_DESCUENTO',
@@ -341,6 +345,7 @@ export const catalogos: Catalogo[] = [
   },
   {
     slug: 'tipos-contrato',
+    singular: 'tipo de contrato',
     titulo: 'Tipos de contrato',
     tabla: 'TIPOS_CONTRATO',
     pk: 'ID_TIPO_CONTRATO',
@@ -359,7 +364,100 @@ export const catalogos: Catalogo[] = [
     ],
   },
   {
+    slug: 'parentescos',
+    titulo: 'Parentescos',
+    singular: 'parentesco',
+    tabla: 'PARENTESCOS',
+    pk: 'ID_PARENTESCO',
+    campos: [nombre(60)],
+  },
+  {
+    slug: 'tipos-solicitud',
+    titulo: 'Tipos de solicitud',
+    singular: 'tipo de solicitud',
+    tabla: 'TIPOS_SOLICITUD',
+    pk: 'ID_TIPO_SOLICITUD',
+    campos: [
+      codigo(),
+      nombre(),
+      descripcion,
+      campo(
+        'generaPdf',
+        'GENERA_PDF',
+        'Genera PDF',
+        'booleano',
+        'Indica si el trámite requiere un documento y una plantilla.',
+        { requerido: true },
+      ),
+      campo(
+        'esDirecta',
+        'ES_DIRECTA',
+        'Consulta directa',
+        'booleano',
+        'Las consultas directas no crean un trámite en la bandeja.',
+        { requerido: true },
+      ),
+    ],
+  },
+  {
+    slug: 'tipos-deduccion-isr',
+    titulo: 'Tipos de deducción ISR',
+    singular: 'tipo de deducción ISR',
+    tabla: 'TIPOS_DEDUCCION_ISR',
+    pk: 'ID_TIPO_DEDUCCION_ISR',
+    campos: [
+      codigo(),
+      nombre(),
+      descripcion,
+      campo(
+        'codigoParametroTope',
+        'CODIGO_PARAMETRO_TOPE',
+        'Parámetro de tope',
+        'texto',
+        'Clave interna del parámetro vigente que limita la deducción; vacío si no hay tope.',
+        { max: 60 },
+      ),
+    ],
+  },
+  {
+    slug: 'conceptos',
+    titulo: 'Conceptos de nómina',
+    singular: 'concepto',
+    tabla: 'CONCEPTOS_NOMINA',
+    pk: 'ID_CONCEPTO_NOMINA',
+    legal: true,
+    campos: [
+      codigo(),
+      nombre(),
+      campo(
+        'naturaleza',
+        'NATURALEZA',
+        'Naturaleza',
+        'opcion',
+        'Clasifica el concepto para el cálculo de nómina.',
+        { requerido: true, opciones: ['INGRESO', 'DESCUENTO', 'PATRONAL'] },
+      ),
+      ...[
+        ['afectaIgss', 'AFECTA_IGSS', 'Afecta IGSS'],
+        ['afectaIsr', 'AFECTA_ISR', 'Afecta ISR'],
+        ['afectaPrestaciones', 'AFECTA_PRESTACIONES', 'Afecta prestaciones'],
+      ].map(([n, c, e]) =>
+        campo(
+          n!,
+          c!,
+          e!,
+          'booleano',
+          'Determina la base de cálculo en la vigencia indicada. Revisa antes de confirmar.',
+          { requerido: true },
+        ),
+      ),
+      desde,
+      hasta,
+    ],
+  },
+  {
     slug: 'parametros-legales',
+    singular: 'parámetro legal',
     titulo: 'Parámetros legales',
     tabla: 'PARAMETROS_LEGALES',
     pk: 'ID_PARAMETRO_LEGAL',
@@ -437,4 +535,9 @@ export type DatosCatalogo = Record<
   string,
   string | number | boolean | null | DiaHorario[] | BloqueHorario[]
 >;
-export type FilaCatalogo = DatosCatalogo & { id: number; activo: boolean; enUso: boolean };
+export type FilaCatalogo = DatosCatalogo & {
+  id: number;
+  activo: boolean;
+  enUso: boolean;
+  usos: number;
+};

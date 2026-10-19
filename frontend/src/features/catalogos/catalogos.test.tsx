@@ -1,3 +1,4 @@
+import { CatalogoAcciones } from './pages/CatalogoAcciones';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -362,5 +363,151 @@ describe('Catálogos: validación y formularios', () => {
     expect(resultado).toContain("' =".replace(' ', ''));
     expect(resultado).toContain('""citado""');
     expect(resultado).toContain('segunda línea');
+  });
+});
+
+describe('R2-4: nombres comunes', () => {
+  it('todas las definiciones comparten el rechazo y el recorte de nombres', () => {
+    for (const definicion of catalogos) {
+      const c = catalogoSchema.parse({ ...definicion, legal: !!definicion.legal });
+      if (!c.campos.some((f) => f.nombre === 'nombre')) continue;
+      for (const nombre of ['   ', 'A', '123456', '/*%$#&/@#^', 'Área!']) {
+        const r = schemaFormulario(c, null).safeParse({ ...valoresIniciales(c), nombre });
+        expect(r.success, `${c.slug}: ${nombre}`).toBe(false);
+        if (!r.success) expect(r.error.issues.some((i) => i.path[0] === 'nombre')).toBe(true);
+      }
+      expect(
+        cuerpo(c, { ...valoresIniciales(c), nombre: '  Área   de  Ingeniería  ' }).nombre,
+      ).toBe('Área de Ingeniería');
+    }
+  });
+  it('bloquea caracteres al escribir/pegar y muestra el error junto al nombre', async () => {
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, data: { codigo: 'CAT', definitivo: false } })),
+    );
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={cat('departamentos')} cierre={null} onCerrar={vi.fn()} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    const campo = screen.getByRole('textbox', { name: 'Nombre' });
+    await userEvent.type(campo, '123@%$#');
+    expect(campo).toHaveValue('123');
+    await userEvent.tab();
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    await userEvent.clear(campo);
+    fireEvent.paste(campo, {
+      clipboardData: { getData: () => "Área <Central> / Pingüino & Niñez (2), S.A. 'Norte'" },
+    });
+    expect(campo).toHaveValue("Área Central / Pingüino & Niñez (2), S.A. 'Norte'");
+    cliente.clear();
+  });
+  it('mapea DUPLICADO al nombre y reactiva el ID existente con motivo, sin otro alta', async () => {
+    const cliente = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const cerrar = vi.fn();
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      const data = {
+        id: 87,
+        nombre: 'Ingeniería',
+        descripcion: null,
+        codigo: 'ING',
+        activo: false,
+        enUso: true,
+        usos: 3,
+      };
+      if (init?.method === 'POST')
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            data: null,
+            error: {
+              codigo: 'DUPLICADO',
+              mensaje:
+                'Ya existe un departamento llamado «Ingeniería». Está inactivo. Puedes reactivarlo.',
+              campos: { nombre: ['Ya existe un departamento inactivo.'] },
+              duplicado: { id: 87, activo: false },
+            },
+          }),
+          { status: 409 },
+        );
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: String(url).includes('/codigos/')
+            ? { codigo: 'ING', definitivo: false }
+            : { ...data, activo: init?.method === 'PATCH' },
+        }),
+      );
+    });
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={cat('departamentos')} cierre={null} onCerrar={cerrar} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.type(screen.getByRole('textbox', { name: 'Nombre' }), 'Ingenieria');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Nombre' })).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Reactivar registro existente' }));
+    const modal = await screen.findByRole('dialog', { name: 'Activar registro' });
+    await userEvent.type(
+      within(modal).getByRole('textbox', { name: 'Motivo' }),
+      'Reactivar registro para uso',
+    );
+    await userEvent.click(within(modal).getByRole('button', { name: 'Confirmar' }));
+    await waitFor(() => expect(cerrar).toHaveBeenCalledOnce());
+    const patch = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(String(patch?.[0])).toBe('/api/catalogos/departamentos/87/estado');
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({
+      activo: true,
+      motivo: 'Reactivar registro para uso',
+    });
+    expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(
+      1,
+    );
+    cliente.clear();
+  });
+});
+
+describe('R2-4: acciones compartidas', () => {
+  it('ofrece las mismas acciones y bloquea la papelera en todos los catálogos en uso', () => {
+    for (const definicion of catalogos) {
+      const c = catalogoSchema.parse({ ...definicion, legal: !!definicion.legal });
+      const r = render(
+        <CatalogoAcciones
+          cat={c}
+          fila={filaSchema.parse({ id: 42, activo: true, enUso: true, usos: 7 })}
+          ocupado={false}
+          puedeEditar
+          abrir={vi.fn()}
+          estado={vi.fn()}
+          eliminar={vi.fn()}
+          historial={vi.fn()}
+        />,
+      );
+      for (const accion of ['Ver', 'Editar', 'Desactivar', 'Historial del'])
+        expect(
+          within(r.container).getByRole('button', { name: `${accion} registro 42` }),
+        ).toBeEnabled();
+      expect(
+        within(r.container).getByRole('button', { name: 'Eliminar registro 42' }),
+      ).toBeDisabled();
+      r.unmount();
+    }
   });
 });
