@@ -5,7 +5,7 @@ export function DpiField(props: CampoProps) {
   return (
     <InputField
       {...props}
-      ancho={props.ancho ?? 'corto'}
+      tipoDato="dpi"
       maxLength={15}
       inputMode="numeric"
       pattern="[0-9]{4} [0-9]{5} [0-9]{4}"

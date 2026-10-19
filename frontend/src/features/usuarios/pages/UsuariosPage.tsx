@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -83,7 +84,7 @@ export function UsuariosPage() {
           Filtros de usuarios
         </Button>
         {filtros && (
-          <div className="form-grid mt-4">
+          <FormGrid className="mt-4">
             {['usuario', 'correo'].map((k) => (
               <TextField
                 key={k}
@@ -123,7 +124,7 @@ export function UsuariosPage() {
                 onValueChange={(v) => setQ((p) => ({ ...p, [String(k)]: v, pagina: '1' }))}
               />
             ))}
-          </div>
+          </FormGrid>
         )}
         <div className="flex flex-wrap gap-2 my-4">
           {Object.entries(q)
@@ -324,7 +325,7 @@ function Editor({
               ? 'ADMIN y RH se crean aquí. Crea usuarios de empleados desde su expediente.'
               : 'Esta acción cerrará todas las sesiones del usuario afectado. El último ADMIN activo está protegido.'}
           </p>
-          <div className="form-grid">
+          <FormGrid>
             {(nuevo
               ? ['nombre', 'apellido', 'correo', 'rol', 'motivo']
               : accion.tipo === 'rol'
@@ -376,7 +377,7 @@ function Editor({
                 }}
               />
             ))}
-          </div>
+          </FormGrid>
           <FormErrorSummary
             mensajes={Object.values(form.formState.errors).map((e) => e.message)}
             mensajeServidor={m.error?.message}
@@ -439,7 +440,7 @@ function VincularFicha({ usuario, cerrar }: { usuario: Usuario; cerrar: () => vo
           Selecciona la ficha real de esta persona, sin otro usuario vinculado. Los documentos
           usarán sus nombres, apellidos y puesto activo.
         </p>
-        <div className="form-grid">
+        <FormGrid>
           <Controller
             control={form.control}
             name="idEmpleado"
@@ -474,7 +475,7 @@ function VincularFicha({ usuario, cerrar }: { usuario: Usuario; cerrar: () => vo
               />
             )}
           />
-        </div>
+        </FormGrid>
         <FormErrorSummary
           mensajes={Object.values(form.formState.errors).map((e) => e.message)}
           mensajeServidor={m.error?.message}

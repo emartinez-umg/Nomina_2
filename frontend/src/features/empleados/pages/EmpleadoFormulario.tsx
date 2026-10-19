@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { AvisoEmpresa } from '../../empresa/pages/AvisoEmpresa';
 import { CrearHorarioModal } from '../../horarios/CrearHorarioModal';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
@@ -250,7 +251,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                   Parentesco anterior (referencia): {String(actual.parentescoAnterior)}
                 </p>
               )}
-              <div className="form-grid">
+              <FormGrid>
                 {s.campos
                   .filter((f) => f.nombre !== 'idMunicipioGt')
                   .map((f) => (
@@ -261,13 +262,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                           ? 'Contrato indefinido: el fin queda vacío.'
                           : undefined
                       }
-                      className={
-                        f.nombre === 'idDepartamentoGt' || f.ancho === 'ancho'
-                          ? 'col-span-12'
-                          : f.ancho === 'corto'
-                            ? 'col-span-12 md:col-span-4'
-                            : 'col-span-12 md:col-span-6'
-                      }
+                      className={f.nombre === 'idHorario' ? 'campo-con-acciones' : 'contents'}
                     >
                       {f.nombre === 'idDepartamentoGt' ? (
                         <UbicacionSelect
@@ -346,7 +341,6 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                                 (f.nombre === 'fechaFinContrato' && requiereFin !== true)
                               }
                               error={errors[f.nombre]?.message}
-                              ancho={f.ancho ?? 'medio'}
                               reglas={r}
                               nacimiento={vals.fechaNacimiento}
                               ingreso={vals.fechaIngreso}
@@ -373,10 +367,10 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                       )}
                     </div>
                   ))}
-              </div>
+              </FormGrid>
               {i === 1 && actual && (
-                <div className="form-grid mt-4">
-                  <div className="col-span-12 md:col-span-4">
+                <FormGrid className="mt-4">
+                  <div className="contents">
                     <Controller
                       name="fechaHorario"
                       control={control}
@@ -394,7 +388,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                       )}
                     />
                   </div>
-                </div>
+                </FormGrid>
               )}
             </Card>
           </section>

@@ -14,6 +14,7 @@ import {
   SelectField,
   TextAreaField,
   FileField,
+  FormGrid,
 } from './index';
 import type { CampoProps } from './Field';
 function Controlado({
@@ -37,6 +38,84 @@ function Controlado({
   );
 }
 describe('campos guiados', () => {
+  it('cada límite de texto se transmite al ancho y al hint del campo completo', () => {
+    render(
+      <FormGrid>
+        {[10, 20, 30, 50, 100].map((maxLength) => (
+          <TextField
+            key={maxLength}
+            name={`dato${maxLength}`}
+            label={`Dato ${maxLength}`}
+            hint="Escribe el dato."
+            value=""
+            onValueChange={() => {}}
+            maxLength={maxLength}
+          />
+        ))}
+      </FormGrid>,
+    );
+    const campos = screen.getAllByRole('textbox').map((e) => e.closest<HTMLElement>('.campo')!);
+    expect(new Set(campos.map((e) => e.style.getPropertyValue('--campo-ancho'))).size).toBe(5);
+    for (const maxLength of [10, 20, 30, 50, 100])
+      expect(
+        screen.getByText(`Escribe el dato. Máximo ${maxLength} caracteres.`, {
+          selector: 'p.campo-hint',
+        }),
+      ).toBeVisible();
+  });
+  it.each([
+    TextField,
+    NumberField,
+    MoneyField,
+    DpiField,
+    NitField,
+    PhoneField,
+    EmailField,
+    DateField,
+    TextAreaField,
+  ])('propaga tamano desde %s sin cambiar el valor ni el límite', (Campo) => {
+    render(<Controlado Campo={Campo} extra={{ tamano: 24 }} />);
+    expect(
+      screen
+        .getByLabelText(/^Dato/)
+        .closest<HTMLElement>('.campo')!
+        .style.getPropertyValue('--campo-ancho'),
+    ).toBe('calc(24ch + 2rem)');
+  });
+  it('un selector corto y otro con nombres largos usan tamaños distintos y permiten forzarlos', () => {
+    const props = {
+      name: 'tipo',
+      label: 'Tipo',
+      hint: 'Elige una opción.',
+      value: '',
+      onValueChange: () => {},
+    };
+    const { rerender } = render(
+      <SelectField {...props} opciones={[{ value: '1', label: 'Sí' }]} />,
+    );
+    const ancho = () =>
+      screen
+        .getByRole('combobox')
+        .closest<HTMLElement>('.campo')!
+        .style.getPropertyValue('--campo-ancho');
+    const corto = ancho();
+    rerender(
+      <SelectField
+        {...props}
+        opciones={[
+          {
+            value: '1',
+            label: 'Nombre largo del departamento de recursos humanos y administración',
+          },
+        ]}
+      />,
+    );
+    expect(ancho()).not.toBe(corto);
+    rerender(<SelectField {...props} opciones={[]} tamano={24} />);
+    expect(ancho()).toBe('calc(24ch + 2rem)');
+    rerender(<SelectField {...props} opciones={[]} tipoDato="zona" />);
+    expect(screen.getByText(props.hint, { selector: 'p.campo-hint' })).toBeVisible();
+  });
   it.each([
     [DpiField, '1234abc567890101', '1234 56789 0101'],
     [PhoneField, '5555abc1234', '5555 1234'],

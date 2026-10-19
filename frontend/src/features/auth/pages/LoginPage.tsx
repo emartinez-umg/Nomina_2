@@ -82,7 +82,6 @@ export function LoginPage() {
                 onBlur={field.onBlur}
                 error={errors.usuario?.message}
                 required
-                ancho="ancho"
                 maxLength={80}
                 disabled={login.isPending}
               />
@@ -107,7 +106,6 @@ export function LoginPage() {
                 onBlur={field.onBlur}
                 error={errors.contrasena?.message}
                 required
-                ancho="ancho"
                 maxLength={128}
                 disabled={login.isPending}
               />

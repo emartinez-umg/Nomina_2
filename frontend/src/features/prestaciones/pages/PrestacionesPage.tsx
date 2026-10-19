@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -244,7 +245,7 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
       min?: string;
       max?: string;
       maxLength?: number;
-      ancho?: 'corto' | 'medio' | 'ancho';
+
       required?: boolean;
     } = {},
   ) => (
@@ -270,13 +271,13 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
         if (tipo === 'opcion') return <SelectField {...props} opciones={extras.opciones ?? []} />;
         if (tipo === 'empleado')
           return (
-            <div className="col-span-12 md:col-span-6">
+            <div className="contents">
               <ReferenciaNovedad {...props} referencia="empleados" />
             </div>
           );
         if (tipo === 'departamento')
           return (
-            <div className="col-span-12 md:col-span-6">
+            <div className="contents">
               <RefField {...props} />
             </div>
           );
@@ -403,101 +404,101 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
             : 'Emitir constancia'}
       </h2>
       <form
-        className="form-grid mt-4"
+        className="mt-4"
         onSubmit={form.handleSubmit((d) => {
           if (validar(d)) preview.mutate(d);
         })}
       >
-        {modo === 'anual' && (
-          <>
-            {campos('tipo', 'Prestación', 'Selecciona el ciclo anual.', 'opcion', {
-              opciones: [
-                { value: 'BONO_14', label: 'Bono 14' },
-                { value: 'AGUINALDO', label: 'Aguinaldo' },
-              ],
-            })}
-            {campos(
-              'anio',
-              'Año de cierre',
-              'Ejemplo: 2026 identifica junio o noviembre de 2026.',
-              'numero',
-              { min: '1901', max: '2199', maxLength: 4, ancho: 'corto', required: true },
-            )}
-            {campos(
-              'idDepartamento',
-              'Departamento',
-              'Opcional: limita el lote a un departamento.',
-              'departamento',
-            )}
-          </>
-        )}
-        {campos(
-          'idEmpleado',
-          'Empleado',
-          modo === 'anual'
-            ? 'Opcional: deja vacío para todo el departamento.'
-            : 'Busca el empleado por código o nombre.',
-          'empleado',
-          { required: modo !== 'anual' },
-        )}
-        {modo === 'finiquito' && (
-          <>
-            {campos(
-              'corte',
-              'Fecha de egreso',
-              'Hoy por defecto. Al cambiar la fecha se recalculan indemnización, vacaciones y prestaciones; no puede ser anterior al ingreso ni futura.',
-              'fecha',
-              {
-                max: hoy,
-                min: ingreso,
-                required: true,
-                ancho: 'corto',
-              },
-            )}
-            {campos(
-              'causa',
-              'Causa del egreso',
-              'La indemnización corresponde a despido injustificado.',
-              'opcion',
-              {
+        <FormGrid>
+          {modo === 'anual' && (
+            <>
+              {campos('tipo', 'Prestación', 'Selecciona el ciclo anual.', 'opcion', {
                 opciones: [
-                  { value: 'DESPIDO_INJUSTIFICADO', label: 'Despido injustificado' },
-                  { value: 'RENUNCIA', label: 'Renuncia' },
-                  { value: 'DESPIDO_JUSTIFICADO', label: 'Despido justificado' },
+                  { value: 'BONO_14', label: 'Bono 14' },
+                  { value: 'AGUINALDO', label: 'Aguinaldo' },
                 ],
-              },
-            )}
-          </>
-        )}
-        {modo === 'constancia' && (
-          <>
-            {campos('inicio', 'Desde', 'Fecha inicial de pago incluida.', 'fecha', {
-              max: hoy,
-              required: true,
-              ancho: 'corto',
-            })}
-            {campos(
-              'fin',
-              'Hasta',
-              'Fecha final de pago incluida. Solo ingresos pagados.',
-              'fecha',
-              { min: form.watch('inicio'), max: hoy, required: true, ancho: 'corto' },
-            )}
-          </>
-        )}
-        <div className="col-span-12">
-          <FormErrorSummary
-            mensajes={Object.values(form.formState.errors).map((e) => e.message)}
-            mensajeServidor={preview.error?.message ?? guardar.error?.message}
-          />
-          <Button
-            icono={modo === 'constancia' ? 'ver' : 'actualizar'}
-            type="submit"
-            cargando={preview.isPending}
-          >
-            {modo === 'constancia' ? 'Vista previa PDF' : 'Calcular vista previa'}
-          </Button>
-        </div>
+              })}
+              {campos(
+                'anio',
+                'Año de cierre',
+                'Ejemplo: 2026 identifica junio o noviembre de 2026.',
+                'numero',
+                { min: '1901', max: '2199', maxLength: 4, required: true },
+              )}
+              {campos(
+                'idDepartamento',
+                'Departamento',
+                'Opcional: limita el lote a un departamento.',
+                'departamento',
+              )}
+            </>
+          )}
+          {campos(
+            'idEmpleado',
+            'Empleado',
+            modo === 'anual'
+              ? 'Opcional: deja vacío para todo el departamento.'
+              : 'Busca el empleado por código o nombre.',
+            'empleado',
+            { required: modo !== 'anual' },
+          )}
+          {modo === 'finiquito' && (
+            <>
+              {campos(
+                'corte',
+                'Fecha de egreso',
+                'Hoy por defecto. Al cambiar la fecha se recalculan indemnización, vacaciones y prestaciones; no puede ser anterior al ingreso ni futura.',
+                'fecha',
+                {
+                  max: hoy,
+                  min: ingreso,
+                  required: true,
+                },
+              )}
+              {campos(
+                'causa',
+                'Causa del egreso',
+                'La indemnización corresponde a despido injustificado.',
+                'opcion',
+                {
+                  opciones: [
+                    { value: 'DESPIDO_INJUSTIFICADO', label: 'Despido injustificado' },
+                    { value: 'RENUNCIA', label: 'Renuncia' },
+                    { value: 'DESPIDO_JUSTIFICADO', label: 'Despido justificado' },
+                  ],
+                },
+              )}
+            </>
+          )}
+          {modo === 'constancia' && (
+            <>
+              {campos('inicio', 'Desde', 'Fecha inicial de pago incluida.', 'fecha', {
+                max: hoy,
+                required: true,
+              })}
+              {campos(
+                'fin',
+                'Hasta',
+                'Fecha final de pago incluida. Solo ingresos pagados.',
+                'fecha',
+                { min: form.watch('inicio'), max: hoy, required: true },
+              )}
+            </>
+          )}
+          <div className="col-span-12">
+            <FormErrorSummary
+              mensajes={Object.values(form.formState.errors).map((e) => e.message)}
+              mensajeServidor={preview.error?.message ?? guardar.error?.message}
+            />
+            <Button
+              icono={modo === 'constancia' ? 'ver' : 'actualizar'}
+              type="submit"
+              cargando={preview.isPending}
+            >
+              {modo === 'constancia' ? 'Vista previa PDF' : 'Calcular vista previa'}
+            </Button>
+          </div>
+        </FormGrid>
       </form>
       {prev && (
         <>
@@ -650,8 +651,8 @@ function Historial({
           onValueChange={(v) => set('buscar', v)}
         />
         {filtros && (
-          <div className="form-grid my-4">
-            <div className="col-span-12 md:col-span-6">
+          <FormGrid className="my-4">
+            <div className="contents">
               <ReferenciaNovedad
                 referencia="empleados"
                 name="idEmpleado"
@@ -661,7 +662,7 @@ function Historial({
                 onValueChange={(v) => set('idEmpleado', v)}
               />
             </div>
-            <div className="col-span-12 md:col-span-6">
+            <div className="contents">
               <RefField
                 name="idDepartamento"
                 label="Departamento"
@@ -707,7 +708,7 @@ function Historial({
               value={q.hasta ?? ''}
               onValueChange={(v) => set('hasta', v)}
             />
-          </div>
+          </FormGrid>
         )}
         <div className="my-3 flex flex-wrap gap-2">
           {Object.entries(q)
@@ -861,7 +862,7 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
                     : 'Anular cálculo'}
               </h3>
               {op === 'pagar' && (
-                <div className="form-grid my-4">
+                <FormGrid className="my-4">
                   <DateField
                     name="fechaPago"
                     label="Fecha de pago"
@@ -881,7 +882,7 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
                     value={referencia}
                     onValueChange={(v) => setRef(v.replace(/[^A-Za-z0-9_-]/g, ''))}
                   />
-                </div>
+                </FormGrid>
               )}
               <TextAreaField
                 name="motivo"

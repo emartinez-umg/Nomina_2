@@ -3,16 +3,19 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { solicitar } from '../../lib/http';
 import { Field } from './Field';
+import type { TamanoCampo } from './tamanoCampo';
 export function CampoCodigo({
   entidad,
   palabra = '',
   idDepartamento,
   codigo,
+  tamano,
 }: {
   entidad: string;
   palabra?: string | undefined;
   idDepartamento?: string | undefined;
   codigo?: string | undefined;
+  tamano?: TamanoCampo | undefined;
 }) {
   const id = useId();
   const entrada = JSON.stringify({ entidad, palabra, idDepartamento });
@@ -50,7 +53,7 @@ export function CampoCodigo({
   });
   const vista = codigo ?? (entrada === consulta ? q.data?.codigo : undefined);
   return (
-    <div data-tour="codigo-automatico">
+    <div className="contents" data-tour="codigo-automatico">
       <Field
         id={id}
         label="Código"
@@ -60,7 +63,8 @@ export function CampoCodigo({
             : 'Vista previa orientativa. El servidor asigna el código definitivo al guardar, evitando duplicados. No se puede editar.'
         }
         error={!codigo && entrada === consulta ? q.error?.message : undefined}
-        ancho="corto"
+        tipo="codigo"
+        tamano={tamano}
       >
         <div className="control-grupo">
           <input

@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useEffect, useState } from 'react';
@@ -158,7 +159,6 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
           hint={hint}
           value={f[key]}
           maxLength={200}
-          ancho={key === 'direccion' ? 'ancho' : 'medio'}
           onValueChange={(v) => {
             setF((p) => ({ ...p, [key]: v.replace(/[|]/g, '') }));
             setConfirmar(false);
@@ -264,7 +264,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
       </p>
       <Card data-tour="igss-patrono">
         <h3>Datos patronales</h3>
-        <div className="form-grid my-4">
+        <FormGrid className="my-4">
           {root(
             'patrono',
             'Número patronal',
@@ -287,7 +287,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
               { value: '0', label: 'Producción IGSS' },
             ]}
           />
-        </div>
+        </FormGrid>
       </Card>
       <div className="flex flex-wrap gap-2 my-4">
         {(['centros', 'tipos', 'empleados'] as const).map((v) => (
@@ -310,7 +310,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
           </Button>
         ))}
       </div>
-      <div className="form-grid" data-tour="igss-registros">
+      <FormGrid data-tour="igss-registros">
         {seccion === 'centros' && (
           <SelectField
             name="idCentro"
@@ -329,7 +329,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
           />
         )}
         {seccion === 'empleados' && (
-          <div className="campo campo-medio">
+          <div className="contents">
             <ReferenciaNovedad
               referencia="empleados"
               name="id"
@@ -392,7 +392,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
             opciones={ops}
           />
         ))}
-      </div>
+      </FormGrid>
       <Button icono="guardar" variante="secundario" onClick={agregar}>
         Agregar o actualizar registro
       </Button>
@@ -433,7 +433,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
           </tbody>
         </table>
       </div>
-      <div className="form-grid">
+      <FormGrid>
         <TextAreaField
           name="motivo"
           label="Motivo de configuración"
@@ -443,7 +443,7 @@ function Editor({ datos }: { datos: Awaited<ReturnType<typeof api.formato>> }) {
           onValueChange={setMotivo}
           required
         />
-      </div>
+      </FormGrid>
       <FormErrorSummary mensajes={[error]} />
       {confirmar && (
         <p className="banda-informativa my-4">

@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -163,7 +164,7 @@ export function CatalogoFormulario({
               El patrón está asignado. Para cambiar días o jornada crea un nuevo horario.
             </p>
           )}
-          <div className="form-grid">
+          <FormGrid>
             {cat.campos
               .filter(
                 (f) =>
@@ -172,26 +173,7 @@ export function CatalogoFormulario({
                   (cat.slug !== 'horarios' || f.nombre !== 'jornada'),
               )
               .map((f) => (
-                <div
-                  className={
-                    f.tipo === 'area'
-                      ? 'col-span-12'
-                      : [
-                            'codigo',
-                            'fecha',
-                            'entero',
-                            'dinero',
-                            'decimal',
-                            'booleano',
-                            'nit',
-                            'telefono',
-                          ].includes(f.tipo)
-                        ? 'col-span-12 md:col-span-4'
-                        : 'col-span-12 md:col-span-6'
-                  }
-                  key={f.nombre}
-                  data-tour={`campo-${f.nombre}`}
-                >
+                <div className="contents" key={f.nombre} data-tour={`campo-${f.nombre}`}>
                   {f.tipo === 'codigo' ? (
                     <CampoCodigo
                       entidad={cat.slug}
@@ -320,7 +302,7 @@ export function CatalogoFormulario({
                 )}
               />
             )}
-          </div>
+          </FormGrid>
           <div className="mt-5">
             <FormErrorSummary
               mensajes={Object.values(errors).map((e) => e?.message)}

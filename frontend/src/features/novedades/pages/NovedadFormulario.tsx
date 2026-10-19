@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -162,18 +163,9 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
           <CampoCodigo entidad={tipo} codigo={actual?.codigo ?? undefined} />
         )}
         <Card>
-          <div className="form-grid" data-tour="novedad-campos">
+          <FormGrid data-tour="novedad-campos">
             {defs.map((f) => (
-              <div
-                key={f.nombre}
-                className={
-                  f.ancho === 'ancho'
-                    ? 'col-span-12'
-                    : f.ancho === 'corto'
-                      ? 'col-span-12 md:col-span-4'
-                      : 'col-span-12 md:col-span-6'
-                }
-              >
+              <div key={f.nombre} className="contents">
                 <Controller
                   name={f.nombre}
                   control={control}
@@ -209,7 +201,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
                 />
               </div>
             ))}
-          </div>
+          </FormGrid>
           {r.error && (
             <p role="alert" className="alerta my-3">
               No se pudieron cargar las restricciones: {r.error.message}

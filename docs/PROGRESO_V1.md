@@ -1541,3 +1541,86 @@ El cambio previo del usuario en AGENTS.md se conserva sin incorporarlo al commit
 4. `docker compose up --build -d nomina2-api nomina2-web`; entrar con los tres roles y revisar
    barra, Inicio, Ctrl/⌘ K, nombre, Ayuda manual y campana. Borrar una; cancelar/confirmar Borrar
    todas; verificar contador y que otro destinatario conserva sus propios avisos.
+
+### FASE R2-3 — Campos proporcionales al contenido
+
+Estado: completada el 19/10/2026. Rama `v1.1`, alcance B3.
+Se conserva fuera del commit el cambio previo del usuario en AGENTS.md.
+
+#### Reproducción y causas raíz
+
+- La grilla asignaba columnas mediante tres tamaños (`ancho`) e imponía otros anchos en páginas
+  y metadatos. El límite de caracteres no intervenía en el tamaño. En Nuevo empleado, la prueba
+  Playwright falló antes del arreglo: Cuenta bancaria (34 caracteres) y Nombres (100) medían
+  ambos **658 px** a 1440 px de viewport. Tampoco había un tope cómodo del formulario.
+- Los contenedores de selectores paginados conservaban espacio según hints/acciones, aunque el
+  control fuera corto. Se corrige también esa causa para permitir varios campos cortos por fila.
+
+#### Correcciones y decisiones
+
+- `tamanoCampo.ts` es la única escala: texto de 10/20/30/50/100 caracteres se representa con
+  12/20/30/44/56 caracteres visuales, más el espacio del control; textos largos con tope de 60.
+  Código/zona 12, DPI/NIT 18, teléfono 14, fecha/monto 16, correo/contraseña 36; números según
+  límite y selectores según etiquetas o longitud explícita, con mínimo de 20. Mes incluye año.
+- `tamano` opcional admite caracteres o corto/medio/ancho/completo; todos los controles comparten
+  el mismo cálculo en Field, incluido código automático. Textarea ocupa el espacio disponible
+  hasta 640 px; ningún campo supera ese tope. En móvil se permite todo el ancho disponible.
+- `FormGrid` conserva las doce columnas para secciones y añade flujo interno con ajuste de filas.
+  Grupo limitado a 64 rem y formulario a 72 rem. Una sola caja dimensiona etiqueta, control,
+  hint y error; se conserva el teclado, foco, saneamiento, máscaras y validación de cada tipo.
+- Retirados `ancho` y columnas por campo de empleados, catálogos/parámetros, novedades, préstamos,
+  parqueo/tarifas, solicitudes/plantillas/Mis datos, vacaciones, prestaciones, simulación/planilla,
+  fiscal/IGSS, anuncios/eventos, horarios, empresa, usuarios, bitácora y autenticación.
+  Los detalles de consulta conservan su grilla; no determinan tamaños de formularios.
+- Carga/error/paginación de selectores usan `complemento`, dentro de la caja compartida. Ubicación
+  reutiliza FormGrid y zona aplica el tipo específico. Fechas/horas y bloques de horario conservan
+  sus agrupaciones. No hay cálculos de píxeles ni anchos por entidad en las páginas.
+- Hints compartidos explican la longitud máxima cuando falta. Los recorridos de todos los campos
+  explican tamaño, límite y adaptación móvil; las secciones sin caja conservan su objetivo visible.
+  Contrato y uso documentados en FRONTEND.md.
+
+#### Supuestos y límites
+
+- No se adjuntó captura de referencia. Se utilizan la escala B3 y los tokens visuales existentes.
+- El ancho representa contenido esperado, sin limitar la longitud válida a lo que cabe a la vista.
+  Los selectores mantienen el límite previo de búsqueda; las etiquetas largas pueden desplazarse
+  dentro del control y se leen completas en las opciones. La escala usa caracteres tipográficos.
+- Se reemplaza intencionalmente la prop `ancho` por `tamano`; los módulos no fuerzan tamaños.
+  Sin migraciones, cambios de API, reglas de nómina ni implementación de B4–B7.
+- Las suites E2E se ejecutan en esquemas separados: Cierre usa Vite y Ronda 2 usa nginx/TLS.
+  El intento de combinarlas en producción encontró URLs antiguas fijadas a 5178 y dependencias
+  entre fixtures (el finiquito retira al empleado usado luego por Ronda 2). No son fallos de
+  tamaños; se conserva el arnés y se documentan los comandos independientes de esta fase.
+
+#### Validación y pendientes
+
+- Node 20.20.2: lint, TypeScript strict, builds y **614 pruebas** aprobadas (329 backend,
+  278 frontend, siete del exportador). Se conserva el aviso previo de tamaño de chunk Vite.
+  Casos de ancho 10/20/30/50/100, formatos, topes, override, valores inválidos, propagación
+  desde componentes, selectores con nombres largos, hints y ayuda en contenedores sin caja.
+- La regresión visual que falló antes ya pasa: longitudes 20/34/100 distintas y tope de escritorio;
+  campos cortos comparten fila y los contenedores con acciones no reservan espacio sobrante.
+  Calendarios a 1024 px y móvil a 390 px sin desbordamiento. Capturas locales inspeccionadas
+  en tmp/pdfs/r2-3-empleado-*.png, ignoradas por Git.
+- 29 E2E anteriores aprobados con API/Oracle reales (5.1 min). Incluyen 128 vistas (ADMIN 57,
+  RH 55, EMPLEADO 16), 1,806 pasos de ayuda, formularios de los trece catálogos, axe A/AA,
+  teclado, portal móvil, flujos de negocio y comprobación de controles/hints/errores dentro de
+  su caja y campos de hasta 640 px. Ninguno ocupa todo el viewport de escritorio.
+- 15 E2E de Ronda 2 aprobados sobre el build final nginx/TLS (56.1 s), con regresiones B1/B2
+  y nuevo caso B3. Los esquemas/contenedores/imágenes de esas pruebas se retiraron al terminar.
+- Frontend local reconstruido; verify:infra aprobado para API/Oracle, rutas SPA, assets y visor
+  PDF. API, Oracle, volumen y credenciales conservados; ningún dato de prueba en la aplicación.
+- Matriz completa repetida sobre el build final nginx/TLS: 128 vistas y 1,805 pasos de ayuda,
+  aprobada (6.5 min, con preparación). Axe A/AA, topes y alineación de controles/hints/errores
+  sin fallos. Esquema, contenedor e imagen exclusivos retirados al terminar.
+- Formato, revisión de secretos y git diff --check aprobados. Sin pendientes técnicos de R2-3;
+  B4–B7 permanecen reservadas para sus fases.
+
+#### Cómo probar
+
+1. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. Oracle saludable y Chromium instalado: `npm run test:e2e -- cierre.spec.ts`;
+   `npm run test:e2e -- --production ronda2.spec.ts`. Solo B3: `npm run test:e2e -- --production ronda2.spec.ts --grep R2-3`.
+3. `docker compose up --build -d nomina2-web`; entrar a https://localhost:8443 y revisar
+   Nuevo empleado, catálogos, novedades, empresa y publicaciones. Comparar datos cortos/nombres,
+   abrir selectores y ayuda, provocar errores y repetir en móvil. No guardar datos de prueba.

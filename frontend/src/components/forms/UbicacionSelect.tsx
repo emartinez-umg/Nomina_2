@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { departamentosGt, municipiosGt } from '../../features/ubicaciones/api/ubicaciones';
 import { SelectField } from './SelectField';
+import { FormGrid } from './FormGrid';
 import { Button } from '../ui/Button';
 
 export interface UbicacionValor {
@@ -57,12 +58,11 @@ export function UbicacionSelect({
     !!municipios.data &&
     !municipios.data.some((m) => String(m.id) === value.idMunicipioGt);
   return (
-    <div
-      className="col-span-12 grid grid-cols-12 gap-4"
+    <FormGrid
       data-tour="ubicacion-select"
       aria-busy={departamentos.isPending || (!!departamento && municipios.isPending)}
     >
-      <div className="col-span-12 md:col-span-6" data-tour="campo-idDepartamentoGt">
+      <div className="contents" data-tour="campo-idDepartamentoGt">
         <SelectField
           name="idDepartamentoGt"
           label="Departamento de Guatemala"
@@ -83,7 +83,7 @@ export function UbicacionSelect({
           error={errores.idDepartamentoGt}
         />
       </div>
-      <div className="col-span-12 md:col-span-6" data-tour="campo-idMunicipioGt">
+      <div className="contents" data-tour="campo-idMunicipioGt">
         <SelectField
           key={departamento}
           name="idMunicipioGt"
@@ -128,6 +128,6 @@ export function UbicacionSelect({
           </Button>
         </p>
       )}
-    </div>
+    </FormGrid>
   );
 }

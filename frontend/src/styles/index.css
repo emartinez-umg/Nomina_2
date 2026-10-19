@@ -145,10 +145,40 @@
     @apply underline;
   }
   .form-grid {
-    @apply grid grid-cols-12 gap-x-5 gap-y-5;
+    @apply grid grid-cols-12 gap-5;
+    max-inline-size: 64rem;
+    min-inline-size: 0;
+  }
+  .form-fields {
+    @apply col-span-12 flex flex-wrap items-start gap-5;
+    min-inline-size: 0;
+  }
+  .form-fields > :not(.campo):not(.contents):not(.campo-con-acciones):not(.fecha-hora-campo) {
+    flex-basis: 100%;
+    min-inline-size: 0;
+  }
+  form:has(.form-grid) {
+    max-inline-size: 72rem;
   }
   .campo {
     @apply relative col-span-12 min-w-0;
+    inline-size: var(--campo-ancho, 32rem);
+    max-inline-size: min(100%, 40rem);
+    flex: 0 1 auto;
+    overflow-wrap: anywhere;
+  }
+  .campo-con-acciones {
+    inline-size: fit-content;
+    max-inline-size: 100%;
+  }
+  .mes-controles {
+    @apply flex gap-2;
+  }
+  .mes-controles select:first-child {
+    flex: 1;
+  }
+  .mes-controles select:last-child {
+    flex: 0 1 7rem;
   }
   .campo-etiqueta {
     @apply mb-2 flex items-center gap-2 text-sm font-bold;
@@ -479,15 +509,10 @@
     text-shadow: none;
   }
 }
-@media (min-width: 768px) {
-  .campo-corto {
-    grid-column: span 4;
-  }
-  .campo-medio {
-    grid-column: span 6;
-  }
-  .campo-ancho {
-    grid-column: span 12;
+@media (max-width: 639px) {
+  .campo,
+  .campo-con-acciones {
+    inline-size: 100%;
   }
 }
 @media (max-width: 1023px) {
@@ -804,13 +829,10 @@
   gap: 2rem;
 }
 .fecha-hora-campo {
-  grid-column: span 6;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  max-inline-size: 100%;
   gap: 1rem;
-}
-.fecha-hora-campo .campo {
-  grid-column: auto;
 }
 .auditoria-json {
   white-space: pre-wrap;

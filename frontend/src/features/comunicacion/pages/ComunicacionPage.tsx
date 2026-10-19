@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -152,7 +153,7 @@ export function ComunicacionPage() {
           </Button>
         </div>
         {filtros && (
-          <div className="form-grid mt-4">
+          <FormGrid className="mt-4">
             <TextField
               name="buscar"
               label="Buscar título o código"
@@ -246,7 +247,7 @@ export function ComunicacionPage() {
                 )}
               </>
             )}
-          </div>
+          </FormGrid>
         )}
         <div className="flex flex-wrap gap-2 mt-3">
           {Object.entries(q)

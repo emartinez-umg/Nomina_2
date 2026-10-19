@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -150,7 +151,7 @@ function Editor({ empresa }: { empresa: api.Empresa | null }) {
       <FormDraftNotice draft={draft} />
       <Card data-tour="empresa-datos">
         <h2>Datos de empresa</h2>
-        <div className="form-grid">
+        <FormGrid>
           {campos.map(([name, label, hint, placeholder]) => (
             <Controller
               key={name}
@@ -177,16 +178,12 @@ function Editor({ empresa }: { empresa: api.Empresa | null }) {
                 ) : name === 'direccion' ? (
                   <TextAreaField {...props} maxLength={500} />
                 ) : (
-                  <TextField
-                    {...props}
-                    maxLength={name === 'sitioWeb' ? 300 : 200}
-                    ancho={name === 'sitioWeb' ? 'ancho' : 'medio'}
-                  />
+                  <TextField {...props} maxLength={name === 'sitioWeb' ? 300 : 200} />
                 );
               }}
             />
           ))}
-        </div>
+        </FormGrid>
       </Card>
       <Card data-tour="empresa-logo" className="mt-5">
         <h2>Logo de la empresa</h2>

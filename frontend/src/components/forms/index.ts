@@ -14,3 +14,5 @@ export { FormErrorSummary } from './FormErrorSummary';
 export { CampoCodigo } from './CampoCodigo';
 export { UbicacionSelect } from './UbicacionSelect';
 export { ZonaSelect } from './ZonaSelect';
+export { FormGrid } from './FormGrid';
+export type { TamanoCampo } from './tamanoCampo';

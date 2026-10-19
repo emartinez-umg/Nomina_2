@@ -29,6 +29,65 @@ const claves = (page: Page) =>
     Object.keys(localStorage).filter((k) => k.includes(':catalogo-departamentos:')),
   );
 
+test('R2-3: campos proporcionales en escritorio y sin desbordamiento en móvil', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await entrar(page, 'RH');
+  await page.goto('/empleados/nuevo');
+  await expect(
+    page.getByRole('combobox', { name: 'Departamento de Guatemala', exact: true }),
+  ).toHaveValue('Guatemala');
+  await expect(page.getByText('Cargando opciones…', { exact: true })).toHaveCount(0);
+  const anchos = [];
+  for (const label of ['Número de casa/vivienda', 'Cuenta bancaria', 'Nombres']) {
+    const input = page.getByLabel(label, { exact: true });
+    await expect(input).toBeVisible();
+    anchos.push(
+      await input.evaluate((e) => e.closest('.control-grupo')!.getBoundingClientRect().width),
+    );
+  }
+  expect(anchos[0]).toBeLessThan(anchos[1]!);
+  expect(anchos[1]).toBeLessThan(anchos[2]!);
+  expect(Math.max(...anchos)).toBeLessThan(640);
+  await test.info().attach('anchos-escritorio', {
+    body: JSON.stringify({ maxLength: [20, 34, 100], anchos }),
+    contentType: 'application/json',
+  });
+  const compartenFila = await page.locator('.form-fields').evaluateAll((grupos) =>
+    grupos.some((grupo) => {
+      const cortos = [...grupo.querySelectorAll('.campo')]
+        .map((c) => c.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.width < 230);
+      return cortos.some((a, i) =>
+        cortos.slice(i + 1).some((b) => Math.abs(a.top - b.top) < 1 && a.left !== b.left),
+      );
+    }),
+  );
+  expect(compartenFila).toBe(true);
+  const compuesto = page.locator('.campo-con-acciones').first();
+  const espacioAdicional = await compuesto.evaluate(
+    (e) =>
+      e.getBoundingClientRect().width -
+      Math.max(...[...e.children].map((h) => h.getBoundingClientRect().width)),
+  );
+  expect(espacioAdicional).toBeLessThan(2);
+  await page.screenshot({ path: 'tmp/pdfs/r2-3-empleado-escritorio.png', fullPage: true });
+  await page.setViewportSize({ width: 1024, height: 900 });
+  for (const label of ['Fecha de nacimiento', 'Fecha de ingreso']) {
+    await page.getByRole('button', { name: `Seleccionar ${label}`, exact: true }).click();
+    const calendario = page.getByRole('dialog', { name: `Calendario: ${label}`, exact: true });
+    const caja = await calendario.boundingBox();
+    expect(caja!.x).toBeGreaterThanOrEqual(0);
+    expect(caja!.x + caja!.width).toBeLessThanOrEqual(1024);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1024);
+    await calendario.getByRole('button', { name: 'Cerrar calendario', exact: true }).click();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({ path: 'tmp/pdfs/r2-3-empleado-movil.png', fullPage: true });
+});
+
 test.describe('R2-1: correcciones críticas con API real', () => {
   for (const rol of ['ADMIN', 'RH', 'EMPLEADO'] as const) {
     for (const vencida of [false, true]) {

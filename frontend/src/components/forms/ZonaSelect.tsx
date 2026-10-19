@@ -13,6 +13,7 @@ export function ZonaSelect({
   return (
     <SelectField
       {...props}
+      tipoDato="zona"
       label="Zona"
       required={required}
       hint={

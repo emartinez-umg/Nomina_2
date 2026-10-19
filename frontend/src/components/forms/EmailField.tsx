@@ -5,6 +5,7 @@ export function EmailField(props: CampoProps) {
   return (
     <InputField
       {...props}
+      tipoDato="correo"
       type="email"
       maxLength={254}
       inputMode="email"

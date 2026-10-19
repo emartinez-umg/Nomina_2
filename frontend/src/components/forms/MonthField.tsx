@@ -38,8 +38,16 @@ export function MonthField({
     } else p.onValueChange(v);
   };
   return (
-    <Field id={id} label={p.label} hint={p.hint} error={p.error} required={p.required}>
-      <div className="flex gap-2">
+    <Field
+      id={id}
+      label={p.label}
+      hint={p.hint}
+      error={p.error}
+      required={p.required}
+      tipo="mes"
+      tamano={p.tamano}
+    >
+      <div className="mes-controles">
         <select
           id={id}
           name={p.name}

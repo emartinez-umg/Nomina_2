@@ -12,7 +12,7 @@ export function TextAreaField({
   disabled,
   error,
   placeholder,
-  ancho = 'ancho',
+  tamano,
   maxLength = 1000,
 }: CampoProps & { maxLength?: number }) {
   const id = useId();
@@ -20,7 +20,16 @@ export function TextAreaField({
   const problema =
     error ?? (tocado && required && !value.trim() ? 'Escribe el detalle solicitado.' : undefined);
   return (
-    <Field id={id} label={label} hint={hint} required={required} error={problema} ancho={ancho}>
+    <Field
+      id={id}
+      label={label}
+      hint={hint}
+      required={required}
+      error={problema}
+      tipo="textarea"
+      tamano={tamano}
+      maxLength={maxLength}
+    >
       <textarea
         id={id}
         aria-label={label}

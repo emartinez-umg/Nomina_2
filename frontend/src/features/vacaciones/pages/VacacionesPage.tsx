@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -407,7 +408,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
       </div>
       <section data-tour="vacaciones-filtros">
         {filtros && (
-          <div className="form-grid my-5">
+          <FormGrid className="my-5">
             {!empleado && (
               <>
                 <TextField
@@ -417,7 +418,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
                   value={q.buscar ?? ''}
                   onValueChange={(v) => cambiar('buscar', v)}
                 />
-                <div className="campo campo-medio">
+                <div className="contents">
                   <ReferenciaNovedad
                     referencia="empleados"
                     name="idEmpleado"
@@ -454,7 +455,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
               value={q.hasta ?? ''}
               onValueChange={(v) => cambiar('hasta', v)}
             />
-          </div>
+          </FormGrid>
         )}
         <div className="my-4 flex flex-wrap gap-2">
           {activos.map(([k, v]) => (
@@ -748,7 +749,7 @@ function Resolver({
             mensajeServidor={m.error?.message}
           />
           {['RECHAZADA', 'CANCELADA'].includes(estado) && (
-            <div className="form-grid my-4">
+            <FormGrid className="my-4">
               <Controller
                 control={form.control}
                 name="motivo"
@@ -767,7 +768,7 @@ function Resolver({
                   />
                 )}
               />
-            </div>
+            </FormGrid>
           )}
           <p className="my-4">
             {estado === 'APROBADA'
@@ -839,8 +840,8 @@ function GestionSaldo() {
     <section data-tour="vacaciones-carga" className="mb-5">
       <Card className="mb-5">
         <h2>Saldo e historia anterior</h2>
-        <div className="form-grid mt-4">
-          <div className="campo campo-medio">
+        <FormGrid className="mt-4">
+          <div className="contents">
             <ReferenciaNovedad
               referencia="empleados"
               name="empleadoSaldo"
@@ -850,7 +851,7 @@ function GestionSaldo() {
               onValueChange={setId}
             />
           </div>
-        </div>
+        </FormGrid>
         <Button
           className="mt-4"
           icono="cargar"
@@ -924,7 +925,7 @@ function CargarPrevias({ id, cerrar }: { id: string; cerrar: () => void }) {
           mensajes={Object.values(form.formState.errors).map((e) => e.message)}
           mensajeServidor={m.error?.message}
         />
-        <div className="form-grid">
+        <FormGrid>
           <Controller
             control={form.control}
             name="tipo"
@@ -999,7 +1000,7 @@ function CargarPrevias({ id, cerrar }: { id: string; cerrar: () => void }) {
               />
             )}
           />
-        </div>
+        </FormGrid>
         {confirmar && (
           <p role="alert" className="resumen-error my-4">
             {tipo === 'TOMADAS'

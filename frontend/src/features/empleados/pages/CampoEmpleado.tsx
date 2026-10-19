@@ -29,39 +29,41 @@ export function RefField(props: CampoProps & { departamento?: string | undefined
   });
   const todas = [...new Map((q.data?.pages.flat() ?? []).map((o) => [o.value, o])).values()];
   return (
-    <div>
-      <SelectField
-        {...props}
-        opciones={todas}
-        onBuscar={setBuscar}
-        error={props.error ?? q.error?.message}
-      />
-      {q.isPending && (
-        <p role="status" className="campo-hint">
-          Cargando opciones…
-        </p>
-      )}
-      {q.hasNextPage && (
-        <Button
-          icono="siguiente"
-          variante="texto"
-          cargando={q.isFetchingNextPage}
-          onClick={() => void q.fetchNextPage()}
-        >
-          Más opciones
-        </Button>
-      )}
-      {!props.required && props.value && (
-        <Button
-          icono="cancelar"
-          variante="texto"
-          disabled={props.disabled}
-          onClick={() => props.onValueChange('')}
-        >
-          Quitar selección
-        </Button>
-      )}
-    </div>
+    <SelectField
+      {...props}
+      opciones={todas}
+      onBuscar={setBuscar}
+      error={props.error ?? q.error?.message}
+      complemento={
+        <>
+          {q.isPending && (
+            <p role="status" className="campo-hint">
+              Cargando opciones…
+            </p>
+          )}
+          {q.hasNextPage && (
+            <Button
+              icono="siguiente"
+              variante="texto"
+              cargando={q.isFetchingNextPage}
+              onClick={() => void q.fetchNextPage()}
+            >
+              Más opciones
+            </Button>
+          )}
+          {!props.required && props.value && (
+            <Button
+              icono="cancelar"
+              variante="texto"
+              disabled={props.disabled}
+              onClick={() => props.onValueChange('')}
+            >
+              Quitar selección
+            </Button>
+          )}
+        </>
+      }
+    />
   );
 }
 function ParentescoField(props: CampoProps) {

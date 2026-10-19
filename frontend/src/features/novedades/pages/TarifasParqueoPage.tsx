@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Decimal } from 'decimal.js';
@@ -67,8 +68,8 @@ export function TarifasParqueoPage() {
             y requiere motivo y confirmación.
           </p>
           <FormDraftNotice draft={draft} />
-          <div className="form-grid my-5">
-            <div className="col-span-12 md:col-span-4">
+          <FormGrid className="my-5">
+            <div className="contents">
               <SelectField
                 name="vehiculo"
                 label="Vehículo"
@@ -82,7 +83,7 @@ export function TarifasParqueoPage() {
                 required
               />
             </div>
-            <div className="col-span-12 md:col-span-4">
+            <div className="contents">
               <MonthField
                 name="mes"
                 label="Vigente desde el mes"
@@ -93,7 +94,7 @@ export function TarifasParqueoPage() {
                 required
               />
             </div>
-            <div className="col-span-12 md:col-span-4">
+            <div className="contents">
               <MoneyField
                 name="monto"
                 label="Tarifa mensual"
@@ -114,7 +115,7 @@ export function TarifasParqueoPage() {
                 required
               />
             </div>
-          </div>
+          </FormGrid>
           <p>
             Anterior: {moneda(anterior?.monto)} → Nueva: {moneda(importe)}
           </p>

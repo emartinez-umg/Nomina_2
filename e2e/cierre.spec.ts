@@ -87,6 +87,39 @@ async function tour(page: Page, ventana = false, completo = false) {
   await expect(activador).toBeFocused();
   return titulos;
 }
+async function revisarAnchos(page: Page) {
+  const camposFueraDeEscala = await page.locator('.campo:visible').evaluateAll((campos) =>
+    campos
+      .filter((c) => {
+        const ancho = c.getBoundingClientRect().width;
+        return (
+          ancho > 640.5 || ancho > innerWidth || (innerWidth >= 1024 && ancho >= innerWidth * 0.9)
+        );
+      })
+      .map((c) => ({
+        campo: c.getAttribute('data-campo'),
+        ancho: c.getBoundingClientRect().width,
+      })),
+  );
+  expect(camposFueraDeEscala).toEqual([]);
+  const controlesFueraDeCaja = await page.locator('.campo:visible').evaluateAll((campos) =>
+    campos.flatMap((campo) => {
+      const caja = campo.getBoundingClientRect();
+      return [
+        ...campo.querySelectorAll(
+          '.control-grupo, textarea, .campo-etiqueta, .campo-hint, .campo-error',
+        ),
+      ]
+        .filter((n) => n.getClientRects().length > 0)
+        .filter((n) => {
+          const r = n.getBoundingClientRect();
+          return r.left < caja.left - 1 || r.right > caja.right + 1;
+        })
+        .map(() => campo.getAttribute('data-campo'));
+    }),
+  );
+  expect(controlesFueraDeCaja).toEqual([]);
+}
 async function revisarUi(page: Page) {
   await expect(page.locator('h1').first()).toBeVisible();
   await expect(page.locator('[role="status"]').filter({ hasText: 'Cargando' })).toHaveCount(0);
@@ -102,6 +135,7 @@ async function revisarUi(page: Page) {
         .map((c) => c.textContent),
     );
   expect(faltas).toEqual([]);
+  await revisarAnchos(page);
   const ancho = await page.evaluate(() => ({
     pagina: document.documentElement.scrollWidth,
     pantalla: innerWidth,
@@ -1034,6 +1068,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
           await expect(page.getByLabel('Buscar empleado', { exact: true })).toHaveCount(0);
         if (ruta.startsWith('/catalogos/') && ruta !== '/catalogos/empresa') {
           await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+          await revisarAnchos(page);
           await tour(page, true, true);
           const a11y = await new AxeBuilder({ page })
             .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])

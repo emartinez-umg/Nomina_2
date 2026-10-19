@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -173,7 +174,7 @@ function DatosForm({
       </p>
       <form onSubmit={f.handleSubmit(() => setConfirmar(true))}>
         <FormDraftNotice draft={draft} />
-        <div className="form-grid">
+        <FormGrid>
           {Object.keys(inicial).map((key) => (
             <Controller
               key={key}
@@ -252,7 +253,7 @@ function DatosForm({
               }}
             />
           ))}
-        </div>
+        </FormGrid>
         <FormErrorSummary
           mensajes={Object.values(f.formState.errors).map((e) => e?.message)}
           mensajeServidor={m.error?.message}

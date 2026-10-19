@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -166,7 +167,7 @@ export function SolicitudesPage() {
             Exportar CSV
           </Button>
         </div>
-        <div className="form-grid">
+        <FormGrid>
           <TextField
             name="buscar"
             label={empleado ? 'Buscar código de solicitud' : 'Buscar empleado o solicitud'}
@@ -176,9 +177,9 @@ export function SolicitudesPage() {
             onValueChange={(v) => cambiar('buscar', v)}
             maxLength={200}
           />
-        </div>
+        </FormGrid>
         {filtros && (
-          <div className="form-grid mt-4">
+          <FormGrid className="mt-4">
             <SelectField
               name="tipo"
               label="Tipo"
@@ -224,7 +225,7 @@ export function SolicitudesPage() {
               {...(q.desde ? { min: q.desde } : {})}
               onValueChange={(v) => cambiar('hasta', v)}
             />
-          </div>
+          </FormGrid>
         )}
         <div className="flex flex-wrap gap-2 mt-3">
           {Object.entries(q)
@@ -421,10 +422,10 @@ function Nueva({ tipo, onCerrar }: { tipo: string; onCerrar: () => void }) {
             {tipo === 'PARQUEO' &&
               'Al aprobarse, comienza la suscripción mensual completa de Carro o Moto. Consulta la tarifa con RRHH y solicita la baja desde Mi parqueo.'}
           </p>
-          <div className="form-grid">
+          <FormGrid>
             {tipo === 'PARQUEO' && (
               <>
-                <div className="col-span-12 md:col-span-6">
+                <div className="contents">
                   <Controller
                     control={f.control}
                     name="vehiculo"
@@ -446,7 +447,7 @@ function Nueva({ tipo, onCerrar }: { tipo: string; onCerrar: () => void }) {
                     )}
                   />
                 </div>
-                <div className="col-span-12 md:col-span-6">
+                <div className="contents">
                   <Controller
                     control={f.control}
                     name="placa"
@@ -480,7 +481,7 @@ function Nueva({ tipo, onCerrar }: { tipo: string; onCerrar: () => void }) {
                 />
               )}
             />
-          </div>
+          </FormGrid>
           <FormErrorSummary mensajes={[]} mensajeServidor={m.error?.message} />
           <Button icono="correo" type="submit" cargando={m.isPending}>
             Revisar y enviar

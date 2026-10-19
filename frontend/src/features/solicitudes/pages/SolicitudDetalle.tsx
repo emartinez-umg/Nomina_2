@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { tarifas } from '../../novedades/api/parqueo';
 import { formatoMoneda } from '../../../components/forms/MoneyField';
 import { hoyGuatemala } from '../../../lib/validadores';
@@ -218,7 +219,7 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
               Reintentar tarifa
             </Button>
           )}
-          <div className="form-grid">
+          <FormGrid>
             <Controller
               control={f.control}
               name="motivo"
@@ -234,7 +235,7 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
                 />
               )}
             />
-          </div>
+          </FormGrid>
           <FormErrorSummary
             mensajes={Object.values(f.formState.errors).map((e) => e.message)}
             mensajeServidor={mutar.error?.message}

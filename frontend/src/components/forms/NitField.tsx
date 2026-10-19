@@ -5,7 +5,7 @@ export function NitField(props: CampoProps) {
   return (
     <InputField
       {...props}
-      ancho={props.ancho ?? 'corto'}
+      tipoDato="nit"
       maxLength={14}
       inputMode="text"
       pattern="[0-9]+-[0-9K]"

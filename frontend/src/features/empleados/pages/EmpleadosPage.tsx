@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -150,11 +151,11 @@ export function EmpleadosPage() {
           </div>
           <details>
             <summary className="cursor-pointer text-primario">Filtros avanzados</summary>
-            <div className="form-grid my-4">
+            <FormGrid className="my-4">
               {filtros
                 .filter((f) => f.nombre !== 'nombre')
                 .map((f) => (
-                  <div className="col-span-12 md:col-span-4" key={f.nombre}>
+                  <div className="contents" key={f.nombre}>
                     {['dpi', 'nit'].includes(f.nombre) ? (
                       <TextField
                         name={f.nombre}
@@ -186,7 +187,7 @@ export function EmpleadosPage() {
                     )}
                   </div>
                 ))}
-            </div>
+            </FormGrid>
           </details>
           <div className="my-4 flex flex-wrap gap-2">
             <Button type="submit" icono="filtrar">

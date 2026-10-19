@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -277,7 +278,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
             setPagina(1);
           }}
         >
-          <div className="form-grid">
+          <FormGrid>
             <TextField
               name="buscar"
               label="Buscar"
@@ -311,9 +312,9 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 Limpiar filtros
               </Button>
             </div>
-          </div>
+          </FormGrid>
           {expandido && (
-            <div className="form-grid mt-5">
+            <FormGrid className="mt-5">
               <SelectField
                 name="activo"
                 label="Estado"
@@ -413,7 +414,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                   ))}
                 </>
               )}
-            </div>
+            </FormGrid>
           )}
         </form>
         <div role="group" className="my-4 flex flex-wrap gap-2" aria-label="Filtros activos">
@@ -544,7 +545,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
             ]}
           />
         </div>
-        <div className="mt-4 max-w-xs">
+        <div className="mt-4">
           <SelectField
             name="limite"
             label="Registros por página"

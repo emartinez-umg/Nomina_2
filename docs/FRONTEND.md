@@ -72,7 +72,18 @@ Los campos usan un contrato controlado (`value`/`onValueChange`/`onBlur`/`error`
 Controller de React Hook Form. `inputRef` permite enfocar errores desde React Hook Form.
 Cada campo incluye etiqueta, obligatorio, hint con tooltip, límites y atributos accesibles.
 
-- Usar `form-grid` (12 columnas) y `ancho="corto"/"medio"/"ancho"`; en móvil ocupan 12 columnas.
+- Usar `FormGrid`: conserva la grilla de 12 columnas para secciones y distribuye sus campos
+  con ajuste de filas, sin estirarlos. Tope de grupo: 64 rem; formulario: 72 rem.
+- `tamanoCampo.ts` centraliza el ancho desde `maxLength` y el tipo. Texto de 10/20/30/50/100
+  caracteres usa 12/20/30/44/56 caracteres visuales, más el espacio del control; textos más
+  largos tienen tope de 60. Código/zona 12, DPI/NIT 18, teléfono 14, fecha/monto 16, correo 36.
+  SelectField considera las etiquetas de las opciones (mínimo 20) o su `maxLength` explícito;
+  ese dato solo dimensiona el selector y no cambia el límite de su búsqueda.
+- `tamano` permite forzar caracteres (número), `corto` (12), `medio` (30), `ancho` (56) o
+  `completo` (640 px). Textarea usa todo el espacio disponible hasta 640 px. Bajo 640 px de
+  viewport, los campos usan el ancho disponible. Etiqueta, hint, control y error comparten caja.
+  No añadir anchos ni columnas por campo en páginas/metadatos; retirar la antigua prop `ancho`.
+  Los selectores paginados usan `complemento` para mantener carga, errores y acciones en su caja.
 - TextField admite tipos texto, nombre, usuario y contraseña. Contraseñas conservan lo escrito.
 - DPI se muestra `#### ##### ####`, teléfono `#### ####`, NIT con guion y K en mayúscula.
 - MoneyField usa Decimal y muestra prefijo Q con agrupación y dos decimales al salir. Al enviar

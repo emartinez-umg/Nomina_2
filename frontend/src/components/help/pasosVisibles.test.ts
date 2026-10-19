@@ -76,6 +76,31 @@ describe('Ayuda final por contexto', () => {
     expect(pasos[3]!.popover!.description).not.toMatch(/dd\/mm/);
     expect(pasos[4]!.popover!.description).toMatch(/dd\/mm\/aaaa.*calendario/);
   });
+  it('mantiene secciones de ayuda en contenedores sin caja y explica el límite del campo', () => {
+    vi.spyOn(Element.prototype, 'getClientRects').mockImplementation(function (this: Element) {
+      return (this.hasAttribute('data-campo')
+        ? [{ width: 100, height: 20 }]
+        : []) as unknown as DOMRectList;
+    });
+    document.body.innerHTML =
+      '<div data-tour="nombre"><div data-campo="Nombre"><input maxlength="50"><p class="campo-hint">Nombre del catálogo.</p></div></div>';
+    const pasos = pasosVisibles(
+      {
+        id: 'formulario',
+        pasos: [
+          {
+            elemento: 'nombre',
+            titulo: 'Nombre de catálogo',
+            descripcion: 'Identifica el catálogo.',
+          },
+        ],
+      },
+      'RH',
+      document,
+    );
+    expect(pasos[0]!.element).toBe(document.querySelector('[data-campo]'));
+    expect(pasos[1]!.popover!.description).toMatch(/ancho.*móvil.*50 caracteres/);
+  });
   it('escapa contenido de API antes de pasarlo a driver', () => {
     visibles();
     document.body.innerHTML = '<div data-tour="x"></div>';

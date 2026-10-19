@@ -1,4 +1,6 @@
 import { useId, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import type { TipoCampo } from './tamanoCampo';
 import { Field } from './Field';
 import type { CampoProps } from './Field';
 import { limpiarTexto } from '../../lib/validadores';
@@ -6,8 +8,14 @@ import { iconos } from '../ui/icons';
 export function SelectField({
   opciones,
   onBuscar,
+  maxLength,
+  tipoDato = 'select',
+  complemento,
   ...props
 }: CampoProps & {
+  tipoDato?: TipoCampo;
+  maxLength?: number;
+  complemento?: ReactNode;
   opciones: { value: string; label: string; disabled?: boolean }[];
   onBuscar?: (buscar: string) => void;
 }) {
@@ -41,7 +49,9 @@ export function SelectField({
       hint={props.hint}
       required={props.required}
       error={problema}
-      ancho={props.ancho}
+      tipo={tipoDato}
+      tamano={props.tamano}
+      maxLength={maxLength ?? Math.max(20, ...opciones.map((o) => o.label.length))}
     >
       <div
         ref={ref}
@@ -137,6 +147,7 @@ export function SelectField({
           </ul>
         )}
       </div>
+      {complemento}
     </Field>
   );
 }

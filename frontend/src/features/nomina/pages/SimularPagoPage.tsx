@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -130,7 +131,7 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
       <AvisoEmpresa />
       <Card>
         <section data-tour="pago-objetivo">
-          <div className="form-grid">
+          <FormGrid>
             <SelectField
               name="tipoPago"
               label="Tipo de pago"
@@ -155,7 +156,7 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
               ]}
               required
             />
-            <div className="campo campo-medio">
+            <div className="contents">
               <MonthField
                 name="mes"
                 label="Mes del pago"
@@ -189,7 +190,7 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
               required
             />
             {objetivo !== 'TODOS' && (
-              <div className="campo campo-medio">
+              <div className="contents">
                 <ReferenciaNovedad
                   referencia={objetivo === 'EMPLEADO' ? 'empleados' : 'departamentos'}
                   name="objetivoId"
@@ -205,7 +206,7 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
                 />
               </div>
             )}
-          </div>
+          </FormGrid>
           <p className="campo-hint">
             {anual
               ? 'Cálculo desde contratación: promedio mensual × días / 365, máximo 100 %. Exención hasta el límite vigente; excedente incorporado al ISR del pago mensual. Revisa la historia completa antes de confirmar.'

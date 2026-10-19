@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -93,7 +94,7 @@ export function AuditoriaPage() {
           </Button>
         </div>
         {filtros && (
-          <div className="form-grid mt-5">
+          <FormGrid className="mt-5">
             <NumberField
               name="usuario"
               label="ID de usuario"
@@ -158,7 +159,7 @@ export function AuditoriaPage() {
               value={q.hasta!}
               onValueChange={(v) => cambiar('hasta', v)}
             />
-          </div>
+          </FormGrid>
         )}
         <div className="flex flex-wrap gap-2 mt-3">
           {Object.entries(q)

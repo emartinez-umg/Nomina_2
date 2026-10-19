@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -192,7 +193,7 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
     <Card data-tour="nomina-periodos">
       <h2>Periodos de anticipo y pago</h2>
       <FormDraftNotice draft={draft} />
-      <div className="form-grid my-4">
+      <FormGrid className="my-4">
         <DateField
           name="fecha"
           label="Fecha de la quincena"
@@ -201,7 +202,7 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
           onValueChange={setFecha}
           required
         />
-        <div className="campo campo-medio self-end">
+        <div className="self-end">
           <Button
             icono="crear"
             cargando={crear.isPending}
@@ -239,7 +240,7 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
             label: v,
           }))}
         />
-      </div>
+      </FormGrid>
       <Button icono="cancelar" variante="texto" onClick={() => setQ({ pagina: '1', limite: '10' })}>
         Limpiar filtros
       </Button>
@@ -491,7 +492,7 @@ function Planilla({
         </div>
         <section data-tour="nomina-filtros">
           {filtros && (
-            <div className="form-grid my-4">
+            <FormGrid className="my-4">
               <NumberField
                 name="anio"
                 label="Año"
@@ -518,7 +519,7 @@ function Planilla({
                     value={q.buscar ?? ''}
                     onValueChange={(v) => cambiar('buscar', v)}
                   />
-                  <div className="campo campo-medio">
+                  <div className="contents">
                     <ReferenciaNovedad
                       referencia="empleados"
                       name="idEmpleado"
@@ -528,7 +529,7 @@ function Planilla({
                       onValueChange={(v) => cambiar('idEmpleado', v)}
                     />
                   </div>
-                  <div className="campo campo-medio">
+                  <div className="contents">
                     <RefField
                       name="idDepartamento"
                       label="Departamento"
@@ -574,7 +575,7 @@ function Planilla({
                   />
                 </>
               )}
-            </div>
+            </FormGrid>
           )}
           <div className="flex flex-wrap gap-2 my-4">
             {activos.map(([k, v]) => (
@@ -771,7 +772,7 @@ function Planilla({
                   : 'Confirma que revisaste los conceptos, totales y alertas de esta versión.'}
         </p>
         {['reabrir', 'devolver'].includes(accion) && (
-          <div className="form-grid">
+          <FormGrid>
             <TextAreaField
               name="motivo"
               label="Motivo"
@@ -781,7 +782,7 @@ function Planilla({
               required
               maxLength={500}
             />
-          </div>
+          </FormGrid>
         )}
         <FormErrorSummary mensajes={[error]} />
         <div className="flex justify-end gap-3 mt-4">
@@ -1001,7 +1002,7 @@ function RevertirPagoControl({ id }: { id: number }) {
             este.
           </p>
           <FormDraftNotice draft={draft} />
-          <div className="form-grid">
+          <FormGrid>
             <TextAreaField
               name="motivoReversion"
               label="Motivo de reversión"
@@ -1011,7 +1012,7 @@ function RevertirPagoControl({ id }: { id: number }) {
               maxLength={500}
               onValueChange={setMotivo}
             />
-          </div>
+          </FormGrid>
           <FormErrorSummary mensajes={[error]} />
           <div className="flex justify-end gap-3 mt-4">
             <Button

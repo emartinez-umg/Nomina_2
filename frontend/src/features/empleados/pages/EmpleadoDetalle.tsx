@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { nombreEmpleado } from '../../../lib/nombre';
 import { RestablecerEmpleadoModal } from './RestablecerEmpleadoModal';
 import { useDraftValues } from '../../../hooks/useFormDraft';
@@ -173,7 +174,7 @@ function Resumen({ empleado: e }: { empleado: Empleado }) {
             {s.campos.map((f) => (
               <div
                 key={f.nombre}
-                className={f.ancho === 'ancho' ? 'col-span-12' : 'col-span-12 md:col-span-4'}
+                className={f.tipo === 'area' ? 'col-span-12' : 'col-span-12 md:col-span-4'}
               >
                 <dt className="text-sm text-secundario">{f.label}</dt>
                 <dd>
@@ -328,9 +329,9 @@ function Accion({
           setRevision(true);
         }}
       >
-        <div className="form-grid">
+        <FormGrid>
           {tipo === 'salario' && (
-            <div className="col-span-12 md:col-span-6" data-tour="empleado-cambio-salario">
+            <div className="contents" data-tour="empleado-cambio-salario">
               <MoneyField
                 name="salarioBase"
                 label="Nuevo salario mensual"
@@ -346,7 +347,7 @@ function Accion({
               />
             </div>
           )}
-          <div className="col-span-12 md:col-span-6" data-tour="empleado-cambio-fecha">
+          <div className="contents" data-tour="empleado-cambio-fecha">
             <DateField
               name={fechaKey}
               label={tipo === 'salario' ? 'Fecha efectiva' : 'Fecha de egreso'}
@@ -378,7 +379,7 @@ function Accion({
               disabled={ocupado}
             />
           </div>
-        </div>
+        </FormGrid>
         {tipo === 'salario' &&
           (bajo || !minimo || reglaSalario.error || reglaSalario.isFetching) && (
             <p className="alerta my-4">

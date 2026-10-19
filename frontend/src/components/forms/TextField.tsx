@@ -17,6 +17,7 @@ export function TextField({
   return (
     <InputField
       {...props}
+      tipoDato={tipo === 'contrasena' ? 'contrasena' : 'texto'}
       maxLength={maxLength}
       autoComplete={autoComplete ?? 'off'}
       sanitizar={

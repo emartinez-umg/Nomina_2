@@ -47,7 +47,8 @@ export function DateField({
       hint={props.hint}
       required={props.required}
       error={problema}
-      ancho={props.ancho ?? 'corto'}
+      tipo="fecha"
+      tamano={props.tamano}
     >
       <div className="control-grupo">
         <input

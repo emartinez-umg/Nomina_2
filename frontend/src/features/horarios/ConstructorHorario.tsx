@@ -1,3 +1,4 @@
+import { FormGrid } from '../../components/forms/FormGrid';
 import { useQuery } from '@tanstack/react-query';
 import {
   analizarHorario,
@@ -67,11 +68,11 @@ export function ConstructorHorario({
             </Button>
           </div>
           <Field
+            tamano="completo"
             id={`dias-bloque-${i}`}
             label={`Días del bloque ${i + 1}`}
             hint="Usa un atajo y ajusta los chips. Los días elegidos comparten las mismas horas y descanso."
             required
-            ancho="ancho"
           >
             <div
               className="flex flex-wrap gap-2"
@@ -126,7 +127,7 @@ export function ConstructorHorario({
               ))}
             </div>
           </Field>
-          <div className="form-grid">
+          <FormGrid>
             {(['entrada', 'salida'] as const).map((tipo) => {
               const opciones = horas.includes(b[tipo]) ? horas : [...horas, b[tipo]].sort();
               return (
@@ -136,7 +137,7 @@ export function ConstructorHorario({
                   label={`${tipo === 'entrada' ? 'Entrada' : 'Salida'} · bloque ${i + 1}`}
                   hint="Selecciona una hora de 24 horas en intervalos de 30 minutos. No admite texto libre."
                   required
-                  ancho="corto"
+                  tipo="hora"
                 >
                   <select
                     aria-label={`${tipo === 'entrada' ? 'Entrada' : 'Salida'} · bloque ${i + 1}`}
@@ -163,7 +164,7 @@ export function ConstructorHorario({
               label={`Descanso · bloque ${i + 1}`}
               hint="Minutos sin trabajo dentro del bloque; se restan de las horas efectivas."
               required
-              ancho="corto"
+              tipo="select"
             >
               <select
                 aria-label={`Descanso · bloque ${i + 1}`}
@@ -186,7 +187,7 @@ export function ConstructorHorario({
               id={`cruce-bloque-${i}`}
               label={`Cruza medianoche · bloque ${i + 1}`}
               hint="Elige Sí si la salida ocurre al día siguiente. Se revisan solapes con el turno siguiente."
-              ancho="corto"
+              tipo="select"
             >
               <select
                 aria-label={`Cruza medianoche · bloque ${i + 1}`}
@@ -205,7 +206,7 @@ export function ConstructorHorario({
               Horas diarias del bloque: {Math.max(0, minutosEfectivos(b) / 60).toFixed(2)} · Jornada{' '}
               {jornadaBloque(b).toLowerCase()}
             </p>
-          </div>
+          </FormGrid>
         </section>
       ))}
       <Button

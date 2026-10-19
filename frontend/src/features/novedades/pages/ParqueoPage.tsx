@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { descargar } from '../../empleados/api/empleados';
 import { useToast } from '../../../components/ui/Toast';
 import { useState } from 'react';
@@ -78,8 +79,8 @@ export function ParqueoPage() {
         </p>
         <details open className="my-5" data-tour="parqueo-filtros">
           <summary className="cursor-pointer text-primario">Filtros de parqueo</summary>
-          <div className="form-grid my-4">
-            <div className="col-span-12 md:col-span-4">
+          <FormGrid className="my-4">
+            <div className="contents">
               <MonthField
                 name="mes"
                 label="Mes"
@@ -94,7 +95,7 @@ export function ParqueoPage() {
                 }}
               />
             </div>
-            <div className="col-span-12 md:col-span-4">
+            <div className="contents">
               <TextField
                 name="buscar"
                 label="Buscar"
@@ -106,7 +107,7 @@ export function ParqueoPage() {
                 }}
               />
             </div>
-            <div className="col-span-12 md:col-span-4">
+            <div className="contents">
               <SelectField
                 name="estado"
                 label="Estado"
@@ -122,7 +123,7 @@ export function ParqueoPage() {
                 }))}
               />
             </div>
-          </div>
+          </FormGrid>
         </details>
         <div role="group" aria-label="Filtros activos" className="my-3 flex flex-wrap gap-2">
           {mes !== hoy.slice(0, 7) && (

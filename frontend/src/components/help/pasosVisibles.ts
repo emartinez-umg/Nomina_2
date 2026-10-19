@@ -24,9 +24,11 @@ export function pasosVisibles(
 ): DriveStep[] {
   const pasos: DriveStep[] = [];
   const agregar = (elemento: Element, titulo: string, descripcion: string) => {
-    if (visible(elemento))
+    // Un contenedor sin caja deja fluir los campos; el foco visual recae en su primer campo.
+    const objetivo = visible(elemento) ? elemento : elemento.querySelector('[data-campo]');
+    if (objetivo && visible(objetivo))
       pasos.push({
-        element: elemento,
+        element: objetivo,
         popover: { title: escapar(titulo), description: escapar(descripcion) },
       });
   };
@@ -74,7 +76,7 @@ export function pasosVisibles(
     agregar(
       campo,
       campo.getAttribute('data-campo')!,
-      `${hint} ${formato} ${control.required || control.getAttribute('aria-required') === 'true' ? 'El asterisco indica que es obligatorio.' : 'Si es opcional, déjalo vacío cuando no corresponda.'} Al salir se muestran errores junto al campo. El resumen del formulario indica qué corregir; el servidor vuelve a validar y puede rechazar duplicados, fechas o referencias que hayan cambiado.`,
+      `${hint} ${formato} El ancho se ajusta al dato esperado; en móvil se adapta al espacio disponible. ${control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement ? (control.maxLength > 0 ? `El límite es de ${control.maxLength} caracteres, aunque el texto pueda desplazarse dentro del control. ` : '') : ''}${control.required || control.getAttribute('aria-required') === 'true' ? 'El asterisco indica que es obligatorio.' : 'Si es opcional, déjalo vacío cuando no corresponda.'} Al salir se muestran errores junto al campo. El resumen del formulario indica qué corregir; el servidor vuelve a validar y puede rechazar duplicados, fechas o referencias que hayan cambiado.`,
     );
   }
   const errores = alcance.querySelector('.resumen-error, [role="alert"]');

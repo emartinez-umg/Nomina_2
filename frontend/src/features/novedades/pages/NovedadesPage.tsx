@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -219,9 +220,9 @@ function Listado({ tipo }: { tipo: Tipo }) {
           />
           <details className="my-4">
             <summary className="cursor-pointer text-primario">Filtros avanzados</summary>
-            <div className="form-grid my-4">
+            <FormGrid className="my-4">
               {defs.map((f) => (
-                <div key={f.nombre} className="col-span-12 md:col-span-4">
+                <div key={f.nombre} className="contents">
                   <CampoNovedad
                     campo={f}
                     name={f.nombre}
@@ -232,7 +233,7 @@ function Listado({ tipo }: { tipo: Tipo }) {
                   />
                 </div>
               ))}
-            </div>
+            </FormGrid>
           </details>
           <div className="my-4 flex flex-wrap gap-2">
             <Button type="submit" icono="filtrar">

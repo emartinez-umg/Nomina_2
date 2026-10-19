@@ -9,7 +9,7 @@ export interface Campo {
   tipo: 'referencia' | 'opcion' | 'fecha' | 'mes' | 'dinero' | 'numero' | 'texto' | 'area';
   opciones?: string[];
   ref?: string;
-  ancho?: 'corto' | 'medio' | 'ancho';
+
   opcional?: boolean;
 }
 const motivo: Campo = {
@@ -17,35 +17,30 @@ const motivo: Campo = {
   label: 'Motivo o descripción',
   tipo: 'area',
   hint: 'Explica el origen o cambio con 5–500 caracteres. Queda en auditoría.',
-  ancho: 'ancho',
 };
 const monto: Campo = {
   nombre: 'monto',
   label: 'Monto total',
   tipo: 'dinero',
   hint: 'Capital o total a descontar; Q, hasta dos decimales. Mayor que cero.',
-  ancho: 'corto',
 };
 const cuotas: Campo = {
   nombre: 'cuotas',
   label: 'Número de cuotas',
   tipo: 'numero',
   hint: 'Entre 1 y 600. Se distribuyen por mes; la última ajusta los centavos.',
-  ancho: 'corto',
 };
 const inicio: Campo = {
   nombre: 'fechaInicio',
   label: 'Fecha de inicio',
   tipo: 'fecha',
   hint: 'El descuento comienza en esta fecha; las cuotas vencen al cierre de cada mes.',
-  ancho: 'corto',
 };
 const mes: Campo = {
   nombre: 'mes',
   label: 'Mes y año',
   tipo: 'mes',
   hint: 'Mes actual o anterior, sin periodos cerrados. Se registra el total del mes.',
-  ancho: 'corto',
 };
 const estado: Campo = {
   nombre: 'estado',
@@ -97,7 +92,6 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
               label: 'Fecha final (opcional)',
               tipo: 'fecha' as const,
               hint: 'Vacía para mantenerlo vigente. No anterior al inicio.',
-              ancho: 'corto' as const,
               opcional: true,
             },
           ]
@@ -117,7 +111,6 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
         label: 'Fecha de desembolso',
         tipo: 'fecha',
         hint: 'Desde el ingreso y hasta la primera cuota.',
-        ancho: 'corto',
       },
       referencia,
     ],
@@ -130,7 +123,6 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
         label: 'Horas registradas',
         tipo: 'numero',
         hint: 'Horas completas o medias horas, por ejemplo 2.5. Un total por empleado y mes; superar el tope mensual requiere revisión.',
-        ancho: 'corto',
       },
     ],
     ausencias: [
@@ -141,7 +133,6 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
         label: 'Fecha final',
         tipo: 'fecha',
         hint: 'Igual o posterior al inicio. No puede cruzar rangos ocupados ni periodos cerrados.',
-        ancho: 'corto',
       },
       estado,
     ],

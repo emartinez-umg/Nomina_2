@@ -32,7 +32,6 @@ export interface CampoEmpleado {
   max?: number;
   required?: boolean;
   opciones?: string[];
-  ancho?: 'corto' | 'medio' | 'ancho';
 }
 export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
   {
@@ -45,7 +44,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         hint: 'Código automático: EMP, código de departamento y contador. Se conserva al trasladar al empleado.',
         max: 40,
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'nombres',
@@ -69,7 +67,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'dpi',
         hint: '13 dígitos del Documento Personal de Identificación.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'nit',
@@ -77,7 +74,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'nit',
         hint: 'Número de RTU con dígito verificador. Ejemplo: 1234567-9.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'afiliacionIgss',
@@ -85,7 +81,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'numero',
         hint: 'Número de afiliación personal, hasta 20 dígitos (opcional).',
         max: 20,
-        ancho: 'corto',
       },
       {
         nombre: 'fechaNacimiento',
@@ -93,7 +88,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'fecha',
         hint: 'dd/mm/aaaa. Respeta la edad mínima y máxima configuradas.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'sexo',
@@ -102,7 +96,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         hint: 'Selecciona el dato del expediente.',
         opciones: ['F', 'M'],
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'estadoCivil',
@@ -131,7 +124,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         label: 'Zona',
         tipo: 'texto',
         hint: 'Del 1 al 25. Obligatoria en Guatemala.',
-        ancho: 'corto',
       },
       {
         nombre: 'numeroCasa',
@@ -140,7 +132,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         hint: 'Hasta 20 letras, números y guiones. Ejemplo: 12-A.',
         max: 20,
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'telefono',
@@ -148,7 +139,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'telefono',
         hint: '8 dígitos, sin código de país.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'correo',
@@ -182,14 +172,12 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'fecha',
         hint: 'Desde la edad mínima y hasta 30 días en el futuro. Se conserva tras el alta.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'fechaFinContrato',
         label: 'Fin de contrato',
         tipo: 'fecha',
         hint: 'Obligatoria y posterior al ingreso cuando el contrato tiene plazo. El contrato indefinido la mantiene vacía.',
-        ancho: 'corto',
       },
       {
         nombre: 'estado',
@@ -210,7 +198,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'dinero',
         hint: 'Salario mensual en quetzales, mayor a cero. Los cambios posteriores se registran en la ficha.',
         required: true,
-        ancho: 'corto',
       },
     ],
   },
@@ -239,7 +226,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'telefono',
         hint: '8 dígitos, sin código de país.',
         required: true,
-        ancho: 'corto',
       },
     ],
   },

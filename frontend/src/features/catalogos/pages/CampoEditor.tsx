@@ -39,29 +39,35 @@ export function Referencia({
       label: String(actual?.[campo.nombre + 'Etiqueta'] ?? `Registro ${props.value}`),
     });
   return (
-    <div className="contents">
-      <SelectField {...props} opciones={lista} onBuscar={setBuscar} />
-      {q.hasNextPage && (
-        <div className="col-span-12">
-          <Button
-            icono="siguiente"
-            variante="texto"
-            cargando={q.isFetchingNextPage}
-            onClick={() => void q.fetchNextPage()}
-          >
-            Cargar más opciones de {campo.etiqueta}
-          </Button>
-        </div>
-      )}
-      {q.error && (
-        <p role="alert" className="campo-error col-span-12">
-          {q.error.message}
-          <Button icono="actualizar" variante="texto" onClick={() => void q.refetch()}>
-            Reintentar opciones
-          </Button>
-        </p>
-      )}
-    </div>
+    <SelectField
+      {...props}
+      opciones={lista}
+      onBuscar={setBuscar}
+      complemento={
+        <>
+          {q.hasNextPage && (
+            <div className="col-span-12">
+              <Button
+                icono="siguiente"
+                variante="texto"
+                cargando={q.isFetchingNextPage}
+                onClick={() => void q.fetchNextPage()}
+              >
+                Cargar más opciones de {campo.etiqueta}
+              </Button>
+            </div>
+          )}
+          {q.error && (
+            <p role="alert" className="campo-error col-span-12">
+              {q.error.message}
+              <Button icono="actualizar" variante="texto" onClick={() => void q.refetch()}>
+                Reintentar opciones
+              </Button>
+            </p>
+          )}
+        </>
+      }
+    />
   );
 }
 export function CampoEditor({
