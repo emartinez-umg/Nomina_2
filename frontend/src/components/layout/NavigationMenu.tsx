@@ -50,9 +50,9 @@ export function NavigationMenu({ rol, onElegir }: { rol: Rol; onElegir: (id: str
     enlaces?.[foco.ultimo ? enlaces.length - 1 : 0]?.focus();
     setFoco(null);
   }, [foco, grupo]);
-  function tecladoGrupo(e: KeyboardEvent<HTMLButtonElement>, indice: number) {
+  function tecladoGrupo(e: KeyboardEvent<HTMLElement>, indice: number) {
     const id = grupos[indice]!.id;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!grupos[indice]!.directo && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       e.preventDefault();
       setGrupo(id);
       setFoco({ id, ultimo: e.key === 'ArrowUp' });
@@ -65,7 +65,7 @@ export function NavigationMenu({ rol, onElegir }: { rol: Rol; onElegir: (id: str
             ? grupos.length - 1
             : (indice + (e.key === 'ArrowRight' ? 1 : -1) + grupos.length) % grupos.length;
       setGrupo(null);
-      ref.current?.querySelectorAll<HTMLButtonElement>('.grupo-boton')[siguiente]?.focus();
+      ref.current?.querySelectorAll<HTMLElement>('.grupo-boton')[siguiente]?.focus();
     }
   }
   function tecladoEnlaces(e: KeyboardEvent<HTMLDivElement>) {
@@ -124,6 +124,31 @@ export function NavigationMenu({ rol, onElegir }: { rol: Rol; onElegir: (id: str
         {grupos.map((g, indice) => {
           const Icono = iconos[g.icono];
           const esActivo = g.items.some((item) => item.id === activo);
+          if (g.directo) {
+            const item = g.items[0]!;
+            return (
+              <Link
+                key={g.id}
+                to={item.ruta}
+                className={`grupo-boton ${esActivo ? 'grupo-activo' : ''}`}
+                aria-current={esActivo ? 'page' : undefined}
+                title={item.descripcion}
+                onKeyDown={(e) => {
+                  if (e.key === ' ') {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  } else tecladoGrupo(e, indice);
+                }}
+                onClick={() => {
+                  onElegir(item.id);
+                  cerrar();
+                }}
+              >
+                <Icono size={17} aria-hidden="true" />
+                <span>{item.titulo}</span>
+              </Link>
+            );
+          }
           return (
             <div className="grupo-navegacion" key={g.id}>
               <button

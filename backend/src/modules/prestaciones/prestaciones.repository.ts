@@ -1,3 +1,4 @@
+import { nombrePersonaSql } from '../../shared/utils/nombre.js';
 import oracledb from 'oracledb';
 import type { Connection, BindParameters } from 'oracledb';
 import type { Parametro, Periodo } from '../nomina/nomina.types.js';
@@ -96,7 +97,7 @@ export interface Registro {
   referencia: string | null;
   motivo: string;
 }
-const select = `P.ID_NOMINA_EMPLEADO "idNomina",P.ID_PRESTACION "id",P.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",P.TIPO "tipo",TO_CHAR(P.FECHA_INICIO_BASE,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN_BASE,'YYYY-MM-DD') "fin",${str('P.SALARIO_PROMEDIO')} "promedio",${str('P.MONTO_TOTAL')} "total",P.ESTADO "estado",P.HASH_FUENTES "hash",P.SNAPSHOT "snapshot",TO_CHAR(P.FECHA_PAGO,'YYYY-MM-DD') "fechaPago",P.REFERENCIA_PAGO "referencia",P.MOTIVO "motivo"`;
+const select = `P.ID_NOMINA_EMPLEADO "idNomina",P.ID_PRESTACION "id",P.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "empleado",P.TIPO "tipo",TO_CHAR(P.FECHA_INICIO_BASE,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN_BASE,'YYYY-MM-DD') "fin",${str('P.SALARIO_PROMEDIO')} "promedio",${str('P.MONTO_TOTAL')} "total",P.ESTADO "estado",P.HASH_FUENTES "hash",P.SNAPSHOT "snapshot",TO_CHAR(P.FECHA_PAGO,'YYYY-MM-DD') "fechaPago",P.REFERENCIA_PAGO "referencia",P.MOTIVO "motivo"`;
 const from = 'PRESTACIONES P JOIN EMPLEADOS E ON E.ID_EMPLEADO=P.ID_EMPLEADO';
 export async function registro(c: Connection, id: number) {
   return (

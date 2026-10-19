@@ -590,4 +590,171 @@ describe('FASE 10: flujo completo con Oracle thin y sesiones reales', () => {
     await post(rh, `/${documento}/entregar`, { confirmado: true, sha256: nuevo.sha256 });
     await propio.agent.get(`/api/solicitudes/${documento}/documento`).expect(200);
   });
+  it('R2-2: nombre desde la ficha en sesión/listado y cuenta sin ficha capitalizada', async () => {
+    await ejecutar(
+      "UPDATE EMPLEADOS SET NOMBRES='María José',APELLIDOS='García López' WHERE ID_EMPLEADO=:id",
+      { id: empleado },
+    );
+    const sesion = (await propio.agent.get('/api/auth/sesion').expect(200)).body.data;
+    expect(sesion.nombreMostrado).toBe('María García');
+    expect(sesion.usuario).toBe('primero.gestiones');
+    expect((await rh.agent.get('/api/auth/sesion').expect(200)).body.data.nombreMostrado).toBe(
+      'ZZ Pruebas',
+    );
+    const sinFicha = await enTransaccion(db, (c) =>
+      crearUsuarioInterno(c, admin, {
+        nombre: 'Sin',
+        apellido: 'Ficha',
+        correo: 'sin.ficha@example.test',
+        rol: 'EMPLEADO',
+      }),
+    );
+    const acceso = await entrar(sinFicha.usuario, sinFicha.contrasenaTemporal);
+    expect((await acceso.agent.get('/api/auth/sesion').expect(200)).body.data.nombreMostrado).toBe(
+      'Sin Ficha',
+    );
+    const lista = (await rh.agent.get('/api/vacaciones/opciones?buscar=María').expect(200)).body
+      .data;
+    expect(JSON.stringify(lista)).toContain('María García');
+    expect(JSON.stringify(lista)).not.toContain('José');
+    expect(
+      (
+        await rh.agent
+          .get(`/api/vacaciones/opciones?buscar=${encodeURIComponent(lista[0].label)}`)
+          .expect(200)
+      ).body.data,
+    ).toEqual(lista);
+    expect(
+      (await rh.agent.get('/api/vacaciones/opciones?buscar=José').expect(200)).body.data,
+    ).toEqual(lista);
+    // Las firmas conservan el nombre completo de la ficha.
+    const { perfilFirmante } = await import('../empresa/empresa.repository.js');
+    expect((await db.conConexion((c) => perfilFirmante(c, sesion.idUsuario)))?.nombre).toBe(
+      'María José García López',
+    );
+  });
+  it('R2-2: borrado propio, aislamiento incluso ADMIN, CSRF, confirmación, auditoría y rollback', async () => {
+    const a = await entrar(seed.ADMIN_USER, 'FaseDiez!2026');
+    const cuentas = [a, rh, propio];
+    const usuarioAjeno = (await ajeno.agent.get('/api/auth/sesion').expect(200)).body.data
+      .idUsuario;
+    const crearAviso = async (usuario: number, clave: string) => {
+      await ejecutar(
+        "INSERT INTO NOTIFICACIONES(ID_USUARIO,TIPO,TITULO,MENSAJE,CLAVE_EVENTO) VALUES (:usuario,'ANUNCIO','Aviso R2','Aviso compartido',:clave)",
+        { usuario, clave },
+      );
+      return Number(
+        await escalar(
+          'SELECT ID_NOTIFICACION FROM NOTIFICACIONES WHERE ID_USUARIO=:usuario AND CLAVE_EVENTO=:clave',
+          { usuario, clave },
+        ),
+      );
+    };
+    const idAjeno = await crearAviso(usuarioAjeno, 'R2:COMPARTIDO');
+    await request(app).delete(`/api/notificaciones/${idAjeno}`).send({}).expect(401);
+    await request(app).delete('/api/notificaciones').send({ confirmado: true }).expect(401);
+    for (const cuenta of cuentas) {
+      const usuario = (await cuenta.agent.get('/api/auth/sesion').expect(200)).body.data.idUsuario;
+      const id = await crearAviso(usuario, 'R2:COMPARTIDO');
+      await cuenta.agent.delete(`/api/notificaciones/${id}`).send({}).expect(403);
+      await cuenta.agent
+        .delete(`/api/notificaciones/${idAjeno}`)
+        .set('X-CSRF-Token', cuenta.csrf)
+        .send({})
+        .expect(404);
+      await cuenta.agent
+        .delete('/api/notificaciones')
+        .set('X-CSRF-Token', cuenta.csrf)
+        .send({})
+        .expect(400);
+      await cuenta.agent
+        .delete('/api/notificaciones')
+        .set('X-CSRF-Token', cuenta.csrf)
+        .send({ confirmado: true, idUsuario: usuarioAjeno })
+        .expect(400);
+      await cuenta.agent
+        .delete('/api/notificaciones/invalido')
+        .set('X-CSRF-Token', cuenta.csrf)
+        .send({})
+        .expect(400);
+      const previas = (await cuenta.agent.get('/api/notificaciones').expect(200)).body.data
+        .pendientes;
+      await cuenta.agent
+        .delete(`/api/notificaciones/${id}`)
+        .set('X-CSRF-Token', cuenta.csrf)
+        .send({})
+        .expect(200);
+      const despues = (await cuenta.agent.get('/api/notificaciones').expect(200)).body.data;
+      expect(despues.pendientes).toBe(previas - 1);
+      expect(despues.registros.some((n: { id: number }) => n.id === id)).toBe(false);
+      await cuenta.agent
+        .delete(`/api/notificaciones/${id}`)
+        .set('X-CSRF-Token', cuenta.csrf)
+        .send({})
+        .expect(404);
+      expect(
+        await escalar('SELECT ACTIVO FROM NOTIFICACIONES WHERE ID_NOTIFICACION=:id', { id }),
+      ).toBe(0);
+      for (let i = 0; i < 32; i++) await crearAviso(usuario, `R2:LOTE:${i}`);
+      expect((await cuenta.agent.get('/api/notificaciones')).body.data.registros).toHaveLength(30);
+      await cuenta.agent
+        .delete('/api/notificaciones')
+        .set('X-CSRF-Token', cuenta.csrf)
+        .send({ confirmado: true })
+        .expect(200);
+      expect((await cuenta.agent.get('/api/notificaciones')).body.data).toEqual({
+        pendientes: 0,
+        registros: [],
+      });
+      expect(
+        await escalar('SELECT ACTIVO FROM NOTIFICACIONES WHERE ID_NOTIFICACION=:id', {
+          id: idAjeno,
+        }),
+      ).toBe(1);
+      await cuenta.agent
+        .delete('/api/notificaciones')
+        .set('X-CSRF-Token', cuenta.csrf)
+        .send({ confirmado: true })
+        .expect(200);
+    }
+    const usuario = (await propio.agent.get('/api/auth/sesion')).body.data.idUsuario;
+    const id = await crearAviso(usuario, 'R2:ROLLBACK');
+    await ejecutar(
+      "CREATE OR REPLACE TRIGGER PRUEBA_R2_AUDITORIA BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION IN ('BORRAR_NOTIFICACION','BORRAR_NOTIFICACIONES') THEN RAISE_APPLICATION_ERROR(-20001,'Fallo de auditoría de prueba'); END IF; END;",
+    );
+    try {
+      await propio.agent
+        .delete(`/api/notificaciones/${id}`)
+        .set('X-CSRF-Token', propio.csrf)
+        .send({})
+        .expect(500);
+      await propio.agent
+        .delete('/api/notificaciones')
+        .set('X-CSRF-Token', propio.csrf)
+        .send({ confirmado: true })
+        .expect(500);
+      expect(
+        await escalar('SELECT ACTIVO FROM NOTIFICACIONES WHERE ID_NOTIFICACION=:id', { id }),
+      ).toBe(1);
+    } finally {
+      await ejecutar('DROP TRIGGER PRUEBA_R2_AUDITORIA');
+    }
+    await propio.agent
+      .post(`/api/notificaciones/${id}/leida`)
+      .set('X-CSRF-Token', propio.csrf)
+      .send({})
+      .expect(200);
+    expect((await propio.agent.get('/api/notificaciones')).body.data.pendientes).toBe(0);
+    await propio.agent
+      .delete(`/api/notificaciones/${id}`)
+      .set('X-CSRF-Token', propio.csrf)
+      .send({})
+      .expect(200);
+    expect(
+      await escalar(
+        "SELECT COUNT(*) FROM BITACORA_AUDITORIA WHERE ACCION='BORRAR_NOTIFICACION' AND ID_ENTIDAD=:id",
+        { id },
+      ),
+    ).toBe(1);
+  });
 });

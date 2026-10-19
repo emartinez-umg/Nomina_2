@@ -1,3 +1,4 @@
+import { nombrePersonaSql, nombreUsuarioSql } from '../../shared/utils/nombre.js';
 import { distribucionHorarioSql } from '../../shared/horarios/horarios.repository.js';
 import oracledb from 'oracledb';
 import type { Connection } from 'oracledb';
@@ -20,7 +21,7 @@ export interface Empleado {
 export async function empleado(c: Connection, id: number) {
   return (
     await c.execute<Empleado>(
-      `SELECT E.ID_EMPLEADO "id",E.ID_USUARIO "usuario",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "nombre",TO_CHAR(E.FECHA_INGRESO,'YYYY-MM-DD') "ingreso",TO_CHAR(E.FECHA_EGRESO,'YYYY-MM-DD') "egreso",E.ESTADO "estado",C.LOCALIDAD "localidad" FROM EMPLEADOS E JOIN CENTROS_TRABAJO C ON C.ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO WHERE E.ID_EMPLEADO=:id AND E.ACTIVO=1`,
+      `SELECT E.ID_EMPLEADO "id",E.ID_USUARIO "usuario",E.CODIGO||' · '||${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "nombre",TO_CHAR(E.FECHA_INGRESO,'YYYY-MM-DD') "ingreso",TO_CHAR(E.FECHA_EGRESO,'YYYY-MM-DD') "egreso",E.ESTADO "estado",C.LOCALIDAD "localidad" FROM EMPLEADOS E JOIN CENTROS_TRABAJO C ON C.ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO WHERE E.ID_EMPLEADO=:id AND E.ACTIVO=1`,
       { id },
       opts,
     )
@@ -134,7 +135,7 @@ export interface Solicitud {
   canceladoEn: string | null;
   motivoCancelacion: string | null;
 }
-const select = `V.ID_VACACIONES_SOLICITUD "id",S.CODIGO "codigo",V.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",TO_CHAR(V.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(V.FECHA_FIN,'YYYY-MM-DD') "fin",${str('V.DIAS_SOLICITADOS')} "dias",${str('V.SALDO_AL_SOLICITAR')} "saldoAlSolicitar",${str('V.SALDO_AL_RESOLVER')} "saldoAlResolver",V.ESTADO "estado",V.MOTIVO_RECHAZO "motivo",U.USUARIO "solicitadoPor",TO_CHAR(V.FECHA_CREACION,'YYYY-MM-DD HH24:MI:SS') "solicitadoEn",R.USUARIO "aprobadoPor",TO_CHAR(V.RESUELTO_EN,'YYYY-MM-DD HH24:MI:SS') "aprobadoEn",C.USUARIO "canceladoPor",TO_CHAR(V.CANCELADO_EN,'YYYY-MM-DD HH24:MI:SS') "canceladoEn",V.MOTIVO_CANCELACION "motivoCancelacion"`;
+const select = `V.ID_VACACIONES_SOLICITUD "id",S.CODIGO "codigo",V.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "empleado",TO_CHAR(V.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(V.FECHA_FIN,'YYYY-MM-DD') "fin",${str('V.DIAS_SOLICITADOS')} "dias",${str('V.SALDO_AL_SOLICITAR')} "saldoAlSolicitar",${str('V.SALDO_AL_RESOLVER')} "saldoAlResolver",V.ESTADO "estado",V.MOTIVO_RECHAZO "motivo",${nombreUsuarioSql('U')} "solicitadoPor",TO_CHAR(V.FECHA_CREACION,'YYYY-MM-DD HH24:MI:SS') "solicitadoEn",${nombreUsuarioSql('R')} "aprobadoPor",TO_CHAR(V.RESUELTO_EN,'YYYY-MM-DD HH24:MI:SS') "aprobadoEn",${nombreUsuarioSql('C')} "canceladoPor",TO_CHAR(V.CANCELADO_EN,'YYYY-MM-DD HH24:MI:SS') "canceladoEn",V.MOTIVO_CANCELACION "motivoCancelacion"`;
 const from =
   'VACACIONES_SOLICITUDES V JOIN SOLICITUDES S ON S.ID_SOLICITUD=V.ID_SOLICITUD JOIN EMPLEADOS E ON E.ID_EMPLEADO=V.ID_EMPLEADO LEFT JOIN USUARIOS U ON U.ID_USUARIO=V.CREADO_POR LEFT JOIN USUARIOS R ON R.ID_USUARIO=V.RESUELTO_POR LEFT JOIN USUARIOS C ON C.ID_USUARIO=V.CANCELADO_POR';
 export async function solicitud(c: Connection, id: number) {
@@ -366,6 +367,15 @@ export async function leerNotificacion(c: Connection, usuario: number, id: numbe
       { usuario, id },
     )
   ).rowsAffected;
+}
+// ACTIVO conserva la deduplicación del evento y las referencias históricas de otros destinatarios.
+export async function borrarNotificaciones(c: Connection, usuario: number, id?: number) {
+  const r = await c.execute(
+    `UPDATE NOTIFICACIONES SET ACTIVO=0,MODIFICADO_POR=:usuario
+     WHERE ID_USUARIO=:usuario AND ACTIVO=1 AND (:id IS NULL OR ID_NOTIFICACION=:id)`,
+    { usuario, id: id ?? null },
+  );
+  return r.rowsAffected ?? 0;
 }
 export async function valoresFiniquito(c: Connection, id: number, corte: string) {
   const salario =

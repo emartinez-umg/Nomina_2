@@ -1,3 +1,4 @@
+import { nombrePersonaSql, nombreUsuarioSql } from '../../shared/utils/nombre.js';
 import oracledb from 'oracledb';
 import type { FirmaDocumento } from '../../shared/pdf/documento.js';
 import type { Connection, BindParameters } from 'oracledb';
@@ -56,7 +57,7 @@ export interface Solicitud {
   datos: string | null;
   documento: number | null;
 }
-const select = `S.VEHICULO "vehiculo",S.PLACA "placa",S.ID_SOLICITUD "id",S.CODIGO "codigo", S.ID_EMPLEADO "idEmpleado", E.ID_USUARIO "usuario", E.NOMBRES||' '||E.APELLIDOS "empleado", NVL(T.CODIGO_ANTERIOR,T.CODIGO) "tipo", T.NOMBRE "nombreTipo", T.GENERA_PDF "generaPdf", S.ESTADO "estado", TO_CHAR(S.FECHA_CREACION,'YYYY-MM-DD') "fecha", S.OBSERVACIONES "observaciones", S.MOTIVO_RECHAZO "motivo", S.DATOS_SOLICITADOS "datos", (SELECT MAX(D.ID_DOCUMENTO_GENERADO) FROM DOCUMENTOS_GENERADOS D WHERE D.ID_SOLICITUD=S.ID_SOLICITUD AND D.ACTIVO=1 AND D.ESTADO<>'ANULADO') "documento"`;
+const select = `S.VEHICULO "vehiculo",S.PLACA "placa",S.ID_SOLICITUD "id",S.CODIGO "codigo", S.ID_EMPLEADO "idEmpleado", E.ID_USUARIO "usuario", ${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "empleado", NVL(T.CODIGO_ANTERIOR,T.CODIGO) "tipo", T.NOMBRE "nombreTipo", T.GENERA_PDF "generaPdf", S.ESTADO "estado", TO_CHAR(S.FECHA_CREACION,'YYYY-MM-DD') "fecha", S.OBSERVACIONES "observaciones", S.MOTIVO_RECHAZO "motivo", S.DATOS_SOLICITADOS "datos", (SELECT MAX(D.ID_DOCUMENTO_GENERADO) FROM DOCUMENTOS_GENERADOS D WHERE D.ID_SOLICITUD=S.ID_SOLICITUD AND D.ACTIVO=1 AND D.ESTADO<>'ANULADO') "documento"`;
 const from =
   'SOLICITUDES S JOIN EMPLEADOS E ON E.ID_EMPLEADO=S.ID_EMPLEADO JOIN TIPOS_SOLICITUD T ON T.ID_TIPO_SOLICITUD=S.ID_TIPO_SOLICITUD';
 export async function solicitud(c: Connection, id: number) {
@@ -181,7 +182,7 @@ export async function historial(c: Connection, id: number) {
     actor: string;
   }>(
     c,
-    `SELECT H.ID_SOLICITUD_HISTORIAL "id",H.ESTADO_ANTERIOR "anterior",H.ESTADO_NUEVO "estado",TO_CHAR(H.FECHA,'YYYY-MM-DD HH24:MI:SS') "fecha",H.MOTIVO "motivo",U.USUARIO "actor" FROM SOLICITUD_HISTORIAL H JOIN USUARIOS U ON U.ID_USUARIO=H.ID_USUARIO WHERE H.ID_SOLICITUD=:id ORDER BY H.ID_SOLICITUD_HISTORIAL`,
+    `SELECT H.ID_SOLICITUD_HISTORIAL "id",H.ESTADO_ANTERIOR "anterior",H.ESTADO_NUEVO "estado",TO_CHAR(H.FECHA,'YYYY-MM-DD HH24:MI:SS') "fecha",H.MOTIVO "motivo",${nombreUsuarioSql('U')} "actor" FROM SOLICITUD_HISTORIAL H JOIN USUARIOS U ON U.ID_USUARIO=H.ID_USUARIO WHERE H.ID_SOLICITUD=:id ORDER BY H.ID_SOLICITUD_HISTORIAL`,
     { id },
   );
 }

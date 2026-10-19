@@ -90,8 +90,8 @@ export function pasosVisibles(
         'navegacion',
         'Navegación según tu rol',
         rol === 'EMPLEADO'
-          ? 'La barra agrupa tus gestiones personales. Abre una categoría con clic, Enter o Espacio; usa flechas para recorrer categorías y opciones. Escape cierra el grupo y devuelve el foco. En móvil pulsa Menú para desplegar los acordeones; la opción activa se resalta en verde. Solo aparecen secciones de tu rol.'
-          : 'La barra agrupa los módulos permitidos por tu rol. Abre categorías con clic, Enter o Espacio; flechas izquierda/derecha recorren categorías y arriba/abajo sus opciones. Inicio y Fin van a los extremos. Escape o clic fuera cierra el panel. En móvil pulsa Menú y abre los acordeones. Usuarios y Bitácora corresponden a ADMIN; el verde identifica la sección activa.',
+          ? 'La barra azul agrupa tus gestiones personales. Inicio abre tu tablero directamente, sin desplegable. Abre una categoría con clic, Enter o Espacio; usa flechas para recorrer categorías y opciones. Escape cierra el grupo y devuelve el foco. En móvil pulsa Menú para desplegar los acordeones; la opción activa se resalta con fondo y subrayado. Solo aparecen secciones de tu rol.'
+          : 'La barra azul agrupa los módulos permitidos por tu rol. Inicio abre tu tablero directamente, sin desplegable. Abre categorías con clic, Enter o Espacio; flechas izquierda/derecha recorren categorías y arriba/abajo sus opciones. Inicio y Fin van a los extremos. Escape o clic fuera cierra el panel. En móvil pulsa Menú y abre los acordeones. Usuarios y Bitácora corresponden a ADMIN; el fondo y el subrayado identifican la sección activa.',
       ],
       [
         'buscador',
@@ -101,17 +101,17 @@ export function pasosVisibles(
       [
         'notificaciones',
         'Avisos y seguimiento',
-        'Abre la campana para leer tus avisos y el contador pendiente. Ver abre el recurso autorizado; marcar leído no elimina la solicitud ni su historial. Si el recurso cambió de audiencia puede dejar de estar disponible.',
+        'Abre la campana para leer tus avisos y el contador pendiente. Ver abre el recurso autorizado; marcar leído no elimina la solicitud ni su historial. El ícono de papelera borra ese aviso de tu cuenta. Borrar todas requiere confirmación e incluye los avisos anteriores a los 30 visibles; actualiza el contador sin afectar a otros destinatarios ni los documentos. Si el recurso cambió de audiencia puede dejar de estar disponible.',
       ],
       [
         'usuario-menu',
         'Tu sesión',
-        'Comprueba usuario y rol antes de trabajar. Cerrar sesión elimina todos tus borradores de formularios de este navegador. Tras el tiempo de inactividad debes volver a ingresar; tus borradores se conservan para la misma cuenta. Entrar con otro usuario elimina los ajenos. Nunca compartas contraseñas.',
+        'Comprueba tu nombre y rol antes de trabajar. Se muestra tu primer nombre y primer apellido de la ficha; sin ficha se utiliza el nombre de la cuenta con espacios. Cerrar sesión elimina todos tus borradores de formularios de este navegador. Tras el tiempo de inactividad debes volver a ingresar; tus borradores se conservan para la misma cuenta. Entrar con otro usuario elimina los ajenos. Nunca compartas contraseñas.',
       ],
       [
         'ayuda-global',
         'Volver a consultar la ayuda',
-        'Ayuda reinicia este recorrido cuando lo necesites. Cada formulario y ventana también tiene su botón de ayuda; ábrelo para conocer sus campos y confirmaciones. Usa Tab para mover el foco y Escape para cerrar ventanas.',
+        'El recorrido solo comienza al pulsar Ayuda; no aparece una invitación automática al entrar. Puedes reiniciarlo siempre que lo necesites. Cada formulario y ventana también tiene su botón de ayuda; ábrelo para conocer sus campos y confirmaciones. Usa Tab para mover el foco y Escape para cerrar ventanas.',
       ],
     ];
     for (const [selector, titulo, descripcion] of comunes) {

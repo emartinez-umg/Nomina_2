@@ -1,3 +1,4 @@
+import { nombrePersonaSql, nombreUsuarioSql } from '../../shared/utils/nombre.js';
 import oracledb from 'oracledb';
 import type { Connection } from 'oracledb';
 import { ahoraSql } from '../comunicacion/comunicacion.repository.js';
@@ -73,7 +74,7 @@ export async function celebraciones(c: Connection) {
   return (
     (
       await c.execute<{ id: number; nombre: string; tipo: string; fecha: string; anios: number }>(
-        `WITH BASE AS (SELECT E.ID_EMPLEADO,E.NOMBRES||' '||E.APELLIDOS NOMBRE,'CUMPLEANOS' TIPO,E.FECHA_NACIMIENTO ORIGEN,${aniversarioSql('E.FECHA_NACIMIENTO')} ESTE FROM EMPLEADOS E WHERE ${activo} UNION ALL SELECT E.ID_EMPLEADO,E.NOMBRES||' '||E.APELLIDOS,'ANIVERSARIO',E.FECHA_INGRESO,${aniversarioSql('E.FECHA_INGRESO')} FROM EMPLEADOS E WHERE ${activo}), PROXIMOS AS (SELECT B.*,CASE WHEN ESTE<${hoy} THEN ${aniversarioSql('ORIGEN', 1)} ELSE ESTE END PROXIMO FROM BASE B) SELECT ID_EMPLEADO "id",NOMBRE "nombre",TIPO "tipo",TO_CHAR(PROXIMO,'YYYY-MM-DD') "fecha",EXTRACT(YEAR FROM PROXIMO)-EXTRACT(YEAR FROM ORIGEN) "anios" FROM PROXIMOS WHERE PROXIMO<${hoy}+31 AND PROXIMO>=${hoy} AND EXTRACT(YEAR FROM PROXIMO)>EXTRACT(YEAR FROM ORIGEN) ORDER BY PROXIMO,NOMBRE,TIPO FETCH FIRST 50 ROWS ONLY`,
+        `WITH BASE AS (SELECT E.ID_EMPLEADO,${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} NOMBRE,'CUMPLEANOS' TIPO,E.FECHA_NACIMIENTO ORIGEN,${aniversarioSql('E.FECHA_NACIMIENTO')} ESTE FROM EMPLEADOS E WHERE ${activo} UNION ALL SELECT E.ID_EMPLEADO,${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')},'ANIVERSARIO',E.FECHA_INGRESO,${aniversarioSql('E.FECHA_INGRESO')} FROM EMPLEADOS E WHERE ${activo}), PROXIMOS AS (SELECT B.*,CASE WHEN ESTE<${hoy} THEN ${aniversarioSql('ORIGEN', 1)} ELSE ESTE END PROXIMO FROM BASE B) SELECT ID_EMPLEADO "id",NOMBRE "nombre",TIPO "tipo",TO_CHAR(PROXIMO,'YYYY-MM-DD') "fecha",EXTRACT(YEAR FROM PROXIMO)-EXTRACT(YEAR FROM ORIGEN) "anios" FROM PROXIMOS WHERE PROXIMO<${hoy}+31 AND PROXIMO>=${hoy} AND EXTRACT(YEAR FROM PROXIMO)>EXTRACT(YEAR FROM ORIGEN) ORDER BY PROXIMO,NOMBRE,TIPO FETCH FIRST 50 ROWS ONLY`,
         {},
         opts,
       )
@@ -84,7 +85,7 @@ export async function alertas(c: Connection) {
   return (
     (
       await c.execute<{ id: number; tipo: string; mensaje: string; fecha: string }>(
-        `SELECT * FROM (SELECT ID_PERIODO_NOMINA "id",'PERIODO' "tipo",'Periodo sin cerrar · '||ESTADO "mensaje",TO_CHAR(FECHA_FIN,'YYYY-MM-DD') "fecha" FROM PERIODOS_NOMINA WHERE ACTIVO=1 AND ESTADO<>'CERRADO' AND FECHA_INICIO<=${hoy} UNION ALL SELECT E.ID_EMPLEADO,'CONTRATO',E.NOMBRES||' '||E.APELLIDOS||CASE WHEN E.FECHA_FIN_CONTRATO<${hoy} THEN ' · Contrato vencido' ELSE ' · Contrato por vencer' END,TO_CHAR(E.FECHA_FIN_CONTRATO,'YYYY-MM-DD') FROM EMPLEADOS E WHERE ${activo} AND E.FECHA_FIN_CONTRATO<=${hoy}+30) ORDER BY "fecha","tipo","id" FETCH FIRST 50 ROWS ONLY`,
+        `SELECT * FROM (SELECT ID_PERIODO_NOMINA "id",'PERIODO' "tipo",'Periodo sin cerrar · '||ESTADO "mensaje",TO_CHAR(FECHA_FIN,'YYYY-MM-DD') "fecha" FROM PERIODOS_NOMINA WHERE ACTIVO=1 AND ESTADO<>'CERRADO' AND FECHA_INICIO<=${hoy} UNION ALL SELECT E.ID_EMPLEADO,'CONTRATO',${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')}||CASE WHEN E.FECHA_FIN_CONTRATO<${hoy} THEN ' · Contrato vencido' ELSE ' · Contrato por vencer' END,TO_CHAR(E.FECHA_FIN_CONTRATO,'YYYY-MM-DD') FROM EMPLEADOS E WHERE ${activo} AND E.FECHA_FIN_CONTRATO<=${hoy}+30) ORDER BY "fecha","tipo","id" FETCH FIRST 50 ROWS ONLY`,
         {},
         opts,
       )
@@ -114,7 +115,7 @@ export async function administracion(c: Connection) {
   const sesiones =
     (
       await c.execute<{ id: number; usuario: string; rol: string; fecha: string; vigente: number }>(
-        `SELECT S.ID_SESION "id",U.USUARIO "usuario",R.CODIGO "rol",TO_CHAR(S.ULTIMA_ACTIVIDAD,'YYYY-MM-DD"T"HH24:MI:SS')||'-06:00' "fecha",CASE WHEN S.ACTIVO=1 AND S.REVOCADA_EN IS NULL AND S.EXPIRA_EN>${ahoraSql} AND U.ACTIVO=1 AND R.ACTIVO=1 THEN 1 ELSE 0 END "vigente" FROM SESIONES S JOIN USUARIOS U ON U.ID_USUARIO=S.ID_USUARIO JOIN ROLES R ON R.ID_ROL=U.ID_ROL ORDER BY S.ULTIMA_ACTIVIDAD DESC,S.ID_SESION DESC FETCH FIRST 10 ROWS ONLY`,
+        `SELECT S.ID_SESION "id",${nombreUsuarioSql('U')} "usuario",R.CODIGO "rol",TO_CHAR(S.ULTIMA_ACTIVIDAD,'YYYY-MM-DD"T"HH24:MI:SS')||'-06:00' "fecha",CASE WHEN S.ACTIVO=1 AND S.REVOCADA_EN IS NULL AND S.EXPIRA_EN>${ahoraSql} AND U.ACTIVO=1 AND R.ACTIVO=1 THEN 1 ELSE 0 END "vigente" FROM SESIONES S JOIN USUARIOS U ON U.ID_USUARIO=S.ID_USUARIO JOIN ROLES R ON R.ID_ROL=U.ID_ROL ORDER BY S.ULTIMA_ACTIVIDAD DESC,S.ID_SESION DESC FETCH FIRST 10 ROWS ONLY`,
         {},
         opts,
       )

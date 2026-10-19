@@ -1,3 +1,4 @@
+import { nombrePersonaSql } from '../../shared/utils/nombre.js';
 import { distribucionHorarioSql } from '../../shared/horarios/horarios.repository.js';
 import { normalizarBloques } from '../../shared/horarios/modelo.js';
 import { horaTexto, minutos as minutoBloque } from '../../shared/horarios/modelo.js';
@@ -41,7 +42,8 @@ function etiquetas(cat: Catalogo) {
         const tabla = gt?.[0] ?? (f.referencia === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS');
         const pk =
           gt?.[1] ?? (f.referencia === 'departamentos' ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO');
-        const label = f.referencia === 'empleados' ? "R.NOMBRES||' '||R.APELLIDOS" : 'R.NOMBRE';
+        const label =
+          f.referencia === 'empleados' ? nombrePersonaSql('R.NOMBRES', 'R.APELLIDOS') : 'R.NOMBRE';
         return `,(SELECT ${label} FROM ${tabla} R WHERE R.${pk}=T.${f.columna}) "${f.nombre}Etiqueta"`;
       })
       .join('') +
@@ -328,9 +330,10 @@ export async function opcionesReferencia(
   const gt = ref === 'departamentos-gt' || ref === 'municipios-gt' ? referenciasGt[ref] : null;
   const tabla = gt?.[0] ?? (ref === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS');
   const pk = gt?.[1] ?? (ref === 'departamentos' ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO');
-  const label = ref === 'empleados' ? "NOMBRES||' '||APELLIDOS" : 'NOMBRE';
+  const label = ref === 'empleados' ? nombrePersonaSql('NOMBRES', 'APELLIDOS') : 'NOMBRE';
+  const busqueda = ref === 'empleados' ? "NOMBRES||' '||APELLIDOS" : label;
   const r = await c.execute<{ value: string; label: string }>(
-    `SELECT TO_CHAR(${pk}) "value",${label} "label" FROM ${tabla} WHERE ACTIVO=1 ${ref === 'empleados' ? "AND ESTADO='ACTIVO'" : ''} AND (:buscar IS NULL OR INSTR(UPPER(${label}),UPPER(:buscar))>0) ORDER BY ${label},${pk} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
+    `SELECT TO_CHAR(${pk}) "value",${label} "label" FROM ${tabla} WHERE ACTIVO=1 ${ref === 'empleados' ? "AND ESTADO='ACTIVO'" : ''} AND (:buscar IS NULL OR INSTR(UPPER(${label}),UPPER(:buscar))>0 OR INSTR(UPPER(${busqueda}),UPPER(:buscar))>0) ORDER BY ${label},${pk} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
     { buscar: buscar || null, offset: (pagina - 1) * 100 },
     opciones,
   );

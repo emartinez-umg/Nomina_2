@@ -1,3 +1,4 @@
+import { nombrePersonaSql } from '../../shared/utils/nombre.js';
 import { esMensual, listarMensuales, anularMensual } from './mensuales.repository.js';
 import { jornadasEmpleado } from '../../shared/horarios/horarios.repository.js';
 import oracledb from 'oracledb';
@@ -98,7 +99,7 @@ function config(tipo: Tipo) {
 function select(tipo: Tipo) {
   const x = config(tipo),
     desc = esDescuento(tipo);
-  return `${tipo === 'prestamos' ? 'L.CODIGO' : desc ? 'T.CODIGO' : 'NULL'} "codigo",T.${tablas[tipo][1]} "id",T.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",T.ACTIVO "activo",${x.bloqueada} "bloqueada",TO_CHAR(${x.inicio},'YYYY-MM-DD') "fechaInicio",TO_CHAR(${x.fin},'YYYY-MM-DD') "fechaFin",${x.estado} "estado",${textoNumero(x.monto)} "monto",${desc ? textoNumero('T.SALDO') : 'NULL'} "saldo",T.${tipo === 'comisiones' ? 'DESCRIPCION' : 'MOTIVO'} "motivo"${desc ? `,T.ID_TIPO_DESCUENTO "idTipo",D.NOMBRE "tipoNombre",T.MODALIDAD "modalidad",T.NUMERO_CUOTAS "cuotas",${textoNumero('T.MONTO_QUINCENA')} "montoQuincena"` : ''}${tipo === 'prestamos' ? ',TO_CHAR(L.FECHA_DESEMBOLSO,\'YYYY-MM-DD\') "fechaDesembolso",L.REFERENCIA "referencia"' : ''}${tipo === 'comisiones' ? ',T.REFERENCIA "referencia",T.ID_PERIODO_NOMINA "idPeriodo"' : ''}${tipo === 'horas-extra' ? `,TO_CHAR(T.FECHA,'YYYY-MM-DD') "fecha",T.ID_PERIODO_NOMINA "idPeriodo",${textoNumero('T.HORAS')} "horas",T.JORNADA "jornada"` : ''}${tipo === 'ausencias' ? ',T.ID_TIPO_AUSENCIA "idTipo",D.NOMBRE "tipoNombre",D.EFECTO "efecto",T.DIAS "dias",T.SOPORTE_NOMBRE "soporteNombre",T.SOPORTE_TIPO "soporteTipo"' : ''}`;
+  return `${tipo === 'prestamos' ? 'L.CODIGO' : desc ? 'T.CODIGO' : 'NULL'} "codigo",T.${tablas[tipo][1]} "id",T.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "empleado",T.ACTIVO "activo",${x.bloqueada} "bloqueada",TO_CHAR(${x.inicio},'YYYY-MM-DD') "fechaInicio",TO_CHAR(${x.fin},'YYYY-MM-DD') "fechaFin",${x.estado} "estado",${textoNumero(x.monto)} "monto",${desc ? textoNumero('T.SALDO') : 'NULL'} "saldo",T.${tipo === 'comisiones' ? 'DESCRIPCION' : 'MOTIVO'} "motivo"${desc ? `,T.ID_TIPO_DESCUENTO "idTipo",D.NOMBRE "tipoNombre",T.MODALIDAD "modalidad",T.NUMERO_CUOTAS "cuotas",${textoNumero('T.MONTO_QUINCENA')} "montoQuincena"` : ''}${tipo === 'prestamos' ? ',TO_CHAR(L.FECHA_DESEMBOLSO,\'YYYY-MM-DD\') "fechaDesembolso",L.REFERENCIA "referencia"' : ''}${tipo === 'comisiones' ? ',T.REFERENCIA "referencia",T.ID_PERIODO_NOMINA "idPeriodo"' : ''}${tipo === 'horas-extra' ? `,TO_CHAR(T.FECHA,'YYYY-MM-DD') "fecha",T.ID_PERIODO_NOMINA "idPeriodo",${textoNumero('T.HORAS')} "horas",T.JORNADA "jornada"` : ''}${tipo === 'ausencias' ? ',T.ID_TIPO_AUSENCIA "idTipo",D.NOMBRE "tipoNombre",D.EFECTO "efecto",T.DIAS "dias",T.SOPORTE_NOMBRE "soporteNombre",T.SOPORTE_TIPO "soporteTipo"' : ''}`;
 }
 export async function listar(c: Connection, tipo: Tipo, q: Query) {
   if (['comisiones', 'horas-extra', 'consumo-tienda'].includes(tipo))
@@ -404,7 +405,12 @@ export async function opciones(
 ) {
   const def =
     ref === 'empleados'
-      ? ['EMPLEADOS', 'ID_EMPLEADO', "CODIGO||' · '||NOMBRES||' '||APELLIDOS", "ESTADO='ACTIVO'"]
+      ? [
+          'EMPLEADOS',
+          'ID_EMPLEADO',
+          `CODIGO||' · '||${nombrePersonaSql('NOMBRES', 'APELLIDOS')}`,
+          "ESTADO='ACTIVO'",
+        ]
       : ref === 'departamentos'
         ? ['DEPARTAMENTOS', 'ID_DEPARTAMENTO', 'NOMBRE', '1=1']
         : ref === 'periodos'
@@ -424,10 +430,11 @@ export async function opciones(
                   ? "NVL(CODIGO_ANTERIOR,CODIGO) NOT IN ('PRESTAMO','ANTICIPO','PARQUEO','CONSUMO_TIENDA')"
                   : '1=1',
             ];
+  const busqueda = ref === 'empleados' ? "CODIGO||' '||NOMBRES||' '||APELLIDOS" : def[2];
   return (
     (
       await c.execute<{ value: string; label: string }>(
-        `SELECT TO_CHAR(${def[1]}) "value",${def[2]} "label" FROM ${def[0]} WHERE ((ACTIVO=1 AND ${def[3]}) OR ${def[1]}=:seleccionado) AND (:buscar IS NULL OR INSTR(UPPER(${def[2]}),UPPER(:buscar))>0) ORDER BY ${def[2]},${def[1]} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
+        `SELECT TO_CHAR(${def[1]}) "value",${def[2]} "label" FROM ${def[0]} WHERE ((ACTIVO=1 AND ${def[3]}) OR ${def[1]}=:seleccionado) AND (:buscar IS NULL OR INSTR(UPPER(${def[2]}),UPPER(:buscar))>0 OR INSTR(UPPER(${busqueda}),UPPER(:buscar))>0) ORDER BY ${def[2]},${def[1]} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
         { seleccionado: seleccionado ?? null, buscar: buscar || null, offset: (pagina - 1) * 100 },
         opts,
       )

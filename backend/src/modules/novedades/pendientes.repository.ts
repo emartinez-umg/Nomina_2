@@ -1,3 +1,4 @@
+import { nombrePersonaSql } from '../../shared/utils/nombre.js';
 import type { Connection, BindParameters } from 'oracledb';
 import { filas, num } from './mensuales.repository.js';
 export interface Pendiente {
@@ -59,7 +60,7 @@ export async function empleadosResumen(
     departamento: string;
   }>(
     c,
-    `SELECT E.ID_EMPLEADO "id",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",D.ID_DEPARTAMENTO "idDepartamento",D.NOMBRE "departamento" FROM ${from} ORDER BY ${orden} ${q.direccion === 'desc' ? 'DESC' : 'ASC'},E.NOMBRES,E.ID_EMPLEADO OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+    `SELECT E.ID_EMPLEADO "id",E.CODIGO||' · '||${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "empleado",D.ID_DEPARTAMENTO "idDepartamento",D.NOMBRE "departamento" FROM ${from} ORDER BY ${orden} ${q.direccion === 'desc' ? 'DESC' : 'ASC'},E.NOMBRES,E.ID_EMPLEADO OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
     { ...binds, offset: (q.pagina - 1) * q.limite, limite: q.limite },
   );
   return { registros, total, pagina: q.pagina, limite: q.limite };

@@ -24,5 +24,7 @@ export function crearNotificacionesRouter(s: ReturnType<typeof crearSolicitudesS
     c = crearSolicitudesController(s);
   r.get('/', c.notificaciones);
   r.post('/:id/leida', c.leer);
+  r.delete('/', c.borrarNotificaciones);
+  r.delete('/:id', c.borrarNotificacion);
   return r;
 }

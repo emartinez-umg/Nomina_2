@@ -15,7 +15,12 @@ import { bloquearCatalogos } from '../catalogos/catalogos.repository.js';
 import { registrarAuditoria } from '../auditoria/auditoria.service.js';
 import { revalidarActor } from '../auth/auth.service.js';
 import type { ActorAuditoria, Autenticacion } from '../auth/auth.types.js';
-import { propio, notificaciones, leerNotificacion } from '../vacaciones/vacaciones.repository.js';
+import {
+  propio,
+  notificaciones,
+  leerNotificacion,
+  borrarNotificaciones,
+} from '../vacaciones/vacaciones.repository.js';
 import { hoy } from '../novedades/novedades.repository.js';
 import { aprobarParqueo } from '../novedades/parqueo.service.js';
 import { salario } from '../prestaciones/prestaciones.repository.js';
@@ -373,6 +378,20 @@ export function crearSolicitudesService(db: BaseDatos) {
       tx(auth, ip, async (c, a) => {
         await leerNotificacion(c, a.idUsuario, id);
         return { leida: true };
+      }),
+    borrarNotificaciones: (auth: Autenticacion, ip: string, id?: number) =>
+      tx(auth, ip, async (c, a) => {
+        const borradas = await borrarNotificaciones(c, a.idUsuario, id);
+        if (id !== undefined && !borradas) throw new ErrorNoEncontrado();
+        if (borradas)
+          await registrarAuditoria(c, {
+            actor: a,
+            accion: id === undefined ? 'BORRAR_NOTIFICACIONES' : 'BORRAR_NOTIFICACION',
+            entidad: 'NOTIFICACIONES',
+            idEntidad: id ?? null,
+            despues: { borradas },
+          });
+        return { borradas };
       }),
     exportar: (auth: Autenticacion, ip: string, q: Query) =>
       tx(auth, ip, async (c, a) => {

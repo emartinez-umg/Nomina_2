@@ -75,6 +75,18 @@ export function crearSolicitudesController(s: ReturnType<typeof crearSolicitudes
       sinDatos.parse(r.body);
       ok(res, await s.leer(auth(r), ip(r), id(r)));
     },
+    borrarNotificacion: async (r: Request, res: Response) => {
+      vacio(r);
+      sinDatos.parse(r.body ?? {});
+      ok(res, await s.borrarNotificaciones(auth(r), ip(r), id(r)));
+    },
+    borrarNotificaciones: async (r: Request, res: Response) => {
+      vacio(r);
+      z.object({ confirmado: z.literal(true) })
+        .strict()
+        .parse(r.body);
+      ok(res, await s.borrarNotificaciones(auth(r), ip(r)));
+    },
     exportar: async (r: Request, res: Response) =>
       ok(res, await s.exportar(auth(r), ip(r), querySchema.parse(r.query))),
   };

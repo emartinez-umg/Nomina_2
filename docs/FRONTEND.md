@@ -94,8 +94,8 @@ requieren datos reales del endpoint: no se suponen horarios ni periodos del empl
 
 `HelpProvider` usa driver.js. Cada página llama `usePageHelp(definicion, rol)` con pasos en
 `features/<modulo>/help/` y selectores `data-tour`. Los pasos pueden restringirse a roles.
-La primera visita ofrece el recorrido; puede rechazarse y repetirse desde la barra superior.
-Solo la preferencia de ayuda se guarda en localStorage, nunca credenciales ni tokens.
+El recorrido solo se inicia desde Ayuda, también en la primera visita. No se muestra una oferta automática ni se conservan banderas de visita. Se retiran las preferencias antiguas `nomina2:ayuda:*`.
+La ayuda manual no guarda preferencias en localStorage; nunca se almacenan credenciales ni tokens.
 Login, cambio obligatorio, inicio por rol y salud tienen recorridos completos.
 
 ## Ejecutar y verificar
@@ -223,7 +223,7 @@ departamento/municipio, conforme A5. Zona y dirección de empleado se integrará
 Centros integra `useFormDraft` versión 3 (otros catálogos siguen en 2). Borradores previos con
 localidad libre se descartan por versión. Ambas selecciones sobreviven al cierre/restauración;
 éxito limpia y error conserva. El recorrido nuevo explica cascada, propuestas, referencia
-histórica y borrador; su ID v1-4 vuelve a ofrecer ayuda a usuarios de la pantalla anterior.
+histórica y borrador; su ID identifica la ayuda actualizada que se consulta desde el botón Ayuda.
 
 ## Identidad de empresa (v1-5)
 
@@ -296,3 +296,19 @@ la muestra en la confirmación y bloquea Aprobar mientras falte vehículo/tarifa
 Mi parqueo consulta solo suscripciones propias; RH gestiona baja/suspensión y vehículos migrados.
 Ayudas `novedades-*-v1-9`, `novedades-pendientes-v1-9`, `parqueo-v1-9`, `tarifas-parqueo-v1-9` y
 `solicitudes-v1-9` explican el flujo, los cierres, importes y borradores.
+
+## Ronda 2: layout compartido (B2)
+
+La barra usa `marca` (#1d395e), azul extraído del mockup, con texto claro y paneles claros
+con acentos azules. Inicio es un acceso directo al tablero por rol y también aparece como Inicio
+en Ctrl/⌘ K; no existe una ruta independiente de Resumen. Teclado y acordeones conservan su uso.
+
+La sesión entrega `nombreMostrado`: primer nombre y primer apellido de la ficha; sin ficha,
+la cuenta separada por puntos y capitalizada. Saludo, cuenta, sesiones y listados usan ese nombre.
+Datos completos de ficha, firmas, snapshots y documentos mantienen su identidad original.
+
+La campana conserva marcar como leída. Papelera borra un aviso propio; Borrar todas requiere
+confirmación y alcanza también los anteriores a los 30 visibles. DELETE `/api/notificaciones/:id`
+y DELETE `/api/notificaciones` (`confirmado: true`) exigen sesión, cambio de contraseña y CSRF.
+El servidor toma el propietario de la sesión, aplica borrado lógico y audita en la misma transacción;
+una notificación ajena o retirada devuelve 404. La consulta y el contador se actualizan tras éxito.

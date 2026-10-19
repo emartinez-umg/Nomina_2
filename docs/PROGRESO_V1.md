@@ -1445,3 +1445,99 @@ Alcance limitado a B1, sin migraciones ni cambios de cálculo de nómina.
    Abrir Anuncios/Eventos; pedir `/assets/inexistente.js` debe devolver 404 de texto, nunca HTML.
 5. Escribir en un formulario; descartar/reabrir no debe ofrecer borrador. Cancelar permite conservar
    y recuperar o descartar definitivamente; guardar con éxito elimina. Probar también Cerrar/Escape.
+
+### FASE R2-2 — Estructura visual compartida
+
+Estado: completada el 19/10/2026. Rama `v1.1`; alcance B2.
+El cambio previo del usuario en AGENTS.md se conserva sin incorporarlo al commit de esta fase.
+
+#### Reproducción y causas raíz
+
+- La barra usaba la superficie blanca y los controles asumían texto oscuro. Inspeccionado el PDF
+  de MOCKUP: el azul ya extraído vive en `tokens.colores.marca` (#1d395e); `primario` representa
+  las acciones verdes. Se reutiliza marca, sin crear colores ni cambiar la paleta de acciones.
+- El renderer trataba todos los grupos como desplegables y la configuración llamaba Resumen a
+  su único destino inicial. No había una ruta independiente de Resumen que migrar.
+- La sesión solo publicaba el usuario técnico; los saludos de RH/ADMIN lo mostraban literalmente.
+  Los listados concatenaban todos los nombres o mostraban las cuentas de solicitantes/aprobadores.
+- HelpProvider ofrecía la bienvenida al registrar cada página y guardaba una bandera de visita.
+  Nuevas regresiones fallaron antes del arreglo: Inicio no era enlace directo y abrir la ayuda
+  escribía esa bandera. Las notificaciones solo tenían consultas y marcado de lectura.
+
+#### Correcciones y decisiones
+
+- Barra azul por token, texto/íconos claros, estados activo/hover/foco y paneles claros con acentos
+  azules. El encabezado público de salud también usa marca. Logo sobre superficie clara y foco
+  visible en los activadores y en el tooltip de la campana; navegación móvil mantiene acordeones.
+- Configuración única declara Inicio directo por los tres roles; menú y Ctrl/⌘ K muestran Inicio.
+  Se conserva teclado (incluidos Espacio y flechas), ruta activa e historial por usuario.
+- Sesión entrega nombreMostrado desde el primer nombre y primer apellido de la ficha; sin ficha,
+  separa la cuenta por puntos y capitaliza. Saludo, menú/avatar, sesiones, listados/selectores,
+  historial de actores y simulación usan nombres de presentación. Ficha, firma completa,
+  snapshots y documentos conservan sus datos completos. El acceso técnico queda en Usuarios
+  y en la entrega/reporte de credenciales. La ficha explica el estado del acceso sin mostrarlo.
+- La búsqueda de empleados conserva nombres completos y acepta también la etiqueta abreviada
+  visible, incluido su código. Una regresión Oracle comprueba buscar por segundo nombre y por
+  etiqueta completa; no se alteran filtros de departamento, permisos ni cálculos.
+- Retirados HelpOffer, su contexto/estado/CSS, todas sus inclusiones y helpers E2E que la omitían.
+  Se purgan únicamente las claves antiguas nomina2:ayuda:*; no se guardan banderas nuevas.
+  Los recorridos empiezan exclusivamente desde Ayuda de página/ventana y siguen reiniciables.
+- DELETE /api/notificaciones/:id y DELETE /api/notificaciones (confirmado: true), validados con
+  Zod, sesión/cambio obligatorio y CSRF. El propietario procede de la sesión incluso para ADMIN;
+  ajena o retirada devuelve 404. Borrado lógico ACTIVO=0 conserva referencias y deduplicación.
+  Auditoría y borrado comparten transacción; borrado masivo incluye más de los 30 avisos visibles.
+- Papelera individual con tooltip, confirmación para Borrar todas, prevención de doble envío,
+  toasts/error/reintento y actualización del contador/cache de la cuenta tras éxito. Marcar como
+  leída se conserva. Panel desplazable en escritorio/móvil y confirmación accesible compartida.
+- Ayuda del layout e hints de los nuevos accesos/acciones actualizados; FRONTEND documenta el
+  contrato. Las pruebas previas de Resumen, ofertas y encabezado completo cambian intencionalmente
+  a B2; se agrega la comprobación de nombres completos en la ficha real para evitar perder datos.
+
+#### Supuestos y límites
+
+- El primer apellido es la primera palabra de APELLIDOS, conforme a la petición; no se infieren
+  apellidos compuestos. La grafía y los acentos de la ficha se conservan. Sin ficha se capitaliza
+  cada parte de la cuenta, manteniendo sufijos numéricos.
+- El reporte de carga masiva mantiene su columna de cuenta como parte técnica de la entrega de
+  accesos; las contraseñas temporales siguen disponibles solo una vez y nunca se persisten.
+- Borrado lógico significa retirar los avisos de la cuenta, no eliminar solicitudes, publicaciones,
+  documentos ni historia auditada. Una publicación nueva/versionada puede generar un aviso nuevo.
+- Sin migraciones, cambios de fórmulas de nómina ni implementación de B3–B7.
+
+#### Validación y pendientes
+
+- Node 20.20.2: 585 pruebas aprobadas (329 backend, 249 frontend, siete exportador), lint,
+  TypeScript strict, builds y formato. Se conserva el aviso previo de tamaño de chunk de Vite.
+- Oracle/Supertest: 20 casos de solicitudes y 16 de comunicación/tableros aprobados. Incluyen
+  nombre real frente a cuenta, fallback sin ficha, firma completa, búsqueda por nombres/etiqueta,
+  borrado por ADMIN/RH/EMPLEADO, intento ajeno/anónimo, CSRF, payload/ID inválidos, confirmación,
+  más de 30 avisos, lectura, contador, repetición, auditoría y rollback individual/masivo.
+- 43 escenarios E2E verificados con API/Oracle reales: los 28 flujos anteriores y la matriz
+  repetida en producción (128 vistas: ADMIN 57, RH 55, EMPLEADO 8 escritorio + 8 móvil;
+  1,805 pasos de ayuda), más los 14 de Ronda 2 sobre nginx/Docker/TLS. Axe A/AA sin infracciones
+  en las vistas recorridas, menús de los tres roles, panel de avisos y confirmación de borrado.
+- La nueva auditoría móvil ADMIN encontró dos tablas desplazables sin foco (sesiones/bitácora).
+  Ambos contenedores ahora son regiones etiquetadas y reciben foco con Tab. Repetición final
+  de Ronda 2 sobre el build de entrega: 14/14 aprobados (37.9 s), incluidos los cuatro casos B2.
+- Incidencias de verificación resueltas: expectativa anterior de nombre completo actualizada,
+  búsqueda por etiqueta visible conservada junto a nombres completos y ficha sintética RH
+  identificada correctamente. La edición de HelpProvider durante una corrida con Vite produjo
+  errores de contexto por recarga en caliente; sin editar fuentes, la matriz íntegra sobre el
+  build de producción pasó sin errores de consola/red. No se suprimen esas comprobaciones.
+- Capturas de barra en los tres roles/escritorio/móvil y de notificaciones inspeccionadas;
+  artefactos locales en tmp/pdfs y reportes ignorados por Git. Esquemas, contenedores e imágenes
+  exclusivos de las pruebas retirados. Sin fixtures en el esquema operativo.
+- API y frontend locales reconstruidos y saludables en https://localhost:8443; verify:infra
+  aprobado para Oracle/API/nginx, rutas/assets y visor/worker PDF. Solo se recrearon API/web;
+  Oracle, volumen, configuración y credenciales conservados. Sin migraciones modificadas.
+- Revisión de secretos y git diff --check aprobados. Lint adicional del verificador de arranque
+  aprobado; este ya verifica que no aparezca ayuda automática. Sin pendientes técnicos de R2-2.
+
+#### Cómo probar
+
+1. `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. Oracle saludable: `npm run verify:solicitudes`; `npm run verify:comunicacion`.
+3. `npm run test:e2e -- cierre.spec.ts`; `npm run test:e2e -- --production ronda2.spec.ts`.
+4. `docker compose up --build -d nomina2-api nomina2-web`; entrar con los tres roles y revisar
+   barra, Inicio, Ctrl/⌘ K, nombre, Ayuda manual y campana. Borrar una; cancelar/confirmar Borrar
+   todas; verificar contador y que otro destinatario conserva sus propios avisos.

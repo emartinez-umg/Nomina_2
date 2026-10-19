@@ -1,3 +1,4 @@
+import { nombreUsuario } from '../../../lib/nombre';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from '../../../app/session';
@@ -91,7 +92,7 @@ export function ResumenComunicaciones({
 }
 export function BitacoraResumen({ filas }: { filas: AuditoriaFila[] }) {
   return (
-    <div className="table-scroll">
+    <div className="table-scroll" role="region" aria-label="Bitácora reciente" tabIndex={0}>
       <table>
         <caption className="sr-only">Últimas acciones auditadas</caption>
         <thead>
@@ -187,7 +188,7 @@ export function InicioPage() {
               <div className="banda-informativa">
                 <iconos.informacion aria-hidden="true" />
                 <span>
-                  Bienvenido, {d.rol === 'EMPLEADO' ? d.nombre : usuario?.usuario} · Datos al{' '}
+                  Bienvenido, {usuario ? nombreUsuario(usuario) : ''} · Datos al{' '}
                   {fechaHora(d.ahora)} (Guatemala)
                 </span>
               </div>
@@ -437,11 +438,16 @@ export function InicioPage() {
                   </Card>
                   <Card data-tour="sesiones" className="mb-6">
                     <h2>Sesiones recientes</h2>
-                    <div className="table-scroll">
+                    <div
+                      className="table-scroll"
+                      role="region"
+                      aria-label="Sesiones recientes"
+                      tabIndex={0}
+                    >
                       <table>
                         <thead>
                           <tr>
-                            <th>Usuario</th>
+                            <th>Persona</th>
                             <th>Rol</th>
                             <th>Última actividad</th>
                             <th>Estado</th>

@@ -1,9 +1,12 @@
+import { nombrePersona } from '../../shared/utils/nombre.js';
 import oracledb from 'oracledb';
 import type { Connection } from 'oracledb';
 import type { ContextoPeticion, Rol, UsuarioCredencial } from './auth.types.js';
 
 interface FilaUsuario {
   ID_USUARIO: number;
+  NOMBRES: string | null;
+  APELLIDOS: string | null;
   USUARIO: string;
   CORREO: string;
   ID_ROL: number;
@@ -20,10 +23,11 @@ export async function buscarUsuario(
   selector: { id?: number; usuario?: string },
 ): Promise<UsuarioCredencial | undefined> {
   const r = await c.execute<FilaUsuario>(
-    `SELECT U.ID_USUARIO, U.USUARIO, U.CORREO, U.ID_ROL,
+    `SELECT U.ID_USUARIO, U.USUARIO, U.CORREO, U.ID_ROL, E.NOMBRES, E.APELLIDOS,
     R.CODIGO ROL, R.ACTIVO ROL_ACTIVO, U.ACTIVO, U.CAMBIO_OBLIGATORIO, U.CONTRASENA_HASH,
     U.INTENTOS_FALLIDOS, CASE WHEN U.BLOQUEADO_HASTA > CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE)
     THEN 1 ELSE 0 END BLOQUEADO FROM USUARIOS U JOIN ROLES R ON R.ID_ROL = U.ID_ROL
+    LEFT JOIN EMPLEADOS E ON E.ID_USUARIO=U.ID_USUARIO
     WHERE (:id IS NOT NULL AND U.ID_USUARIO = :id) OR (:usuario IS NOT NULL AND U.USUARIO = :usuario)
     FOR UPDATE OF U.INTENTOS_FALLIDOS`,
     { id: selector.id ?? null, usuario: selector.usuario ?? null },
@@ -34,6 +38,15 @@ export async function buscarUsuario(
     ? {
         idUsuario: f.ID_USUARIO,
         usuario: f.USUARIO,
+        nombreMostrado:
+          f.NOMBRES && f.APELLIDOS
+            ? nombrePersona(f.NOMBRES, f.APELLIDOS)
+            : f.USUARIO.split('.')
+                .map(
+                  (p) =>
+                    p.charAt(0).toLocaleUpperCase('es-GT') + p.slice(1).toLocaleLowerCase('es-GT'),
+                )
+                .join(' '),
         correo: f.CORREO,
         idRol: f.ID_ROL,
         rol: f.ROL,

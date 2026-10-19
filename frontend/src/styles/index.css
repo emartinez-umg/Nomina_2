@@ -286,13 +286,13 @@
     @apply min-h-screen;
   }
   .barra-superior {
-    @apply sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 bg-superficie px-6 pt-3 shadow-barra;
+    @apply sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 bg-marca text-white px-6 pt-3 shadow-barra;
   }
   .marca-navegacion {
     @apply flex items-center gap-3 text-lg;
   }
   .marca-navegacion img {
-    @apply h-11 w-11 object-contain;
+    @apply h-11 w-11 rounded-control bg-superficie p-1 object-contain;
   }
   .navegacion {
     @apply order-3 w-full;
@@ -304,19 +304,19 @@
     @apply relative;
   }
   .grupo-boton {
-    @apply flex min-h-11 items-center gap-2 rounded-t-control px-2.5 py-2 text-sm font-bold text-marca;
+    @apply flex min-h-11 items-center gap-2 rounded-t-control px-2.5 py-2 text-sm font-bold text-white;
     border-bottom: 3px solid transparent;
   }
   .grupo-boton:hover,
   .grupo-boton[aria-expanded='true'] {
-    @apply bg-informacion;
+    @apply bg-white/15;
   }
   .grupo-activo {
-    @apply text-primario;
-    border-bottom-color: #28622a;
+    @apply bg-white/15;
+    border-bottom-color: currentColor;
   }
   .grupo-panel {
-    @apply absolute top-full left-0 z-40 max-h-[65dvh] overflow-y-auto rounded-b-control border border-borde bg-superficie p-2 shadow-tarjeta;
+    @apply absolute top-full left-0 z-40 max-h-[65dvh] overflow-y-auto rounded-b-control border border-borde bg-superficie text-marca p-2 shadow-tarjeta;
     width: min(27rem, calc(100vw - 3rem));
   }
   .grupo-panel[hidden] {
@@ -328,7 +328,7 @@
   }
   .opcion-navegacion > svg,
   .paleta-opcion > svg {
-    @apply shrink-0 text-primario;
+    @apply shrink-0 text-marca;
   }
   .opcion-navegacion span,
   .paleta-opcion > span:first-of-type {
@@ -341,7 +341,7 @@
   .opcion-navegacion:hover,
   .opcion-navegacion[aria-current='page'],
   .paleta-opcion[data-selected='true'] {
-    @apply bg-suave;
+    @apply bg-informacion;
   }
   .buscar-activador kbd {
     @apply rounded border border-borde px-1.5 py-0.5 text-xs font-normal;
@@ -370,6 +370,29 @@
   .paleta-grupo {
     @apply ml-auto max-w-28 shrink-0 text-right text-xs text-secundario;
   }
+  .barra-superior .barra-acciones > [data-tour] > .boton,
+  .barra-superior .barra-acciones > [data-tour] > .relative .boton,
+  .barra-superior .menu-movil,
+  .barra-publica .boton {
+    @apply border-transparent bg-transparent text-white;
+  }
+  .barra-superior .barra-acciones > [data-tour] > .boton:hover,
+  .barra-superior .barra-acciones > [data-tour] > .relative .boton:hover,
+  .barra-superior .menu-movil:hover,
+  .barra-publica .boton:hover,
+  .usuario-boton:hover,
+  .usuario-boton[aria-expanded='true'] {
+    @apply bg-white/15;
+  }
+  .barra-superior :is(.grupo-boton, .usuario-boton, .marca-navegacion):focus-visible,
+  .barra-superior .barra-acciones > [data-tour] > .boton:focus-visible,
+  .barra-superior .barra-acciones > [data-tour] > .relative .boton:focus-visible,
+  .barra-superior .barra-acciones > [data-tour] > .relative .tooltip:focus-visible,
+  .barra-superior .menu-movil:focus-visible,
+  .barra-publica .boton:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+  }
   .barra-acciones {
     @apply flex shrink-0 items-center gap-3;
   }
@@ -377,7 +400,11 @@
     @apply relative;
   }
   .panel-flotante {
-    @apply absolute top-full right-0 z-40 mt-3 w-80 max-w-[90vw] break-words rounded-control border border-borde bg-superficie p-5 shadow-tarjeta;
+    @apply absolute top-full right-0 z-40 mt-3 w-80 max-w-[90vw] break-words rounded-control border border-borde bg-superficie text-marca p-5 shadow-tarjeta;
+  }
+  .panel-notificaciones {
+    max-height: 70dvh;
+    overflow-y: auto;
   }
   .panel-flotante p {
     @apply mt-2 text-sm text-secundario;
@@ -392,7 +419,7 @@
     @apply mt-1 text-xs;
   }
   .avatar {
-    @apply flex h-11 w-11 items-center justify-center rounded-full bg-marca text-sm font-bold text-white;
+    @apply flex h-11 w-11 items-center justify-center rounded-full bg-informacion text-sm font-bold text-marca;
   }
   .app-contenido h1 {
     font-size: 3rem;
@@ -427,12 +454,6 @@
   }
   .enlace-icono {
     @apply inline-flex items-center gap-2 text-sm underline;
-  }
-  .oferta-ayuda {
-    @apply relative mb-5 flex w-full flex-col gap-3 rounded-tarjeta border border-borde bg-superficie p-5 shadow-tarjeta;
-  }
-  .oferta-ayuda p {
-    @apply mt-1 text-sm text-secundario;
   }
   .menu-movil {
     display: none;
@@ -572,9 +593,6 @@
     top: 1.5rem;
     right: 0.5rem;
   }
-  .oferta-ayuda {
-    padding: 1rem;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -625,17 +643,6 @@
   }
   .feriado-resumen {
     @apply mt-3 border-t border-borde pt-3 text-xs;
-  }
-}
-
-@layer components {
-  body:has(dialog[open]) .app-cuerpo > .oferta-ayuda {
-    display: none;
-  }
-  .catalogo-formulario .oferta-ayuda {
-    position: static;
-    max-width: none;
-    margin-bottom: 1.5rem;
   }
 }
 
@@ -924,9 +931,15 @@
     box-shadow: 0 8px 20px rgb(0 0 0 / 12%);
   }
   .grupo-boton {
+    @apply text-marca;
     width: 100%;
     justify-content: flex-start;
     border-radius: 0.625rem;
+  }
+  .menu-abierto .grupo-boton:hover,
+  .menu-abierto .grupo-boton[aria-expanded='true'],
+  .menu-abierto .grupo-activo {
+    @apply bg-informacion;
   }
   .grupo-boton > svg:last-child {
     margin-left: auto;

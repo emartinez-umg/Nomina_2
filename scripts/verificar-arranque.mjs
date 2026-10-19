@@ -1,3 +1,6 @@
+/* global document, localStorage, fetch */
+import process from 'node:process';
+import console from 'node:console';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -59,8 +62,8 @@ async function compose(args) {
   });
 }
 async function auditarAcceso(page) {
-  const omitir = page.getByRole('button', { name: 'Ahora no', exact: true });
-  if (await omitir.isVisible()) await omitir.click();
+  assert.equal(await page.getByText('Conoce esta página', { exact: true }).count(), 0);
+  assert.equal(await page.locator('.driver-popover').count(), 0);
   const ayuda = page.getByRole('button', { name: 'Ayuda de esta página', exact: true });
   await ayuda.click();
   const recorrido = page.locator('.driver-popover');
@@ -96,8 +99,6 @@ try {
   await auditarAcceso(page);
   await page.getByLabel('Usuario', { exact: true }).fill('admin.instalacion');
   await page.getByLabel('Contraseña', { exact: true }).fill(contrasena);
-  if (await page.getByRole('button', { name: 'Ahora no', exact: true }).isVisible())
-    await page.getByRole('button', { name: 'Ahora no', exact: true }).click();
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
   await page.waitForURL('**/cambiar-contrasena');
   await auditarAcceso(page);
@@ -107,8 +108,6 @@ try {
   await page.getByLabel('Confirmar nueva contraseña', { exact: true }).fill(nueva);
   const almacenamiento = await page.evaluate(() => JSON.stringify({ ...localStorage }));
   assert.ok(!almacenamiento.includes(contrasena) && !almacenamiento.includes(nueva));
-  if (await page.getByRole('button', { name: 'Ahora no', exact: true }).isVisible())
-    await page.getByRole('button', { name: 'Ahora no', exact: true }).click();
   await page.getByRole('button', { name: 'Guardar contraseña', exact: true }).click();
   await page.waitForURL('**/admin');
   const cookies = await contexto.cookies();

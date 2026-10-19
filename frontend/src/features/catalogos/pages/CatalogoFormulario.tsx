@@ -15,7 +15,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { FormErrorSummary, TextAreaField, UbicacionSelect } from '../../../components/forms';
 import { useToast } from '../../../components/ui/Toast';
-import { HelpButton, HelpOffer } from '../../../components/help/HelpProvider';
+import { HelpButton } from '../../../components/help/HelpProvider';
 import { mapearErrores } from '../../../lib/http';
 import { fechaVisible } from '../../../lib/validadores';
 import { formatoMoneda } from '../../../components/forms/MoneyField';
@@ -163,7 +163,6 @@ export function CatalogoFormulario({
               El patrón está asignado. Para cambiar días o jornada crea un nuevo horario.
             </p>
           )}
-          <HelpOffer />
           <div className="form-grid">
             {cat.campos
               .filter(

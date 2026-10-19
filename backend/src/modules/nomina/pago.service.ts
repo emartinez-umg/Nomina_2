@@ -1,3 +1,4 @@
+import { nombrePersona } from '../../shared/utils/nombre.js';
 import { anual } from '../prestaciones/prestaciones.service.js';
 import { ciclo } from '../prestaciones/prestaciones.calculo.js';
 import {
@@ -115,7 +116,7 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     const yaPagado = pagos.some((p) => p.empleado === e.empleado.id && p.tipo === d.tipoPago);
     const fila: FilaSimulacion = {
       idEmpleado: e.empleado.id,
-      empleado: `${e.empleado.codigo} · ${e.empleado.nombres} ${e.empleado.apellidos}`,
+      empleado: `${e.empleado.codigo} · ${nombrePersona(e.empleado.nombres, e.empleado.apellidos)}`,
       departamento: e.empleado.departamento,
       idDepartamento: e.empleado.idDepartamento,
       resultado: null,

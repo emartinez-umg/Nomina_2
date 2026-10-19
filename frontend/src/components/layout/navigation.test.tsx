@@ -68,6 +68,11 @@ describe('Configuración única de navegación', () => {
       }
     },
   );
+  it.each(roles)('Inicio es directo y el buscador de %s no contiene Resumen', (rol) => {
+    expect(navigation[rol][0]?.directo).toBe(true);
+    expect(opcionesNavegacion(rol).find((o) => o.id === 'inicio')?.titulo).toBe('Inicio');
+    expect(opcionesNavegacion(rol).some((o) => o.titulo === 'Resumen')).toBe(false);
+  });
   it('incluye los trece catálogos y las cinco novedades existentes para RH y ADMIN', () => {
     for (const rol of ['RH', 'ADMIN'] as const) {
       const destinos = opcionesNavegacion(rol).map((opcion) => opcion.ruta);

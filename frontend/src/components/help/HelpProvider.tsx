@@ -19,12 +19,9 @@ export interface DefinicionAyuda {
 interface ContextoAyuda {
   registrar: (definicion: DefinicionAyuda | null, rol?: Rol) => void;
   iniciar: () => void;
-  ofrecida: boolean;
-  descartar: () => void;
 }
 const Contexto = createContext<ContextoAyuda | null>(null);
 export function HelpProvider({ children }: PropsWithChildren) {
-  const [ofrecida, setOfrecida] = useState(false);
   const [definicion, setDefinicion] = useState<{
     ayuda: DefinicionAyuda;
     rol?: Rol | undefined;
@@ -34,32 +31,9 @@ export function HelpProvider({ children }: PropsWithChildren) {
   const registrar = useCallback((ayuda: DefinicionAyuda | null, rol?: Rol) => {
     activo.current?.destroy();
     setDefinicion(ayuda ? { ayuda, rol } : null);
-    if (!ayuda) {
-      setOfrecida(false);
-      return;
-    }
-    const clave = `nomina2:ayuda:${ayuda.id}:${rol ?? 'publico'}:v1-12`;
-    try {
-      setOfrecida(localStorage.getItem(clave) !== 'vista');
-    } catch {
-      setOfrecida(true);
-    }
   }, []);
-  const descartar = useCallback(() => {
-    setOfrecida(false);
-    if (definicion)
-      try {
-        localStorage.setItem(
-          `nomina2:ayuda:${definicion.ayuda.id}:${definicion.rol ?? 'publico'}:v1-12`,
-          'vista',
-        );
-      } catch {
-        /* Preferencia opcional si el navegador bloquea almacenamiento. */
-      }
-  }, [definicion]);
   const iniciar = useCallback(() => {
     if (!definicion) return;
-    descartar();
     activo.current?.destroy();
     const abiertos = document.querySelectorAll('dialog[open]');
     const alcance = abiertos.item(abiertos.length - 1) ?? document;
@@ -111,10 +85,19 @@ export function HelpProvider({ children }: PropsWithChildren) {
       steps: pasosVisibles(definicion.ayuda, definicion.rol, alcance),
     });
     activo.current.drive();
-  }, [definicion, descartar]);
-  useEffect(() => () => activo.current?.destroy(), []);
+  }, [definicion]);
+  useEffect(() => {
+    try {
+      Object.keys(localStorage)
+        .filter((clave) => clave.startsWith('nomina2:ayuda:'))
+        .forEach((clave) => localStorage.removeItem(clave));
+    } catch {
+      /* La ayuda manual funciona también con el almacenamiento bloqueado. */
+    }
+    return () => activo.current?.destroy();
+  }, []);
   return (
-    <Contexto.Provider value={{ registrar, iniciar, ofrecida, descartar }}>
+    <Contexto.Provider value={{ registrar, iniciar }}>
       {children}
       <span hidden aria-hidden="true" ref={plantillaIconos}>
         {(['anterior', 'siguiente', 'aprobar', 'cancelar'] as const).map((nombre) => {
@@ -144,31 +127,17 @@ export function usePageHelp(ayuda: DefinicionAyuda, rol?: Rol) {
 export function HelpButton() {
   const { iniciar } = useHelp();
   return (
-    <Button icono="ayuda" variante="texto" aria-label="Ayuda de esta página" onClick={iniciar}>
+    <Button
+      icono="ayuda"
+      variante="texto"
+      aria-label="Ayuda de esta página"
+      title="Iniciar el recorrido de ayuda de esta página"
+      onClick={iniciar}
+    >
       Ayuda
     </Button>
   );
 }
-export function HelpOffer() {
-  const { ofrecida, iniciar, descartar } = useHelp();
-  return ofrecida ? (
-    <aside className="oferta-ayuda" aria-label="Recorrido de bienvenida">
-      <div>
-        <strong>Conoce esta página</strong>
-        <p>Te guiamos paso a paso. Puedes repetir el recorrido desde Ayuda.</p>
-      </div>
-      <div className="flex gap-2">
-        <Button icono="ayuda" onClick={iniciar}>
-          Ver recorrido
-        </Button>
-        <Button icono="cancelar" variante="texto" onClick={descartar}>
-          Ahora no
-        </Button>
-      </div>
-    </aside>
-  ) : null;
-}
-
 export function DialogHelpButton() {
   const contexto = useContext(Contexto);
   return contexto ? (

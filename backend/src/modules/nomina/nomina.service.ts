@@ -1,3 +1,4 @@
+import { nombrePersona } from '../../shared/utils/nombre.js';
 import { conLecturaConsistente } from '../../shared/db/lectura.js';
 import { zipSync } from 'fflate';
 import { completarHistoria } from './nomina.historia.js';
@@ -254,7 +255,7 @@ export function crearNominaService(db: BaseDatos) {
           fin: n.fin,
           estado: n.estado,
           version: n.version,
-          empleado: `${s.entrada.empleado.codigo} · ${s.entrada.empleado.nombres} ${s.entrada.empleado.apellidos}`,
+          empleado: `${s.entrada.empleado.codigo} · ${nombrePersona(s.entrada.empleado.nombres, s.entrada.empleado.apellidos)}`,
           resultado: s.resultado,
         };
       }),

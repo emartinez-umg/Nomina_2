@@ -2,6 +2,7 @@ export type Rol = 'ADMIN' | 'RH' | 'EMPLEADO';
 export interface UsuarioSeguro {
   idUsuario: number;
   usuario: string;
+  nombreMostrado?: string | undefined;
   correo: string;
   idRol: number;
   rol: Rol;
@@ -32,6 +33,7 @@ export function usuarioPublico(u: UsuarioSeguro) {
   return {
     idUsuario: u.idUsuario,
     usuario: u.usuario,
+    nombreMostrado: u.nombreMostrado,
     correo: u.correo,
     idRol: u.idRol,
     rol: u.rol,

@@ -134,6 +134,16 @@ export const leer = (id: number) =>
     method: 'POST',
     body: {},
   });
+export const borrarNotificacion = (id: number) =>
+  solicitar(`/notificaciones/${id}`, z.object({ borradas: z.number() }), {
+    method: 'DELETE',
+    body: {},
+  });
+export const borrarNotificaciones = () =>
+  solicitar('/notificaciones', z.object({ borradas: z.number() }), {
+    method: 'DELETE',
+    body: { confirmado: true },
+  });
 export const isoLocal = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export function rangoLibre(inicio: string, fin: string, c: Calendario) {

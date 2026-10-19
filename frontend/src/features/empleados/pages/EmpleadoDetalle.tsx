@@ -1,3 +1,4 @@
+import { nombreEmpleado } from '../../../lib/nombre';
 import { RestablecerEmpleadoModal } from './RestablecerEmpleadoModal';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -72,12 +73,10 @@ export function EmpleadoDetallePage() {
   const empleado = d.data!;
   return (
     <>
-      <h1>
-        {empleado.nombres} {empleado.apellidos}
-      </h1>
+      <h1>{nombreEmpleado(empleado.nombres, empleado.apellidos)}</h1>
       <p className="my-3">
         {empleado.codigo} · {empleado.estado} ·{' '}
-        {empleado.usuario ? `Usuario: ${empleado.usuario}` : 'Sin usuario generado'}
+        {empleado.usuario ? 'Acceso al portal habilitado' : 'Sin usuario generado'}
       </p>
 
       <div className="my-5 flex flex-wrap gap-3">

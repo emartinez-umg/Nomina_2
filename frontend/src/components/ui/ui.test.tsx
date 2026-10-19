@@ -7,7 +7,7 @@ import { Tabs } from './Tabs';
 import { useState } from 'react';
 import { Button } from './Button';
 import { ToastProvider, useToast } from './Toast';
-import { HelpProvider, HelpButton, HelpOffer, usePageHelp } from '../help/HelpProvider';
+import { HelpProvider, HelpButton, usePageHelp } from '../help/HelpProvider';
 import { ayudaLogin } from '../../features/auth/help/pasos';
 describe('interacciones reutilizables', () => {
   it('tabla solicita página/orden al consumidor y respeta límites', async () => {
@@ -41,6 +41,7 @@ describe('interacciones reutilizables', () => {
     expect(screen.getByRole('columnheader')).toHaveAttribute('aria-sort', 'ascending');
   });
   it('tabs permiten navegar por teclado sin mostrar paneles ajenos', async () => {
+    localStorage.setItem('nomina2:ayuda:antigua:RH:v1-12', 'vista');
     function Ejemplo() {
       const [v, setV] = useState('uno');
       return (
@@ -81,6 +82,7 @@ describe('interacciones reutilizables', () => {
     expect(screen.getByRole('button', { name: 'Notificaciones: 12 sin leer' })).toBeInTheDocument();
   });
   it('toast ofrece cierre accesible', async () => {
+    localStorage.setItem('nomina2:ayuda:antigua:RH:v1-12', 'vista');
     function Ejemplo() {
       const toast = useToast();
       return (
@@ -99,11 +101,12 @@ describe('interacciones reutilizables', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar aviso' }));
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
-  it('ofrece la ayuda en primera visita y permite reiniciarla desde el botón global', async () => {
+  it('solo inicia la ayuda desde su botón y no persiste banderas de primera visita', async () => {
     const rect = vi
       .spyOn(Element.prototype, 'getClientRects')
       .mockReturnValue([{ width: 100, height: 20 }] as unknown as DOMRectList);
     localStorage.clear();
+    localStorage.setItem('nomina2:ayuda:antigua:RH:v1-12', 'vista');
     function Ejemplo() {
       usePageHelp(ayudaLogin);
       return (
@@ -111,7 +114,6 @@ describe('interacciones reutilizables', () => {
           <div data-tour="marca">Nómina</div>
           <div data-tour="credenciales">Usuario</div>
           <HelpButton />
-          <HelpOffer />
         </>
       );
     }
@@ -120,11 +122,11 @@ describe('interacciones reutilizables', () => {
         <Ejemplo />
       </HelpProvider>,
     );
-    expect(screen.getByLabelText('Recorrido de bienvenida')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Ahora no' }));
-    expect(localStorage.getItem('nomina2:ayuda:login:publico:v1-12')).toBe('vista');
+    expect(screen.queryByText('Conoce esta página')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bienvenido a Nómina')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Ayuda de esta página' }));
     expect(await screen.findByText('Bienvenido a Nómina')).toBeInTheDocument();
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('nomina2:ayuda:'))).toEqual([]);
     rect.mockRestore();
   });
 });

@@ -1,3 +1,4 @@
+import { nombrePersona } from '../../shared/utils/nombre.js';
 import { membrete } from '../empresa/empresa.service.js';
 import { credencialesTemporalesPdf } from '../../shared/pdf/credenciales.js';
 import { municipio } from '../ubicaciones/ubicaciones.repository.js';
@@ -283,7 +284,7 @@ export function crearEmpleadosService(db: BaseDatos) {
   const publicas = (filas: Awaited<ReturnType<typeof revisarFilas>>) =>
     filas.map((f) => ({
       numero: f.numero,
-      nombre: `${String(f.datos.nombres ?? '')} ${String(f.datos.apellidos ?? '')}`,
+      nombre: nombrePersona(String(f.datos.nombres ?? ''), String(f.datos.apellidos ?? '')),
       errores: f.errores,
       advertencias: f.advertencias,
     }));

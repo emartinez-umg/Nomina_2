@@ -2,12 +2,15 @@ import { test, expect, type Page } from '@playwright/test';
 
 const destino = { ADMIN: '/admin', RH: '/rh', EMPLEADO: '/mis-gestiones' };
 type Rol = keyof typeof destino;
-async function entrar(page: Page, rol: Rol) {
+async function entrar(page: Page, rol: Rol, cuenta?: string) {
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Iniciar Sesión' })).toBeVisible();
   await page
     .getByLabel('Usuario', { exact: true })
-    .fill(rol === 'ADMIN' ? 'admin.e2e' : rol === 'RH' ? 'revisor.pruebas' : 'persona.pruebas');
+    .fill(
+      cuenta ??
+        (rol === 'ADMIN' ? 'admin.e2e' : rol === 'RH' ? 'revisor.pruebas' : 'persona.pruebas'),
+    );
   await page
     .getByLabel('Contraseña', { exact: true })
     .fill(rol === 'ADMIN' ? process.env.ADMIN_PASSWORD! : process.env.E2E_PASSWORD!);
@@ -224,3 +227,179 @@ test.describe('R2-1: nginx y módulos del build de producción Docker', () => {
     expect(documentos).toBe(2);
   });
 });
+
+test.describe('R2-2: estructura visual compartida', () => {
+  for (const rol of ['ADMIN', 'RH', 'EMPLEADO'] as const) {
+    test(`barra azul, Inicio directo, nombre y ayuda manual de ${rol}`, async ({ page }) => {
+      await entrar(page, rol);
+      const nombre = rol === 'EMPLEADO' ? 'Persona E2E' : 'ZZ Pruebas';
+      const barra = page.locator('header.barra-superior');
+      await expect(barra).toHaveCSS('background-color', 'rgb(29, 57, 94)');
+      await expect(page.locator('.banda-informativa')).toContainText(`Bienvenido, ${nombre}`);
+      const cuenta = page.getByRole('button', { name: new RegExp(`^Mi cuenta: ${nombre}`) });
+      await cuenta.click();
+      await expect(page.getByRole('region', { name: 'Mi cuenta' })).toContainText(nombre);
+      await page.keyboard.press('Escape');
+      const inicio = page
+        .getByRole('navigation', { name: 'Secciones del sistema' })
+        .getByRole('link', { name: 'Inicio', exact: true });
+      await expect(inicio).not.toHaveAttribute('aria-expanded');
+      await expect(inicio).toHaveAttribute('aria-current', 'page');
+      await expect(page.getByText('Conoce esta página', { exact: true })).toHaveCount(0);
+      await expect(page.locator('.driver-popover')).toHaveCount(0);
+      await page.evaluate(() => localStorage.setItem('nomina2:ayuda:antigua:RH:v1-12', 'vista'));
+      await page.reload();
+      await expect(cuenta).toBeVisible();
+      expect(
+        await page.evaluate(() =>
+          Object.keys(localStorage).filter((k) => k.startsWith('nomina2:ayuda:')),
+        ),
+      ).toEqual([]);
+      await page.getByRole('button', { name: 'Ayuda de esta página', exact: true }).click();
+      await expect(page.locator('.driver-popover-description')).toBeVisible();
+      await page.getByRole('button', { name: 'Cerrar recorrido', exact: true }).click();
+      await page.getByRole('button', { name: 'Buscar sección o acción', exact: true }).click();
+      const dialogo = page.getByRole('dialog', { name: 'Buscar en el sistema' });
+      await dialogo.getByRole('combobox').fill('inicio');
+      await expect(dialogo.getByRole('option', { name: /^Inicio/ })).toHaveCount(1);
+      await expect(dialogo.getByRole('option', { name: /Resumen/ })).toHaveCount(0);
+      await dialogo.getByRole('option', { name: /^Inicio/ }).click();
+      await expect(page).toHaveURL(destino[rol]);
+      for (const ancho of [1280, 390]) {
+        await page.setViewportSize({ width: ancho, height: 844 });
+        if (ancho === 390)
+          await page.getByRole('button', { name: 'Abrir menú de navegación', exact: true }).click();
+        await expect(inicio).toBeVisible();
+        const { AxeBuilder } = await import('@axe-core/playwright');
+        const axe = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+          .analyze();
+        expect(
+          axe.violations.map((v) => ({ id: v.id, nodos: v.nodes.map((n) => n.target) })),
+        ).toEqual([]);
+        await inicio.click();
+        if (ancho === 390)
+          await expect(
+            page.getByRole('button', { name: 'Abrir menú de navegación', exact: true }),
+          ).toHaveAttribute('aria-expanded', 'false');
+        await mkdirCaptura(page, `r2-2-barra-${rol}-${ancho}`);
+      }
+    });
+  }
+  test('borrar una/todas, marcar leída, contador e independencia de destinatarios', async ({
+    page,
+    browser,
+    baseURL,
+  }) => {
+    await entrar(page, 'RH');
+    const token = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+    const hoy = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Guatemala' }).format(
+      new Date(),
+    );
+    for (const titulo of ['Aviso R2 primero', 'Aviso R2 segundo']) {
+      const r = await page.request.post('/api/comunicacion/anuncios', {
+        headers: { 'X-CSRF-Token': token },
+        data: {
+          titulo,
+          contenido: 'Aviso para verificar notificaciones propias.',
+          inicio: hoy,
+          fin: hoy,
+          paraTodos: true,
+          destinatarios: [],
+        },
+      });
+      expect(r.status()).toBe(201);
+    }
+    const contexto = await browser.newContext({ baseURL: baseURL!, ignoreHTTPSErrors: true });
+    const contextoAjeno = await browser.newContext({ baseURL: baseURL!, ignoreHTTPSErrors: true });
+    try {
+      const empleado = await contexto.newPage();
+      await entrar(empleado, 'EMPLEADO');
+      const ajeno = await contextoAjeno.newPage();
+      await entrar(ajeno, 'EMPLEADO', 'ajeno.pruebas');
+      const consulta = async () =>
+        (await (await empleado.request.get('/api/notificaciones')).json()).data;
+      const previas = await consulta();
+      const n = previas.registros.find((r: { titulo: string }) => r.titulo === 'Aviso R2 primero');
+      const rhToken = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+      expect(
+        (
+          await page.request.delete(`/api/notificaciones/${n.id}`, {
+            headers: { 'X-CSRF-Token': rhToken },
+            data: {},
+          })
+        ).status(),
+      ).toBe(404);
+      await empleado.getByRole('button', { name: /^Notificaciones/ }).click();
+      const panel = empleado.getByRole('region', { name: 'Notificaciones', exact: true });
+      const { AxeBuilder } = await import('@axe-core/playwright');
+      expect(
+        (
+          await new AxeBuilder({ page: empleado })
+            .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+            .analyze()
+        ).violations.map((v) => v.id),
+      ).toEqual([]);
+      await mkdirCaptura(empleado, 'r2-2-notificaciones');
+      const aviso = panel.locator('article').filter({ hasText: 'Aviso R2 primero' });
+      await aviso.getByRole('button', { name: 'Marcar como leída', exact: true }).click();
+      await expect(
+        empleado.getByRole('button', {
+          name: `Notificaciones: ${previas.pendientes - 1} sin leer`,
+          exact: true,
+        }),
+      ).toBeVisible();
+      await panel
+        .getByRole('button', { name: 'Borrar notificación: Aviso R2 segundo', exact: true })
+        .click();
+      await expect(panel.getByText('Aviso R2 segundo', { exact: true })).toHaveCount(0);
+      const restantes = previas.pendientes - 2;
+      await expect(
+        empleado.getByRole('button', {
+          name: restantes ? `Notificaciones: ${restantes} sin leer` : 'Notificaciones',
+          exact: true,
+        }),
+      ).toBeVisible();
+      await panel.getByRole('button', { name: 'Borrar todas', exact: true }).click();
+      let confirmar = empleado.getByRole('dialog', {
+        name: 'Borrar todas las notificaciones',
+        exact: true,
+      });
+      expect(
+        (
+          await new AxeBuilder({ page: empleado })
+            .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+            .analyze()
+        ).violations.map((v) => v.id),
+      ).toEqual([]);
+      await confirmar.getByRole('button', { name: 'Cancelar', exact: true }).click();
+      await expect(panel.getByText('Aviso R2 primero', { exact: true })).toBeVisible();
+      await panel.getByRole('button', { name: 'Borrar todas', exact: true }).click();
+      confirmar = empleado.getByRole('dialog', {
+        name: 'Borrar todas las notificaciones',
+        exact: true,
+      });
+      await confirmar.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      await expect(panel.getByText('Sin notificaciones', { exact: true })).toBeVisible();
+      await expect(
+        empleado.getByRole('button', { name: 'Notificaciones', exact: true }),
+      ).toBeVisible();
+      expect(await consulta()).toEqual({ pendientes: 0, registros: [] });
+      const otros = (await (await ajeno.request.get('/api/notificaciones')).json()).data;
+      expect(otros.registros.some((r: { titulo: string }) => r.titulo === 'Aviso R2 segundo')).toBe(
+        true,
+      );
+      await empleado.reload();
+      await empleado.getByRole('button', { name: 'Notificaciones', exact: true }).click();
+      await expect(empleado.getByText('Sin notificaciones', { exact: true })).toBeVisible();
+    } finally {
+      await contexto.close();
+      await contextoAjeno.close();
+    }
+  });
+});
+async function mkdirCaptura(page: Page, nombre: string) {
+  const { mkdir } = await import('node:fs/promises');
+  await mkdir('tmp/pdfs', { recursive: true });
+  await page.screenshot({ path: `tmp/pdfs/${nombre}.png`, fullPage: true });
+}

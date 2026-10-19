@@ -60,6 +60,15 @@ function mostrar(rol: Rol = 'RH') {
   return router;
 }
 describe('Barra y paleta del layout', () => {
+  it('muestra el nombre de presentación en el activador y el panel de cuenta', async () => {
+    mostrar();
+    const cuenta = await screen.findByRole('button', {
+      name: 'Mi cuenta: Ana Perez · Recursos Humanos',
+    });
+    await userEvent.click(cuenta);
+    expect(screen.getByRole('region', { name: 'Mi cuenta' })).toHaveTextContent('Ana Perez');
+    expect(screen.queryByText('ana.perez')).not.toBeInTheDocument();
+  });
   it.each(['{Control>}k{/Control}', '{Meta>}k{/Meta}'])(
     'abre por atajo %s, busca con error de escritura y navega con teclado',
     async (atajo) => {
@@ -138,7 +147,9 @@ describe('Menú por categorías y acordeones', () => {
   it('abre con Enter/Espacio y flechas, recorre enlaces, restaura foco y navega', async () => {
     const { onElegir, router } = menu();
     const user = userEvent.setup();
-    const inicio = screen.getByRole('button', { name: 'Inicio' });
+    const inicio = screen.getByRole('link', { name: 'Inicio' });
+    expect(inicio).not.toHaveAttribute('aria-expanded');
+    expect(screen.queryByText('Resumen')).not.toBeInTheDocument();
     inicio.focus();
     await user.keyboard('{ArrowRight}');
     expect(screen.getByRole('button', { name: 'Personal' })).toHaveFocus();

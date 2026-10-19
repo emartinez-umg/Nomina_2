@@ -13,6 +13,7 @@ export interface GrupoNavegacion {
   id: string;
   titulo: string;
   icono: NombreIcono;
+  directo?: boolean;
   items: Acceso[];
   acciones?: Acceso[];
 }
@@ -326,10 +327,11 @@ const compartidos: GrupoNavegacion[] = [
 ];
 const inicio = (ruta: string, descripcion: string): GrupoNavegacion => ({
   id: 'inicio',
+  directo: true,
   titulo: 'Inicio',
   icono: 'inicio',
   items: [
-    acceso('inicio', 'Resumen', ruta, 'inicio', descripcion, ['inicio', 'dashboard', 'tablero']),
+    acceso('inicio', 'Inicio', ruta, 'inicio', descripcion, ['inicio', 'dashboard', 'tablero']),
   ],
 });
 export const navigation: Record<Rol, GrupoNavegacion[]> = {

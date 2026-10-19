@@ -4,6 +4,7 @@ import { activarBorradoresUsuario, limpiarBorradoresSesion } from '../../../lib/
 export const usuarioSchema = z.object({
   idUsuario: z.number().int(),
   usuario: z.string(),
+  nombreMostrado: z.string().optional(),
   correo: z.string(),
   idRol: z.number().int(),
   rol: z.enum(['ADMIN', 'RH', 'EMPLEADO']),

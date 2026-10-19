@@ -1,3 +1,4 @@
+import { nombrePersonaSql } from '../../shared/utils/nombre.js';
 import { jornadasEmpleado } from '../../shared/horarios/horarios.repository.js';
 import oracledb from 'oracledb';
 import type { Connection, BindParameter } from 'oracledb';
@@ -432,7 +433,7 @@ export async function listar(c: Connection, q: Query, usuario?: number, periodo?
     dir = q.direccion === 'asc' ? 'ASC' : 'DESC';
   const registros = await filas<FilaNomina>(
     c,
-    `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.codigo')||' · '||JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.nombres')||' '||JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.apellidos') "empleado",JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.departamento') "departamento",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",N.VERSION_CALCULO "version",${str('N.TOTAL_INGRESOS')} "ingresos",${str('N.TOTAL_DESCUENTOS')} "descuentos",${str('N.NETO')} "neto",${str('N.COSTO_PATRONAL')} "patronal",JSON_VALUE(N.DATOS_EMPLEADO,'$.resultado.tipoPago') "tipoPago",JSON_QUERY(N.DATOS_EMPLEADO,'$.resultado.alertas' RETURNING VARCHAR2(4000)) "alertas" FROM ${from} WHERE ${w} ORDER BY ${orden} ${dir},N.ID_NOMINA_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+    `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.codigo')||' · '||${nombrePersonaSql("JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.nombres')", "JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.apellidos')")} "empleado",JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.departamento') "departamento",TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.ESTADO "estado",N.VERSION_CALCULO "version",${str('N.TOTAL_INGRESOS')} "ingresos",${str('N.TOTAL_DESCUENTOS')} "descuentos",${str('N.NETO')} "neto",${str('N.COSTO_PATRONAL')} "patronal",JSON_VALUE(N.DATOS_EMPLEADO,'$.resultado.tipoPago') "tipoPago",JSON_QUERY(N.DATOS_EMPLEADO,'$.resultado.alertas' RETURNING VARCHAR2(4000)) "alertas" FROM ${from} WHERE ${w} ORDER BY ${orden} ${dir},N.ID_NOMINA_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
     { ...b, offset: (q.pagina - 1) * q.limite, limite: q.limite },
   );
   return {

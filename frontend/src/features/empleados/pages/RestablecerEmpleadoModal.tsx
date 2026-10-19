@@ -1,3 +1,4 @@
+import { nombreEmpleado } from '../../../lib/nombre';
 import { HelpProvider, usePageHelp } from '../../../components/help/HelpProvider';
 import { ayudaRestablecer } from '../help/pasos';
 import { useState } from 'react';
@@ -49,8 +50,9 @@ function FormularioRestablecer({ empleado, cerrar }: { empleado: Empleado; cerra
     >
       <FormDraftNotice draft={draft} />
       <p className="alerta my-4">
-        Se revocarán las sesiones de {empleado.usuario} y la contraseña anterior dejará de
-        funcionar. Entrega la nueva contraseña en privado; deberá cambiarla al ingresar.
+        Se revocarán las sesiones de {nombreEmpleado(empleado.nombres, empleado.apellidos)} y la
+        contraseña anterior dejará de funcionar. Entrega la nueva contraseña en privado; deberá
+        cambiarla al ingresar.
       </p>
       <div data-tour="restablecer-motivo">
         <TextAreaField

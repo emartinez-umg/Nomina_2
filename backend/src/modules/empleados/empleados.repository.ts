@@ -1,3 +1,4 @@
+import { nombrePersonaSql, nombreUsuarioSql } from '../../shared/utils/nombre.js';
 import oracledb from 'oracledb';
 import type { Connection } from 'oracledb';
 import type {
@@ -114,7 +115,7 @@ export async function listar(c: Connection, q: QueryEmpleados) {
   }[q.ordenarPor];
   const dir = q.direccion === 'asc' ? 'ASC' : 'DESC';
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT E.ID_EMPLEADO "id",E.CODIGO "codigo",E.NOMBRES||' '||E.APELLIDOS "nombre",'*********'||SUBSTR(E.DPI,-4) "dpi",'****-'||SUBSTR(E.NIT,-1) "nit",E.DEPARTAMENTO "departamento",E.PUESTO "puesto",${fecha('E.FECHA_INGRESO')} "fechaIngreso",${monto('E.SALARIO')} "salarioBase",E.ESTADO "estado" ${from} ORDER BY E.${orden} ${dir},E.ID_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+    `SELECT E.ID_EMPLEADO "id",E.CODIGO "codigo",${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "nombre",'*********'||SUBSTR(E.DPI,-4) "dpi",'****-'||SUBSTR(E.NIT,-1) "nit",E.DEPARTAMENTO "departamento",E.PUESTO "puesto",${fecha('E.FECHA_INGRESO')} "fechaIngreso",${monto('E.SALARIO')} "salarioBase",E.ESTADO "estado" ${from} ORDER BY E.${orden} ${dir},E.ID_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
     { ...binds, offset: (q.pagina - 1) * q.limite, limite: q.limite },
     opts,
   );
@@ -292,11 +293,11 @@ export async function baja(
 }
 export async function pestana(c: Connection, id: number, tipo: string, pagina: number) {
   const consultas: Record<string, string> = {
-    salario: `SELECT ${fecha('H.VIGENTE_DESDE')} "Desde",${fecha('H.VIGENTE_HASTA')} "Hasta",${monto('H.SALARIO_BASE')} "Salario mensual",H.MOTIVO "Motivo",U.USUARIO "Registrado por" FROM HISTORIAL_SALARIAL H LEFT JOIN USUARIOS U ON U.ID_USUARIO=H.CREADO_POR WHERE H.ID_EMPLEADO=:id AND H.ACTIVO=1 ORDER BY H.VIGENTE_DESDE DESC`,
+    salario: `SELECT ${fecha('H.VIGENTE_DESDE')} "Desde",${fecha('H.VIGENTE_HASTA')} "Hasta",${monto('H.SALARIO_BASE')} "Salario mensual",H.MOTIVO "Motivo",${nombreUsuarioSql('U')} "Registrado por" FROM HISTORIAL_SALARIAL H LEFT JOIN USUARIOS U ON U.ID_USUARIO=H.CREADO_POR WHERE H.ID_EMPLEADO=:id AND H.ACTIVO=1 ORDER BY H.VIGENTE_DESDE DESC`,
     descuentos: `SELECT T.NOMBRE "Tipo",D.MODALIDAD "Modalidad",${monto('D.MONTO_QUINCENA')} "Monto por quincena",${monto('D.SALDO')} "Saldo",D.ESTADO "Estado" FROM DESCUENTOS_EMPLEADO D JOIN TIPOS_DESCUENTO T ON T.ID_TIPO_DESCUENTO=D.ID_TIPO_DESCUENTO WHERE D.ID_EMPLEADO=:id AND D.ACTIVO=1 ORDER BY D.ID_DESCUENTO_EMPLEADO DESC`,
     vacaciones: `SELECT ${fecha('FECHA')} "Fecha",TIPO "Tipo",TO_CHAR(DIAS,'TM9') "Días",MOTIVO "Motivo" FROM VACACIONES_MOVIMIENTOS WHERE ID_EMPLEADO=:id AND ACTIVO=1 ORDER BY FECHA DESC,ID_VACACIONES_MOVIMIENTO DESC`,
     documentos: `SELECT NOMBRE_ARCHIVO "Documento",ESTADO "Estado",${fecha('FECHA_CREACION')} "Creado",${fecha('ENTREGADO_EN')} "Entregado" FROM DOCUMENTOS_GENERADOS WHERE ID_EMPLEADO=:id AND ACTIVO=1 ORDER BY ID_DOCUMENTO_GENERADO DESC`,
-    historial: `SELECT ${fecha('B.FECHA')} "Fecha",B.ACCION "Acción",B.MOTIVO "Motivo",U.USUARIO "Usuario" FROM BITACORA_AUDITORIA B LEFT JOIN USUARIOS U ON U.ID_USUARIO=B.ID_USUARIO WHERE B.ENTIDAD='EMPLEADOS' AND B.ID_ENTIDAD=:id ORDER BY B.ID_BITACORA_AUDITORIA DESC`,
+    historial: `SELECT ${fecha('B.FECHA')} "Fecha",B.ACCION "Acción",B.MOTIVO "Motivo",${nombreUsuarioSql('U')} "Persona" FROM BITACORA_AUDITORIA B LEFT JOIN USUARIOS U ON U.ID_USUARIO=B.ID_USUARIO WHERE B.ENTIDAD='EMPLEADOS' AND B.ID_ENTIDAD=:id ORDER BY B.ID_BITACORA_AUDITORIA DESC`,
   };
   const sql = consultas[tipo]!;
   const n = await c.execute<{ N: number }>(`SELECT COUNT(*) N FROM (${sql})`, { id }, opts);
