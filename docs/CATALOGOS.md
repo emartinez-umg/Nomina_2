@@ -264,3 +264,12 @@ y tramos ISR no tiene nombre; no se les aplican casos de nombres de catálogos.
 
 Ejecutar `npm run verify:catalogos` y
 `npm run test:e2e -- --production catalogos-qa.spec.ts` con Oracle saludable.
+
+## R2-8 — Categoría estadística de ausencia
+
+Tipos de ausencia admite `categoriaInasistencia`: IGSS_JUSTIFICADA (verde), JUSTIFICADA_CON_GOCE
+(amarillo), JUSTIFICADA_SIN_GOCE (naranja) o SIN_JUSTIFICAR (rojo). Es editable, filtrable,
+ordenable y exportable por el CRUD común; `colorInasistencia` se devuelve derivado y no se escribe.
+Cambiarla reclasifica el dashboard, conserva el efecto salarial y queda auditado. Si se omite en
+alta se deriva del efecto; al editar mediante API se conserva. V035 migra los existentes y crea
+«Inasistencia sin justificación» con SIN_GOCE para nómina. Ver [DASHBOARD_RH.md](DASHBOARD_RH.md).

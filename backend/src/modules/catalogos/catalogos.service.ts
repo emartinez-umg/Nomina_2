@@ -273,6 +273,8 @@ export function crearCatalogosService(db: BaseDatos) {
               ? { codigo: antes?.codigo ?? null }
               : {}),
           };
+          if (cat.slug === 'tipos-ausencia' && d.categoriaInasistencia == null)
+            d.categoriaInasistencia = antes?.categoriaInasistencia ?? null;
           if (cat.slug === 'parametros-legales')
             d.claveInterna =
               antes?.claveInterna ?? limpiarPalabra(String(d.nombre)).replace(/ /g, '_');

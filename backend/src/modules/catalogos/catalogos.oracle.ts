@@ -80,7 +80,9 @@ describe('R2-4: catálogos, migración y API Oracle', () => {
     await expect(
       sql("UPDATE PARENTESCOS SET NOMBRE='Padre' WHERE FECHA_CREACION=DATE '2000-01-01'"),
     ).rejects.toMatchObject({ errorNum: 1 });
-    expect(await ejecutarMigraciones(db, logger)).toBe(3);
+    expect(await ejecutarMigraciones(db, logger)).toBe(
+      migraciones.filter((m) => m.version >= 31).length,
+    );
     await ejecutarSeeds(db, logger, seed);
     const config = {
       NODE_ENV: 'test' as const,

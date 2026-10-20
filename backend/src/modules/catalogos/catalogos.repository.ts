@@ -48,6 +48,9 @@ function etiquetas(cat: Catalogo) {
         return `,(SELECT ${label} FROM ${tabla} R WHERE R.${pk}=T.${f.columna}) "${f.nombre}Etiqueta"`;
       })
       .join('') +
+    (cat.slug === 'tipos-ausencia'
+      ? `,CASE T.CATEGORIA_INASISTENCIA WHEN 'IGSS_JUSTIFICADA' THEN 'verde' WHEN 'JUSTIFICADA_CON_GOCE' THEN 'amarillo' WHEN 'JUSTIFICADA_SIN_GOCE' THEN 'naranja' ELSE 'rojo' END "colorInasistencia"`
+      : '') +
     (cat.slug === 'centros-trabajo'
       ? `,T.LOCALIDAD_ANTERIOR "localidadAnterior",T.LOCALIDAD "localidad",T.ID_MUNICIPIO_GT_PROPUESTO "idMunicipioGtPropuesto",
     (SELECT ID_DEPARTAMENTO_GT FROM MUNICIPIOS_GT WHERE ID_MUNICIPIO_GT=T.ID_MUNICIPIO_GT_PROPUESTO) "idDepartamentoGtPropuesto",

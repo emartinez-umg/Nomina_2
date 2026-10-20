@@ -1950,3 +1950,12 @@ No se infieren vínculos con estos nuevos catálogos ni se siembran países o c�
 - `PARAMETROS_LEGALES.CLAVE_INTERNA = VALIDAR_DIGITO_NIT`: 0 por defecto; 1 activa módulo 11
   para el NIT de empleado. Es una configuración de sistema editable solo por ADMIN, auditada y
   ajena a los importes de periodos cerrados. La API conserva el NIT canónico con guion y el UNIQUE.
+
+## R2-8 — Categorías e índices del dashboard (V035)
+
+TIPOS_AUSENCIA incorpora CATEGORIA_INASISTENCIA (VARCHAR2(25), NOT NULL, CHECK de cuatro valores).
+Es independiente de EFECTO; el color se deriva en la API. Ausencias conserva su FK al tipo y
+todos sus días/importes. Se reconoce INJUSTIFICADA y se incorpora el nuevo tipo sin justificación.
+No se agregan tablas ni se modifican snapshots. Índices nuevos: IX_TA_CATEGORIA, IX_AUS_TABLERO,
+IX_VAC_TABLERO, IX_PAGO_TABLERO, IX_EMP_CUMPLE e IX_EMP_ANIVERSARIO.
+Contrato, filtros y semántica histórica en [DASHBOARD_RH.md](DASHBOARD_RH.md).

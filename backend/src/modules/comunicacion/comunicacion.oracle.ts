@@ -454,6 +454,10 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
     expect(r.body.data.evolucion).toHaveLength(1);
     expect(r.body.data.departamentos).toHaveLength(2);
     expect(r.body.data.celebraciones).toHaveLength(4);
+    for (const cumple of r.body.data.celebraciones.filter(
+      (f: { tipo: string }) => f.tipo === 'CUMPLEANOS',
+    ))
+      expect(cumple.anios).toBe(0);
     expect(r.body.data.alertas).toHaveLength(3);
     await ejecutar(
       "UPDATE PERIODOS_NOMINA SET ESTADO='CERRADO',APROBADO_EN=SYSDATE,APROBADO_POR=:actor,CERRADO_EN=SYSDATE,CERRADO_POR=:actor WHERE ID_PERIODO_NOMINA=:id",
@@ -469,7 +473,7 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
   it('admin refleja usuarios/sesiones/estado sin hashes y filtra auditoría', async () => {
     const r = await administrador.agent.get('/api/tableros/admin').expect(200);
     expect(r.body.data.usuarios.find((u: { rol: string }) => u.rol === 'EMPLEADO').activos).toBe(2);
-    expect(r.body.data.sistema.version).toBe(33);
+    expect(r.body.data.sistema.version).toBe(35);
     expect(r.body.data.sistema.objetosInvalidos).toBe(0);
     expect(r.body.data.sistema.sesionesActivas).toBe(4);
     expect(JSON.stringify(r.body.data)).not.toMatch(/TOKEN_HASH|CSRF_HASH|argon2id/);

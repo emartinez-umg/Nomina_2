@@ -114,7 +114,9 @@ describe('FASE V1-3: códigos con Oracle real', () => {
     await sql(
       "INSERT INTO EVENTOS(TITULO,FECHA_INICIO,FECHA_FIN,LUGAR) VALUES ('Evento migrado',DATE '2030-01-01',DATE '2030-01-02','Oficina')",
     );
-    expect(await ejecutarMigraciones(db, logger)).toBe(13);
+    expect(await ejecutarMigraciones(db, logger)).toBe(
+      migraciones.filter((m) => m.version >= 21).length,
+    );
     await ejecutarSeeds(db, logger, seed);
   });
   afterAll(async () => {
@@ -154,8 +156,8 @@ describe('FASE V1-3: códigos con Oracle real', () => {
     ]) {
       expect(
         await scalar(
-          // Las migraciones posteriores crean parámetros nuevos sin código previo.
-          `SELECT COUNT(*) FROM ${tabla} WHERE CODIGO IS NULL OR (CODIGO_ANTERIOR IS NULL${tabla === 'PARAMETROS_LEGALES' ? " AND CLAVE_INTERNA='VIEJO_PARAM'" : ''})`,
+          // Las migraciones posteriores crean parámetros y el tipo B7 sin código previo.
+          `SELECT COUNT(*) FROM ${tabla} WHERE CODIGO IS NULL OR (CODIGO_ANTERIOR IS NULL${tabla === 'PARAMETROS_LEGALES' ? " AND CLAVE_INTERNA='VIEJO_PARAM'" : tabla === 'TIPOS_AUSENCIA' ? " AND NOMBRE_NORMALIZADO<>N2_NOMBRE_NORMALIZADO('Inasistencia sin justificación')" : ''})`,
         ),
       ).toBe(0);
       expect(await scalar(`SELECT COUNT(*) FROM ${tabla} WHERE CODIGO=CODIGO_ANTERIOR`)).toBe(0);

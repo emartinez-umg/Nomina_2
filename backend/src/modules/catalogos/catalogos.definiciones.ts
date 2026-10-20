@@ -375,6 +375,21 @@ export const catalogos: Catalogo[] = [
         'Determina si conserva el salario, descuenta días o aplica subsidio IGSS.',
         { requerido: true, opciones: ['CON_GOCE', 'SIN_GOCE', 'SUBSIDIO_IGSS'] },
       ),
+      campo(
+        'categoriaInasistencia',
+        'CATEGORIA_INASISTENCIA',
+        'Categoría de inasistencia',
+        'opcion',
+        'Clasifica los días del dashboard: IGSS verde, con goce amarillo, sin goce naranja y sin justificación rojo. No cambia el efecto salarial. Si se omite, se conserva la categoría o se deriva del efecto al crear.',
+        {
+          opciones: [
+            'IGSS_JUSTIFICADA',
+            'JUSTIFICADA_CON_GOCE',
+            'JUSTIFICADA_SIN_GOCE',
+            'SIN_JUSTIFICAR',
+          ],
+        },
+      ),
       descripcion,
     ],
   },

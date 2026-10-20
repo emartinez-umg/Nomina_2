@@ -1,3 +1,4 @@
+import { crearEstadisticasService } from './estadisticas.service.js';
 import type { BaseDatos } from '../../shared/db/pool.js';
 import type { Autenticacion } from '../auth/auth.types.js';
 import { ErrorProhibido, ErrorConflicto } from '../../shared/errors/errors.js';
@@ -8,6 +9,7 @@ import { listar, reloj } from '../comunicacion/comunicacion.repository.js';
 import * as repo from './tableros.repository.js';
 export function crearTablerosService(db: BaseDatos) {
   return {
+    estadisticas: crearEstadisticasService(db),
     consultar: (auth: Autenticacion, rol: 'rh' | 'admin' | 'empleado') =>
       db.conConexion(async (c) => {
         if (

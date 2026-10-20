@@ -32,7 +32,7 @@
     "verify:comunicacion": "node --env-file=.env scripts/verificar-seguridad.mjs --comunicacion",
     "verify:solicitudes": "node --env-file=.env scripts/verificar-seguridad.mjs --solicitudes",
     "test:e2e": "node --env-file=.env scripts/verificar-e2e.mjs",
-    "verify:all": "npm run lint && npm run typecheck && npm test && npm run build && npm run format:check && npm run verify:secrets && npm run db:verify && npm run verify:migration && npm run verify:empleados && npm run verify:pagos && npm run verify:novedades && npm run verify:vacaciones && npm run verify:catalogos && npm run verify:horarios && npm run verify:empresa && npm run verify:ubicaciones && npm run verify:codigos && npm run verify:security && npm run verify:prestaciones && npm run verify:solicitudes && npm run verify:comunicacion && npm run test:e2e && npm run verify:infra && npm run verify:clean",
+    "verify:all": "npm run lint && npm run typecheck && npm test && npm run build && npm run format:check && npm run verify:secrets && npm run db:verify && npm run verify:migration && npm run verify:empleados && npm run verify:pagos && npm run verify:novedades && npm run verify:vacaciones && npm run verify:catalogos && npm run verify:horarios && npm run verify:empresa && npm run verify:ubicaciones && npm run verify:codigos && npm run verify:security && npm run verify:prestaciones && npm run verify:solicitudes && npm run verify:tableros && npm run verify:comunicacion && npm run test:e2e && npm run verify:infra && npm run verify:clean",
     "verify:clean": "node scripts/verificar-arranque.mjs",
     "verify:secrets": "node scripts/auditar-secretos.mjs",
     "tls:trust": "node --env-file=.env scripts/confiar-tls-macos.mjs",
@@ -44,7 +44,8 @@
     "verify:novedades": "node --env-file=.env scripts/verificar-seguridad.mjs --novedades",
     "verify:pagos": "node --env-file=.env scripts/verificar-seguridad.mjs --pagos",
     "verify:migration": "node --import tsx --env-file=.env scripts/verificar-migracion-v0.mjs",
-    "verify:catalogos": "node --env-file=.env scripts/verificar-seguridad.mjs --catalogos"
+    "verify:catalogos": "node --env-file=.env scripts/verificar-seguridad.mjs --catalogos",
+    "verify:tableros": "node --env-file=.env scripts/verificar-seguridad.mjs --tableros"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

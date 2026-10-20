@@ -70,11 +70,18 @@ export function aniversarioSql(origen: string, extra = 0) {
   const mes = `ADD_MONTHS(TRUNC(${origen},'MM'),12*(EXTRACT(YEAR FROM ${hoy})-EXTRACT(YEAR FROM ${origen})+${extra}))`;
   return `(${mes}+LEAST(EXTRACT(DAY FROM ${origen}),EXTRACT(DAY FROM LAST_DAY(${mes})))-1)`;
 }
+// El contrato legado exige un número: cumpleaños usa 0, nunca la edad.
 export async function celebraciones(c: Connection) {
   return (
     (
-      await c.execute<{ id: number; nombre: string; tipo: string; fecha: string; anios: number }>(
-        `WITH BASE AS (SELECT E.ID_EMPLEADO,${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} NOMBRE,'CUMPLEANOS' TIPO,E.FECHA_NACIMIENTO ORIGEN,${aniversarioSql('E.FECHA_NACIMIENTO')} ESTE FROM EMPLEADOS E WHERE ${activo} UNION ALL SELECT E.ID_EMPLEADO,${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')},'ANIVERSARIO',E.FECHA_INGRESO,${aniversarioSql('E.FECHA_INGRESO')} FROM EMPLEADOS E WHERE ${activo}), PROXIMOS AS (SELECT B.*,CASE WHEN ESTE<${hoy} THEN ${aniversarioSql('ORIGEN', 1)} ELSE ESTE END PROXIMO FROM BASE B) SELECT ID_EMPLEADO "id",NOMBRE "nombre",TIPO "tipo",TO_CHAR(PROXIMO,'YYYY-MM-DD') "fecha",EXTRACT(YEAR FROM PROXIMO)-EXTRACT(YEAR FROM ORIGEN) "anios" FROM PROXIMOS WHERE PROXIMO<${hoy}+31 AND PROXIMO>=${hoy} AND EXTRACT(YEAR FROM PROXIMO)>EXTRACT(YEAR FROM ORIGEN) ORDER BY PROXIMO,NOMBRE,TIPO FETCH FIRST 50 ROWS ONLY`,
+      await c.execute<{
+        id: number;
+        nombre: string;
+        tipo: string;
+        fecha: string;
+        anios: number;
+      }>(
+        `WITH BASE AS (SELECT E.ID_EMPLEADO,${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} NOMBRE,'CUMPLEANOS' TIPO,E.FECHA_NACIMIENTO ORIGEN,${aniversarioSql('E.FECHA_NACIMIENTO')} ESTE FROM EMPLEADOS E WHERE ${activo} UNION ALL SELECT E.ID_EMPLEADO,${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')},'ANIVERSARIO',E.FECHA_INGRESO,${aniversarioSql('E.FECHA_INGRESO')} FROM EMPLEADOS E WHERE ${activo}), PROXIMOS AS (SELECT B.*,CASE WHEN ESTE<${hoy} THEN ${aniversarioSql('ORIGEN', 1)} ELSE ESTE END PROXIMO FROM BASE B) SELECT ID_EMPLEADO "id",NOMBRE "nombre",TIPO "tipo",TO_CHAR(PROXIMO,'YYYY-MM-DD') "fecha",CASE WHEN TIPO='ANIVERSARIO' THEN EXTRACT(YEAR FROM PROXIMO)-EXTRACT(YEAR FROM ORIGEN) ELSE 0 END "anios" FROM PROXIMOS WHERE PROXIMO<${hoy}+31 AND PROXIMO>=${hoy} AND EXTRACT(YEAR FROM PROXIMO)>EXTRACT(YEAR FROM ORIGEN) ORDER BY PROXIMO,NOMBRE,TIPO FETCH FIRST 50 ROWS ONLY`,
         {},
         opts,
       )

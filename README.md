@@ -18,7 +18,7 @@ docker compose up --build
 ```
 
 También: `docker compose up --build -d --wait --wait-timeout 900`. La primera preparación tarda
-varios minutos. La API espera Oracle saludable, aplica V000–V033 y seeds y luego inicia nginx.
+varios minutos. La API espera Oracle saludable, aplica V000–V035 y seeds y luego inicia nginx.
 No necesitas SQL manual, Instant Client ni instalar Node en el host para utilizar el sistema.
 
 - **Aplicación:** [https://localhost:8443/login](https://localhost:8443/login).
@@ -309,7 +309,7 @@ Pruebas: `npm run verify:pagos`, `npm run verify:prestaciones` y
 
 La rama `v1` incluye A2–A12. Antes de actualizar una instalación, respalda Oracle y conserva su
 volumen y `.env`. Ejecuta `docker compose up --build -d --wait --wait-timeout 900`: la API aplica
-V021–V033 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
+V021–V035 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
 ni elimines el volumen. Un fallo de migración detiene el arranque para revisión.
 
 `npm run verify:migration` exige Git con la etiqueta `v0.0`, Node 20, `npm ci` y Oracle saludable.
@@ -365,3 +365,10 @@ Descarga de nuevo la plantilla CSV: la columna ahora es `direccion`. El NIT admi
 K final y guion opcionales, conservando unicidad; ADMIN puede activar módulo 11 en Parámetros
 legales → Validar dígito NIT (`VALIDAR_DIGITO_NIT`, 0 desactivado, 1 activado, unidad CANTIDAD).
 La validación fiscal de la empresa conserva sus reglas. Aplica con `docker compose up --build`.
+
+### Datos de dashboard RRHH (R2-8)
+
+Cuatro agregaciones exclusivas de RH/ADMIN en `/api/tableros/rh`: remuneraciones, inasistencias,
+vacaciones y celebraciones. V035 clasifica los tipos de ausencia y añade índices; no cambia importes
+históricos. Contratos, fuentes y filtros en [DASHBOARD_RH.md](docs/DASHBOARD_RH.md).
+Ejecutar `npm run verify:tableros` con Node 20 y Oracle saludable para integración y planes.

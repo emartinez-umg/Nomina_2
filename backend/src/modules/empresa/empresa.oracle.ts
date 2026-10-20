@@ -77,7 +77,9 @@ describe('FASE V1-5: empresa privada y firma en Oracle', () => {
     await sql(
       "UPDATE PLANTILLAS_DOCUMENTO SET CONTENIDO='Texto histórico {{representante}}' WHERE CODIGO='CONSTANCIA_LABORAL'",
     );
-    expect(await ejecutarMigraciones(db, logger)).toBe(11);
+    expect(await ejecutarMigraciones(db, logger)).toBe(
+      migraciones.filter((m) => m.version >= 23).length,
+    );
     await ejecutarSeeds(db, logger, seed);
     const config = {
       NODE_ENV: 'test' as const,

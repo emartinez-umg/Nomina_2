@@ -70,7 +70,9 @@ describe('FASE V1-8: migración de vacaciones sin alterar aprobaciones', () => {
           )
         ).rows![0]!,
     );
-    expect(await ejecutarMigraciones(db, logger)).toBe(8);
+    expect(await ejecutarMigraciones(db, logger)).toBe(
+      migraciones.filter((m) => m.version >= 26).length,
+    );
     // El ensayo tiene corte fijo: el ajuste recién migrado debe pertenecer a ese corte,
     // no al día real de ejecución de Oracle (que puede ser posterior al 15/10/2026).
     await enTransaccion(db, (c) =>

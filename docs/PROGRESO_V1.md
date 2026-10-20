@@ -2061,3 +2061,114 @@ El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
    código/nombre, seleccionar y cambiar a otro departamento. Repetir en Finiquito, Constancias,
    historial, Simular pago, filtros de Planilla y responsable de Jefaturas. Quitar departamento
    debe mostrar todas las opciones con su departamento; uno vacío debe explicar cómo continuar.
+
+### FASE R2-8 — Capa de datos del dashboard de RRHH
+
+Estado: completada en código y pruebas el 20/10/2026. Rama `v1.1`; alcance B7 de backend, esquema y pruebas.
+El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
+
+#### Reproducción y causa raíz
+
+- El router solo exponía `/:rol`; no había agregaciones filtrables para los cuatro recuadros,
+  categoría estadística de ausencia ni consulta de vacaciones en curso/próximas. La regresión
+  nueva ejecutada con el router de HEAD falla: obtiene 404 en lugar del 403 del endpoint protegido.
+  Se restaura inmediatamente el archivo actual. El tablero previo además publicaba edad como anios.
+- Los resultados V1 contienen el devengado mensual completo en Pago; sumar Anticipo y Pago habría
+  duplicado ingresos. Los tipos y estados existentes ya conservan días aprobados y snapshots;
+  se reutilizan esas fuentes sin reabrir cálculos, períodos ni documentos.
+
+#### Hecho y decisiones
+
+- V035 agrega CATEGORIA_INASISTENCIA obligatoria con CHECK, índice y derivación compatible con
+  seeds/clientes anteriores. Migra por EFECTO e identifica la clave histórica INJUSTIFICADA.
+  Crea «Inasistencia sin justificación», efecto SIN_GOCE y código automático. Conserva PK, códigos,
+  ausencias, efectos e importes previos, incluidos tipos inactivos. V000–V034 intactas.
+- CRUD común: categoría editable, filtro/orden/CSV, hint y color derivado. IGSS verde, con goce
+  amarillo, sin goce naranja y sin justificar rojo. Se conserva al omitirla durante edición.
+  Corregir categoría reclasifica estadísticas y se audita; no cambia el efecto salarial ni pagos.
+  Solo se actualiza la fixture de contrato del frontend; no se implementan pantallas de esta fase.
+- Cuatro GET en /api/tableros/rh: remuneraciones, inasistencias, vacaciones y celebraciones.
+  Routes/controller/service/repository, listas blancas y Zod estricto, SQL con binds, respuestas
+  uniformes, no-store y corte READ ONLY con reloj de Guatemala. RBAC RH/ADMIN en router y servicio;
+  EMPLEADO recibe 403 antes de adquirir conexión, también con datos de remuneración disponibles.
+- Top cinco de remuneraciones por empleado/departamento y mes, cuatro métricas, posición/valor
+  y todos los importes GTQ. Solo pagos V1 confirmados mensuales y versiones vigentes V0 cerradas;
+  excluye anticipos, prestaciones, reversiones y borradores. Agrupa por departamento del snapshot.
+  Salario base suma líneas devengadas/prorrateadas; total resta ausencia salarial en V1. Sin pagos
+  devuelve vacío. Los importes se agregan en NUMBER y serializan con Decimal/half-up.
+- Inasistencias aprobadas y activas, aplicadas o pendientes de pago; recorte por mes, trimestre o
+  año y departamento actual del expediente. Distribuye fracciones históricas proporcionalmente
+  entre periodos. Top cinco con cuatro series, colores, días y leyenda global de todos los empleados,
+  incluso fuera del top. Pendientes/rechazadas no cuentan. Empates ordenados por ID.
+- Vacaciones aprobadas/tomadas en curso y próximas 30/60/90 días, con ID/código/nombre del empleado,
+  rango completo y días laborales aprobados. Paginación independiente por lista; totales y contador
+  independientes de página. Ausentes hoy deduplica personas y verifica bloques, asignación vigente,
+  descansos y feriados nacionales/locales. No hace consultas por empleado ni recorta días al mes.
+- Celebraciones desde hoy hasta hoy + 30 inclusive; marca esHoy, muestra años solo en aniversarios
+  y excluye fecha de nacimiento/edad. 29/02 se conmemora 28/02 en año común y 29/02 en bisiesto;
+  28/02 se conserva. El endpoint antiguo mantiene su contrato numérico con anios=0 en cumpleaños,
+  sin publicar edad ni romper el parser del dashboard actual. Interfaz y tours nuevos quedan para R2-9.
+- Índices compuestos de pagos/ausencias/vacaciones y funcionales de mes/día de cumpleaños/aniversarios.
+  Filtros por rango sin funciones sobre las fechas; agregación antes del top y calendario de 31 fechas.
+  Planes reales de Oracle con DBMS_XPLAN en tmp/dashboard-rh-planes.json, sin datos personales.
+  El calendario usa CAST AS DATE explícito: EXPLAIN con binds infería mal el tipo de EXTRACT,
+  aunque la ejecución con los valores ligados ya era correcta.
+- Contrato, filtros, políticas y límites en DASHBOARD_RH.md; CATALOGOS, ERD, README, manifiesto de
+  filtros y verify:all actualizados. Nuevo comando verify:tableros con esquema desechable.
+
+#### Supuestos y alcance
+
+- Remuneraciones muestra lo efectivamente confirmado, con departamento histórico. No proyecta
+  salarios ni novedades impagas. Inasistencias usa clasificación y departamento actuales sin
+  recalcular nómina histórica. Cambiar categoría tiene efecto estadístico retrospectivo.
+- Días de ausencia son calendario conforme a su captura existente; vacaciones conserva el cómputo
+  laboral aprobado. Estar dentro de un rango de vacaciones durante descanso/feriado no suma una
+  ausencia laboral hoy. Un 29 de febrero se conmemora el 28 en años comunes, como el criterio previo.
+- El reloj inyectable se usa solo desde las pruebas del servicio; la API no permite cambiar hoy en
+  vacaciones/celebraciones. No se agregan dependencias, datos sintéticos de aplicación ni UI nueva.
+- Las fixtures antiguas fijaban cantidades de migraciones hasta V033/V034. Se reemplaza ese número
+  por el total real pendiente desde el corte original; se preservan todas sus aserciones de negocio,
+  conservación, permisos y rollback. Versión del tablero ADMIN y db:verify se actualizan a V035.
+
+#### Validación y pendientes
+
+- Node 20.20.2: **749 pruebas aprobadas** (419 backend, 323 frontend y siete del exportador).
+  Lint, TypeScript strict, builds y Prettier aprobados; aviso previo de tamaño de chunk Vite vigente.
+  Sin dependencias nuevas. La regresión de rutas falla con HEAD anterior y pasa con la implementación.
+- **166 casos Oracle/Supertest aprobados** en once suites secuenciales: dashboard 11, seguridad 82,
+  catálogos 11, comunicación/tableros 16, empleados 3, horarios 6, códigos 9, empresa 6,
+  ubicaciones 6, vacaciones 2 y novedades 14. Incluyen RBAC, 29/02, fin de año, rangos que cruzan mes,
+  fracciones históricas, paginación, feriados, V0/V1, versiones y reversión. Esquemas retirados.
+- V000–V035 desde cero, segunda ejecución, seeds repetibles, CHECK/UNIQUE/FK, identidades, índices,
+  objetos válidos, integridad y rollback aprobados con db:verify; sin cambios de reglas financieras.
+- Planes revisados con 12,000 ausencias y 1,200 vacaciones históricas, además de las fixtures de
+  siete empleados, pagos y quincenas V0. Ejecución final: remuneraciones **3.03 ms**, inasistencias
+  **3.76 ms**, vacaciones **1.07 ms** y celebraciones **1.40 ms**. Pagos, ausencias y vacaciones
+  usan IX_PAGO_TABLERO, IX_AUS_TABLERO e IX_VAC_TABLERO. Con siete empleados, celebraciones elige
+  el índice existente de estado; el calendario materializado contiene solo 31 fechas. El plan
+  salarial une primero conjuntos filtrados y acota detalles por resultado; el join cartesiano
+  que eligió Oracle para esa dimensión pequeña aplica después sus FK, sin multiplicar importes.
+  Reporte reproducible en tmp/dashboard-rh-planes.json; estos tiempos no son un SLA de producción.
+- La prueba previa de códigos exigía CODIGO_ANTERIOR a toda fila; se distingue únicamente el nuevo
+  tipo B7, que se crea después de renumerar la v0 y por definición no tiene código anterior.
+  Los originales siguen exigiendo su referencia y el código automático nuevo se prueba aparte.
+- Imagen Docker de la API construida con éxito. verify:infra confirma Oracle/API/nginx, SPA/assets
+  y visor/worker PDF saludables. Trece conteos operativos idénticos antes/después; V034 y cero
+  objetos inválidos conservados. No hay fixtures de estas suites en la aplicación.
+- **Despliegue local pendiente:** la revisión automática rechazó reiniciar la API y aplicar V035
+  sobre Oracle operativo por faltar autorización explícita y comprobación de respaldo/rollback.
+  La API operativa continúa en V034; el código y la migración están listos para revisión y commit.
+  Después de autorizar se prepara/verifica el respaldo y se actualiza únicamente la API.
+- Sin pendientes de implementación de R2-8. Dashboard visual y recorridos nuevos corresponden a
+  la fase siguiente. AGENTS.md previo del usuario permanece fuera del commit.
+
+#### Cómo probar
+
+1. Node 20: `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. Oracle saludable: `npm run verify:tableros`; `npm run verify:catalogos`; `npm run verify:comunicacion`;
+   `npm run db:verify`; `npm run verify:security` (en secuencia, esquemas temporales).
+3. Actualizar API con `docker compose up --build -d nomina2-api`; el arranque aplica V035 y seeds.
+4. Como RH/ADMIN consultar GET /api/tableros/rh/{remuneraciones,inasistencias,vacaciones,celebraciones}
+   con los filtros documentados en DASHBOARD_RH.md; EMPLEADO debe recibir 403 en las cuatro.
+5. Revisar tmp/dashboard-rh-planes.json tras verify:tableros. Sus tiempos describen ese ensayo local,
+   no un SLA para cualquier volumen. La implementación visual y sus recorridos siguen reservados.

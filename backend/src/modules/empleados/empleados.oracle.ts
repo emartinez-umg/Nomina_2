@@ -56,7 +56,9 @@ describe('FASE V1-7: migración de empleados sin pérdida', () => {
       ),
     );
     await enTransaccion(db, (c) => c.execute("UPDATE EMPLEADOS SET NUMERO_CASA='12-A'"));
-    expect(await ejecutarMigraciones(db, logger)).toBe(1);
+    expect(await ejecutarMigraciones(db, logger)).toBe(
+      migraciones.filter((m) => m.version >= 34).length,
+    );
   });
   afterAll(async () => {
     await db?.cerrar();
