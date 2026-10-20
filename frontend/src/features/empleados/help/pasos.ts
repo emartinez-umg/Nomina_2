@@ -32,6 +32,18 @@ export function ayudaEmpleados(
     ],
     formulario: [
       {
+        elemento: 'empleado-revision',
+        titulo: 'Resumen previo al guardado',
+        descripcion:
+          'Revisa identidad, Dirección, ingreso, salario y los grupos opcionales. El resumen enumera cada omisión: sin salario no participa en simulación; sin banco no hay cuenta para el depósito; sin contacto no hay una persona para emergencias. Volver al asistente permite corregir; Confirmar y guardar envía una sola operación transaccional y la revalida en el servidor.',
+      },
+      {
+        elemento: 'empleado-pasos',
+        titulo: 'Asistente de cuatro pasos',
+        descripcion:
+          'Completa Datos personales y Datos laborales. Siguiente valida el paso actual; Anterior y los pasos visitados permiten regresar. El indicador marca errores, pasos completos y opcionales. Guardar empleado se habilita con los dos primeros válidos y revisa todos los datos; si un grupo opcional está a medias, debes completarlo o vaciarlo. El borrador conserva datos de todos los pasos y el paso actual. Antes del guardado verás un resumen con omisiones y consecuencias.',
+      },
+      {
         elemento: 'codigo-automatico',
         titulo: 'Código automático por departamento',
         descripcion:
@@ -41,11 +53,10 @@ export function ayudaEmpleados(
         elemento: `empleado-seccion-${i}`,
         titulo: s.titulo,
         descripcion: [
-          'Ingresa los nombres del DPI. DPI requiere 13 dígitos; NIT valida el módulo 11, admite K final y teléfono 8 dígitos. Dirección usa departamento y municipio INE, zona obligatoria en Guatemala y número de vivienda (12-A). Al editar revisa la dirección histórica como referencia; sexo solo Masculino/Femenino. El servidor comprueba unicidad, incluso frente a empleados egresados. El calendario impide fechas futuras y edades fuera de los parámetros vigentes.',
+          'Ingresa los nombres del DPI. DPI requiere 13 dígitos; NIT admite 5–12 dígitos, K final y guion opcionales; módulo 11 solo si ADMIN lo activa y teléfono 8 dígitos. Dirección usa departamento y municipio INE, zona obligatoria en Guatemala y Dirección hasta 100 caracteres: letras con acentos y ñ, números, espacios y . , # - / °; incluye una letra o número. Al editar revisa la dirección histórica como referencia; sexo solo Masculino/Femenino. El servidor comprueba unicidad, incluso frente a empleados egresados. El calendario impide fechas futuras y edades fuera de los parámetros vigentes.',
           'Selecciona primero el departamento: puesto y jefatura deben pertenecer a él. Ingreso comienza en hoy y debe respetar la edad mínima y no superar 30 días futuros. Se conserva al editar porque inicia el historial. La bandera del contrato bloquea y vacía el fin en indefinidos; en contratos con plazo exige fecha posterior al ingreso. Cambiar horario exige fecha efectiva posterior a su último registro y al último cierre. Crear horario personalizado abre un modal sin perder el expediente: agrega bloques con rangos/chips, horas en desplegables de 30 minutos y descanso de 30 o 60; revisa totales, jornada y límites vigentes. Al guardar se selecciona el nuevo horario. Cada formulario conserva su propio borrador.',
-          'El salario es mensual en quetzales. Se crea su historial desde el ingreso. Revisa el aviso del mínimo legal parametrizado. Después del alta utiliza Cambiar salario en la ficha para conservar importe, fecha, motivo y actor de cada modificación.',
-          'Registra una persona real de contacto, su parentesco desde el catálogo (sin texto libre) y teléfono de 8 dígitos. Los parentescos inactivos se conservan en fichas existentes y no se ofrecen en contactos nuevos. El contacto principal se guarda junto al expediente en la misma transacción.',
-          'Los datos bancarios son opcionales. Si completas alguno debes indicar banco, cuenta y tipo. Usa letras, números o guiones en la cuenta y verifica el número antes de guardar.',
+          'Paso opcional: completa salario, banco, cuenta y tipo juntos o déjalos todos vacíos. Sin salario se marca Perfil incompleto, se excluye al empleado de la simulación sin bloquear al resto y aparece en las alertas del dashboard. El salario es mensual en quetzales. Se crea su historial desde el ingreso. Revisa el aviso del mínimo legal parametrizado. Después del alta utiliza Cambiar salario en la ficha para conservar importe, fecha, motivo y actor de cada modificación.',
+          'Paso opcional: puedes omitir todos sus datos. Si escribes alguno, completa nombre, parentesco y teléfono. Registra una persona real de contacto, su parentesco desde el catálogo (sin texto libre) y teléfono de 8 dígitos. Los parentescos inactivos se conservan en fichas existentes y no se ofrecen en contactos nuevos. El contacto principal se guarda junto al expediente en la misma transacción.',
         ][i]!,
       })),
       {
@@ -64,7 +75,7 @@ export function ayudaEmpleados(
         elemento: 'empleado-guardar',
         titulo: 'Guardar y corregir',
         descripcion:
-          'Los errores aparecen junto al campo y en el resumen. Corrige los datos indicados. El expediente, contacto, salario, horario, usuario obligatorio y auditoría se guardan juntos; si una operación falla se revierte el alta.',
+          'Los errores aparecen junto al campo y en el resumen. Corrige los datos indicados. Se abre un resumen antes de confirmar el guardado. Los pasos opcionales vacíos no crean registros ficticios. El expediente, los datos opcionales presentes, horario, usuario obligatorio y auditoría se guardan juntos; si una operación falla se revierte el alta.',
       },
     ],
     detalle: [
@@ -78,7 +89,7 @@ export function ayudaEmpleados(
         elemento: 'empleado-resumen',
         titulo: 'Expediente',
         descripcion:
-          'Esta ficha contiene información personal completa y solo está disponible para RH y ADMIN. Resumen muestra organización, contacto y banco. Las otras pestañas consultan registros reales del empleado, con páginas independientes.',
+          'Esta ficha contiene información personal completa y solo está disponible para RH y ADMIN. Resumen muestra Dirección, organización, contacto y banco. Perfil incompleto enumera datos omitidos; sin salario no se incluye en planilla. Completa el salario inicial desde Editar o Cambiar salario; cambios posteriores usan vigencias. Las otras pestañas consultan registros reales del empleado, con páginas independientes.',
       },
       {
         elemento: 'empleado-salario',
@@ -112,7 +123,7 @@ export function ayudaEmpleados(
         elemento: 'carga-archivo',
         titulo: 'Preparar CSV',
         descripcion:
-          'El CSV no pide código ni usuario: se asignan al importar. Ubicaciones deben pertenecer al catálogo oficial y zona es obligatoria en Guatemala. Descarga la plantilla y reemplaza la fila ilustrativa con empleados reales. Conserva las columnas; usa fechas aaaa-mm-dd, montos sin Q ni separadores de miles, IDs reales de catálogos y código del horario, sexo M/F y parentesco del catálogo. Máximo 100 empleados y 1 MB. Textos con comas llevan comillas dobles.',
+          'La columna direccion reemplaza numeroCasa: admite hasta 100 caracteres con letras, números, espacios y . , # - / °, y debe incluir una letra o número. NIT admite 5–12 dígitos, K final y guion opcionales; ADMIN controla módulo 11. Puedes omitir todo el grupo salarial/banco y todo el contacto; los grupos parciales se rechazan. El CSV no pide código ni usuario: se asignan al importar. Ubicaciones deben pertenecer al catálogo oficial y zona es obligatoria en Guatemala. Descarga la plantilla y reemplaza la fila ilustrativa con empleados reales. Conserva las columnas; usa fechas aaaa-mm-dd, montos sin Q ni separadores de miles, IDs reales de catálogos y código del horario, sexo M/F y parentesco del catálogo. Máximo 100 empleados y 1 MB. Textos con comas llevan comillas dobles.',
       },
       {
         elemento: 'carga-preview',
@@ -135,7 +146,7 @@ export function ayudaEmpleados(
     ],
   };
   return {
-    id: `empleados-${pagina}-v1-11`,
+    id: `empleados-${pagina}-r2-6`,
     pasos: pasos[pagina],
   };
 }

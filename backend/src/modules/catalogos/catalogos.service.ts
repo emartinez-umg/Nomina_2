@@ -148,7 +148,12 @@ export function crearCatalogosService(db: BaseDatos) {
     }
     if (!cat.legal) return;
     const cierre = await repository.ultimoCierre(c);
-    if (!soloEstado && cierre && String(d.vigenteDesde) <= cierre)
+    if (
+      !soloEstado &&
+      cierre &&
+      String(d.vigenteDesde) <= cierre &&
+      !(cat.slug === 'parametros-legales' && d.claveInterna === 'VALIDAR_DIGITO_NIT')
+    )
       conflicto(
         'vigenteDesde',
         `La vigencia afectaría periodos cerrados hasta ${cierre}. Ingresa una fecha posterior.`,
@@ -271,6 +276,15 @@ export function crearCatalogosService(db: BaseDatos) {
           if (cat.slug === 'parametros-legales')
             d.claveInterna =
               antes?.claveInterna ?? limpiarPalabra(String(d.nombre)).replace(/ /g, '_');
+          if (cat.slug === 'parametros-legales' && d.claveInterna === 'VALIDAR_DIGITO_NIT') {
+            if (actor.rol !== 'ADMIN')
+              throw new ErrorProhibido('Solo ADMIN puede configurar VALIDAR_DIGITO_NIT.');
+            if (!['0', '1'].includes(String(d.valor)) || d.unidad !== 'CANTIDAD')
+              conflicto(
+                'valor',
+                'Usa 0 para desactivar o 1 para activar la validación del dígito NIT (unidad CANTIDAD).',
+              );
+          }
           await validar(c, cat, d, id ?? 0, antes);
           let destino = id;
           if (cat.legal && antes && String(d.vigenteDesde) > String(antes.vigenteDesde)) {
@@ -321,6 +335,12 @@ export function crearCatalogosService(db: BaseDatos) {
     ) =>
       transaccion(auth, cat, async (c, actor) => {
         const antes = await buscar(c, cat, id);
+        if (
+          cat.slug === 'parametros-legales' &&
+          antes.claveInterna === 'VALIDAR_DIGITO_NIT' &&
+          actor.rol !== 'ADMIN'
+        )
+          throw new ErrorProhibido('Solo ADMIN puede configurar VALIDAR_DIGITO_NIT.');
         if (antes.activo === activo) throw new ErrorConflicto('El registro ya tiene ese estado.');
         if (cat.legal) {
           if (!confirmado) conflicto('confirmado', 'Confirma la advertencia del cambio legal.');
@@ -355,6 +375,12 @@ export function crearCatalogosService(db: BaseDatos) {
         if (fisica && actor.rol !== 'ADMIN')
           throw new ErrorProhibido('Solo ADMIN puede eliminar físicamente.');
         const antes = await buscar(c, cat, id);
+        if (
+          cat.slug === 'parametros-legales' &&
+          antes.claveInterna === 'VALIDAR_DIGITO_NIT' &&
+          actor.rol !== 'ADMIN'
+        )
+          throw new ErrorProhibido('Solo ADMIN puede configurar VALIDAR_DIGITO_NIT.');
         if (antes.enUso)
           throw new ErrorNegocio(
             `No se puede eliminar: lo usan ${antes.usos} registro(s) de empleados u otras tablas. Puedes inactivarlo.`,

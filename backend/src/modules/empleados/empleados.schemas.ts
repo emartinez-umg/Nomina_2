@@ -1,3 +1,14 @@
+import {
+  direccionValida,
+  mensajeDireccion,
+  formatoNitValido,
+  mensajeNit,
+  normalizarNit,
+  digitoNitValido,
+  grupoParcial,
+  camposSalariales,
+  camposContacto,
+} from '../../shared/empleados/validadores.js';
 import { z } from 'zod';
 import { Decimal } from 'decimal.js';
 export const fechaValida = (v: string) =>
@@ -19,14 +30,7 @@ export function sumarDias(v: string, dias: number) {
   d.setUTCDate(d.getUTCDate() + dias);
   return d.toISOString().slice(0, 10);
 }
-export function nitValido(v: string) {
-  if (!/^\d{1,12}-[0-9K]$/.test(v)) return false;
-  const [cuerpo, digito] = v.split('-');
-  if (/^0+$/.test(cuerpo!)) return false;
-  const n =
-    (11 - ([...cuerpo!].reverse().reduce((s, d, i) => s + Number(d) * (i + 2), 0) % 11)) % 11;
-  return digito === (n === 10 ? 'K' : String(n));
-}
+export const nitValido = (v: string) => /^\d{1,12}-[0-9K]$/.test(v) && digitoNitValido(v);
 const texto = (max: number) =>
   z
     .string()
@@ -61,7 +65,8 @@ const datos = z
       .string()
       .trim()
       .toUpperCase()
-      .refine(nitValido, 'El dígito verificador del NIT no coincide. Revisa el número.'),
+      .refine(formatoNitValido, mensajeNit)
+      .transform(normalizarNit),
     afiliacionIgss: z
       .string()
       .regex(/^\d{1,20}$/, 'La afiliación IGSS solo admite hasta 20 dígitos.')
@@ -72,10 +77,11 @@ const datos = z
     idDepartamentoGt: id,
     idMunicipioGt: id,
     zona: z.number().int().min(1).max(25).nullable(),
-    numeroCasa: texto(20).regex(
-      /^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/,
-      'Usa letras, números y guiones. Ejemplo: 12-A.',
-    ),
+    direccion: z
+      .string()
+      .trim()
+      .transform((v) => v.normalize('NFC'))
+      .refine(direccionValida, mensajeDireccion),
     telefono,
     correo: z
       .string()
@@ -91,32 +97,46 @@ const datos = z
     idHorario: id,
     fechaIngreso: fecha,
     fechaFinContrato: opcionalFecha,
-    idBanco: id.nullable(),
+    idBanco: id.nullable().default(null),
     cuentaBancaria: z
       .string()
       .regex(/^[A-Za-z0-9-]{1,34}$/, 'Usa hasta 34 letras, números o guiones.')
-      .nullable(),
-    tipoCuenta: z.enum(['AHORRO', 'MONETARIA']).nullable(),
-    contactoNombre: texto(200).regex(/^[\p{L}\p{M} '-]+$/u, 'Usa letras y espacios.'),
-    contactoParentesco: texto(60),
-    contactoTelefono: telefono,
+      .nullable()
+      .default(null),
+    tipoCuenta: z.enum(['AHORRO', 'MONETARIA']).nullable().default(null),
+    contactoNombre: texto(200)
+      .regex(/^[\p{L}\p{M} '-]+$/u, 'Usa letras y espacios.')
+      .nullable()
+      .default(null),
+    contactoParentesco: texto(60).nullable().default(null),
+    contactoTelefono: telefono.nullable().default(null),
     estado: z.enum(['ACTIVO', 'SUSPENDIDO']).default('ACTIVO'),
   })
   .strict();
 const banco = (
   d: Pick<
     z.infer<typeof datos>,
-    'idBanco' | 'cuentaBancaria' | 'tipoCuenta' | 'fechaFinContrato' | 'fechaIngreso'
+    | 'idBanco'
+    | 'cuentaBancaria'
+    | 'tipoCuenta'
+    | 'fechaFinContrato'
+    | 'fechaIngreso'
+    | 'contactoNombre'
+    | 'contactoParentesco'
+    | 'contactoTelefono'
   >,
   ctx: z.RefinementCtx,
 ) => {
-  const presentes = [d.idBanco, d.cuentaBancaria, d.tipoCuenta].filter((v) => v !== null).length;
-  if (presentes !== 0 && presentes !== 3)
-    ctx.addIssue({
-      code: 'custom',
-      path: ['cuentaBancaria'],
-      message: 'Completa banco, cuenta y tipo de cuenta, o deja los tres vacíos.',
-    });
+  for (const campos of [camposContacto, ['idBanco', 'cuentaBancaria', 'tipoCuenta']]) {
+    if (grupoParcial(d, campos))
+      for (const key of campos)
+        if (d[key as keyof typeof d] == null)
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'Completa este grupo opcional o déjalo completamente vacío.',
+          });
+  }
   if (d.fechaFinContrato && d.fechaFinContrato <= d.fechaIngreso)
     ctx.addIssue({
       code: 'custom',
@@ -124,13 +144,33 @@ const banco = (
       message: 'El fin de contrato debe ser posterior al ingreso.',
     });
 };
-export const crearEmpleadoSchema = datos.extend({ salarioBase: dinero }).superRefine(banco);
+const validarAlta = (
+  d: Parameters<typeof banco>[0] & { salarioBase: string | null },
+  ctx: z.RefinementCtx,
+) => {
+  banco(d, ctx);
+  if (grupoParcial(d, camposSalariales))
+    for (const key of camposSalariales)
+      if (d[key] == null)
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'Completa salario, banco, cuenta y tipo, o deja el paso vacío.',
+        });
+};
+export const crearEmpleadoSchema = datos
+  .extend({ salarioBase: dinero.nullable().default(null) })
+  .superRefine(validarAlta);
 export const crearEmpleadoCsvSchema = datos
   .omit({ idHorario: true })
-  .extend({ codigoHorario: texto(40), salarioBase: dinero })
-  .superRefine(banco);
+  .extend({ codigoHorario: texto(40), salarioBase: dinero.nullable().default(null) })
+  .superRefine(validarAlta);
 export const editarEmpleadoSchema = datos
-  .extend({ motivo: texto(500).min(5), fechaHorario: fecha.optional() })
+  .extend({
+    motivo: texto(500).min(5),
+    fechaHorario: fecha.optional(),
+    salarioBase: dinero.nullable().optional(),
+  })
   .superRefine(banco);
 export type DatosEmpleado = z.infer<typeof crearEmpleadoSchema>;
 export type EditarEmpleado = z.infer<typeof editarEmpleadoSchema>;
@@ -209,6 +249,7 @@ export const confirmarCargaSchema = z
   .object({ modalidad: z.enum(['TODO_O_NADA', 'SOLO_VALIDAS']), confirmado: z.literal(true) })
   .strict();
 export interface ReglasEmpleado {
+  validarDigitoNit?: boolean;
   hoy: string;
   edadMinima: number;
   edadMaxima: number;

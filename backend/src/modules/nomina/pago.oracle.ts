@@ -1,3 +1,4 @@
+import { alertas } from '../tableros/tableros.repository.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
@@ -217,6 +218,34 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
   });
   afterAll(async () => {
     await db?.cerrar();
+  });
+  it('R2-6: sin salario queda excluido con alerta sin bloquear los cálculos de los demás', async () => {
+    await ejecutar(
+      "INSERT INTO EMPLEADOS(NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) SELECT 'Perfil','Incompleto','9876543210999','9876543-2',DATE '1990-01-01','F','SOLTERO','Peña #12-A','55551234','incompleto@example.test',ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,DATE '2026-01-01' FROM EMPLEADOS WHERE ID_EMPLEADO=:id",
+      { id: empleado },
+    );
+    const id = Number(
+      await escalar("SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CORREO='incompleto@example.test'"),
+    );
+    try {
+      await nov('HORAS_EXTRA', '0', '1', '2026-01', id);
+      const sim = await simular({
+        mes: '2026-01',
+        tipoPago: 'ANTICIPO',
+        objetivo: 'DEPARTAMENTO',
+        idDepartamento: dep,
+      });
+      const excluido = sim.registros.find((f: { idEmpleado: number }) => f.idEmpleado === id);
+      expect(excluido.resultado).toBeNull();
+      expect(excluido.alertas.join(' ')).toContain('Perfil incompleto: falta salario');
+      expect(sim.registros.filter((f: { resultado: unknown }) => f.resultado)).toHaveLength(2);
+      expect(sim.totales.neto).toBe('10500.00');
+      expect((await db.conConexion(alertas)).some((a) => a.tipo === 'PERFIL' && a.id === id)).toBe(
+        true,
+      );
+    } finally {
+      await ejecutar('UPDATE EMPLEADOS SET ACTIVO=0 WHERE ID_EMPLEADO=:id', { id });
+    }
   });
   it('migra calendario sin alterar importes, cantidades ni saldo; reejecución idempotente', async () => {
     expect(

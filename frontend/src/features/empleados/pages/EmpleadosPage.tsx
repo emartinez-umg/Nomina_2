@@ -233,7 +233,16 @@ export function EmpleadosPage() {
                 id: 'nombre',
                 titulo: 'Empleado',
                 ordenable: true,
-                render: (r) => <strong>{r.nombre}</strong>,
+                render: (r) => (
+                  <div>
+                    <strong>{r.nombre}</strong>
+                    {r.perfilIncompleto && (
+                      <p className="text-sm text-secundario">
+                        <strong>Perfil incompleto</strong> · Falta: {r.faltantes.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                ),
               },
               { id: 'dpi', titulo: 'DPI', render: (r) => r.dpi },
               { id: 'nit', titulo: 'NIT', render: (r) => r.nit },

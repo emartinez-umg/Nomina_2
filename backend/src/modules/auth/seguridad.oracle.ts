@@ -1057,7 +1057,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         idDepartamentoGt: 1,
         idMunicipioGt: 1,
         zona: 1,
-        numeroCasa: '12-A',
+        direccion: '12-A',
         telefono: '55551234',
         correo: `f5_${n}@example.test`,
         ...refs,
@@ -1182,7 +1182,12 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       }
       await crear({ ...datos(), sexo: 'O' }).expect(400);
       await crear({ ...datos(), nit: '6-0' }).expect(400);
-      const d = { ...datos(), nit: '6-K', idTipoContrato: fijo, fechaFinContrato: '2027-01-01' };
+      const d = {
+        ...datos(),
+        nit: '10003-K',
+        idTipoContrato: fijo,
+        fechaFinContrato: '2027-01-01',
+      };
       const n = await crear(d).expect(201);
       expect(n.body.data.empleado.codigo).toMatch(/^EMP_.*_\d{4,}$/);
       expect(n.body.data.empleado.idUsuario).toBe(n.body.data.credenciales.idUsuario);
@@ -1198,7 +1203,148 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       expect(hash).not.toContain(n.body.data.credenciales.contrasenaTemporal);
       const e = await agent.get(`/api/empleados/${n.body.data.empleado.id}`).expect(200);
       expect(e.text).not.toContain(n.body.data.credenciales.contrasenaTemporal);
-      expect(e.body.data.direccion).toBe('Casa 12-A, zona 1, Guatemala, Guatemala');
+      expect(e.body.data.direccion).toBe('12-A');
+      expect(e.body.data.direccionCompleta).toBe('12-A, zona 1, Guatemala, Guatemala');
+    });
+    it('R2-6: alta mínima, edición, grupos parciales y perfil incompleto', async () => {
+      const { agent, csrf } = await entrarCuenta('RH');
+      const d = {
+        ...datos(),
+        salarioBase: null,
+        idBanco: null,
+        cuentaBancaria: null,
+        tipoCuenta: null,
+        contactoNombre: null,
+        contactoParentesco: null,
+        contactoTelefono: null,
+        direccion: 'Colonia Peña, 3° calle #12-A / 4',
+      };
+      for (const campo of ['salarioBase', 'idBanco', 'contactoNombre'] as const)
+        await agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', csrf)
+          .send({ ...d, [campo]: datos()[campo] })
+          .expect(400);
+      const r = await agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d).expect(201);
+      const e = r.body.data.empleado;
+      expect(e.perfilIncompleto).toBe(true);
+      expect(e.faltantes).toEqual(['Salario base', 'Datos bancarios', 'Contacto de emergencia']);
+      expect(e.idUsuario).toBe(r.body.data.credenciales.idUsuario);
+      expect(
+        await escalar('SELECT COUNT(*) FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:id', {
+          id: e.id,
+        }),
+      ).toBe(0);
+      expect(
+        await escalar('SELECT COUNT(*) FROM EMPLEADO_CONTACTOS_EMERGENCIA WHERE ID_EMPLEADO=:id', {
+          id: e.id,
+        }),
+      ).toBe(0);
+      const lista = await agent.get('/api/empleados').query({ nombre: e.codigo }).expect(200);
+      expect(lista.body.data.registros[0].faltantes).toEqual(e.faltantes);
+      const edit = { ...d };
+      delete (edit as { salarioBase?: string | null }).salarioBase;
+      await agent
+        .patch(`/api/empleados/${e.id}`)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...edit, motivo: 'Corregir dirección', direccion: 'A'.repeat(100) })
+        .expect(200);
+      await agent
+        .patch(`/api/empleados/${e.id}`)
+        .set('X-CSRF-Token', csrf)
+        .send({
+          ...edit,
+          motivo: 'Completar expediente',
+          salarioBase: '5000.00',
+          idBanco: refs.idBanco,
+          cuentaBancaria: '12345678',
+          tipoCuenta: 'AHORRO',
+          contactoNombre: 'Persona Contacto',
+          contactoParentesco: 'Madre',
+          contactoTelefono: '55554321',
+        })
+        .expect(422)
+        .then((r) => expect(r.body.error.campos.salarioBase[0]).toContain('Cambiar salario'));
+      expect(
+        await escalar('SELECT COUNT(*) FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:id', {
+          id: e.id,
+        }),
+      ).toBe(0);
+      await agent
+        .patch(`/api/empleados/${e.id}`)
+        .set('X-CSRF-Token', csrf)
+        .send({
+          ...edit,
+          motivo: 'Intentar cambiar salario',
+          salarioBase: '6000.00',
+          idBanco: refs.idBanco,
+          cuentaBancaria: '12345678',
+          tipoCuenta: 'AHORRO',
+        })
+        .expect(422);
+    });
+    it('R2-6: NIT relajado único y módulo 11 configurable solo por ADMIN', async () => {
+      const { agent, csrf } = await entrarAdmin();
+      const rh = await entrarCuenta('RH');
+      const crear = (d: object) => agent.post('/api/empleados').set('X-CSRF-Token', csrf).send(d);
+      const d = { ...datos(), nit: '12345678-4' };
+      await crear(d).expect(201);
+      await crear({ ...datos(), nit: '123456784' })
+        .expect(409)
+        .then((r) => expect(r.body.error.campos).toHaveProperty('nit'));
+      const parametro = (
+        await agent
+          .get('/api/catalogos/parametros-legales')
+          .query({ buscar: 'Validar dígito NIT' })
+          .expect(200)
+      ).body.data.registros.find(
+        (p: { claveInterna: string }) => p.claveInterna === 'VALIDAR_DIGITO_NIT',
+      );
+      expect(parametro).toBeDefined();
+      const detalle = (
+        await agent.get(`/api/catalogos/parametros-legales/${parametro.id}`).expect(200)
+      ).body.data;
+      const body = {
+        codigo: detalle.codigo,
+        nombre: detalle.nombre,
+        valor: '1',
+        unidad: 'CANTIDAD',
+        vigenteDesde: detalle.vigenteDesde,
+        vigenteHasta: detalle.vigenteHasta,
+        fundamento: detalle.fundamento,
+        motivo: 'Activar para comprobar módulo once',
+        confirmado: true,
+      };
+      await rh.agent
+        .patch(`/api/catalogos/parametros-legales/${parametro.id}`)
+        .set('X-CSRF-Token', rh.csrf)
+        .send(body)
+        .expect(403);
+      await agent
+        .patch(`/api/catalogos/parametros-legales/${parametro.id}`)
+        .set('X-CSRF-Token', csrf)
+        .send(body)
+        .expect(200);
+      try {
+        expect(
+          (await agent.get('/api/empleados/reglas').expect(200)).body.data.validarDigitoNit,
+        ).toBe(true);
+        await crear({ ...datos(), nit: '1234567-4' })
+          .expect(409)
+          .then((r) => expect(r.body.error.campos.nit[0]).toContain('verificador'));
+        const preview = await agent
+          .post('/api/empleados/cargas')
+          .set('X-CSRF-Token', csrf)
+          .send({ nombreArchivo: 'nit.csv', csv: await csvDe([{ ...datos(), nit: '1234567-4' }]) })
+          .expect(201);
+        expect(preview.body.data.filas[0].errores.nit[0]).toContain('verificador');
+      } finally {
+        await agent
+          .patch(`/api/catalogos/parametros-legales/${parametro.id}`)
+          .set('X-CSRF-Token', csrf)
+          .send({ ...body, valor: '0', motivo: 'Restaurar validación desactivada' })
+          .expect(200);
+      }
     });
     it('V1-7: si falla crear usuario revierte empleado, contacto, código y auditoría', async () => {
       const { agent, csrf } = await entrarAdmin();
@@ -1425,7 +1571,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         .patch(`/api/empleados/${id}`)
         .set('X-CSRF-Token', csrf)
         .send({ ...edit, salarioBase: '9000', motivo: 'Cambio inválido' })
-        .expect(400);
+        .expect(422);
       await agent
         .patch(`/api/empleados/${id}`)
         .set('X-CSRF-Token', csrf)

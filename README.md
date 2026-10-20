@@ -351,3 +351,17 @@ R2-5 añade los catálogos **Motivos de baja**, **Zonas** y **Países** con el C
 Código postal: cinco dígitos conservando ceros; ISO: dos letras en mayúsculas. V033 no modifica
 los datos de empleados ni carga valores de ejemplo. La matriz de QA recorre cada catálogo:
 `npm run test:e2e -- --production catalogos-qa.spec.ts`; backend: `npm run verify:catalogos`.
+
+### R2-6: alta y edición de empleado por pasos
+
+En Personal → Nuevo empleado completa Datos personales y Datos laborales. Salario/banco y
+contacto de emergencia pueden quedar vacíos; completa cada grupo si lo empiezas. Guardar
+empleado muestra un resumen antes de confirmar y entrega las credenciales como antes.
+Los borradores recuperan todos los datos y el paso actual. Un perfil sin salario se muestra
+incompleto, alerta en Inicio de RH y se excluye de la simulación sin impedir pagar a los demás.
+
+V034 conserva la dirección anterior y renombra/amplía el detalle a Dirección (100 caracteres).
+Descarga de nuevo la plantilla CSV: la columna ahora es `direccion`. El NIT admite 5–12 dígitos,
+K final y guion opcionales, conservando unicidad; ADMIN puede activar módulo 11 en Parámetros
+legales → Validar dígito NIT (`VALIDAR_DIGITO_NIT`, 0 desactivado, 1 activado, unidad CANTIDAD).
+La validación fiscal de la empresa conserva sus reglas. Aplica con `docker compose up --build`.

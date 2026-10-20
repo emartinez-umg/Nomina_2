@@ -889,7 +889,7 @@
         "columna": "VALOR",
         "etiqueta": "Valor",
         "tipo": "decimal",
-        "hint": "Porcentajes en escala 0–100, montos o cantidades según la unidad. Hasta seis decimales.",
+        "hint": "Porcentajes en escala 0–100, montos o cantidades según la unidad. Hasta seis decimales. VALIDAR_DIGITO_NIT: 0 desactiva, 1 activa, CANTIDAD; solo ADMIN.",
         "requerido": true,
         "decimales": 6
       },

@@ -1,8 +1,17 @@
+import {
+  direccionValida,
+  mensajeDireccion,
+  formatoNitValido,
+  mensajeNit,
+  digitoNitValido,
+  grupoParcial,
+  camposSalariales,
+  camposContacto,
+} from '../../../../../backend/src/shared/empleados/validadores';
 import { z } from 'zod';
 import { Decimal } from 'decimal.js';
 import {
   dpiSchema,
-  nitSchema,
   telefonoSchema,
   correoSchema,
   fechaSchema,
@@ -33,18 +42,16 @@ export interface CampoEmpleado {
   required?: boolean;
   opciones?: string[];
 }
-export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
+export const secciones: {
+  titulo: string;
+  icono: 'usuario' | 'empleados' | 'planilla' | 'correo';
+  opcional?: boolean;
+  campos: CampoEmpleado[];
+}[] = [
   {
     titulo: 'Datos personales',
+    icono: 'usuario',
     campos: [
-      {
-        nombre: 'codigo',
-        label: 'Código',
-        tipo: 'texto',
-        hint: 'Código automático: EMP, código de departamento y contador. Se conserva al trasladar al empleado.',
-        max: 40,
-        required: true,
-      },
       {
         nombre: 'nombres',
         label: 'Nombres',
@@ -72,7 +79,7 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         nombre: 'nit',
         label: 'NIT',
         tipo: 'nit',
-        hint: 'Número de RTU con dígito verificador. Ejemplo: 1234567-9.',
+        hint: mensajeNit,
         required: true,
       },
       {
@@ -126,11 +133,11 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         hint: 'Del 1 al 25. Obligatoria en Guatemala.',
       },
       {
-        nombre: 'numeroCasa',
-        label: 'Número de casa/vivienda',
+        nombre: 'direccion',
+        label: 'Dirección',
         tipo: 'texto',
-        hint: 'Hasta 20 letras, números y guiones. Ejemplo: 12-A.',
-        max: 20,
+        hint: mensajeDireccion,
+        max: 100,
         required: true,
       },
       {
@@ -151,7 +158,17 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
   },
   {
     titulo: 'Datos laborales',
+    icono: 'empleados',
     campos: [
+      {
+        nombre: 'codigo',
+        label: 'Código',
+        tipo: 'texto',
+        hint: 'Código automático: EMP, código de departamento y contador. Se conserva al trasladar al empleado.',
+        max: 40,
+        required: true,
+      },
+
       ...[
         ['idDepartamento', 'Departamento'],
         ['idPuesto', 'Puesto'],
@@ -190,48 +207,17 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
     ],
   },
   {
-    titulo: 'Datos salariales',
+    titulo: 'Datos salariales y banco',
+    icono: 'planilla',
+    opcional: true,
     campos: [
       {
         nombre: 'salarioBase',
         label: 'Salario base mensual',
         tipo: 'dinero',
         hint: 'Salario mensual en quetzales, mayor a cero. Los cambios posteriores se registran en la ficha.',
-        required: true,
       },
-    ],
-  },
-  {
-    titulo: 'Contacto de emergencia',
-    campos: [
-      {
-        nombre: 'contactoNombre',
-        label: 'Nombre del contacto',
-        tipo: 'nombre',
-        hint: 'Nombre completo de la persona a contactar.',
-        max: 200,
-        required: true,
-      },
-      {
-        nombre: 'contactoParentesco',
-        label: 'Parentesco',
-        tipo: 'texto',
-        hint: 'Selecciona la relación del contacto desde el catálogo. Ejemplo: Hermano/a.',
-        max: 60,
-        required: true,
-      },
-      {
-        nombre: 'contactoTelefono',
-        label: 'Teléfono de emergencia',
-        tipo: 'telefono',
-        hint: '8 dígitos, sin código de país.',
-        required: true,
-      },
-    ],
-  },
-  {
-    titulo: 'Banco',
-    campos: [
+
       {
         nombre: 'idBanco',
         label: 'Banco',
@@ -254,6 +240,33 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
       },
     ],
   },
+  {
+    titulo: 'Contacto de emergencia',
+    icono: 'correo',
+    opcional: true,
+    campos: [
+      {
+        nombre: 'contactoNombre',
+        label: 'Nombre del contacto',
+        tipo: 'nombre',
+        hint: 'Nombre completo de la persona a contactar.',
+        max: 200,
+      },
+      {
+        nombre: 'contactoParentesco',
+        label: 'Parentesco',
+        tipo: 'texto',
+        hint: 'Selecciona la relación del contacto desde el catálogo. Ejemplo: Hermano/a.',
+        max: 60,
+      },
+      {
+        nombre: 'contactoTelefono',
+        label: 'Teléfono de emergencia',
+        tipo: 'telefono',
+        hint: '8 dígitos, sin código de país.',
+      },
+    ],
+  },
 ];
 export const todosCampos = secciones.flatMap((s) => s.campos);
 export function iniciales(d?: Empleado, hoy = hoyGuatemala()): Record<string, string> {
@@ -273,6 +286,7 @@ export function schemaFormulario(
   requiereFin?: boolean,
   codigoMunicipio?: string,
   parentescos?: string[],
+  paso?: number,
 ) {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const f of todosCampos) {
@@ -287,7 +301,14 @@ export function schemaFormulario(
         .max(f.max ?? 100)
         .regex(/^[\p{L}\p{M} '-]+$/u, 'Usa letras y espacios.');
     if (f.tipo === 'dpi') schema = dpiSchema;
-    if (f.tipo === 'nit') schema = nitSchema;
+    if (f.tipo === 'nit')
+      schema = z
+        .string()
+        .refine(formatoNitValido, mensajeNit)
+        .refine(
+          (v) => !r.validarDigitoNit || digitoNitValido(v),
+          'El dígito verificador del NIT no coincide. Revisa el número.',
+        );
     if (f.tipo === 'telefono') schema = telefonoSchema;
     if (f.tipo === 'correo') schema = correoSchema;
     if (f.tipo === 'fecha') schema = fechaSchema;
@@ -317,7 +338,7 @@ export function schemaFormulario(
   if (parentescos)
     shape.contactoParentesco = z
       .string()
-      .refine((v) => parentescos.includes(v), 'Selecciona un parentesco del catálogo.');
+      .refine((v) => !v || parentescos.includes(v), 'Selecciona un parentesco del catálogo.');
   shape.codigo = z.string().default('');
   shape.cuentaBancaria = z.string().regex(/^[A-Za-z0-9-]{0,34}$/, 'Usa letras, números o guiones.');
   shape.zona = z
@@ -326,19 +347,22 @@ export function schemaFormulario(
       (v) => v === '' || /^(?:[1-9]|1\d|2[0-5])$/.test(v),
       'Selecciona una zona del 1 al 25.',
     );
-  shape.numeroCasa = z
+  shape.direccion = z
     .string()
     .trim()
-    .min(1, 'Ingresa el número de casa/vivienda.')
-    .max(20)
-    .regex(/^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/, 'Usa letras, números y guiones. Ejemplo: 12-A.');
+    .transform((v) => v.normalize('NFC'))
+    .refine(direccionValida, mensajeDireccion);
   shape.motivo = editar
     ? z.string().trim().min(5, 'Explica el motivo con al menos 5 caracteres.').max(500)
     : z.string();
   shape.fechaHorario = z.union([z.literal(''), fechaSchema]);
+  const permitidos = paso === undefined ? null : camposPaso(paso, editar);
+  if (permitidos)
+    for (const key of Object.keys(shape)) if (!permitidos.includes(key)) shape[key] = z.any();
   return z.object(shape).superRefine((d, ctx) => {
     const add = (path: string, mensaje: string | undefined) => {
-      if (mensaje) ctx.addIssue({ code: 'custom', path: [path], message: mensaje });
+      if (mensaje && (!permitidos || permitidos.includes(path)))
+        ctx.addIssue({ code: 'custom', path: [path], message: mensaje });
     };
     if (fechaValida(d.fechaNacimiento))
       add(
@@ -355,16 +379,18 @@ export function schemaFormulario(
       add('fechaFinContrato', 'El contrato indefinido no tiene fecha de fin.');
     if (codigoMunicipio === '0101' && !d.zona)
       add('zona', 'Selecciona una zona del 1 al 25 para el municipio de Guatemala.');
-    const presentes = [d.idBanco, d.cuentaBancaria, d.tipoCuenta].filter(Boolean).length;
-    if (presentes && presentes !== 3)
-      add('cuentaBancaria', 'Completa banco, cuenta y tipo, o deja los tres vacíos.');
+    for (const campos of [camposSalariales, camposContacto]) {
+      if (grupoParcial(d, campos))
+        for (const key of campos)
+          if (!d[key]) add(key, 'Completa este grupo opcional o déjalo completamente vacío.');
+    }
   });
 }
-export function cuerpo(d: Record<string, string>, editar = false) {
+export function cuerpo(d: Record<string, string>, editar = false, salarioExistente = true) {
   const result: Record<string, unknown> = {};
   for (const f of todosCampos) {
     if (f.nombre === 'codigo') continue;
-    if (editar && f.nombre === 'salarioBase') continue;
+    if (editar && salarioExistente && f.nombre === 'salarioBase') continue;
     const v = d[f.nombre] ?? '';
     result[f.nombre] =
       v === ''
@@ -384,4 +410,26 @@ export function cuerpo(d: Record<string, string>, editar = false) {
     if (d.fechaHorario) result.fechaHorario = d.fechaHorario;
   }
   return result;
+}
+
+export function camposPaso(paso: number, editar = false) {
+  return [
+    ...(secciones[paso]?.campos.map((f) => f.nombre) ?? []),
+    ...(paso === 1 && editar ? ['fechaHorario'] : []),
+  ];
+}
+export function omisionesOpcionales(d: Record<string, string>) {
+  return [
+    ...(!d.salarioBase
+      ? [
+          'Sin salario: perfil incompleto; se excluye de la simulación y aparece en alertas del dashboard.',
+        ]
+      : []),
+    ...(!d.idBanco
+      ? ['Sin datos bancarios: no hay cuenta registrada para depositar el pago.']
+      : []),
+    ...(!d.contactoNombre
+      ? ['Sin contacto de emergencia: no habrá una persona registrada a quien avisar.']
+      : []),
+  ];
 }

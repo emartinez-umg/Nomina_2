@@ -5,6 +5,7 @@ export function CatalogoAcciones({
   fila,
   ocupado,
   puedeEditar,
+  soloLectura,
   abrir,
   estado,
   eliminar,
@@ -14,6 +15,7 @@ export function CatalogoAcciones({
   fila: Fila;
   ocupado: boolean;
   puedeEditar: boolean;
+  soloLectura?: string | undefined;
   abrir: (editar: boolean, copia?: boolean) => void;
   estado: () => void;
   eliminar: () => void;
@@ -34,7 +36,8 @@ export function CatalogoAcciones({
         variante="texto"
         soloIcono
         aria-label={`Editar registro ${fila.id}`}
-        disabled={ocupado || !puedeEditar}
+        disabled={ocupado || !puedeEditar || !!soloLectura}
+        motivoDeshabilitado={soloLectura}
         onClick={() => abrir(true)}
       />
       {cat.slug === 'horarios' && (
@@ -52,7 +55,8 @@ export function CatalogoAcciones({
         variante="texto"
         soloIcono
         aria-label={`${fila.activo ? 'Inactivar' : 'Activar'} registro ${fila.id}`}
-        disabled={ocupado}
+        disabled={ocupado || !!soloLectura}
+        motivoDeshabilitado={soloLectura}
         onClick={estado}
       />
       <Button
@@ -68,11 +72,12 @@ export function CatalogoAcciones({
         variante="texto"
         soloIcono
         aria-label={`Eliminar registro ${fila.id}`}
-        disabled={ocupado || fila.enUso}
+        disabled={ocupado || fila.enUso || !!soloLectura}
         motivoDeshabilitado={
-          fila.enUso
+          soloLectura ??
+          (fila.enUso
             ? `No se puede eliminar: lo usan ${fila.usos} registro(s). Puedes inactivarlo.`
-            : undefined
+            : undefined)
         }
         onClick={eliminar}
       />

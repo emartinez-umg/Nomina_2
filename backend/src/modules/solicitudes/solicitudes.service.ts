@@ -1,3 +1,5 @@
+import { reglas as reglasEmpleado } from '../empleados/empleados.repository.js';
+import { digitoNitValido } from '../../shared/empleados/validadores.js';
 import { membrete, firmante } from '../empresa/empresa.service.js';
 import { obtenerEmpresa } from '../empresa/empresa.repository.js';
 import { createHash } from 'node:crypto';
@@ -171,6 +173,13 @@ export function crearSolicitudesService(db: BaseDatos) {
           throw new ErrorConflicto(
             'Ya tienes una solicitud de este tipo en proceso. Consulta su historial.',
           );
+        if (d.datos && (await reglasEmpleado(c)).validarDigitoNit && !digitoNitValido(d.datos.nit))
+          throw new ErrorNegocio(
+            'El dígito verificador del NIT no coincide. Revisa el número.',
+            422,
+            'VALIDACION',
+            { nit: ['El dígito verificador del NIT no coincide. Revisa el número.'] },
+          );
         const datos = d.datos
           ? { anterior: criticosSchema.parse(eCriticos(e)), nuevo: d.datos }
           : null;
@@ -212,6 +221,10 @@ export function crearSolicitudesService(db: BaseDatos) {
             if (JSON.stringify(antes) !== JSON.stringify(eCriticos(e)))
               throw new ErrorConflicto(
                 'Los datos originales cambiaron. Rechaza esta solicitud y pide una nueva con el expediente actual.',
+              );
+            if ((await reglasEmpleado(c)).validarDigitoNit && !digitoNitValido(nuevo.nit))
+              throw new ErrorConflicto(
+                'El dígito verificador del NIT no coincide. Rechaza la solicitud y pide revisar el número.',
               );
             await repo.actualizarCriticos(c, e.id, nuevo, a.idUsuario);
             await audit(c, a, e.id, 'APROBAR_DATOS_CRITICOS', antes, nuevo, 'EMPLEADOS');
@@ -328,6 +341,7 @@ export function crearSolicitudesService(db: BaseDatos) {
       tx(auth, ip, async (c, a) => {
         const e = await miEmpleado(c, a);
         return {
+          validarDigitoNit: !!(await reglasEmpleado(c)).validarDigitoNit,
           criticos: eCriticos(e),
           contacto: {
             telefono: e.telefono,

@@ -1937,3 +1937,16 @@ erDiagram
 
 La zona domiciliaria 1–25 y MOTIVO_EGRESO de empleados conservan su significado y sus datos.
 No se infieren vínculos con estos nuevos catálogos ni se siembran países o códigos postales.
+
+## Ronda 2 — Asistente de empleados (V034)
+
+- `EMPLEADOS.NUMERO_CASA` se renombra a `DIRECCION VARCHAR2(100 CHAR)`, preservando sus valores.
+  El CHECK acepta letras, números, espacios y `. , # - / °`, con al menos una letra o número.
+- La anterior dirección compuesta de 500 caracteres se conserva como `DIRECCION_COMPLETA`;
+  `DIRECCION_ANTERIOR` permanece intacta. El portal y los documentos mantienen la dirección completa.
+- Salario y contacto opcionales se representan por ausencia de una vigencia en `HISTORIAL_SALARIAL`
+  y del contacto principal activo, respectivamente. No se crean montos cero ni contactos ficticios.
+  El estado «Perfil incompleto» y sus faltantes se calculan con esos datos, sin columna redundante.
+- `PARAMETROS_LEGALES.CLAVE_INTERNA = VALIDAR_DIGITO_NIT`: 0 por defecto; 1 activa módulo 11
+  para el NIT de empleado. Es una configuración de sistema editable solo por ADMIN, auditada y
+  ajena a los importes de periodos cerrados. La API conserva el NIT canónico con guion y el UNIQUE.

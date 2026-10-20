@@ -56,6 +56,7 @@ await enTransaccion(db, async (c) => {
     ['Revisor', 'RH'],
     ['Persona', 'EMPLEADO'],
     ['Ajeno', 'EMPLEADO'],
+    ['Destinatario', 'EMPLEADO'],
   ] as const) {
     const u = await crearUsuarioInterno(c, actor, {
       nombre,
@@ -69,6 +70,7 @@ await enTransaccion(db, async (c) => {
     );
     cuentas.push(u);
   }
+  await c.execute("INSERT INTO BANCOS(NOMBRE) VALUES ('Banco E2E')");
   await c.execute("INSERT INTO DEPARTAMENTOS (CODIGO,NOMBRE) VALUES ('E2E','Departamento E2E')");
   const dep = await scalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE CODIGO_ANTERIOR='E2E'");
   await c.execute(
@@ -99,15 +101,21 @@ await enTransaccion(db, async (c) => {
   await c.execute(
     "INSERT INTO CONFIGURACION_EMPRESA (RAZON_SOCIAL,NIT,DIRECCION,TELEFONO,CORREO) VALUES ('Empresa E2E','1234567-9','Dirección E2E','55551234','empresa@example.test')",
   );
-  for (const i of [1, 2]) {
+  // La prueba de notificaciones conserva un destinatario propio, independiente de la baja de Ajeno.
+  for (const i of [1, 2, 3]) {
+    const ingreso =
+      i === 3
+        ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Guatemala' }).format(new Date())
+        : '2026-01-01';
     await c.execute(
-      "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'E2E',:dpi,:nit,:igss,DATE '1995-01-01','F','SOLTERO','Dirección E2E','55551234',:correo,:puesto,:dep,:contrato,:centro,DATE '2026-01-01')",
+      "INSERT INTO EMPLEADOS (CODIGO,ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,AFILIACION_IGSS,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,ID_BANCO,CUENTA_BANCARIA,TIPO_CUENTA,FECHA_INGRESO) VALUES (:codigo,:usuario,:nombre,'E2E',:dpi,:nit,:igss,DATE '1995-01-01','F','SOLTERO','Dirección E2E','55551234',:correo,:puesto,:dep,:contrato,:centro,(SELECT MIN(ID_BANCO) FROM BANCOS),'12345678','AHORRO',TO_DATE(:ingreso,'YYYY-MM-DD'))",
       {
         codigo: `E2E_${i}`,
         usuario: cuentas[i]!.idUsuario,
-        nombre: i === 1 ? 'Persona' : 'Ajeno',
+        nombre: i === 1 ? 'Persona' : i === 2 ? 'Ajeno' : 'Destinatario',
+        ingreso,
         dpi: `987654321012${i}`,
-        nit: i === 1 ? '1234567-9' : '123456-0',
+        nit: i === 1 ? '1234567-9' : i === 2 ? '123456-0' : '9182735-4',
         igss: `100000${i}`,
         correo: `empleado${i}@example.test`,
         puesto,
@@ -118,12 +126,12 @@ await enTransaccion(db, async (c) => {
     );
     const id = await scalar(`SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CODIGO_ANTERIOR='E2E_${i}'`);
     await c.execute(
-      "INSERT INTO HISTORIAL_SALARIAL (ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES (:id,5000,DATE '2026-01-01','Salario E2E')",
-      { id },
+      "INSERT INTO HISTORIAL_SALARIAL (ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES (:id,5000,TO_DATE(:ingreso,'YYYY-MM-DD'),'Salario E2E')",
+      { id, ingreso },
     );
     await c.execute(
-      "INSERT INTO EMPLEADO_HORARIO (ID_EMPLEADO,ID_HORARIO,VIGENTE_DESDE,MOTIVO) VALUES (:id,:horario,DATE '2026-01-01','Horario E2E')",
-      { id, horario },
+      "INSERT INTO EMPLEADO_HORARIO (ID_EMPLEADO,ID_HORARIO,VIGENTE_DESDE,MOTIVO) VALUES (:id,:horario,TO_DATE(:ingreso,'YYYY-MM-DD'),'Horario E2E')",
+      { id, horario, ingreso },
     );
   }
 });

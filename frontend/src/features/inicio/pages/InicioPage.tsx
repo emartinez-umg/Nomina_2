@@ -304,10 +304,13 @@ export function InicioPage() {
                           </article>
                         ))
                       ) : (
-                        <p className="my-4 text-secundario">Sin alertas de periodos o contratos.</p>
+                        <p className="my-4 text-secundario">
+                          Sin alertas de periodos, contratos o perfiles incompletos.
+                        </p>
                       )}
                       <p className="campo-hint">
-                        Hasta 50 alertas; contratos dentro de 30 días y vencidos.
+                        Hasta 50 alertas: periodos abiertos, contratos por vencer o vencidos y
+                        empleados sin salario.
                       </p>
                     </Card>
                     <Card data-tour="celebraciones">

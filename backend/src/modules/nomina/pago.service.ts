@@ -100,7 +100,10 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     entradas: EntradaPago[] = [],
     registros: FilaSimulacion[] = [];
   for (const e of objetivo) {
-    const novedades = esAnual ? [] : await pago.novedades(c, d.mes, e.empleado.id);
+    const conSalario = e.salarios.some(
+      (s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio),
+    );
+    const novedades = esAnual || !conSalario ? [] : await pago.novedades(c, d.mes, e.empleado.id);
     const entrada: EntradaPago = {
       ...e,
       mes: d.mes,
@@ -124,6 +127,10 @@ async function preparar(c: Connection, d: ObjetivoPago) {
       pagado: yaPagado,
     };
     try {
+      if (!e.salarios.some((s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio)))
+        throw new ErrorConflicto(
+          'Perfil incompleto: falta salario vigente. Empleado excluido de este pago; completa el salario en su ficha y vuelve a simular.',
+        );
       if (yaPagado)
         throw new ErrorConflicto(
           'Este empleado ya tiene este pago registrado. No se permite pagarlo dos veces.',
@@ -518,7 +525,9 @@ export async function accionPeriodoMensual(
     const mes = p.inicio.slice(0, 7),
       tipo = p.inicio.endsWith('-01') ? 'ANTICIPO' : 'PAGO';
     const rango = rangoMes(mes),
-      fuentes = await repo.fuentes(c, { ...p, ...rango });
+      fuentes = (await repo.fuentes(c, { ...p, ...rango })).filter((e) =>
+        e.salarios.some((s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio)),
+      );
     const tienePagoSalarial = rs.some((n) =>
       ['ANTICIPO', 'PAGO'].includes(
         (JSON.parse(n.snapshot) as { resultado: ResultadoPago }).resultado.tipoPago,

@@ -12,7 +12,7 @@ export const columnasCsv = [
   'idDepartamentoGt',
   'idMunicipioGt',
   'zona',
-  'numeroCasa',
+  'direccion',
   'telefono',
   'correo',
   'idDepartamento',
@@ -94,7 +94,16 @@ export function leerCsv(texto: string) {
     for (const key of columnasCsv) {
       if (key.startsWith('id') || key === 'zona') d[key] = d[key] === '' ? null : Number(d[key]);
       if (
-        ['afiliacionIgss', 'fechaFinContrato', 'cuentaBancaria', 'tipoCuenta'].includes(key) &&
+        [
+          'afiliacionIgss',
+          'fechaFinContrato',
+          'cuentaBancaria',
+          'tipoCuenta',
+          'salarioBase',
+          'contactoNombre',
+          'contactoParentesco',
+          'contactoTelefono',
+        ].includes(key) &&
         d[key] === ''
       )
         d[key] = null;
@@ -137,13 +146,13 @@ export const plantillaCsv = () =>
       'LAV',
       '2026-10-15',
       '',
-      '5000.00',
       '',
       '',
       '',
-      'Contacto de emergencia',
-      'Hermano/a',
-      '55554321',
+      '',
+      '',
+      '',
+      '',
       'ACTIVO',
     ],
   ]);

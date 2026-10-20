@@ -48,7 +48,15 @@ describe('FASE V1-7: migración de empleados sin pérdida', () => {
       );
     });
     codigo = String(await scalar('SELECT CODIGO FROM EMPLEADOS'));
-    expect(await ejecutarMigraciones(db, logger)).toBe(9);
+    await db.conConexion((c) =>
+      aplicarMigraciones(
+        migraciones.filter((m) => m.version < 34),
+        crearMigracionesRepository(c),
+        logger,
+      ),
+    );
+    await enTransaccion(db, (c) => c.execute("UPDATE EMPLEADOS SET NUMERO_CASA='12-A'"));
+    expect(await ejecutarMigraciones(db, logger)).toBe(1);
   });
   afterAll(async () => {
     await db?.cerrar();
@@ -58,7 +66,7 @@ describe('FASE V1-7: migración de empleados sin pérdida', () => {
       async (c) =>
         (
           await c.execute<unknown[]>(
-            'SELECT CODIGO,DIRECCION,DIRECCION_ANTERIOR,SEXO,SEXO_ANTERIOR,ID_DEPARTAMENTO_GT,ID_MUNICIPIO_GT FROM EMPLEADOS',
+            'SELECT CODIGO,DIRECCION_COMPLETA,DIRECCION_ANTERIOR,SEXO,SEXO_ANTERIOR,ID_DEPARTAMENTO_GT,ID_MUNICIPIO_GT FROM EMPLEADOS',
           )
         ).rows![0],
     );
@@ -75,6 +83,29 @@ describe('FASE V1-7: migración de empleados sin pérdida', () => {
       'Hermana',
     );
     expect(await scalar('SELECT PARENTESCO FROM EMPLEADO_CONTACTOS_EMERGENCIA')).toBe('Hermana');
+  });
+  it('R2-6: renombra y amplía Dirección sin perder el valor ni la dirección compuesta', async () => {
+    expect(await scalar('SELECT DIRECCION FROM EMPLEADOS')).toBe('12-A');
+    expect(
+      await scalar(
+        "SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME='EMPLEADOS' AND COLUMN_NAME='NUMERO_CASA'",
+      ),
+    ).toBe(0);
+    expect(
+      await scalar(
+        "SELECT CHAR_LENGTH FROM USER_TAB_COLUMNS WHERE TABLE_NAME='EMPLEADOS' AND COLUMN_NAME='DIRECCION'",
+      ),
+    ).toBe(100);
+    await enTransaccion(db, async (c) => {
+      await c.execute('UPDATE EMPLEADOS SET DIRECCION=:direccion', { direccion: 'Á'.repeat(100) });
+    });
+    expect(await scalar('SELECT DIRECCION FROM EMPLEADOS')).toBe('Á'.repeat(100));
+    await expect(
+      enTransaccion(db, (c) => c.execute("UPDATE EMPLEADOS SET DIRECCION='@!'")),
+    ).rejects.toMatchObject({ errorNum: 2290 });
+    expect(
+      await scalar("SELECT VALOR FROM PARAMETROS_LEGALES WHERE CLAVE_INTERNA='VALIDAR_DIGITO_NIT'"),
+    ).toBe(0);
   });
   it('catálogo completo, contratos sincronizados, seeds repetibles y objetos válidos', async () => {
     expect(await scalar('SELECT COUNT(*) FROM PARENTESCOS')).toBe(12);

@@ -1,3 +1,4 @@
+import { personalesEmpleado } from './empleado.helpers.js';
 import { test, expect, type Page } from '@playwright/test';
 
 const destino = { ADMIN: '/admin', RH: '/rh', EMPLEADO: '/mis-gestiones' };
@@ -40,7 +41,7 @@ test('R2-3: campos proporcionales en escritorio y sin desbordamiento en móvil',
   ).toHaveValue('Guatemala');
   await expect(page.getByText('Cargando opciones…', { exact: true })).toHaveCount(0);
   const anchos = [];
-  for (const label of ['Número de casa/vivienda', 'Cuenta bancaria', 'Nombres']) {
+  for (const label of ['DPI', 'Correo', 'Nombres']) {
     const input = page.getByLabel(label, { exact: true });
     await expect(input).toBeVisible();
     anchos.push(
@@ -51,7 +52,7 @@ test('R2-3: campos proporcionales en escritorio y sin desbordamiento en móvil',
   expect(anchos[1]).toBeLessThan(anchos[2]!);
   expect(Math.max(...anchos)).toBeLessThan(640);
   await test.info().attach('anchos-escritorio', {
-    body: JSON.stringify({ maxLength: [20, 34, 100], anchos }),
+    body: JSON.stringify({ maxLength: [13, 254, 100], anchos }),
     contentType: 'application/json',
   });
   const compartenFila = await page.locator('.form-fields').evaluateAll((grupos) =>
@@ -65,16 +66,13 @@ test('R2-3: campos proporcionales en escritorio y sin desbordamiento en móvil',
     }),
   );
   expect(compartenFila).toBe(true);
-  const compuesto = page.locator('.campo-con-acciones').first();
-  const espacioAdicional = await compuesto.evaluate(
-    (e) =>
-      e.getBoundingClientRect().width -
-      Math.max(...[...e.children].map((h) => h.getBoundingClientRect().width)),
-  );
-  expect(espacioAdicional).toBeLessThan(2);
   await page.screenshot({ path: 'tmp/pdfs/r2-3-empleado-escritorio.png', fullPage: true });
   await page.setViewportSize({ width: 1024, height: 900 });
   for (const label of ['Fecha de nacimiento', 'Fecha de ingreso']) {
+    if (label === 'Fecha de ingreso') {
+      await personalesEmpleado(page, 'Tamaño Persona');
+      await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
+    }
     await page.getByRole('button', { name: `Seleccionar ${label}`, exact: true }).click();
     const calendario = page.getByRole('dialog', { name: `Calendario: ${label}`, exact: true });
     const caja = await calendario.boundingBox();
@@ -375,7 +373,7 @@ test.describe('R2-2: estructura visual compartida', () => {
       const empleado = await contexto.newPage();
       await entrar(empleado, 'EMPLEADO');
       const ajeno = await contextoAjeno.newPage();
-      await entrar(ajeno, 'EMPLEADO', 'ajeno.pruebas');
+      await entrar(ajeno, 'EMPLEADO', 'destinatario.pruebas');
       const consulta = async () =>
         (await (await empleado.request.get('/api/notificaciones')).json()).data;
       const previas = await consulta();

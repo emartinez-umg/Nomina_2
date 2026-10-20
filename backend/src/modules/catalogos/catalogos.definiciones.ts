@@ -513,7 +513,7 @@ export const catalogos: Catalogo[] = [
         'VALOR',
         'Valor',
         'decimal',
-        'Porcentajes en escala 0–100, montos o cantidades según la unidad. Hasta seis decimales.',
+        'Porcentajes en escala 0–100, montos o cantidades según la unidad. Hasta seis decimales. VALIDAR_DIGITO_NIT: 0 desactiva, 1 activa, CANTIDAD; solo ADMIN.',
         { requerido: true, decimales: 6 },
       ),
       campo(

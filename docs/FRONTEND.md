@@ -323,3 +323,22 @@ confirmación y alcanza también los anteriores a los 30 visibles. DELETE `/api/
 y DELETE `/api/notificaciones` (`confirmado: true`) exigen sesión, cambio de contraseña y CSRF.
 El servidor toma el propietario de la sesión, aplica borrado lógico y audita en la misma transacción;
 una notificación ajena o retirada devuelve 404. La consulta y el contador se actualizan tras éxito.
+
+### R2-6 — Asistente de empleado
+
+Alta y edición comparten cuatro pasos: personales, laborales, salariales/banco y emergencia.
+Los dos últimos son opcionales; si se comienza un grupo, se completa todo el paso o se vacía.
+Siguiente valida el paso; Anterior y el indicador permiten regresar a pasos visitados. Los
+pasos con errores quedan marcados. Guardar empleado se habilita con los dos primeros válidos,
+valida todos los grupos y abre un resumen con omisiones y consecuencias antes de confirmar.
+El salario inicial se puede completar al editar cuando no hay historial; los cambios posteriores
+usan Cambiar salario. Se conservan las protecciones de vigencias y periodos cerrados.
+
+El borrador de empleado versión 8 conserva todos los valores y el paso. Al descartar vuelve al
+primer paso; versiones anteriores se descartan por el cambio de estructura. Las credenciales
+siguen fuera del borrador y se entregan una sola vez con copia y PDF.
+
+Dirección permite 100 caracteres con acentos/ñ, números, espacios y `. , # - / °`; el NIT admite
+5–12 dígitos, K final y guion opcionales. VALIDAR_DIGITO_NIT permite a ADMIN activar módulo 11.
+La ficha y el listado enumeran faltantes; sin salario vigente se excluye de la simulación con
+alerta y se enlaza la ficha desde el dashboard. La ayuda se inicia manualmente en cada paso.

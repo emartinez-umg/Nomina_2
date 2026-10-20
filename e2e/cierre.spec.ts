@@ -1,3 +1,4 @@
+import { personalesEmpleado } from './empleado.helpers.js';
 import { test, expect, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { AxeBuilder } from '@axe-core/playwright';
@@ -281,6 +282,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
   test('FASE V1-12: aguinaldo proporcional confirmado y boleta privada', async ({
     page,
     browser,
+    baseURL,
   }) => {
     await entrar(page, 'RH');
     await page.goto('/nomina/simular');
@@ -312,28 +314,23 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await salir(page);
     await entrar(page, 'EMPLEADO');
     expect((await page.request.get(`/api/nomina/boletas/${id}/pdf`)).status()).toBe(200);
-    const ajeno = await browser.newContext();
-    const token = (await (await ajeno.request.get('http://127.0.0.1:5178/api/auth/csrf')).json())
-      .data.csrfToken;
+    const ajeno = await browser.newContext({ baseURL: baseURL!, ignoreHTTPSErrors: true });
+    const token = (await (await ajeno.request.get('/api/auth/csrf')).json()).data.csrfToken;
     expect(
       (
-        await ajeno.request.post('http://127.0.0.1:5178/api/auth/login', {
+        await ajeno.request.post('/api/auth/login', {
           headers: { 'X-CSRF-Token': token },
           data: { usuario: 'ajeno.pruebas', contrasena: process.env.E2E_PASSWORD },
         })
       ).status(),
     ).toBe(200);
-    expect(
-      (await ajeno.request.get(`http://127.0.0.1:5178/api/nomina/boletas/${id}/pdf`)).status(),
-    ).toBe(403);
+    expect((await ajeno.request.get(`/api/nomina/boletas/${id}/pdf`)).status()).toBe(403);
     await ajeno.close();
   });
 
   test('FASE V1-7: alta guiada de empleado y validaciones de formato/fechas', async ({ page }) => {
     await entrar(page, 'RH');
     await page.goto('/empleados/nuevo');
-    await expect(page.getByLabel('Código', { exact: true })).toBeVisible();
-    await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
     await page.getByLabel('Nombres', { exact: true }).fill('Nueva123 Persona');
     expect(await page.getByLabel('Nombres', { exact: true }).inputValue()).toBe('Nueva Persona');
     await page.getByLabel('Apellidos', { exact: true }).fill('Prueba');
@@ -346,10 +343,13 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await elegir(page, 'Sexo', 'Femenino');
     await elegir(page, 'Estado civil', 'SOLTERO');
     await elegir(page, 'Zona', 'Zona 1');
-    await page.getByLabel('Número de casa/vivienda', { exact: true }).fill('12-A');
+    await page.getByLabel('Dirección', { exact: true }).fill('12-A');
     await page.getByLabel('Teléfono', { exact: true }).fill('55552222');
     await page.getByLabel('Correo', { exact: true }).fill('alta@example.test');
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
     await elegir(page, 'Departamento', 'Departamento E2E');
+    await expect(page.getByLabel('Código', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
     await elegir(page, 'Puesto', 'Analista E2E');
     await expect(page.getByLabel('Fecha de ingreso', { exact: true })).toHaveValue(visible(hoy));
     await elegir(page, 'Tipo de contrato', 'A plazo fijo');
@@ -361,7 +361,12 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await elegir(page, 'Centro de trabajo', 'Centro E2E');
     await elegir(page, 'Horario', 'Horario E2E');
     await page.getByLabel('Fecha de ingreso', { exact: true }).fill(visible(hoy));
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
     await page.getByLabel('Salario base mensual', { exact: true }).fill('5000');
+    await elegir(page, 'Banco', 'Banco E2E');
+    await page.getByLabel('Cuenta bancaria', { exact: true }).fill('12345678');
+    await elegir(page, 'Tipo de cuenta', 'AHORRO');
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
     await page.getByLabel('Nombre del contacto', { exact: true }).fill('Contacto Prueba');
     await elegir(page, 'Parentesco', 'Hermano/a');
     await page.getByLabel('Teléfono de emergencia', { exact: true }).fill('55553333');
@@ -377,6 +382,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await page.screenshot({ path: 'tmp/pdfs/empleado-v1-7-movil.png', fullPage: true });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('button', { name: 'Guardar empleado', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar y guardar empleado', exact: true }).click();
     await expect(
       page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
     ).toBeVisible();
@@ -404,20 +410,23 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     expect(previo.nombres).toBe('Nueva Persona');
     expect(previo.apellidos).toBe('Prueba');
     await page.getByRole('button', { name: 'Editar', exact: true }).click();
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
     await expect(page.getByLabel('Código', { exact: true })).toHaveValue(previo.codigo);
     await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
+    await page.getByRole('button', { name: 'Anterior', exact: true }).click();
     await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
       'Guatemala',
     );
-    await page.getByLabel('Número de casa/vivienda', { exact: true }).fill('12-B');
+    await page.getByLabel('Dirección', { exact: true }).fill('12-B');
     await page
       .getByLabel('Motivo de edición', { exact: true })
       .fill('Corrección de vivienda del empleado');
     await page.getByRole('button', { name: 'Guardar empleado', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar y guardar empleado', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/empleados/${id}$`));
     const posterior = (await (await page.request.get(`/api/empleados/${id}`)).json()).data;
     expect(posterior.codigo).toBe(previo.codigo);
-    expect(posterior.numeroCasa).toBe('12-B');
+    expect(posterior.direccion).toBe('12-B');
     await page.getByRole('button', { name: 'Restablecer contraseña', exact: true }).click();
     await page
       .getByLabel('Motivo del restablecimiento', { exact: true })
@@ -451,8 +460,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     const encabezado = plantilla.replace(/^\uFEFF/, '').split('\r\n')[0]!;
     const columnas = encabezado.split(',').map((v) => v.replaceAll('"', ''));
     const filas = [
-      { nombres: 'Carga', dpi: '3456789012345', nit: '6-K', sexo: 'F' },
-      { nombres: 'Otra', dpi: '3456789012346', nit: '12-4', sexo: 'M' },
+      { nombres: 'Carga', dpi: '3456789012345', nit: '10003-K', sexo: 'F' },
+      { nombres: 'Otra', dpi: '3456789012346', nit: '10004-8', sexo: 'M' },
     ].map(
       (d, index) =>
         ({
@@ -464,7 +473,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
           idDepartamentoGt: lugar.idDepartamentoGt,
           idMunicipioGt: lugar.id,
           zona: 1,
-          numeroCasa: '13-A',
+          direccion: '13-A',
           codigoHorario: horario.codigo,
           fechaIngreso: hoy,
           fechaFinContrato: null,
@@ -872,8 +881,12 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await entrar(page, 'EMPLEADO');
     expect((await page.request.get(`/api/solicitudes/${id}/documento`)).status()).toBe(200);
   });
-  test('RBAC, recursos propios y tiempos de consultas reales', async ({ page, browser }) => {
-    const anon = await browser.newContext();
+  test('RBAC, recursos propios y tiempos de consultas reales', async ({
+    page,
+    browser,
+    baseURL,
+  }) => {
+    const anon = await browser.newContext({ baseURL: baseURL!, ignoreHTTPSErrors: true });
     for (const ruta of [
       '/usuarios',
       '/auditoria',
@@ -895,7 +908,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       '/novedades/pendientes?mes=2026-01',
       '/nomina/pagos/zip?mes=2026-01',
     ])
-      expect((await anon.request.get(`http://127.0.0.1:5178/api${ruta}`)).status()).toBe(401);
+      expect((await anon.request.get(`/api${ruta}`)).status()).toBe(401);
     await anon.close();
     await entrar(page, 'EMPLEADO');
     for (const ruta of [
@@ -917,18 +930,14 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     const propias = (await (await page.request.get('/api/solicitudes')).json()).data.registros;
     const documento = propias.find((s: { tipo: string }) => s.tipo === 'CONSTANCIA_LABORAL').id;
     expect((await page.request.get(`/api/solicitudes/${documento}/documento`)).status()).toBe(200);
-    const ajeno = await browser.newContext();
-    const r = await ajeno.request.get('http://127.0.0.1:5178/api/auth/csrf');
-    const login = await ajeno.request.post('http://127.0.0.1:5178/api/auth/login', {
+    const ajeno = await browser.newContext({ baseURL: baseURL!, ignoreHTTPSErrors: true });
+    const r = await ajeno.request.get('/api/auth/csrf');
+    const login = await ajeno.request.post('/api/auth/login', {
       headers: { 'X-CSRF-Token': (await r.json()).data.csrfToken },
       data: { usuario: 'ajeno.pruebas', contrasena: process.env.E2E_PASSWORD },
     });
     expect(login.status()).toBe(200);
-    expect(
-      (
-        await ajeno.request.get(`http://127.0.0.1:5178/api/solicitudes/${documento}/documento`)
-      ).status(),
-    ).toBe(403);
+    expect((await ajeno.request.get(`/api/solicitudes/${documento}/documento`)).status()).toBe(403);
     await ajeno.close();
     await page.context().clearCookies();
     await entrar(page, 'ADMIN');
@@ -1117,7 +1126,7 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
     await entrar(page, 'RH');
     await page.goto('/empleados/nuevo');
     await page.getByLabel('Nombres', { exact: true }).fill('Borrador Persona');
-    await page.getByLabel('Nombre del contacto', { exact: true }).fill('Contacto Borrador');
+    await page.getByLabel('Dirección', { exact: true }).fill('Contacto Borrador');
     await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
     await page.close();
     const volver = await context.newPage();
@@ -1126,9 +1135,7 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
     await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('');
     await volver.getByRole('button', { name: 'Continuar', exact: true }).click();
     await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('Borrador Persona');
-    await expect(volver.getByLabel('Nombre del contacto', { exact: true })).toHaveValue(
-      'Contacto Borrador',
-    );
+    await expect(volver.getByLabel('Dirección', { exact: true })).toHaveValue('Contacto Borrador');
     const axe = await new AxeBuilder({ page: volver })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
       .analyze();
@@ -1376,7 +1383,8 @@ test('FASE V1-6: bloques, borrador, duplicado y horario desde empleado', async (
   expect(duplicado.status()).toBe(201);
   expect((await duplicado.json()).data.codigo).not.toBe(horario.codigo);
   await page.goto('/empleados/nuevo');
-  await page.getByRole('textbox', { name: 'Nombres', exact: true }).fill('Ficha en progreso');
+  await personalesEmpleado(page, 'Ficha en progreso');
+  await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
   await page.getByRole('button', { name: 'Crear horario personalizado', exact: true }).click();
   const modal = page.getByRole('dialog', { name: 'Crear · Horarios laborales', exact: true });
   await expect(modal).toBeVisible();
@@ -1391,9 +1399,11 @@ test('FASE V1-6: bloques, borrador, duplicado y horario desde empleado', async (
   await modal.getByRole('button', { name: 'Guardar', exact: true }).click();
   expect((await desdeFicha).status()).toBe(201);
   await expect(modal).not.toBeVisible();
+  await page.getByRole('button', { name: 'Anterior', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Nombres', exact: true })).toHaveValue(
     'Ficha en progreso',
   );
+  await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Horario', exact: true })).toHaveValue(
     'Horario dentro expediente',
   );

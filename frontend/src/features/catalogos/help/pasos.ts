@@ -9,7 +9,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             elemento: 'catalogo-formulario',
             titulo: `Registrar ${cat.titulo.toLowerCase()}`,
             descripcion: cat.legal
-              ? 'Los valores se conservan por vigencia. Para cambiar un valor histórico, selecciona una fecha posterior al último periodo cerrado; no cambies el código ni su unidad. Al guardar revisarás una advertencia con los valores anteriores y nuevos.'
+              ? 'VALIDAR_DIGITO_NIT es una configuración de sistema: solo ADMIN cambia su valor (0 desactiva, 1 activa, unidad CANTIDAD), con motivo y confirmación. Su cambio no afecta pagos cerrados. Los valores financieros se conservan por vigencia. Para cambiar un valor histórico, selecciona una fecha posterior al último periodo cerrado; no cambies el código ni su unidad. Al guardar revisarás una advertencia con los valores anteriores y nuevos.'
               : 'Los nombres requieren dos caracteres y una letra. Se recortan y colapsan espacios; se permiten letras con acentos, ñ/ü, números y punto, coma, guion, barra, &, paréntesis y apóstrofo. Los demás símbolos se bloquean al escribir o pegar. No se admiten duplicados aunque cambien acentos o mayúsculas. Si existe uno inactivo, Reactivar abre su confirmación con motivo. Completa los campos obligatorios. Los formatos se guían mientras escribes; los errores se muestran al salir de cada campo y antes de guardar.',
           },
           ...cat.campos.map((f) => ({

@@ -1,4 +1,4 @@
-# Gestión de empleados — FASE V1-7
+# Gestión de empleados — R2-6
 
 ## Uso
 
@@ -7,21 +7,25 @@ Antes del alta, crear departamentos, puestos, jefaturas opcionales, centros de t
 activos en Catálogos. Bancos se administran allí cuando se utiliza depósito bancario.
 Los IDs de los catálogos se obtienen de sus exportaciones CSV o APIs; no se deben inventar.
 
-El formulario separa datos personales, laborales, salario, contacto principal de emergencia y banco.
+El asistente comparte alta y edición en cuatro pasos: personales, laborales, salario/banco y emergencia.
+Los pasos 3 y 4 pueden omitirse. Si se empieza un paso opcional, hay que completar el grupo entero.
+Siguiente valida el paso; Anterior y los visitados permiten regresar. Guardar se habilita con los dos
+primeros válidos y abre un resumen con las omisiones y consecuencias antes de confirmar.
 Código EMP_<departamento>_<contador> automático e inmutable; la vista previa no reserva números.
 Residencia con UbicacionSelect: Guatemala/Guatemala por defecto solo en altas, zona 1–25 obligatoria
-en el municipio de Guatemala, y número de vivienda alfanumérico con guiones (12-A). Edición muestra
+en el municipio de Guatemala, y Dirección de hasta 100 caracteres con letras (acentos/ñ), números,
+espacios y `. , # - / °`, con al menos una letra o número. Edición muestra
 DIRECCION_ANTERIOR como referencia y exige completar la ubicación real de los históricos.
 Sexo solo Masculino/Femenino; parentesco desde PARENTESCOS; datos históricos ajenos a las opciones
 se conservan para revisión. La fecha de ingreso comienza en hoy de Guatemala. REQUIERE_FECHA_FIN
 exige fin posterior al ingreso; indefinido mantiene vacío/bloqueado el campo y cambiar tipo lo ajusta.
 La creación inline usa ConstructorHorario, selecciona el ID real y mantiene el borrador del empleado.
 Las fechas se muestran como dd/mm/aaaa; la API y el CSV utilizan aaaa-mm-dd.
-DPI tiene 13 dígitos; NIT verifica módulo 11 (incluido K); teléfonos tienen 8 dígitos.
+DPI tiene 13 dígitos; NIT acepta 5–12 dígitos, K final y guion opcionales; módulo 11 solo si ADMIN activa VALIDAR_DIGITO_NIT; teléfonos tienen 8 dígitos.
 DPI, NIT, afiliación IGSS, correo y código son únicos también frente a expedientes egresados.
-Banco, cuenta y tipo son opcionales como conjunto. Puesto y jefatura deben pertenecer al departamento.
+Salario, banco, cuenta y tipo son opcionales como conjunto. El contacto principal también es opcional como grupo. Puesto y jefatura deben pertenecer al departamento.
 
-El salario y horario iniciales comienzan en la fecha de ingreso. El ingreso queda protegido tras el alta.
+Si se registra, el salario inicial y el horario comienzan en la fecha de ingreso. El ingreso queda protegido tras el alta.
 Cambiar horario requiere fecha efectiva y motivo. Las nuevas vigencias salariales y de horario deben
 ser posteriores a la última registrada, incluidas las programadas, y al último periodo cerrado.
 No se modifica la asignación laboral de un expediente con periodos cerrados; se conserva su historia.
@@ -51,7 +55,7 @@ con dos decimales; se validan con Decimal y se convierten en Oracle con NLS expl
 ## Usuarios y credenciales
 
 El alta siempre genera únicamente rol EMPLEADO, usando primer nombre y primer apellido sin acentos,
-y sufijo desde 2 si está ocupado. Usuario, contacto, salario, horario y auditoría forman una transacción.
+y sufijo desde 2 si está ocupado. Usuario, datos opcionales presentes, horario y auditoría forman una transacción.
 La contraseña temporal aleatoria se muestra una sola vez y permite copiar o descargar un PDF membretado. Se mantiene solo
 en memoria del componente, fuera de TanStack Query, almacenamiento local, reportes, logs y auditoría.
 El modal exige copiar/descargar y confirmar antes de cerrar; el PDF se descarga una sola vez.
@@ -117,3 +121,16 @@ Referencias: idDepartamento, idPuesto, idJefatura, idTipoContrato, idCentroTraba
 provocado con triggers de prueba. No modifica empleados/cuentas reales.
 `npm run verify:security -- --docker` utiliza la imagen `nomina2-security-tests` (Node 20):
 `docker build --target build -f backend/Dockerfile -t nomina2-security-tests .`.
+
+## Perfil incompleto y migración R2-6
+
+Listado y ficha enumeran los datos opcionales pendientes. Sin salario vigente se excluye de la
+simulación con una alerta; no bloquea el cálculo ni el pago de los demás. Inicio de RH muestra
+la alerta con enlace a la ficha. Se puede agregar el salario inicial al editar sin historial;
+las nuevas vigencias mantienen la protección de periodos cerrados y Cambiar salario.
+
+V034 renombra NUMERO_CASA a DIRECCION y amplía a 100 caracteres sin perder valores. Conserva
+la dirección compuesta en DIRECCION_COMPLETA y la referencia histórica DIRECCION_ANTERIOR.
+La nueva plantilla CSV usa direccion y admite los pasos opcionales vacíos, con rechazo de grupos
+parciales. Descarga de nuevo cualquier plantilla anterior. El borrador versión 8 conserva todos
+los valores, paso y pasos visitados; credenciales, contraseñas y PDF quedan fuera del borrador.

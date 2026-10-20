@@ -30,7 +30,11 @@ export const contactoSchema = z.object({
   contactoParentesco: z.string(),
   contactoTelefono: z.string(),
 });
-export const datosSchema = z.object({ criticos: criticosSchema, contacto: contactoSchema });
+export const datosSchema = z.object({
+  criticos: criticosSchema,
+  contacto: contactoSchema,
+  validarDigitoNit: z.boolean().optional(),
+});
 export type MisDatos = z.infer<typeof datosSchema>;
 const fila = z.object({
   vehiculo: z.string().nullable().optional(),

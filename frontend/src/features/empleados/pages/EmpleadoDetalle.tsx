@@ -80,6 +80,15 @@ export function EmpleadoDetallePage() {
         {empleado.usuario ? 'Acceso al portal habilitado' : 'Sin usuario generado'}
       </p>
 
+      {empleado.perfilIncompleto && (
+        <div className="alerta my-4" data-tour="empleado-perfil">
+          <strong>Perfil incompleto</strong>
+          <p>Falta: {empleado.faltantes.join(', ')}.</p>
+          {!empleado.salarioBase && (
+            <p>Excluido de la simulación de planilla hasta registrar un salario vigente.</p>
+          )}
+        </div>
+      )}
       <div className="my-5 flex flex-wrap gap-3">
         <Button icono="anterior" variante="secundario" onClick={() => nav('/empleados')}>
           Volver
@@ -437,7 +446,10 @@ function Accion({
                     draft.limpiar();
                     if (Array.isArray(guardado.advertencias))
                       for (const aviso of guardado.advertencias) toast(aviso, 'peligro');
-                    await cliente.invalidateQueries({ queryKey: ['empleados'] });
+                    await Promise.all([
+                      cliente.invalidateQueries({ queryKey: ['empleados'] }),
+                      cliente.invalidateQueries({ queryKey: ['tablero'] }),
+                    ]);
                     toast('Cambio guardado y auditado.');
                     cerrar();
                   })

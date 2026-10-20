@@ -6,7 +6,7 @@ export const ayudaSimular: DefinicionAyuda = {
       elemento: 'pago-objetivo',
       titulo: 'Elige qué pago revisar',
       descripcion:
-        'Anticipo corresponde al día 15 e incluye la mitad del salario mensual prorrateado, la bonificación completa ajustada por ausencias y las comisiones y horas extra cargadas. No retiene descuentos. Pago del mes corresponde al último día calendario: devengado completo menos anticipo, IGSS, ISR y descuentos mensuales. La fecha es informativa y no se mueve por feriados. Bono 14 se paga en julio y Aguinaldo en diciembre. Se calculan desde contratación con promedio de salario, comisiones y horas extra del ciclo, proporcional por días / 365 hasta completar un año. La indemnización individual está en Prestaciones.',
+        'Los empleados sin salario vigente se excluyen con alerta de Perfil incompleto; los demás pueden pagarse. Completa el salario desde la ficha y vuelve a simular. Anticipo corresponde al día 15 e incluye la mitad del salario mensual prorrateado, la bonificación completa ajustada por ausencias y las comisiones y horas extra cargadas. No retiene descuentos. Pago del mes corresponde al último día calendario: devengado completo menos anticipo, IGSS, ISR y descuentos mensuales. La fecha es informativa y no se mueve por feriados. Bono 14 se paga en julio y Aguinaldo en diciembre. Se calculan desde contratación con promedio de salario, comisiones y horas extra del ciclo, proporcional por días / 365 hasta completar un año. La indemnización individual está en Prestaciones.',
     },
     {
       elemento: 'pago-simular',

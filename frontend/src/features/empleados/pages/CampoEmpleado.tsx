@@ -1,3 +1,4 @@
+import { limpiarDireccion } from '../../../../../backend/src/shared/empleados/validadores';
 import { useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { CampoProps } from '../../../components/forms/Field';
@@ -110,13 +111,13 @@ export function CampoEmpleado({
 }) {
   if (campo.nombre === 'contactoParentesco')
     return <ParentescoField {...props} parentescoAnterior={parentescoAnterior} />;
-  if (campo.nombre === 'numeroCasa')
+  if (campo.nombre === 'direccion')
     return (
       <InputField
         {...props}
-        maxLength={20}
-        sanitizar={(v) => v.replace(/[^A-Za-z0-9-]/g, '')}
-        pattern="[A-Za-z0-9]+(-[A-Za-z0-9]+)*"
+        maxLength={100}
+        sanitizar={limpiarDireccion}
+        pattern="[\p{L}\p{M}0-9 .,#\/°\-]+"
       />
     );
   if (campo.tipo === 'referencia') return <RefField {...props} departamento={departamento} />;
@@ -138,7 +139,8 @@ export function CampoEmpleado({
       </>
     );
   if (campo.tipo === 'dpi') return <DpiField {...props} />;
-  if (campo.tipo === 'nit') return <NitField {...props} />;
+  if (campo.tipo === 'nit')
+    return <NitField {...props} validarDigito={reglas?.validarDigitoNit ?? false} />;
   if (campo.tipo === 'telefono') return <PhoneField {...props} />;
   if (campo.tipo === 'correo') return <EmailField {...props} />;
   if (campo.tipo === 'dinero') return <MoneyField {...props} />;

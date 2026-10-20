@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { es } from 'react-day-picker/locale';
 import { Field } from './Field';
@@ -21,6 +21,25 @@ export function DateField({
   const [abierto, setAbierto] = useState(false);
   const [tocado, setTocado] = useState(false);
   const [borrador, setBorrador] = useState<string | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!abierto || !panel.current) return;
+    const elemento = panel.current;
+    const ajustar = () => {
+      // Conserva el tamaño de los días incluso si el campo está al borde de la pantalla.
+      elemento.style.marginLeft = '0px';
+      const caja = elemento.getBoundingClientRect();
+      elemento.style.marginLeft = `${Math.max(16 - caja.left, Math.min(0, window.innerWidth - 16 - caja.right))}px`;
+    };
+    ajustar();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(ajustar);
+    observer?.observe(elemento);
+    window.addEventListener('resize', ajustar);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', ajustar);
+    };
+  }, [abierto]);
   const iso = fechaIso(props.value);
   const noPermitida = (v: string) => !!((min && v < min) || (max && v > max) || deshabilitar?.(v));
   const localError =
@@ -96,6 +115,7 @@ export function DateField({
       </div>
       {abierto && (
         <div
+          ref={panel}
           role="dialog"
           aria-label={`Calendario: ${props.label}`}
           className="calendario"

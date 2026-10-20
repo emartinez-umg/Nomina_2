@@ -34,7 +34,7 @@ export async function empleado(c: Connection, id: number) {
   return (
     await filas<Empleado>(
       c,
-      `SELECT E.ID_EMPLEADO "id", E.ID_USUARIO "usuario", E.NOMBRES "nombres", E.APELLIDOS "apellidos", E.DPI "dpi", E.NIT "nit", E.ESTADO_CIVIL "estadoCivil", E.TELEFONO "telefono", E.DIRECCION "direccion", E.CORREO "correo", E.ESTADO "estado", TO_CHAR(E.FECHA_INGRESO,'YYYY-MM-DD') "ingreso", TO_CHAR(E.FECHA_EGRESO,'YYYY-MM-DD') "egreso", E.AFILIACION_IGSS "afiliacionIgss", P.NOMBRE "puesto", D.NOMBRE "departamento", C.NOMBRE "contactoNombre", C.PARENTESCO "contactoParentesco", C.TELEFONO "contactoTelefono" FROM EMPLEADOS E JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO LEFT JOIN EMPLEADO_CONTACTOS_EMERGENCIA C ON C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1 WHERE E.ID_EMPLEADO=:id AND E.ACTIVO=1`,
+      `SELECT E.ID_EMPLEADO "id", E.ID_USUARIO "usuario", E.NOMBRES "nombres", E.APELLIDOS "apellidos", E.DPI "dpi", E.NIT "nit", E.ESTADO_CIVIL "estadoCivil", E.TELEFONO "telefono", COALESCE(E.DIRECCION_COMPLETA,E.DIRECCION,E.DIRECCION_ANTERIOR) "direccion", E.CORREO "correo", E.ESTADO "estado", TO_CHAR(E.FECHA_INGRESO,'YYYY-MM-DD') "ingreso", TO_CHAR(E.FECHA_EGRESO,'YYYY-MM-DD') "egreso", E.AFILIACION_IGSS "afiliacionIgss", P.NOMBRE "puesto", D.NOMBRE "departamento", C.NOMBRE "contactoNombre", C.PARENTESCO "contactoParentesco", C.TELEFONO "contactoTelefono" FROM EMPLEADOS E JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO LEFT JOIN EMPLEADO_CONTACTOS_EMERGENCIA C ON C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1 WHERE E.ID_EMPLEADO=:id AND E.ACTIVO=1`,
       { id },
     )
   )[0];
@@ -254,7 +254,7 @@ export async function notificar(c: Connection, s: Solicitud, estado: string, act
 }
 export async function actualizarContacto(c: Connection, id: number, d: Contacto, actor: number) {
   await c.execute(
-    'UPDATE EMPLEADOS SET TELEFONO=:telefono,DIRECCION=:direccion,CORREO=:correo,MODIFICADO_POR=:actor WHERE ID_EMPLEADO=:id',
+    'UPDATE EMPLEADOS SET TELEFONO=:telefono,DIRECCION_COMPLETA=:direccion,CORREO=:correo,MODIFICADO_POR=:actor WHERE ID_EMPLEADO=:id',
     { id, telefono: d.telefono, direccion: d.direccion, correo: d.correo, actor },
   );
   await c.execute(

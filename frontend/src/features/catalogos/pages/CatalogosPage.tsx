@@ -507,6 +507,11 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                     fila={fila}
                     ocupado={ocupado}
                     puedeEditar={permitidoCrear}
+                    soloLectura={
+                      fila.claveInterna === 'VALIDAR_DIGITO_NIT' && usuario?.rol !== 'ADMIN'
+                        ? 'Solo ADMIN puede configurar la verificación del dígito NIT.'
+                        : undefined
+                    }
                     abrir={(editar, copia) => void abrir(fila, editar, copia)}
                     estado={() => setAccion({ fila, tipo: 'estado' })}
                     eliminar={() => setAccion({ fila, tipo: 'eliminar' })}

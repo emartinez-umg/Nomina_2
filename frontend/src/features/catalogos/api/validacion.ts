@@ -40,6 +40,17 @@ export function valoresIniciales(cat: Catalogo, fila?: Fila): Record<string, str
   }
   return d;
 }
+export function esPoliticaNit(cat: Catalogo, d: Record<string, unknown>) {
+  const clave =
+    d.claveInterna ??
+    String(d.nombre ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase()
+      .replace(/ +/g, '_');
+  return cat.slug === 'parametros-legales' && clave === 'VALIDAR_DIGITO_NIT';
+}
 export function schemaFormulario(
   cat: Catalogo,
   cierre: string | null,
@@ -47,6 +58,7 @@ export function schemaFormulario(
   anteriores?: BloqueHorario[],
 ) {
   return z.record(z.string()).superRefine((d, ctx) => {
+    const politicaNit = esPoliticaNit(cat, d);
     const error = (campo: string, mensaje: string) =>
       ctx.addIssue({ code: 'custom', path: [campo], message: mensaje });
     for (const f of cat.campos) {
@@ -97,6 +109,11 @@ export function schemaFormulario(
       if (f.tipo === 'opcion' && !f.opciones?.includes(v))
         error(f.nombre, 'Selecciona una opción de la lista.');
     }
+    if (politicaNit && (!['0', '1'].includes(d.valor ?? '') || d.unidad !== 'CANTIDAD'))
+      error(
+        'valor',
+        'Usa 0 para desactivar o 1 para activar la validación del dígito NIT (unidad CANTIDAD).',
+      );
     if (cat.slug === 'parametros-legales' && /^\d+(\.\d+)?$/.test(d.valor ?? '')) {
       const valor = new Decimal(d.valor!);
       const clave =
@@ -131,7 +148,7 @@ export function schemaFormulario(
       error('salarioMaximo', 'Ingresa ambos límites; el máximo debe ser igual o mayor al mínimo.');
     if (d.vigenteHasta && d.vigenteDesde! > d.vigenteHasta)
       error('vigenteHasta', 'La fecha final debe ser igual o posterior a la inicial.');
-    if (cierre && d.vigenteDesde && d.vigenteDesde <= cierre)
+    if (cierre && d.vigenteDesde && d.vigenteDesde <= cierre && !politicaNit)
       error('vigenteDesde', 'La vigencia debe comenzar después del último periodo cerrado.');
     if (
       cat.slug === 'tramos-isr' &&

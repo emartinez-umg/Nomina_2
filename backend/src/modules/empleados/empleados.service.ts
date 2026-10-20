@@ -1,3 +1,9 @@
+import { nitValido } from './empleados.schemas.js';
+import {
+  normalizarNit,
+  grupoParcial,
+  camposSalariales,
+} from '../../shared/empleados/validadores.js';
 import { nombrePersona } from '../../shared/utils/nombre.js';
 import { membrete } from '../empresa/empresa.service.js';
 import { credencialesTemporalesPdf } from '../../shared/pdf/credenciales.js';
@@ -98,6 +104,21 @@ export function crearEmpleadosService(db: BaseDatos) {
     antes?: repo.Empleado,
   ) {
     const errores = { ...erroresFechas(d, r), ...(await repo.duplicados(c, d, antes?.id)) };
+    if (r.validarDigitoNit && !nitValido(d.nit))
+      errores.nit = ['El dígito verificador del NIT no coincide. Revisa el número.'];
+    if (
+      grupoParcial(
+        {
+          ...d,
+          salarioBase:
+            'salarioBase' in d ? (d.salarioBase ?? antes?.salarioBase) : antes?.salarioBase,
+        },
+        camposSalariales,
+      )
+    )
+      for (const key of camposSalariales)
+        if (!(key === 'salarioBase' ? (d.salarioBase ?? antes?.salarioBase) : d[key]))
+          errores[key] = ['Completa salario, banco, cuenta y tipo, o deja el paso vacío.'];
     for (const key of Object.keys(repo.referencias) as (keyof typeof repo.referencias)[]) {
       const value = d[key];
       if (value === null) continue;
@@ -121,14 +142,19 @@ export function crearEmpleadosService(db: BaseDatos) {
     if (lugar && !zonaValida(lugar.codigo, d.zona))
       errores.zona = ['Selecciona una zona del 1 al 25 para el municipio de Guatemala.'];
     if (
+      d.contactoParentesco &&
       antes?.contactoParentesco !== d.contactoParentesco &&
       !(await repo.parentescos(c)).some((p) => p.value === d.contactoParentesco)
     )
       errores.contactoParentesco = ['Selecciona un parentesco del catálogo.'];
     if (Object.keys(errores).length) rechazar(errores, 409);
-    return `Casa ${d.numeroCasa}${d.zona ? ', zona ' + d.zona : ''}, ${lugar!.nombre}, ${lugar!.departamento}`;
+    return `${d.direccion}${d.zona ? ', zona ' + d.zona : ''}, ${lugar!.nombre}, ${lugar!.departamento}`;
   }
-  async function advertencias(c: Connection, salario: string, desde: string) {
+  async function advertencias(c: Connection, salario: string | null, desde: string) {
+    if (!salario)
+      return [
+        'Perfil incompleto: falta salario base. Se excluye de la simulación de planilla hasta registrar una vigencia salarial.',
+      ];
     const minimo = await repo.salarioMinimo(c, desde);
     return minimo
       ? new Decimal(salario).lt(minimo)
@@ -168,15 +194,16 @@ export function crearEmpleadosService(db: BaseDatos) {
       rol: 'EMPLEADO',
     });
     await repo.vincularUsuario(c, id, credenciales.idUsuario, actor.idUsuario);
-    await repo.agregarHistorial(
-      c,
-      id,
-      'salario',
-      d.salarioBase,
-      d.fechaIngreso,
-      'Salario inicial al contratar',
-      actor.idUsuario,
-    );
+    if (d.salarioBase)
+      await repo.agregarHistorial(
+        c,
+        id,
+        'salario',
+        d.salarioBase,
+        d.fechaIngreso,
+        'Salario inicial al contratar',
+        actor.idUsuario,
+      );
     await repo.agregarHistorial(
       c,
       id,
@@ -229,7 +256,7 @@ export function crearEmpleadosService(db: BaseDatos) {
         ? key === 'correo'
           ? v.trim().toLowerCase()
           : key === 'nit'
-            ? v.trim().toUpperCase()
+            ? normalizarNit(v)
             : v
         : v;
     const conteos: Record<string, Map<unknown, number>> = {};
@@ -362,6 +389,8 @@ export function crearEmpleadosService(db: BaseDatos) {
             'Ingreso',
             'Salario mensual',
             'Estado',
+            'Perfil',
+            'Datos pendientes',
           ],
         ];
         let pagina = 1;
@@ -378,6 +407,8 @@ export function crearEmpleadosService(db: BaseDatos) {
               d.fechaIngreso,
               d.salarioBase,
               d.estado,
+              d.perfilIncompleto ? 'Perfil incompleto' : 'Completo',
+              (d.faltantes as string[]).join(', '),
             ]);
           if (pagina * 100 >= r.total) break;
           pagina++;
@@ -441,6 +472,29 @@ export function crearEmpleadosService(db: BaseDatos) {
             'horario',
             d.idHorario,
             d.fechaHorario!,
+            d.motivo,
+            actor.idUsuario,
+          );
+        }
+        if (d.salarioBase) {
+          const historia = await repo.historial(c, id, 'salario');
+          if (historia.length)
+            rechazar({
+              salarioBase: ['Utiliza Cambiar salario en la ficha para conservar las vigencias.'],
+            });
+          if (r.ultimoCierre && d.fechaIngreso <= r.ultimoCierre)
+            rechazar({
+              salarioBase: [
+                'El ingreso afecta un periodo cerrado. Registra el salario inicial desde Cambiar salario en la ficha, con una fecha posterior al último cierre.',
+              ],
+            });
+          await validarHistorial(c, id, 'salario', d.fechaIngreso, d.fechaIngreso, r);
+          await repo.agregarHistorial(
+            c,
+            id,
+            'salario',
+            d.salarioBase,
+            d.fechaIngreso,
             d.motivo,
             actor.idUsuario,
           );

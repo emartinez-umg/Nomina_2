@@ -88,7 +88,7 @@ export const ayudaSolicitudes: DefinicionAyuda = {
       elemento: 'mis-datos-criticos',
       titulo: 'Cambios de identidad',
       descripcion:
-        'Nombres, DPI, NIT y estado civil requieren revisión de RRHH. Completa los valores propuestos; tu expediente se conserva hasta la aprobación. Si RRHH modifica los originales mientras tanto, será necesario enviar una nueva solicitud.',
+        'El NIT admite 5–12 dígitos, K final y guion opcionales; ADMIN puede activar módulo 11. La política se revalida al solicitar y al aprobar. Nombres, DPI, NIT y estado civil requieren revisión de RRHH. Completa los valores propuestos; tu expediente se conserva hasta la aprobación. Si RRHH modifica los originales mientras tanto, será necesario enviar una nueva solicitud.',
       roles: ['EMPLEADO'],
     },
   ],

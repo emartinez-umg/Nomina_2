@@ -1862,3 +1862,110 @@ El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
 3. `npm run test:e2e -- --production catalogos-qa.spec.ts`; regresión: `npm run test:e2e -- --production ronda2.spec.ts`.
 4. `docker compose up --build -d nomina2-api nomina2-web`; abrir Organización → Motivos de baja,
    Zonas o Países como RH/ADMIN. Revisar acciones, formatos, nombres, anchos, ayuda y descarte.
+
+### FASE R2-6 — Asistente de alta y edición de empleados
+
+Estado: completada el 19/10/2026. Rama `v1.1`; alcance B5.
+Se conserva el cambio previo del usuario en AGENTS.md fuera del commit.
+
+#### Reproducción y causa raíz
+
+- El formulario renderizaba cinco secciones simultáneas, salario/contacto eran obligatorios y el
+  alta siempre insertaba ambas filas. No existía una navegación con validación por paso ni resumen.
+- Regresión contrastada contra HEAD anterior, sin modificar el checkout: rechazaba alta sin los
+  pasos opcionales, Dirección ampliada y NIT con verificador incorrecto. Los tres casos son ahora
+  válidos con la política desactivada. Se conservan pruebas que verifican el rechazo al activarla.
+- NUMERO_CASA estaba limitado a 20 caracteres ASCII con guiones; DIRECCION ya contenía el texto
+  compuesto de residencia. Renombrar directamente habría colisionado con ese nombre existente.
+
+#### Hecho y decisiones
+
+- Alta y edición comparten cuatro pasos con iconos, estados completo/error/opcional, validación
+  por paso y navegación Anterior/Siguiente/a visitados. Guardar se habilita con personales/laborales
+  válidos; valida también los opcionales y abre revisión antes de enviar. Los campos mantienen
+  máscaras, hints, anchos B3, relaciones de catálogo, contrato y creación de horario inline.
+- Paso 3 es un grupo de salario/banco/cuenta/tipo; paso 4 es nombre/parentesco/teléfono. Cada uno
+  se completa entero o se omite entero. API, CSV y frontend comparten las reglas. El resumen
+  explica exclusión de planilla, falta de cuenta de depósito y falta de contacto de emergencia.
+- Sin salario no se crea una vigencia ficticia ni monto cero; sin contacto no se crea una fila vacía.
+  Al retirar un contacto se inactiva para conservarlo. El salario inicial se puede completar en
+  edición si no existe historial; las modificaciones de uno existente siguen en Cambiar salario.
+  No se permite introducir una vigencia inicial dentro de periodos cerrados: usar la ficha con
+  una fecha posterior al cierre. Se mantiene la transacción con usuario, horario y auditoría.
+- Perfil incompleto y su lista de faltantes se derivan de salario vigente, banco y contacto activo,
+  sin bandera redundante que pueda desincronizarse. Se muestran en lista, ficha y exportación.
+  Sin salario se excluye de simulación antes de preparar novedades, con alerta y totales solo de
+  elegibles. Confirmación y cierre conservan la exclusión, sin bloquear a los empleados calculables.
+  El dashboard de RH alerta y enlaza a la ficha. Alta/edición/salario invalidan también el tablero.
+- V034 conserva la dirección compuesta como DIRECCION_COMPLETA, renombra NUMERO_CASA a DIRECCION
+  y amplía a 100 caracteres, sin copiar ni perder los valores; DIRECCION_ANTERIOR queda intacta.
+  CHECK y validador compartido aceptan letras con acentos/ñ, números, espacios y `. , # - / °`,
+  con al menos una letra o número. Se normaliza NFC. Formulario, ficha, CSV e importación usan
+  direccion. Portal/documentos conservan el contrato de dirección completa anterior.
+- NIT admite 5–12 dígitos, K final y guion opcionales. Se canonicaliza con guion/mayúsculas para
+  que las dos escrituras colisionen en el mismo UNIQUE. Se conserva módulo 11 bajo la identidad
+  de sistema VALIDAR_DIGITO_NIT (V034: 0 por defecto; 1 activa; unidad CANTIDAD). Solo ADMIN puede
+  modificarla, activarla o eliminarla; RH tiene acciones deshabilitadas con explicación. Cambios
+  con motivo, revisión y auditoría. Esta política no altera importes ni documentos cerrados.
+  Empresa/NIT patronal conservan validación fiscal previa. La autogestión aplica la política al
+  solicitar y al aprobar datos críticos; evita eludir la validación mediante otra entrada.
+- Borrador v8 conserva valores de todos los pasos, paso actual y visitados; descarte devuelve al
+  inicio y limpieza exitosa no lo recrea. Se mantienen usuario automático, copia, PDF membretado,
+  entrega única de credenciales y confirmación de su resguardo, fuera de RHF/borradores/logs.
+- Ayuda manual por paso, revisión, ficha, carga, dashboard, simulación y parámetros actualizada.
+  Documentados uso, CSV, migración y límites en EMPLEADOS, FRONTEND, ERD y README.
+
+#### Validación y cierre
+
+- Node 20.20.2: 728 pruebas aprobadas (405 backend, 316 frontend, siete del exportador).
+  Lint, TypeScript strict, builds, Prettier y auditoría de secretos aprobados; se conserva el aviso
+  previo del tamaño de chunk Vite, sin dependencias nuevas.
+- Oracle: tres pruebas de migración con preservación de ambas direcciones, ampliación, CHECK,
+  parámetro y reejecución; V000–V034 desde cero, restricciones/índices y seeds repetibles aprobados.
+  Seguridad/Supertest 81 casos; solicitudes 20; pagos 16, incluido objetivo mixto con perfil sin
+  salario y dashboard. Los esquemas son desechables y se retiran al terminar.
+- Primer ensayo de V034 detectó MOTIVO obligatorio del parámetro: corregido antes de aplicarla
+  sobre la base de la aplicación. La regresión salarial conserva 422 cuando el inicio afectaría
+  un periodo cerrado, y el salario existente no se cambia mediante PATCH del expediente.
+- El caso nuevo de navegador pasó con API/Oracle reales: alta mínima, grupos parciales rechazados,
+  navegación/estados, borrador entre pasos, Dirección saneada, credenciales/PDF, perfil en lista,
+  ficha/dashboard y completar opcionales en edición. Ayuda de cuatro pasos y axe A/AA móvil pasan.
+- La primera regresión completa descubrió fixtures previas dependientes del entorno/orden: dos
+  contextos fijaban el puerto de desarrollo al ejecutarse bajo nginx/TLS; una prueba usaba Ajeno
+  después de su liquidación/baja; la prueba de calendarios buscaba ingreso en el paso personal.
+  Se usa baseURL del entorno, un destinatario exclusivo que ingresa hoy (no altera pagos de enero)
+  y navegación real del asistente. Bancos de las fixtures salariales se completan conforme a B5.
+  El código se comprueba en el paso laboral. El calendario compartido ajusta su margen al
+  viewport: la nueva distribución exponía un desbordamiento de 6.6 px, cubierto por el E2E R2-3.
+  No se relajan permisos, fórmulas, restricciones ni aserciones de negocio para corregir esos casos.
+- La política NIT conserva validación 0/1 y edición ADMIN también después de cierres: se distingue
+  de los parámetros financieros en API, calendario y validación del formulario. Regresión específica
+  comprueba que los demás parámetros conservan el bloqueo de vigencias cerradas. El salario inicial
+  rechazado por cierre se mapea a salarioBase y explica cómo completarlo desde la ficha.
+- **Regresión completa: 66/66 E2E aprobados (5.7 min)** con nginx/TLS, API y Oracle reales;
+  incluye 142 vistas y 1,900 pasos de ayuda, carga masiva, credenciales, pago/cierre, documentos,
+  RBAC, borradores, catálogos y rondas anteriores. Cuatro regresiones concretas de asistente,
+  alta/edición, CSV y calendario también pasaron. Capturas de escritorio y móvil inspeccionadas
+  en tmp/pdfs/r2-6-asistente-*.png; artefactos de prueba ignorados por Git.
+- Repetición final: 81 casos de seguridad y 16 de pagos, incluida exclusión con horas extra
+  pendientes sin salario, y 20 de solicitudes aprobados; los esquemas exclusivos se retiran.
+  npm test final: 728 pruebas. Lint, strict, builds, Prettier, secretos y diff --check aprobados.
+- API/web reconstruidas y saludables en https://localhost:8443; V034 aplicada, verificación de
+  infraestructura aprobada (Oracle/API/nginx, SPA/assets y visor/worker PDF). Cero objetos inválidos
+  y VALIDAR_DIGITO_NIT=0. Once tablas conservan sus conteos antes/después: tres empleados, cinco
+  usuarios, tres salarios, tres asignaciones y tres contactos; dos solicitudes, dos descuentos,
+  un préstamo y un documento; cero pagos y nóminas. Oracle, volumen y credenciales conservados.
+- Sin pendientes técnicos de R2-6. B6–B7 siguen reservadas a sus fases. AGENTS.md previo queda
+  fuera del commit; no se modificó ninguna migración V000–V033.
+
+#### Cómo probar
+
+1. Node 20: `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. Oracle: `npm run verify:empleados`; `npm run verify:pagos`; `npm run db:verify`;
+   `npm run verify:security`; `npm run verify:solicitudes` (en secuencia).
+3. `npm run test:e2e -- --production`; caso específico: `--production asistente-empleado.spec.ts`.
+4. `docker compose up --build -d nomina2-api nomina2-web`; Personal → Nuevo empleado. Completar
+   solo los dos primeros pasos, guardar, revisar omisiones y entregar credenciales. Ver perfil y
+   alerta; editar para completar opcionales. Comenzar un grupo a medias debe impedir guardarlo.
+5. Descargar la plantilla CSV nueva (direccion). Como ADMIN, Parámetros legales → Validar dígito
+   NIT: probar 0/1 con motivo y confirmación. RH solo puede consultar ese parámetro.

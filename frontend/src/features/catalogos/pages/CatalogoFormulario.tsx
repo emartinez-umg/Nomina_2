@@ -9,7 +9,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Catalogo, Fila } from '../api/catalogos';
 import { guardar, restricciones, detalle } from '../api/catalogos';
-import { valoresIniciales, schemaFormulario, cuerpo, bloquesDesdeJson } from '../api/validacion';
+import {
+  valoresIniciales,
+  schemaFormulario,
+  cuerpo,
+  bloquesDesdeJson,
+  esPoliticaNit,
+} from '../api/validacion';
 import { CampoEditor } from './CampoEditor';
 import { ConstructorHorario } from '../../horarios/ConstructorHorario';
 import type { BloqueHorario } from '../api/catalogos';
@@ -73,6 +79,7 @@ export function CatalogoFormulario({
     enabled: cat.slug === 'horarios',
   });
   const limites = reglasHorario.data?.limitesHorario ?? null;
+  const politicaNit = esPoliticaNit(cat, actual ?? {});
   const anteriores = !duplicar ? (actual?.bloques as BloqueHorario[] | undefined) : undefined;
   const resolver = useMemo(
     () => zodResolver(schemaFormulario(cat, cierre, limites, anteriores)),
@@ -158,9 +165,11 @@ export function CatalogoFormulario({
           {cat.legal && (
             <p className="alerta">
               Los cambios conservan su historial.{' '}
-              {cierre
-                ? `Último periodo cerrado: ${fechaVisible(cierre)}. Usa una vigencia posterior.`
-                : 'Aún no hay periodos cerrados.'}
+              {politicaNit
+                ? 'Configuración de sistema: 0 desactiva y 1 activa módulo 11; no cambia importes ni periodos cerrados.'
+                : cierre
+                  ? `Último periodo cerrado: ${fechaVisible(cierre)}. Usa una vigencia posterior.`
+                  : 'Aún no hay periodos cerrados.'}
             </p>
           )}
           {actual?.enUso && !duplicar && cat.slug === 'horarios' && (
@@ -217,7 +226,9 @@ export function CatalogoFormulario({
                             )
                           }
                           minFecha={
-                            f.nombre === 'vigenteDesde' && cierre ? siguienteDia(cierre) : undefined
+                            f.nombre === 'vigenteDesde' && cierre && !politicaNit
+                              ? siguienteDia(cierre)
+                              : undefined
                           }
                         />
                       )}

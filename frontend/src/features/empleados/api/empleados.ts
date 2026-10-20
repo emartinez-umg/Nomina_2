@@ -10,6 +10,8 @@ export const empleadoSchema = z
     idUsuario: z.number().nullable(),
     usuario: z.string().nullable(),
     activo: z.boolean(),
+    perfilIncompleto: z.boolean(),
+    faltantes: z.array(z.string()),
   })
   .catchall(z.union([z.string(), z.number(), z.boolean(), z.null()]));
 export type Empleado = z.infer<typeof empleadoSchema>;
@@ -17,6 +19,8 @@ const filaSchema = z.object({
   id: z.number(),
   codigo: z.string(),
   nombre: z.string(),
+  perfilIncompleto: z.boolean(),
+  faltantes: z.array(z.string()),
   dpi: z.string(),
   nit: z.string(),
   departamento: z.string(),
@@ -38,6 +42,7 @@ const reglasSchema = z.object({
   edadMaxima: z.number(),
   ultimoCierre: z.string().nullable(),
   salarioMinimo: z.string().nullable(),
+  validarDigitoNit: z.boolean().optional(),
 });
 export type Reglas = z.infer<typeof reglasSchema>;
 export const reglas = (signal?: AbortSignal, fecha?: string) =>

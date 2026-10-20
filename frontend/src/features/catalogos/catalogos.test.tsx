@@ -637,3 +637,33 @@ describe('R2-5: regresiones de todos los catálogos', () => {
     });
   }
 });
+
+it('R2-6: política NIT 0/1 es de sistema y los parámetros financieros conservan el cierre', () => {
+  const c = cat('parametros-legales');
+  const politica = {
+    ...valoresIniciales(c),
+    nombre: 'Validar dígito NIT',
+    claveInterna: 'VALIDAR_DIGITO_NIT',
+    valor: '1',
+    unidad: 'CANTIDAD',
+    vigenteDesde: '2000-01-01',
+    vigenteHasta: '',
+    fundamento: 'Configuración de validación',
+    motivo: 'Activar verificador',
+  };
+  expect(schemaFormulario(c, '2026-12-15').safeParse(politica).success).toBe(true);
+  expect(schemaFormulario(c, '2026-12-15').safeParse({ ...politica, valor: '0' }).success).toBe(
+    true,
+  );
+  for (const cambio of [{ valor: '2' }, { valor: '0.5' }, { unidad: 'PORCENTAJE' }])
+    expect(schemaFormulario(c, '2026-12-15').safeParse({ ...politica, ...cambio }).success).toBe(
+      false,
+    );
+  expect(
+    schemaFormulario(c, '2026-12-15').safeParse({
+      ...politica,
+      nombre: 'Tasa legal',
+      claveInterna: 'TASA_LEGAL',
+    }).success,
+  ).toBe(false);
+});

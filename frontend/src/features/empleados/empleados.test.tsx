@@ -31,7 +31,7 @@ const d = {
   idDepartamentoGt: '1',
   idMunicipioGt: '1',
   zona: '1',
-  numeroCasa: '12-A',
+  direccion: '12-A',
   telefono: '5555 1234',
   correo: 'ana@example.test',
   idDepartamento: '1',
@@ -41,6 +41,9 @@ const d = {
   idHorario: '1',
   fechaIngreso: '2026-10-12',
   salarioBase: '5,000.01',
+  idBanco: '1',
+  cuentaBancaria: '12345678',
+  tipoCuenta: 'AHORRO',
   contactoNombre: 'Persona Familiar',
   contactoParentesco: 'Hermano/a',
   contactoTelefono: '5555 4321',
@@ -110,7 +113,7 @@ describe('Gestión de empleados: formularios y carga masiva', () => {
     const body = cuerpo(parse);
     expect(body.dpi).toBe('1234567890123');
     expect(body.telefono).toBe('55551234');
-    expect(body.idBanco).toBe(null);
+    expect(body.idBanco).toBe(1);
     expect(body.idDepartamento).toBe(1);
   });
   it.each([
@@ -118,9 +121,9 @@ describe('Gestión de empleados: formularios y carga masiva', () => {
     { fechaIngreso: '2010-01-01' },
     { fechaIngreso: '2026-11-12' },
     { fechaFinContrato: '2026-01-01' },
-    { nit: '1234567-4' },
+    { nit: '1234' },
     { salarioBase: 'mal' },
-    { idBanco: '1' },
+    { cuentaBancaria: '' },
   ])('muestra errores antes de enviar %j', (c) =>
     expect(schemaFormulario(reglas).safeParse({ ...d, ...c }).success).toBe(false),
   );
@@ -250,5 +253,106 @@ describe('Gestión de empleados: formularios y carga masiva', () => {
       }),
     );
     expect(screen.getByRole('button', { name: 'Descargar reporte de resultados' })).toBeVisible();
+  });
+});
+
+describe('R2-6: validación del asistente', () => {
+  const minimo = {
+    ...d,
+    salarioBase: '',
+    idBanco: '',
+    cuentaBancaria: '',
+    tipoCuenta: '',
+    contactoNombre: '',
+    contactoParentesco: '',
+    contactoTelefono: '',
+  };
+  it('permite omitir los pasos 3 y 4 y enviarlos como null', () => {
+    const parse = schemaFormulario(reglas).parse(minimo);
+    expect(cuerpo(parse)).toMatchObject({ salarioBase: null, contactoNombre: null, idBanco: null });
+  });
+  it.each([
+    'salarioBase',
+    'idBanco',
+    'cuentaBancaria',
+    'tipoCuenta',
+    'contactoNombre',
+    'contactoParentesco',
+    'contactoTelefono',
+  ])('bloquea el grupo opcional parcial: %s', (key) =>
+    expect(
+      schemaFormulario(reglas).safeParse({ ...minimo, [key]: d[key as keyof typeof d] }).success,
+    ).toBe(false),
+  );
+  it('valida solamente el paso actual sin exigir pasos posteriores', () => {
+    const paso1 = {
+      ...iniciales(),
+      ...Object.fromEntries(
+        todosCampos
+          .filter((f) =>
+            [
+              'nombres',
+              'apellidos',
+              'dpi',
+              'nit',
+              'fechaNacimiento',
+              'sexo',
+              'estadoCivil',
+              'idDepartamentoGt',
+              'idMunicipioGt',
+              'zona',
+              'direccion',
+              'telefono',
+              'correo',
+            ].includes(f.nombre),
+          )
+          .map((f) => [f.nombre, d[f.nombre as keyof typeof d]]),
+      ),
+    };
+    expect(
+      schemaFormulario(reglas, false, undefined, '0101', undefined, 0).safeParse(paso1).success,
+    ).toBe(true);
+    expect(
+      schemaFormulario(reglas, false, undefined, '0101', undefined, 1).safeParse(paso1).success,
+    ).toBe(false);
+  });
+  it('aplica módulo 11 solo con el parámetro activado', () => {
+    expect(
+      schemaFormulario({ ...reglas, validarDigitoNit: false }).safeParse({
+        ...minimo,
+        nit: '1234567-4',
+      }).success,
+    ).toBe(true);
+    expect(
+      schemaFormulario({ ...reglas, validarDigitoNit: true }).safeParse({
+        ...minimo,
+        nit: '1234567-4',
+      }).success,
+    ).toBe(false);
+    expect(
+      schemaFormulario({ ...reglas, validarDigitoNit: true }).safeParse({
+        ...minimo,
+        nit: '1234567-9',
+      }).success,
+    ).toBe(true);
+  });
+  it('sanea Dirección al pegar sin quitar acentos, ñ ni puntuación permitida', () => {
+    const campo = todosCampos.find((f) => f.nombre === 'direccion')!;
+    const cambiar = vi.fn();
+    render(
+      <CampoEmpleado
+        campo={campo}
+        name="direccion"
+        label="Dirección"
+        hint={campo.hint}
+        value=""
+        onValueChange={cambiar}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Dirección'), {
+      target: { value: 'Peña #12, 3° / A.- @<>' },
+    });
+    expect(cambiar).toHaveBeenLastCalledWith('Peña #12, 3° / A.- ');
+    expect(screen.getByLabelText('Dirección')).toHaveAttribute('maxlength', '100');
   });
 });
