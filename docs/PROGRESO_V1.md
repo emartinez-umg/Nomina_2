@@ -2498,3 +2498,111 @@ Completado el 20/10/2026 por solicitud del usuario, para cargar la corrección d
 - Evidencia local en tmp/pdfs/empleado-centrado-safari.jpg. Sin cambios de código adicionales:
   las pruebas anteriores validaban el build nuevo; esta comprobación cubre la pestaña operativa
   que todavía ejecutaba la versión anterior al reinicio.
+
+## Datos demo — FASE 2: fuente única JSON
+
+Estado: completada el 20/10/2026 en `v1.1`. Se detiene antes de implementar el cargador de fase 3.
+
+### Contexto y decisiones autorizadas
+
+- Fase 1 realizada sin escrituras: migraciones V000–V035 y diccionario real contrastados mediante
+  transacciones de solo lectura. 36 migraciones APLICADA, cero objetos inválidos, catálogos INE
+  22/340, un banco, tres empleados y dos ADMIN existentes. No había SALARIO_MINIMO_MENSUAL
+  ni tarifas de parqueo. Diagnóstico temporal en /private/tmp/nomina2-diagnostico-demo-fase1.md.
+- El usuario aprobó el plan y autorizó inventar el mínimo de referencia, usar los códigos del
+  generador, prescindir de jerarquías y añadir cinco bancos guatemaltecos con teléfonos ficticios.
+  Se acepta la propuesta de 24 indefinidos + 8 temporales y se conservan los ADMIN existentes.
+- No hay cambios de esquema, migraciones, lógica de negocio ni pantallas; tampoco se cargan
+  filas en Oracle durante esta fase. La ERS original sigue sin localizarse; la certificación
+  exacta de RF-01/02/05/06/13/18/21 permanece pendiente, con la discrepancia RF-21 ya señalada.
+
+### Hecho
+
+- Fuente única en database/seed/data: departamentos.json (5), puestos.json (30), centros.json
+  (10), horarios.json (7), empleados.json (32), bancos.json (5) y configuracion.json. Los dos
+  últimos amplían los cinco archivos originales por la solicitud de bancos y para centralizar
+  versión, fecha, parámetros de referencia, fuentes y claves de catálogos existentes.
+- Seis puestos por departamento; 7/6/6/7/6 empleados en TI/RH/FC/OL/VSA. Todos los puestos
+  cubiertos; Soporte Técnico y Auxiliar de Bodega tienen dos personas. 15 mujeres y 17 hombres;
+  los 32 con salario, banco/cuenta/tipo, contacto, ubicación INE y horario. 2 RH y 30 EMPLEADO.
+- Referencia temporal 20/10/2026, America/Guatemala. Tres empleados con menos de un año,
+  cuatro con más de diez y seis cumpleaños/seis aniversarios en los próximos 30 días, incluido hoy.
+  Ocho contratos temporales con fin futuro y 24 indefinidos sin fin. Salarios mensuales entre
+  Q4,200.00 y Q28,000.00, total Q332,000.00, dentro de ±10% de la referencia de cada puesto.
+- Claves de catálogos calculadas con generarCodigoGenerico/resolverCodigoGenerico, sin códigos
+  físicos forzados. Se detectaron colisiones de centros y se resolvieron con la misma función:
+  Sede Central SC, Sucursal Cobán SCRS y Sucursal Chiquimula SC2. Las claves solo enlazan JSON;
+  los triggers asignarán los códigos definitivos de cada destino durante la futura carga.
+- Siete horarios con bloques y descansos válidos: cuatro variantes diurnas administrativas,
+  mixto, nocturno que cruza medianoche y bodega L–S. Jornadas y límites diarios/semanales
+  comprobados con analizarHorario. La mayoría de empleados son diurnos; todos los horarios,
+  centros y bancos tienen al menos una asignación.
+- Banco Industrial, Banco de Desarrollo Rural, Banco G&T Continental, Banco de América Central
+  y Banco Agromercantil de Guatemala, contrastados con el listado oficial de Banco de Guatemala
+  https://banguat.gob.gt/page/bancos-nacionales el 20/10/2026. Solo cuentas y datos personales
+  ficticios. Industrial se reutilizará cuando exista: cinco bancos demo no significa duplicar
+  los existentes ni insertar necesariamente cinco filas nuevas.
+- Extras declarados en empleados.json, para consumir solo con --with-extras en fases posteriores:
+  tres historiales salariales, tres parqueos (dos carros/una moto), préstamo Q1,200/6 cuotas,
+  anticipo Q300/1 cuota, incapacidad IGSS, permiso sin goce y cuatro comisiones de septiembre
+  exclusivamente de Ventas. Referencias únicas y fechas compatibles con el ingreso.
+- DATASET.md documenta los archivos, referencias, conteos, semántica de códigos, diferencias
+  del esquema, supuestos, fechas, extras y límites. No se crean todavía seed-demo.js,
+  seed-remote.js, seed_demo.sql, verify-seed.js ni comandos npm de fases futuras.
+
+### Supuestos y límites
+
+- Mínimo **ficticio demo Q4,000.00**, autorizado por el usuario, desde 01/01/2014 para cubrir
+  la historia de ingresos. No es una afirmación legal. Está solo en configuracion.json;
+  todavía no existe en Oracle. La futura carga lo creará únicamente si falta configuración
+  aplicable y no provoca solapamientos, conservando cualquier vigencia real del destino.
+  Ante un mínimo configurado mayor que algún salario, deberá reportar conflicto y revertir.
+- Se retira el requerimiento anterior de jerarquía/jefe obligatorio: jefatura es null en los
+  32 empleados y no se crearán JEFATURAS. La futura verificación respetará esta instrucción.
+- CENTROS_TRABAJO no tiene TELEFONO: los diez valores inventados se guardan únicamente como
+  telefonoReferencia del JSON y no se cargarán ni ocultarán en otra columna. Teléfonos de
+  empleados/contactos sí corresponden a campos reales y se validan con ocho dígitos.
+- Salario y banco se completan juntos para respetar el grupo opcional exigido por el backend.
+  PUESTOS tiene rangos; el salario efectivo se cargará en HISTORIAL_SALARIAL, sin columnas nuevas.
+  Para el conjunto básico se supone salario actual desde el ingreso; --with-extras usa las
+  vigencias detalladas de tres personas. No se inventan pagos previos ni vacaciones tomadas.
+- Tarifas de parqueo demo Q200 carro/Q75 moto desde septiembre, solo con --with-extras y sin
+  reemplazar tarifas operativas. La carga validará vigencias, solicitud/aprobación/suscripción
+  y reglas actuales; no insertará descuentos manuales para evitar el flujo de parqueo.
+- No hay contraseñas, hashes, tokens ni IDs Oracle en los JSON. Los usuarios y códigos se
+  generarán al cargar. SEED_DEFAULT_PASSWORD se configurará por entorno en fase 3, con hash
+  y cambio obligatorio existentes; no se modifican credenciales ni .env en esta fase.
+
+### Validación
+
+- Validación de los siete JSON con funciones/esquemas reales del proyecto: entradaSchema de
+  catálogos, crearEmpleadoSchema, erroresFechas, nitValido, zonaValida, analizarHorario,
+  schemas de novedades, tarifaSchema, placaSchema, baseNombreUsuario y el generador de códigos.
+  Claves resueltas a identificadores transitorios en memoria solo para validar Zod, sin persistir
+  esos valores y sin sustituir la resolución real por claves naturales que corresponde a fase 3.
+- Comprobados conteos, relaciones, 30 puestos cubiertos, duplicados de DPI/NIT/IGSS/correo/cuenta,
+  NIT módulo 11, ubicación oficial, sexo M/F, contratos, fechas, antigüedad, cumpleaños/aniversarios,
+  todos los centros/horarios/bancos usados, grupo salarial y límites ±10% con decimal.js.
+  Extras contrastados con catálogos semánticos de S001, incluyendo PERMISO_SIN_GOCE e
+  INCAPACIDAD_IGSS, estados, referencias y periodos. Informe en tmp/dataset-demo-fase2-validacion.json.
+- Node 20.20.2: lint aprobado y **760 pruebas existentes aprobadas** (419 backend, 334 frontend,
+  siete del exportador). Supertest necesitó permisos para escuchar en localhost fuera del sandbox;
+  el primer intento restringido produjo listen EPERM y se repitió solo backend/exportador.
+  Frontend ya había aprobado y no se repitió. Sin cambios en las pruebas de aplicación.
+- El primer contenedor de pruebas no incluía eslint-plugin-react-hooks con el montaje usado;
+  se utilizó el runtime nativo Node 20.20.2 ya disponible en la caché local. El contenedor temporal
+  se retiró automáticamente, sin red ni Oracle. No se instalaron paquetes ni se modificaron imágenes.
+- Prettier de JSON/documentación, revisión de secretos y diff --check aprobados. El validador
+  ad hoc y los informes quedan en tmp, ignorados por Git; no se adelanta el verificador de fase 5.
+
+### Cómo revisar y siguientes fases
+
+1. Abrir database/seed/DATASET.md y los siete archivos en database/seed/data. Revisar distribución,
+   importes, bancos y supuestos. En esta fase no se necesita ni se escribe la base de datos.
+2. Con Node 20: npm run lint; npm test; npm run verify:secrets. Los Supertest requieren permitir
+   el servidor HTTP temporal de localhost. Comprobar formato de los JSON con Prettier.
+3. En este entorno, repetir la validación de datos con node --import tsx tmp/validar-dataset-demo-fase2.mjs.
+   Es una herramienta temporal de esta revisión; la verificación reproducible versionada será fase 5.
+4. Esperar confirmación antes de fase 3: cargador thin, preflight, entorno, transacción, idempotencia,
+   dry-run y reset seguro. Fase 4: exportación SQL/remota y documentación operativa. Fase 5: verificación
+   sobre Oracle y app, doble carga, rollback/reset, login y simulación. No ejecutadas todavía.

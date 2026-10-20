@@ -1,0 +1,78 @@
+{
+  "conjunto": "nomina2-demo-v1",
+  "version": 1,
+  "fechaReferencia": "2026-10-20",
+  "zonaHoraria": "America/Guatemala",
+  "salarioMinimoDemo": {
+    "claveInterna": "SALARIO_MINIMO_MENSUAL",
+    "nombre": "Salario mínimo mensual",
+    "valor": "4000.00",
+    "unidad": "QUETZALES",
+    "vigenteDesde": "2014-01-01",
+    "vigenteHasta": null,
+    "fundamento": "Valor ficticio autorizado por el usuario para demostración; no representa el salario mínimo legal.",
+    "motivo": "Referencia del dataset demo; crear únicamente si no existe una vigencia aplicable, sin reemplazar configuración real."
+  },
+  "tarifasParqueoDemo": [
+    {
+      "vehiculo": "CARRO",
+      "monto": "200.00",
+      "vigenteDesde": "2026-09-01",
+      "vigenteHasta": null,
+      "motivo": "Tarifa ficticia de parqueo del conjunto demo."
+    },
+    {
+      "vehiculo": "MOTO",
+      "monto": "75.00",
+      "vigenteDesde": "2026-09-01",
+      "vigenteHasta": null,
+      "motivo": "Tarifa ficticia de parqueo del conjunto demo."
+    }
+  ],
+  "contratos": [
+    {
+      "clave": "INDEFINIDO",
+      "nombre": "Por tiempo indefinido",
+      "requiereFechaFin": false
+    },
+    {
+      "clave": "PLAZO_FIJO",
+      "nombre": "A plazo fijo",
+      "requiereFechaFin": true
+    },
+    {
+      "clave": "OBRA_DETERMINADA",
+      "nombre": "Para obra determinada",
+      "requiereFechaFin": true
+    }
+  ],
+  "tiposAusencia": [
+    {
+      "clave": "INCAPACIDAD_IGSS",
+      "nombre": "Incapacidad con subsidio IGSS"
+    },
+    {
+      "clave": "PERMISO_SIN_GOCE",
+      "nombre": "Permiso sin goce de salario"
+    }
+  ],
+  "fuentes": {
+    "ubicaciones": {
+      "archivo": "db/data/ubicaciones-gt.json",
+      "referencia": "db/data/ine/README.md"
+    },
+    "bancos": {
+      "institucion": "Banco de Guatemala",
+      "url": "https://banguat.gob.gt/page/bancos-nacionales",
+      "consultado": "2026-10-20"
+    }
+  },
+  "politicas": {
+    "generarCodigosAlInsertar": true,
+    "crearJerarquias": false,
+    "reutilizarAdminExistente": true,
+    "crearParametrosDemoSoloSiFaltan": true,
+    "incluirExtrasSoloConBandera": true,
+    "persistirTelefonoCentro": false
+  }
+}

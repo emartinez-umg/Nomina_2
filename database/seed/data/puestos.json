@@ -1,0 +1,242 @@
+[
+  {
+    "clave": "GT",
+    "nombre": "Gerente de Tecnología",
+    "departamento": "TI",
+    "salarioReferencia": "22000.00",
+    "salarioMinimo": "19800.00",
+    "salarioMaximo": "24200.00"
+  },
+  {
+    "clave": "DBS",
+    "nombre": "Desarrollador Backend Sr",
+    "departamento": "TI",
+    "salarioReferencia": "14000.00",
+    "salarioMinimo": "12600.00",
+    "salarioMaximo": "15400.00"
+  },
+  {
+    "clave": "DF",
+    "nombre": "Desarrollador Frontend",
+    "departamento": "TI",
+    "salarioReferencia": "11000.00",
+    "salarioMinimo": "9900.00",
+    "salarioMaximo": "12100.00"
+  },
+  {
+    "clave": "ABD",
+    "nombre": "Administrador de Base de Datos",
+    "departamento": "TI",
+    "salarioReferencia": "15000.00",
+    "salarioMinimo": "13500.00",
+    "salarioMaximo": "16500.00"
+  },
+  {
+    "clave": "AST",
+    "nombre": "Analista de Soporte Técnico",
+    "departamento": "TI",
+    "salarioReferencia": "6500.00",
+    "salarioMinimo": "5850.00",
+    "salarioMaximo": "7150.00"
+  },
+  {
+    "clave": "IR",
+    "nombre": "Ingeniero de Redes",
+    "departamento": "TI",
+    "salarioReferencia": "12000.00",
+    "salarioMinimo": "10800.00",
+    "salarioMaximo": "13200.00"
+  },
+  {
+    "clave": "JRH",
+    "nombre": "Jefe de Recursos Humanos",
+    "departamento": "RH",
+    "salarioReferencia": "18000.00",
+    "salarioMinimo": "16200.00",
+    "salarioMaximo": "19800.00"
+  },
+  {
+    "clave": "AN",
+    "nombre": "Analista de Nómina",
+    "departamento": "RH",
+    "salarioReferencia": "9000.00",
+    "salarioMinimo": "8100.00",
+    "salarioMaximo": "9900.00"
+  },
+  {
+    "clave": "RECL",
+    "nombre": "Reclutador",
+    "departamento": "RH",
+    "salarioReferencia": "7500.00",
+    "salarioMinimo": "6750.00",
+    "salarioMaximo": "8250.00"
+  },
+  {
+    "clave": "CC",
+    "nombre": "Coordinador de Capacitación",
+    "departamento": "RH",
+    "salarioReferencia": "9500.00",
+    "salarioMinimo": "8550.00",
+    "salarioMaximo": "10450.00"
+  },
+  {
+    "clave": "AR",
+    "nombre": "Auxiliar de RRHH",
+    "departamento": "RH",
+    "salarioReferencia": "5500.00",
+    "salarioMinimo": "4950.00",
+    "salarioMaximo": "6050.00"
+  },
+  {
+    "clave": "AA",
+    "nombre": "Asistente Administrativo",
+    "departamento": "RH",
+    "salarioReferencia": "4800.00",
+    "salarioMinimo": "4320.00",
+    "salarioMaximo": "5280.00"
+  },
+  {
+    "clave": "GF",
+    "nombre": "Gerente Financiero",
+    "departamento": "FC",
+    "salarioReferencia": "24000.00",
+    "salarioMinimo": "21600.00",
+    "salarioMaximo": "26400.00"
+  },
+  {
+    "clave": "CG",
+    "nombre": "Contador General",
+    "departamento": "FC",
+    "salarioReferencia": "13000.00",
+    "salarioMinimo": "11700.00",
+    "salarioMaximo": "14300.00"
+  },
+  {
+    "clave": "TESO",
+    "nombre": "Tesorero",
+    "departamento": "FC",
+    "salarioReferencia": "10500.00",
+    "salarioMinimo": "9450.00",
+    "salarioMaximo": "11550.00"
+  },
+  {
+    "clave": "ACP",
+    "nombre": "Analista de Cuentas por Pagar",
+    "departamento": "FC",
+    "salarioReferencia": "7000.00",
+    "salarioMinimo": "6300.00",
+    "salarioMaximo": "7700.00"
+  },
+  {
+    "clave": "ACC",
+    "nombre": "Analista de Cuentas por Cobrar",
+    "departamento": "FC",
+    "salarioReferencia": "7000.00",
+    "salarioMinimo": "6300.00",
+    "salarioMaximo": "7700.00"
+  },
+  {
+    "clave": "AC",
+    "nombre": "Auxiliar Contable",
+    "departamento": "FC",
+    "salarioReferencia": "5200.00",
+    "salarioMinimo": "4680.00",
+    "salarioMaximo": "5720.00"
+  },
+  {
+    "clave": "GGO",
+    "nombre": "Gerente General y de Operaciones",
+    "departamento": "OL",
+    "salarioReferencia": "28000.00",
+    "salarioMinimo": "25200.00",
+    "salarioMaximo": "30800.00"
+  },
+  {
+    "clave": "SB",
+    "nombre": "Supervisor de Bodega",
+    "departamento": "OL",
+    "salarioReferencia": "9000.00",
+    "salarioMinimo": "8100.00",
+    "salarioMaximo": "9900.00"
+  },
+  {
+    "clave": "EL",
+    "nombre": "Encargado de Logística",
+    "departamento": "OL",
+    "salarioReferencia": "8500.00",
+    "salarioMinimo": "7650.00",
+    "salarioMaximo": "9350.00"
+  },
+  {
+    "clave": "PR",
+    "nombre": "Piloto de Reparto",
+    "departamento": "OL",
+    "salarioReferencia": "5500.00",
+    "salarioMinimo": "4950.00",
+    "salarioMaximo": "6050.00"
+  },
+  {
+    "clave": "OM",
+    "nombre": "Operador de Montacargas",
+    "departamento": "OL",
+    "salarioReferencia": "5000.00",
+    "salarioMinimo": "4500.00",
+    "salarioMaximo": "5500.00"
+  },
+  {
+    "clave": "AB",
+    "nombre": "Auxiliar de Bodega",
+    "departamento": "OL",
+    "salarioReferencia": "4200.00",
+    "salarioMinimo": "4000.00",
+    "salarioMaximo": "4620.00"
+  },
+  {
+    "clave": "GC",
+    "nombre": "Gerente Comercial",
+    "departamento": "VSA",
+    "salarioReferencia": "20000.00",
+    "salarioMinimo": "18000.00",
+    "salarioMaximo": "22000.00"
+  },
+  {
+    "clave": "CV",
+    "nombre": "Coordinador de Ventas",
+    "departamento": "VSA",
+    "salarioReferencia": "10000.00",
+    "salarioMinimo": "9000.00",
+    "salarioMaximo": "11000.00"
+  },
+  {
+    "clave": "EVS",
+    "nombre": "Ejecutivo de Ventas Sr",
+    "departamento": "VSA",
+    "salarioReferencia": "8500.00",
+    "salarioMinimo": "7650.00",
+    "salarioMaximo": "9350.00"
+  },
+  {
+    "clave": "EV",
+    "nombre": "Ejecutivo de Ventas",
+    "departamento": "VSA",
+    "salarioReferencia": "6500.00",
+    "salarioMinimo": "5850.00",
+    "salarioMaximo": "7150.00"
+  },
+  {
+    "clave": "ESAC",
+    "nombre": "Ejecutivo de Servicio al Cliente",
+    "departamento": "VSA",
+    "salarioReferencia": "5500.00",
+    "salarioMinimo": "4950.00",
+    "salarioMaximo": "6050.00"
+  },
+  {
+    "clave": "AM",
+    "nombre": "Asesor de Mostrador",
+    "departamento": "VSA",
+    "salarioReferencia": "5000.00",
+    "salarioMinimo": "4500.00",
+    "salarioMaximo": "5500.00"
+  }
+]

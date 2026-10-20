@@ -1,0 +1,107 @@
+[
+  {
+    "clave": "DA",
+    "nombre": "Diurno administrativo",
+    "jornada": "DIURNA",
+    "bloques": [
+      {
+        "dias": [1, 2, 3, 4, 5],
+        "entrada": "08:00",
+        "salida": "17:00",
+        "cruzaMedianoche": false,
+        "minutosDescanso": 60
+      }
+    ]
+  },
+  {
+    "clave": "DT",
+    "nombre": "Diurno temprano",
+    "jornada": "DIURNA",
+    "bloques": [
+      {
+        "dias": [1, 2, 3, 4, 5],
+        "entrada": "07:00",
+        "salida": "16:00",
+        "cruzaMedianoche": false,
+        "minutosDescanso": 60
+      }
+    ]
+  },
+  {
+    "clave": "DC",
+    "nombre": "Diurno continuo",
+    "jornada": "DIURNA",
+    "bloques": [
+      {
+        "dias": [1, 2, 3, 4, 5],
+        "entrada": "08:00",
+        "salida": "16:30",
+        "cruzaMedianoche": false,
+        "minutosDescanso": 30
+      }
+    ]
+  },
+  {
+    "clave": "DS",
+    "nombre": "Diurno con sábado",
+    "jornada": "DIURNA",
+    "bloques": [
+      {
+        "dias": [1, 2, 3, 4, 5],
+        "entrada": "08:00",
+        "salida": "17:00",
+        "cruzaMedianoche": false,
+        "minutosDescanso": 60
+      },
+      {
+        "dias": [6],
+        "entrada": "08:00",
+        "salida": "12:30",
+        "cruzaMedianoche": false,
+        "minutosDescanso": 30
+      }
+    ]
+  },
+  {
+    "clave": "MS",
+    "nombre": "Mixto soporte",
+    "jornada": "MIXTA",
+    "bloques": [
+      {
+        "dias": [1, 2, 3, 4, 5],
+        "entrada": "13:00",
+        "salida": "21:00",
+        "cruzaMedianoche": false,
+        "minutosDescanso": 60
+      }
+    ]
+  },
+  {
+    "clave": "NO",
+    "nombre": "Nocturno operativo",
+    "jornada": "NOCTURNA",
+    "bloques": [
+      {
+        "dias": [1, 2, 3, 4, 5],
+        "entrada": "20:00",
+        "salida": "03:00",
+        "cruzaMedianoche": true,
+        "minutosDescanso": 60
+      }
+    ]
+  },
+  {
+    "clave": "BSD",
+    "nombre": "Bodega seis días",
+    "jornada": "DIURNA",
+    "bloques": [
+      {
+        "dias": [1, 2, 3, 4, 5, 6],
+        "entrada": "06:00",
+        "salida": "13:30",
+        "cruzaMedianoche": false,
+        "minutosDescanso": 30
+      }
+    ]
+  }
+]

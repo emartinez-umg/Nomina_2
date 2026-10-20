@@ -1,0 +1,27 @@
+[
+  {
+    "clave": "BI",
+    "nombre": "Banco Industrial",
+    "descripcion": "Banco guatemalteco; las cuentas del conjunto demo son ficticias."
+  },
+  {
+    "clave": "BDR",
+    "nombre": "Banco de Desarrollo Rural",
+    "descripcion": "Banco guatemalteco; las cuentas del conjunto demo son ficticias."
+  },
+  {
+    "clave": "BGC",
+    "nombre": "Banco G&T Continental",
+    "descripcion": "Banco guatemalteco; las cuentas del conjunto demo son ficticias."
+  },
+  {
+    "clave": "BAC",
+    "nombre": "Banco de América Central",
+    "descripcion": "Banco guatemalteco; las cuentas del conjunto demo son ficticias."
+  },
+  {
+    "clave": "BAG",
+    "nombre": "Banco Agromercantil de Guatemala",
+    "descripcion": "Banco guatemalteco; las cuentas del conjunto demo son ficticias."
+  }
+]

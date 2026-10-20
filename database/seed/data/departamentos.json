@@ -1,0 +1,27 @@
+[
+  {
+    "clave": "TI",
+    "nombre": "Tecnología e Ingeniería",
+    "descripcion": "Desarrollo de software, infraestructura y soporte técnico."
+  },
+  {
+    "clave": "RH",
+    "nombre": "Recursos Humanos",
+    "descripcion": "Administración de personal, nómina y capacitación."
+  },
+  {
+    "clave": "FC",
+    "nombre": "Finanzas y Contabilidad",
+    "descripcion": "Contabilidad, tesorería y control financiero."
+  },
+  {
+    "clave": "OL",
+    "nombre": "Operaciones y Logística",
+    "descripcion": "Dirección general, distribución y operación de bodegas."
+  },
+  {
+    "clave": "VSA",
+    "nombre": "Ventas y Servicio al Cliente",
+    "descripcion": "Ventas, atención y servicio al cliente."
+  }
+]

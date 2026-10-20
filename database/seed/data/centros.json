@@ -1,0 +1,92 @@
+[
+  {
+    "clave": "SC",
+    "nombre": "Sede Central",
+    "departamentoGt": "01",
+    "municipioGt": "0101",
+    "direccion": "7a avenida 12-45, zona 10",
+    "telefonoReferencia": "23001001",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "SVN",
+    "nombre": "Sucursal Villa Nueva",
+    "departamentoGt": "01",
+    "municipioGt": "0115",
+    "direccion": "4a calle 8-21, zona 1",
+    "telefonoReferencia": "23001002",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "SM",
+    "nombre": "Sucursal Mixco",
+    "departamentoGt": "01",
+    "municipioGt": "0108",
+    "direccion": "6a avenida 3-18, zona 4",
+    "telefonoReferencia": "23001003",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "SAG",
+    "nombre": "Sucursal Antigua Guatemala",
+    "departamentoGt": "03",
+    "municipioGt": "0301",
+    "direccion": "5a calle poniente 16",
+    "telefonoReferencia": "23001004",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "SE",
+    "nombre": "Sucursal Escuintla",
+    "departamentoGt": "05",
+    "municipioGt": "0501",
+    "direccion": "3a avenida 9-32, zona 1",
+    "telefonoReferencia": "23001005",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "SQ",
+    "nombre": "Sucursal Quetzaltenango",
+    "departamentoGt": "09",
+    "municipioGt": "0901",
+    "direccion": "14a avenida 6-24, zona 3",
+    "telefonoReferencia": "23001006",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "SCRS",
+    "nombre": "Sucursal Cobán",
+    "departamentoGt": "16",
+    "municipioGt": "1601",
+    "direccion": "2a calle 5-19, zona 2",
+    "telefonoReferencia": "23001007",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "SPB",
+    "nombre": "Sucursal Puerto Barrios",
+    "departamentoGt": "18",
+    "municipioGt": "1801",
+    "direccion": "8a calle 4-37",
+    "telefonoReferencia": "23001008",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "SC2",
+    "nombre": "Sucursal Chiquimula",
+    "departamentoGt": "20",
+    "municipioGt": "2001",
+    "direccion": "9a avenida 2-14, zona 1",
+    "telefonoReferencia": "23001009",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  },
+  {
+    "clave": "CDP",
+    "nombre": "Centro de Distribución Palín",
+    "departamentoGt": "05",
+    "municipioGt": "0511",
+    "direccion": "Kilómetro 39, carretera al Pacífico, bodega 6",
+    "telefonoReferencia": "23001010",
+    "descripcion": "Centro de trabajo del conjunto demo; dirección y teléfono ficticios."
+  }
+]
