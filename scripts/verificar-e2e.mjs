@@ -26,10 +26,15 @@ try {
   );
   creado = true;
   if (produccion) {
-    const build = spawnSync('docker', ['build', '-f', 'frontend/Dockerfile', '-t', imagen, '.'], {
-      stdio: 'inherit',
-    });
-    if (build.status !== 0) throw new Error('No se pudo construir el frontend de producción.');
+    for (const [archivo, etiqueta] of [
+      ['backend/Dockerfile', `${imagen}-api`],
+      ['frontend/Dockerfile', imagen],
+    ]) {
+      const build = spawnSync('docker', ['build', '-f', archivo, '-t', etiqueta, '.'], {
+        stdio: 'inherit',
+      });
+      if (build.status !== 0) throw new Error(`No se pudo construir ${archivo}.`);
+    }
   }
   const r = spawnSync(
     process.execPath,
@@ -61,7 +66,8 @@ try {
 } finally {
   if (produccion) {
     spawnSync('docker', ['rm', '-f', `${imagen}-web`], { stdio: 'ignore' });
-    spawnSync('docker', ['image', 'rm', imagen], { stdio: 'ignore' });
+    spawnSync('docker', ['rm', '-f', `${imagen}-api`], { stdio: 'ignore' });
+    spawnSync('docker', ['image', 'rm', imagen, `${imagen}-api`], { stdio: 'ignore' });
   }
   if (creado) {
     administrar(`DROP USER ${usuario} CASCADE;`);

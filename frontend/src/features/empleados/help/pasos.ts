@@ -41,7 +41,7 @@ export function ayudaEmpleados(
         elemento: 'empleado-pasos',
         titulo: 'Asistente de cuatro pasos',
         descripcion:
-          'Completa Datos personales y Datos laborales. Siguiente valida el paso actual; Anterior y los pasos visitados permiten regresar. El indicador marca errores, pasos completos y opcionales. Guardar empleado se habilita con los dos primeros válidos y revisa todos los datos; si un grupo opcional está a medias, debes completarlo o vaciarlo. El borrador conserva datos de todos los pasos y el paso actual. Antes del guardado verás un resumen con omisiones y consecuencias.',
+          'Completa Datos personales y Datos laborales. Siguiente espera a consultar la regla del contrato en Datos laborales y después valida el paso actual; si la consulta falla, usa Reintentar regla o elige otro contrato. Anterior y los pasos visitados permiten regresar. El indicador marca errores, pasos completos y opcionales. Guardar empleado se habilita con los dos primeros válidos y revisa todos los datos; si un grupo opcional está a medias, debes completarlo o vaciarlo. El borrador conserva datos de todos los pasos y el paso actual. Antes del guardado verás un resumen con omisiones y consecuencias.',
       },
       {
         elemento: 'codigo-automatico',
@@ -63,7 +63,7 @@ export function ayudaEmpleados(
         elemento: 'empleado-crear-horario',
         titulo: 'Crear un horario sin salir del expediente',
         descripcion:
-          'Este botón abre el mismo constructor del catálogo en un modal. El código es automático. Selecciona rangos, ajusta los chips y elige horas/descanso de la lista. Revisa jornada, totales y avisos. Guardar crea el patrón y lo selecciona aquí; Cancelar conserva su borrador. Los datos del empleado se mantienen y se guardan después con su propia acción.',
+          'Este botón abre el mismo constructor del catálogo en un modal. El código es automático. Selecciona rangos, ajusta los chips y elige horas/descanso de la lista. Revisa jornada, totales y avisos. Guardar crea el patrón y lo selecciona aquí. Al cancelar con cambios eliges Conservar borrador y salir o Descartar y salir; sin cambios se cierra directamente. Los datos del empleado se mantienen y se guardan después con su propia acción.',
       },
       {
         elemento: 'empleado-usuario',

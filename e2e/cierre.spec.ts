@@ -43,6 +43,8 @@ async function elegir(page: Page, label: string, texto?: string) {
   await opcion.click();
 }
 async function tour(page: Page, ventana = false, completo = false) {
+  await expect(page.getByText('Conoce esta página', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.driver-popover')).toHaveCount(0);
   const activador = page
     .getByRole('button', {
       name: ventana ? 'Ayuda de esta ventana' : 'Ayuda de esta página',
@@ -123,6 +125,13 @@ async function revisarAnchos(page: Page) {
 }
 async function revisarUi(page: Page) {
   await expect(page.locator('h1').first()).toBeVisible();
+  await expect(page.getByText('Conoce esta página', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.driver-popover')).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      Object.keys(localStorage).filter((k) => k.startsWith('nomina2:ayuda:')),
+    ),
+  ).toEqual([]);
   await expect(page.locator('[role="status"]').filter({ hasText: 'Cargando' })).toHaveCount(0);
   const faltas = await page
     .locator('.campo:visible')
@@ -900,6 +909,11 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       '/notificaciones',
       '/comunicacion/anuncios',
       '/tableros/admin',
+      '/tableros/rh/remuneraciones',
+      '/tableros/rh/inasistencias',
+      '/tableros/rh/vacaciones',
+      '/tableros/rh/celebraciones',
+      '/empleados/selector?departamentoId=1',
       '/empresa',
       '/ubicaciones/departamentos',
       '/codigos/vista-previa?entidad=departamentos&palabra=Ingeniería',
@@ -922,6 +936,12 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       '/solicitudes/plantillas',
       '/vacaciones/empleados/2/saldo',
       '/tableros/admin',
+      '/tableros/rh',
+      '/tableros/rh/remuneraciones',
+      '/tableros/rh/inasistencias',
+      '/tableros/rh/vacaciones',
+      '/tableros/rh/celebraciones',
+      '/empleados/selector?departamentoId=1',
       '/empresa',
       '/novedades/pendientes?mes=2026-01',
       '/nomina/pagos/zip?mes=2026-01',

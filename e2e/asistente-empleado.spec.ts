@@ -94,9 +94,26 @@ test('R2-6: asistente, borrador, alta mínima, credenciales y edición con grupo
   await page.getByLabel('Buscar empleado', { exact: true }).fill('Asistente');
   await page.getByRole('button', { name: 'Aplicar filtros', exact: true }).click();
   await expect(page.locator('[data-tour="empleados-tabla"]')).toContainText('Perfil incompleto');
-  await page.goto(`/empleados/${id}/editar`);
+  let liberarContrato!: () => void;
+  const contratoPendiente = new Promise<void>((resolve) => {
+    liberarContrato = resolve;
+  });
+  await page.route('**/api/empleados/opciones/idTipoContrato*', async (ruta) => {
+    await contratoPendiente;
+    await ruta.continue();
+  });
+  try {
+    await page.goto(`/empleados/${id}/editar`);
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
+    await expect(page.getByRole('heading', { name: /Paso 2 de 4/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Siguiente', exact: true })).toBeDisabled();
+  } finally {
+    liberarContrato();
+  }
+  await expect(page.getByRole('button', { name: 'Siguiente', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
-  await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /Paso 3 de 4/ })).toBeVisible();
+  await page.unroute('**/api/empleados/opciones/idTipoContrato*');
   await page.getByLabel('Salario base mensual', { exact: true }).fill('5000');
   await elegirEmpleadoCampo(page, 'Banco', 'Banco E2E');
   await page.getByLabel('Cuenta bancaria', { exact: true }).fill('12345678');

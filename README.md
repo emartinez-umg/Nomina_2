@@ -132,12 +132,13 @@ npm run format:check
 npm run verify:secrets
 npm run db:verify
 npm run verify:migration
+npm run verify:migration:v1
 npm run verify:security
 npm run verify:prestaciones
 npm run verify:solicitudes
 npm run verify:comunicacion
 npx playwright install chromium
-npm run test:e2e
+npm run test:e2e -- --production
 npm run verify:infra
 npm run verify:clean
 # Todo en secuencia:
@@ -153,6 +154,10 @@ esquemas aleatorios `N2TEST_*`/`N2SEC_*`; la API usa un usuario dedicado sin pri
 cookies y CSRF reales. Prueba los tres roles, alta de empleado, vacaciones/aprobación, anticipo/pago mensual/cierre,
 constancia/entrega/descarga y recorre las páginas por rol con ayuda, hints, axe y portal móvil a 390 px.
 No reutiliza sesiones ni respuestas simuladas. Fixtures solo en el esquema desechable, retirado al salir.
+Con `npm run test:e2e -- --production` se construyen y ejecutan las imágenes reales de **API y nginx**,
+con `NODE_ENV=production`, TLS y Oracle temporal. El preparo de fixtures termina antes del entrypoint
+de la API; no se incluyen fixtures en esa imagen. Usa la red `nomina2_default` del Compose de trabajo,
+API de prueba en 3018 y web en 8448. `verify:all` ejecuta esta modalidad.
 El informe local queda en `playwright-report`; no se graban trazas ni videos con credenciales.
 
 `verify:clean` construye **otro proyecto Compose**, con claves aleatorias, puertos libres y volúmenes
@@ -314,7 +319,7 @@ ni elimines el volumen. Un fallo de migración detiene el arranque para revisió
 
 `npm run verify:migration` exige Git con la etiqueta `v0.0`, Node 20, `npm ci` y Oracle saludable.
 Reconstruye una copia aislada de v0 con sus servicios/seeds originales, añade historia de regresión
-y la migra a V030. Compara conteos de las 55 tablas anteriores, todas sus PK y columnas, préstamos,
+y la migra a la última versión (V035). Compara conteos de las 55 tablas anteriores, todas sus PK y columnas, préstamos,
 cuotas cobradas/pendientes, vacaciones, snapshots y bytes documentales; admite únicamente cambios
 con archivo del original o versionado explícito. Comprueba idempotencia y retira la copia. El reporte
 local `tmp/migracion-v0-v1.json` contiene conteos y huella, sin datos personales ni contraseñas.
@@ -325,7 +330,7 @@ parqueo, vigencias legales, empresa/logo y fichas firmantes. Los textos/códigos
 como referencia; los periodos históricos conservan cálculos y motor v0. Las cuotas pendientes pasan
 a vencimiento mensual manteniendo importes, capital, cantidad y saldo.
 
-La aceptación completa es `npm run verify:all`: calidad, unitarias, Oracle/Supertest, migración v0,
+La aceptación completa es `npm run verify:all`: calidad, unitarias, Oracle/Supertest, migraciones v0/v1,
 Playwright, infraestructura y arranque con volúmenes nuevos. Ejecuta las suites Oracle en secuencia.
 Playwright recorre todos los pasos de ayuda, botones e hints, páginas y formularios de los tres roles,
 menú/buscador con teclado, portal a 390 px, borradores, credenciales, horarios, vacaciones 6.25/6,
@@ -375,3 +380,26 @@ Ejecutar `npm run verify:tableros` con Node 20 y Oracle saludable para integraci
 La primera vista de `/rh` muestra cuatro recuadros animados y filtrables, con accesos a los
 detalles, antes de los indicadores y alertas. Respeta movimiento reducido y se apila en móvil.
 E2E con datos de ejemplo en Oracle desechable: `npm run test:e2e -- --production dashboard-rh.spec.ts`.
+
+### Cierre de Ronda 2 (R2-10)
+
+`npm run verify:migration:v1` reconstruye una copia desechable del corte Git `v1` (V030), con
+sus servicios y semillas originales. Añade historia de regresión, pagos/boletas, novedades y
+catálogos duplicados; aplica V031–V035 y compara todas las filas y columnas originales, PK/FK,
+hashes, importes, snapshots y bytes BLOB. Verifica ambas direcciones conservadas, restricciones,
+objetos válidos y segunda ejecución sin cambios. Reporte: `tmp/migracion-v1-v1.1.json`.
+Los duplicados conservan el ID/código y sus referencias: gana el más antiguo, los otros reciben
+un sufijo libre `(duplicado N)` y quedan inactivos; el nombre original se archiva en
+`CATALOGOS_NOMBRES_CORREGIDOS`. Incluye sufijos ocupados y colisiones de los UNIQUE exactos v1.
+No se proporcionó un respaldo externo v1; este ensayo reproducible debe complementarse con el
+respaldo real de la instalación al desplegar.
+
+La regresión Docker cubre login sin avisos en los tres roles, rutas lazy y Anuncios/Eventos,
+barra azul/Inicio directo, notificaciones propias, borradores, asistente con y sin opcionales (incluida la consulta lenta de la regla del contrato),
+nombres inválidos/duplicados, catálogos en uso, cascada y alternancias de los cuatro recuadros.
+La matriz audita anchos, hints, teclado, responsive, contraste WCAG AA y ayuda **solo manual**, sin
+ofertas ni banderas de primera visita. La leyenda del dashboard conserva colores y tramas con
+siglas sobre fondo sólido para que su texto mantenga AA.
+`verify:clean` ensaya `docker compose up --build` con volúmenes nuevos y genera
+`tmp/aceptacion-limpia.json`, incluida la versión esperada y cero objetos inválidos/migraciones fallidas.
+Resultados y límites de esta ronda en [PROGRESO_V1.md](docs/PROGRESO_V1.md#fase-r2-10--cierre-de-la-ronda).

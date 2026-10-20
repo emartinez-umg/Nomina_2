@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import process from 'node:process';
+import console from 'node:console';
+import { Buffer } from 'node:buffer';
 import { createHash, randomBytes } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { fileURLToPath, URL } from 'node:url';
 import { join } from 'node:path';
 import oracledb from 'oracledb';
 import { crearBaseDatos } from '../backend/src/shared/db/pool.ts';
@@ -11,10 +14,18 @@ import { crearLogger } from '../backend/src/config/logger.ts';
 import { ejecutarMigraciones } from '../backend/src/shared/db/migraciones.ts';
 import { ejecutarSeeds } from '../backend/src/shared/db/seeds.ts';
 
-// Reconstruye una copia aislada de v0.0. Nunca conecta con el esquema de aplicación.
+// Reconstruye una copia aislada del corte Git. Nunca conecta con el esquema de aplicación.
+const desdeV1 = process.argv.includes('--from-v1');
+const origen = desdeV1 ? 'v1' : 'v0.0';
+const versionOrigen = desdeV1 ? 30 : 20;
 const raiz = fileURLToPath(new URL('../', import.meta.url));
+const versiones = (await readdir(join(raiz, 'db/migrations')))
+  .map((n) => /^V(\d+)__.*\.sql$/.exec(n))
+  .filter(Boolean)
+  .map((m) => Number(m[1]));
+const destino = `V${String(Math.max(...versiones)).padStart(3, '0')}`;
 await mkdir(join(raiz, 'tmp'), { recursive: true });
-const carpeta = await mkdtemp(join(raiz, 'tmp/migracion-v0-'));
+const carpeta = await mkdtemp(join(raiz, `tmp/migracion-${origen.replaceAll('.', '-')}-`));
 const usuario = `N2MIG_${randomBytes(6).toString('hex').toUpperCase()}`;
 assert.match(usuario, /^N2MIG_[A-F0-9]{12}$/);
 const entorno = {
@@ -53,10 +64,10 @@ function administrar(sql) {
 let creado = false,
   db;
 try {
-  const archivo = join(carpeta, 'v0.tar');
+  const archivo = join(carpeta, 'origen.tar');
   execFileSync(
     'git',
-    ['archive', '--format=tar', '--output', archivo, 'v0.0', 'backend', 'db', 'package.json'],
+    ['archive', '--format=tar', '--output', archivo, origen, 'backend', 'db', 'package.json'],
     { cwd: raiz },
   );
   execFileSync('tar', ['-xf', archivo, '-C', carpeta]);
@@ -83,7 +94,7 @@ try {
     encoding: 'utf8',
     timeout: 120000,
   });
-  if (r.status !== 0) throw new Error(`No se pudo preparar la copia v0: ${r.stderr}`);
+  if (r.status !== 0) throw new Error(`No se pudo preparar la copia ${origen}: ${r.stderr}`);
   db = await crearBaseDatos(validarEntorno(entorno));
   await db.conConexion(async (c) => {
     for (const sql of (
@@ -92,7 +103,45 @@ try {
       .split(/\n\/\s*(?:\n|$)/)
       .map((s) => s.trim())
       .filter(Boolean))
-      await c.execute(sql.replace(/;\s*$/, ''));
+      await c.execute(
+        (desdeV1
+          ? sql.replace(
+              /FROM TIPOS_(DESCUENTO|SOLICITUD) WHERE CODIGO=/g,
+              'FROM TIPOS_$1 WHERE CODIGO_ANTERIOR=',
+            )
+          : sql
+        ).replace(/;\s*$/, ''),
+      );
+    if (desdeV1) {
+      // Reproduce equivalencias, sufijo ocupado y colisión del UNIQUE exacto antiguo.
+      for (const nombre of [
+        'Ingeniería migrada',
+        ' ingenieria   migrada ',
+        'INGENIERÍA MIGRADA',
+        'Ingeniería migrada (duplicado 2)',
+      ])
+        await c.execute('INSERT INTO DEPARTAMENTOS(NOMBRE) VALUES(:nombre)', { nombre });
+      for (const nombre of [' Parentesco migrado ', 'Parentesco migrado'])
+        await c.execute('INSERT INTO PARENTESCOS(NOMBRE) VALUES(:nombre)', { nombre });
+      await c.execute(
+        "INSERT INTO PUESTOS(NOMBRE,ID_DEPARTAMENTO) SELECT 'Puesto de referencia migrada',ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NOMBRE=' ingenieria   migrada '",
+      );
+      await c.execute(
+        "UPDATE EMPLEADOS SET (ID_PUESTO,ID_DEPARTAMENTO)=(SELECT ID_PUESTO,ID_DEPARTAMENTO FROM PUESTOS WHERE NOMBRE='Puesto de referencia migrada') WHERE ID_EMPLEADO=1",
+      );
+      await c.execute(
+        "UPDATE EMPLEADOS SET NUMERO_CASA='Casa-17',DIRECCION_ANTERIOR='Dirección original conservada' WHERE ID_EMPLEADO=1",
+      );
+      await c.execute(
+        "INSERT INTO PAGOS_NOMINA(ID_EMPLEADO,MES,TIPO_PAGO,ID_NOMINA_EMPLEADO) VALUES(1,DATE '2026-01-01','ANTICIPO',1)",
+      );
+      await c.execute(
+        "INSERT INTO BOLETAS_PAGO(ID_NOMINA_EMPLEADO,CONTENIDO_PDF,SHA256) VALUES(1,TO_BLOB(UTL_RAW.CAST_TO_RAW('%PDF-1.4')),RPAD('ab',64,'ab'))",
+      );
+      await c.execute(
+        "INSERT INTO NOVEDADES_MENSUALES(ID_EMPLEADO,TIPO,MES,MONTO,DESCRIPCION,REFERENCIA) VALUES(1,'COMISION',DATE '2026-02-01',125.25,'Novedad pendiente v1','MIGRACION_V1')",
+      );
+    }
     await c.commit();
   });
   // Oracle no admite binds de identificadores; se validan los nombres del diccionario.
@@ -140,11 +189,15 @@ try {
     await db.conConexion(
       async (c) => (await c.execute('SELECT MAX(VERSION) FROM VERSION_ESQUEMA')).rows[0][0],
     ),
-    20,
+    versionOrigen,
   );
-  assert.equal(await ejecutarMigraciones(db, logger), 10);
+  assert.equal(
+    await ejecutarMigraciones(db, logger),
+    versiones.filter((v) => v > versionOrigen).length,
+  );
   await ejecutarSeeds(db, logger, admin);
   const despues = await fotografia();
+  const correcciones = despues.CATALOGOS_NOMBRES_CORREGIDOS.filas;
   const informe = [];
   // Únicos cambios intencionales: códigos archivados, sexo O archivado, contratos,
   // fechas de cuotas archivadas, inactivación de plantilla versionada y fechas de auditoría.
@@ -157,15 +210,59 @@ try {
       for (const columna of datos.columnas) {
         if (columna === 'FECHA_MODIFICACION') continue;
         let destino = columna;
-        if (columna === 'CODIGO' && 'CODIGO_ANTERIOR' in actual) destino = 'CODIGO_ANTERIOR';
-        if (tabla === 'EMPLEADOS' && columna === 'SEXO') destino = 'SEXO_ANTERIOR';
+        if (tabla === 'SECUENCIAS_CODIGOS' && columna === 'ULTIMO_NUMERO') {
+          const nuevasReservas = despues.REGISTRO_CODIGOS.filas.filter(
+            (f) =>
+              f.ENTIDAD === original.ENTIDAD &&
+              !antes.REGISTRO_CODIGOS.filas.some(
+                (a) => a.ID_REGISTRO_CODIGO === f.ID_REGISTRO_CODIGO,
+              ),
+          );
+          assert.equal(
+            actual[columna],
+            original[columna] + nuevasReservas.length,
+            'El contador solo avanza por nuevas reservas de la migración.',
+          );
+          continue;
+        }
         if (
+          !desdeV1 &&
+          columna === 'CODIGO' &&
+          actual.CODIGO !== original.CODIGO &&
+          'CODIGO_ANTERIOR' in actual
+        )
+          destino = 'CODIGO_ANTERIOR';
+        if (tabla === 'EMPLEADOS') {
+          if (!desdeV1 && columna === 'SEXO') destino = 'SEXO_ANTERIOR';
+          if (columna === 'DIRECCION') destino = 'DIRECCION_COMPLETA';
+          if (columna === 'NUMERO_CASA') destino = 'DIRECCION';
+        }
+        const correccion = correcciones.find(
+          (f) => f.TABLA === tabla && f.ID_REGISTRO === original[datos.pk],
+        );
+        if (columna === 'NOMBRE' && correccion) {
+          assert.equal(correccion.NOMBRE_ANTERIOR, original.NOMBRE);
+          assert.equal(actual.NOMBRE, correccion.NOMBRE_NUEVO);
+          assert.match(actual.NOMBRE, /\(duplicado \d+\)$/);
+          continue;
+        }
+        if (columna === 'ACTIVO' && correccion) {
+          assert.equal(actual.ACTIVO, 0);
+          continue;
+        }
+        if (columna === 'NOMBRE' && 'NOMBRE_NORMALIZADO' in actual) {
+          assert.equal(actual.NOMBRE, original.NOMBRE.trim().replace(/\s+/g, ' '));
+          continue;
+        }
+        if (
+          !desdeV1 &&
           tabla === 'DESCUENTOS_CUOTAS' &&
           columna === 'FECHA_VENCIMIENTO' &&
           actual.FECHA_VENCIMIENTO_ANTERIOR
         )
           destino = 'FECHA_VENCIMIENTO_ANTERIOR';
         if (
+          !desdeV1 &&
           tabla === 'DESCUENTOS_EMPLEADO' &&
           columna === 'FECHA_FIN' &&
           despues.DESCUENTOS_CUOTAS.filas.some(
@@ -176,6 +273,7 @@ try {
         )
           destino = 'FECHA_FIN_ANTERIOR';
         if (
+          !desdeV1 &&
           tabla === 'TIPOS_CONTRATO' &&
           columna === 'REQUIERE_FIN' &&
           original.CODIGO === 'OBRA_DETERMINADA'
@@ -217,6 +315,21 @@ try {
     despues,
     'Reejecución debe conservar exactamente todos los datos.',
   );
+  if (desdeV1) {
+    assert.equal(
+      correcciones.length,
+      3,
+      'Dos departamentos duplicados y un parentesco corregidos.',
+    );
+    const departamentos = despues.DEPARTAMENTOS.filas.filter((f) => /migrada/i.test(f.NOMBRE));
+    assert.equal(departamentos.length, 4);
+    assert.equal(departamentos[0].NOMBRE, 'Ingeniería migrada');
+    assert.equal(departamentos[0].ACTIVO, 1);
+    assert.deepEqual(
+      departamentos.slice(1, 3).map((f) => f.NOMBRE),
+      ['ingenieria migrada (duplicado 3)', 'INGENIERÍA MIGRADA (duplicado 4)'],
+    );
+  }
   await db.conConexion(async (c) => {
     assert.equal(
       (await c.execute("SELECT COUNT(*) FROM USER_OBJECTS WHERE STATUS<>'VALID'")).rows[0][0],
@@ -230,27 +343,39 @@ try {
       ).rows[0][0],
       0,
     );
-    assert.equal(
-      (await c.execute("SELECT COUNT(*) FROM NOVEDADES_MENSUALES WHERE TIPO='COMISION'"))
-        .rows[0][0],
-      2,
-      'Referencias repetidas v0 conservadas.',
-    );
+    if (!desdeV1)
+      assert.equal(
+        (await c.execute("SELECT COUNT(*) FROM NOVEDADES_MENSUALES WHERE TIPO='COMISION'"))
+          .rows[0][0],
+        2,
+        'Referencias repetidas v0 conservadas.',
+      );
   });
   const resumen = {
-    origen: 'v0.0',
-    destino: 'V030',
+    origen,
+    destino,
     tablas: informe,
+    duplicadosCorregidos: correcciones.map(
+      ({ TABLA, ID_REGISTRO, NOMBRE_ANTERIOR, NOMBRE_NUEVO }) => ({
+        tabla: TABLA,
+        id: ID_REGISTRO,
+        anterior: NOMBRE_ANTERIOR,
+        nuevo: NOMBRE_NUEVO,
+      }),
+    ),
     huellaOrigen: createHash('sha256').update(JSON.stringify(antes)).digest('hex'),
   };
-  await writeFile(join(raiz, 'tmp/migracion-v0-v1.json'), JSON.stringify(resumen, null, 2));
+  await writeFile(
+    join(raiz, desdeV1 ? 'tmp/migracion-v1-v1.1.json' : 'tmp/migracion-v0-v1.json'),
+    JSON.stringify(resumen, null, 2),
+  );
   console.table(informe);
   console.log(
-    '✓ v0.0 → V030: PK, valores, snapshots, documentos y saldos conservados; seeds y migración repetibles.',
+    `✓ ${origen} → ${destino}: PK, valores, snapshots, documentos y saldos conservados; seeds y migración repetibles.`,
   );
 } finally {
   await db?.cerrar();
   if (creado) administrar(`DROP USER ${usuario} CASCADE;`);
   await rm(carpeta, { recursive: true, force: true });
-  console.log('✓ Copia v0 y esquema de migración temporales retirados.');
+  console.log(`✓ Copia ${origen} y esquema de migración temporales retirados.`);
 }

@@ -158,29 +158,33 @@ const idsFirmantes = await db.conConexion(
     ).rows ?? [],
 );
 for (const [id] of idsFirmantes) await prepararFirmantePrueba(db, id!);
-const salud = crearSaludService(crearSaludRepository(db), logger);
-const app = crearApp(salud, logger, {
-  empresa: crearEmpresaService(db),
-  auth: await crearAuthService(db, config),
-  usuarios: crearUsuariosService(db),
-  auditoria: crearAuditoriaService(db),
-  codigos: crearCodigosService(db),
-  ubicaciones: crearUbicacionesService(db),
-  catalogos: crearCatalogosService(db),
-  empleados: crearEmpleadosService(db),
-  novedades: crearNovedadesService(db),
-  vacaciones: crearVacacionesService(db),
-  nomina: crearNominaService(db),
-  prestaciones: crearPrestacionesService(db),
-  solicitudes: crearSolicitudesService(db),
-  comunicacion: crearComunicacionService(db),
-  tableros: crearTablerosService(db),
-  config,
-});
-const server = app.listen(3018, '127.0.0.1');
-const cerrar = () =>
-  server.close(() => {
-    void db.cerrar().then(() => process.exit(0));
+if (process.env.E2E_PREPARE_ONLY === '1') {
+  await db.cerrar();
+} else {
+  const salud = crearSaludService(crearSaludRepository(db), logger);
+  const app = crearApp(salud, logger, {
+    empresa: crearEmpresaService(db),
+    auth: await crearAuthService(db, config),
+    usuarios: crearUsuariosService(db),
+    auditoria: crearAuditoriaService(db),
+    codigos: crearCodigosService(db),
+    ubicaciones: crearUbicacionesService(db),
+    catalogos: crearCatalogosService(db),
+    empleados: crearEmpleadosService(db),
+    novedades: crearNovedadesService(db),
+    vacaciones: crearVacacionesService(db),
+    nomina: crearNominaService(db),
+    prestaciones: crearPrestacionesService(db),
+    solicitudes: crearSolicitudesService(db),
+    comunicacion: crearComunicacionService(db),
+    tableros: crearTablerosService(db),
+    config,
   });
-process.on('SIGINT', cerrar);
-process.on('SIGTERM', cerrar);
+  const server = app.listen(3018, '127.0.0.1');
+  const cerrar = () =>
+    server.close(() => {
+      void db.cerrar().then(() => process.exit(0));
+    });
+  process.on('SIGINT', cerrar);
+  process.on('SIGTERM', cerrar);
+}

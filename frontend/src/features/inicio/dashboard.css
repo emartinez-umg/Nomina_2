@@ -244,9 +244,11 @@
   font-weight: bold;
   flex-shrink: 0;
 }
-.rh-muestra.rh-JUSTIFICADA_CON_GOCE,
-.rh-muestra.rh-JUSTIFICADA_SIN_GOCE {
-  color: #172f4e;
+.rh-muestra > span {
+  color: #1d395e;
+  background: #fff;
+  border-radius: 0.15rem;
+  padding: 0.08rem;
 }
 .rh-nota {
   font-size: 0.72rem;

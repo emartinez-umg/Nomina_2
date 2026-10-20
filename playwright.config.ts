@@ -20,7 +20,9 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'node node_modules/tsx/dist/cli.mjs backend/e2e/server.ts',
+      command: produccion
+        ? 'node scripts/servir-api-e2e.mjs'
+        : 'node node_modules/tsx/dist/cli.mjs backend/e2e/server.ts',
       url: 'http://127.0.0.1:3018/api/salud',
       timeout: 120000,
       reuseExistingServer: false,

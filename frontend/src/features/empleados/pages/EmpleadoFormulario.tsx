@@ -193,6 +193,13 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
     /^\d+(\.\d{1,2})?$/.test((vals.salarioBase ?? '').replace(/,/g, '')) &&
     new Decimal(vals.salarioBase!.replace(/,/g, '')).lt(minimo!);
   const ocupado = isSubmitting || guardando;
+  const motivoReglaContrato =
+    vals.idTipoContrato &&
+    (!contrato || requiereFin !== (contrato.requiereFechaFin === 1) || contratos.error)
+      ? contratos.error
+        ? 'No se pudo consultar el contrato. Pulsa Reintentar regla o selecciona otro tipo.'
+        : 'Espera a que se consulte la regla del contrato antes de continuar.'
+      : undefined;
   const erroresPaso = (paso: number) => camposPaso(paso, !!actual).some((k) => !!errors[k]);
   const schemaDelPaso = (paso: number) =>
     schemaFormulario(
@@ -216,13 +223,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
       ?.focus({ preventScroll: true });
   }, [seccionActual]);
   const validarPaso = () => {
-    if (seccionActual === 1 && vals.idTipoContrato && !contrato) {
-      form.setError('idTipoContrato', {
-        type: 'manual',
-        message: 'Espera a consultar la regla del contrato o vuelve a seleccionarlo.',
-      });
-      return;
-    }
+    if (seccionActual === 1 && motivoReglaContrato) return;
     const resultado = schemaDelPaso(seccionActual).safeParse(form.getValues());
     form.clearErrors(camposPaso(seccionActual, !!actual));
     if (!resultado.success) {
@@ -287,7 +288,9 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
       <form
         noValidate
         onSubmit={handleSubmit(
-          (d) => setRevision(d),
+          (d) => {
+            if (!motivoReglaContrato) setRevision(d);
+          },
           (fallos) => {
             const paso = secciones.findIndex((_s, i) =>
               camposPaso(i, !!actual).some((k) => fallos[k]),
@@ -453,11 +456,13 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                                   name={field.name}
                                   label={f.label}
                                   hint={
-                                    f.nombre === 'fechaFinContrato' && requiereFin === false
-                                      ? 'Contrato por tiempo indefinido: no tiene fecha de fin.'
-                                      : f.nombre === 'nit' && r.validarDigitoNit
-                                        ? `${f.hint} Módulo 11 activado por ADMIN.`
-                                        : f.hint
+                                    f.nombre === 'idTipoContrato'
+                                      ? 'Selecciona un contrato. Siguiente espera su regla para habilitar o dejar vacío el fin; si falla, usa Reintentar regla.'
+                                      : f.nombre === 'fechaFinContrato' && requiereFin === false
+                                        ? 'Contrato por tiempo indefinido: no tiene fecha de fin.'
+                                        : f.nombre === 'nit' && r.validarDigitoNit
+                                          ? `${f.hint} Módulo 11 activado por ADMIN.`
+                                          : f.hint
                                   }
                                   placeholder={f.hint.split('.')[0] ?? ''}
                                   value={field.value ?? ''}
@@ -574,8 +579,14 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
           )}
           {contratos.error && (
             <p role="alert" className="campo-error">
-              No se pudo consultar la regla de contrato. Vuelve a seleccionar el tipo.
+              No se pudo consultar la regla de contrato. Reintenta o selecciona otro tipo.
+              <Button icono="actualizar" variante="texto" onClick={() => void contratos.refetch()}>
+                Reintentar regla
+              </Button>
             </p>
+          )}
+          {motivoReglaContrato && contratos.isFetching && (
+            <p role="status">Consultando la regla del contrato…</p>
           )}
           <FormErrorSummary
             mensajes={Object.values(errors).map((e) => e?.message)}
@@ -602,7 +613,12 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
               Anterior
             </Button>
             {seccionActual < 3 && (
-              <Button icono="siguiente" disabled={ocupado} onClick={() => void validarPaso()}>
+              <Button
+                icono="siguiente"
+                disabled={ocupado || (seccionActual === 1 && !!motivoReglaContrato)}
+                motivoDeshabilitado={seccionActual === 1 ? motivoReglaContrato : undefined}
+                onClick={() => void validarPaso()}
+              >
                 Siguiente
               </Button>
             )}
@@ -620,6 +636,7 @@ function Formulario({ reglas: r, actual }: { reglas: Reglas; actual: Empleado | 
                 !valido(0) ||
                 !valido(1) ||
                 !contrato ||
+                !!motivoReglaContrato ||
                 !!contratos.error ||
                 !codigoMunicipio ||
                 (!!vals.contactoParentesco && !catalogoParentescos.data)

@@ -14,7 +14,7 @@ export const ayudaInicio: DefinicionAyuda = {
       titulo: 'Distinguir días de inasistencia',
       roles: ['RH'],
       descripcion:
-        'Compara empleados o departamentos actuales y el mes, trimestre o año que contiene hoy de Guatemala. Solo se cuentan ausencias aprobadas activas, recortadas al rango mostrado. IGSS es verde (IG); con goce amarillo y diagonales (CG); sin goce naranja y líneas (SG); sin justificación rojo y puntos (SJ). La leyenda suma días de todos, incluso fuera del top cinco. Pasa el cursor o enfoca una fila para leer las cuatro cantidades; Escape cierra el detalle. Cada fila abre Ausencias con empleado o departamento, fechas y estado Aprobada. Estos días son calendario y pueden tener fracciones históricas; no son los días laborales de vacaciones.',
+        'Compara empleados o departamentos actuales y el mes, trimestre o año que contiene hoy de Guatemala. Solo se cuentan ausencias aprobadas activas, recortadas al rango mostrado. IGSS es verde (IG); con goce amarillo y diagonales (CG); sin goce naranja y líneas (SG); sin justificación rojo y puntos (SJ). Las siglas se leen sobre fondo blanco sólido dentro de cada muestra; el color, la trama y el nombre identifican la categoría. La leyenda suma días de todos, incluso fuera del top cinco. Pasa el cursor o enfoca una fila para leer las cuatro cantidades; Escape cierra el detalle. Cada fila abre Ausencias con empleado o departamento, fechas y estado Aprobada. Estos días son calendario y pueden tener fracciones históricas; no son los días laborales de vacaciones.',
     },
     {
       elemento: 'rh-vacaciones',

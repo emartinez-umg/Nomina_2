@@ -274,7 +274,7 @@ function Inasistencias() {
                     style={{ backgroundColor: categorias[c.categoria].color }}
                     aria-hidden="true"
                   >
-                    {categorias[c.categoria].sigla}
+                    <span>{categorias[c.categoria].sigla}</span>
                   </span>
                   <span>
                     {categorias[c.categoria].texto}

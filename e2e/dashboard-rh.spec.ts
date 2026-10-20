@@ -2,6 +2,22 @@ import { test, expect, type Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import { prepararDashboard } from './dashboard.fixture.js';
 
+function contraste(a: string, b: string) {
+  const luminancia = (color: string) => {
+    const canales = color
+      .match(/[\d.]+/g)!
+      .slice(0, 3)
+      .map(Number)
+      .map((n) => {
+        const v = n / 255;
+        return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      });
+    return canales[0]! * 0.2126 + canales[1]! * 0.7152 + canales[2]! * 0.0722;
+  };
+  const [l1, l2] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
+  return (l1! + 0.05) / (l2! + 0.05);
+}
+
 let fixture: Awaited<ReturnType<typeof prepararDashboard>>;
 test.beforeAll(async () => {
   fixture = await prepararDashboard();
@@ -110,6 +126,27 @@ test('R2-9: cuatro recuadros primero, alternancias y enlaces filtrados con Oracl
   await top.getByLabel('Mes de remuneraciones', { exact: true }).selectOption('09');
   await expect(top.getByRole('link', { name: /Ana Ejemplo: Q 12,750.00/ })).toBeVisible();
   await expect(page.getByText(/Actualizado hace/)).toHaveCount(4);
+  // Axe no resuelve texto sobre background-image: medimos también los colores efectivos.
+  const muestras = await page.locator('.rh-muestra').evaluateAll((elementos) =>
+    elementos.map((e) => {
+      const texto = e.querySelector('span') ?? e;
+      const estilo = getComputedStyle(texto);
+      return {
+        texto: texto.textContent,
+        color: estilo.color,
+        fondo:
+          estilo.backgroundColor === 'rgba(0, 0, 0, 0)'
+            ? getComputedStyle(e).backgroundColor
+            : estilo.backgroundColor,
+      };
+    }),
+  );
+  expect(muestras).toHaveLength(4);
+  for (const muestra of muestras)
+    expect(
+      contraste(muestra.color, muestra.fondo),
+      `Contraste AA de ${muestra.texto}`,
+    ).toBeGreaterThanOrEqual(4.5);
   const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(axe.violations).toEqual([]);
   await page.screenshot({ path: 'tmp/pdfs/r2-9-dashboard-escritorio.png', fullPage: true });

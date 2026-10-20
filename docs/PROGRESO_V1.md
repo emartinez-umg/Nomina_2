@@ -2273,3 +2273,114 @@ El cambio previo del usuario en AGENTS.md permanece fuera del commit.
    primero; alternar empleado/departamento, métricas, mes, periodos, vacaciones y celebraciones.
 4. Seguir cada barra/persona y revisar chips/resultados filtrados. Probar Ayuda, teclado,
    reintento sin conexión, viewport 390 px y preferencia de movimiento reducido del dispositivo.
+
+### FASE R2-10 — Cierre de la ronda
+
+Estado: completada y validada el 20/10/2026. Rama `v1.1`.
+El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
+
+#### Reproducción y causas raíz
+
+- El modo E2E de producción compilaba nginx en Docker pero ejecutaba la API desde TypeScript
+  en el host. Ahora ambos servicios se ejecutan con sus Dockerfile y entrypoints originales;
+  la preparación del esquema temporal termina y cierra su pool antes de arrancar la API.
+- verify:migration seguía exigiendo diez migraciones y anunciando V030. Consulta ahora los SQL
+  versionados para comprobar todas las pendientes hasta V035 y admite el corte Git v1/V030.
+  Los códigos semánticos que no se renumeran se comparan en su columna original, y los contadores
+  solo pueden avanzar por la cantidad exacta de nuevas reservas de su entidad.
+- La nueva regresión de contraste falla antes del arreglo con **4.2183:1** en SG sobre naranja.
+  Axe no resolvía ese texto sobre background-image. Las cuatro siglas se colocan sobre blanco
+  sólido dentro de sus muestras; se conservan colores, tramas, bordes y etiquetas originales.
+  La comprobación numérica exige 4.5:1 y se conserva axe WCAG A/AA.
+- La regresión completa encontró Siguiente habilitado al editar mientras todavía se consultaba
+  el contrato. El paso 2 se detenía y mostraba un error transitorio. La reproducción determinista
+  retiene la consulta real: antes del arreglo falla porque Siguiente sigue habilitado. Ahora
+  Siguiente/Guardar y el envío implícito esperan la regla resuelta, con estado y tooltip; un fallo
+  ofrece Reintentar regla. No se amplían tiempos ni se simulan datos para ocultar la carrera.
+- La ayuda del horario inline todavía decía que Cancelar conservaba siempre. Se corrige a las
+  dos decisiones reales de salida. Ayuda e hints del asistente explican también la espera/reintento,
+  y la del dashboard describe las siglas sobre fondo sólido. Los recorridos siguen solo manuales.
+
+#### Hecho y decisiones
+
+- `test:e2e -- --production` construye API/web, usa la red nomina2_default y servicios temporales
+  en 3018/8448, con NODE_ENV=production, TLS, cookies Secure, API y Oracle reales. Fixtures fuera
+  de las imágenes; contraseñas por entorno, sin argumentos Docker. Limpieza de ambas imágenes,
+  contenedores y esquema al terminar. El modo Vite se mantiene para desarrollo.
+- verify:all incorpora esa modalidad, la migración desde v1 y lint de los verificadores nuevos.
+  La matriz de páginas/ventanas comprueba ausencia de Conoce esta página y de driver antes del clic,
+  y ausencia de banderas persistidas. Se amplía la matriz HTTP a las cuatro agregaciones y selector,
+  incluido el rechazo del dashboard RH antiguo para EMPLEADO.
+- Auditoría de seguridad en routers/services/repositories: cuatro agregaciones RH/ADMIN, SQL con
+  binds y no-store; selector mínimo sin salario/DPI/NIT/banco, filtro departamental en ambas consultas;
+  notificaciones ligadas siempre al usuario de sesión, también ADMIN, con CSRF y auditoría transaccional.
+  La boleta propia del portal conserva su acceso; no se exponen salarios del equipo a EMPLEADO.
+- verify:migration:v1 reconstruye el corte v1 con su código, migraciones y seeds, agrega historia,
+  pago/boleta BLOB, novedad pendiente, ambas direcciones y duplicados con sufijo ocupado/UNIQUE exacto.
+  Incluye un empleado vinculado a un departamento duplicado. Compara todas las columnas/PK previas,
+  hashes, importes, snapshots, documentos y referencias; exige constraints validadas, objetos válidos
+  e idempotencia de migraciones y seeds. No se modifica ninguna migración histórica V000–V035.
+- Resultado v1: **72 tablas previas y 746 filas originales conservadas**; 780 filas después en esas
+  tablas por las nuevas reservas/configuraciones. Tres duplicados sintéticos corregidos: departamentos
+  « ingenieria migrada » → «ingenieria migrada (duplicado 3)» y «INGENIERÍA MIGRADA» →
+  «INGENIERÍA MIGRADA (duplicado 4)»; parentesco «Parentesco migrado» → «Parentesco migrado (duplicado 2)».
+  Los tres quedan inactivos, conservan PK/código y archivan el original. Ganan los más antiguos y
+  el sufijo 2 ya ocupado no se reutiliza. Las FK del empleado/puesto permanecen idénticas.
+- Regresión v0: **55 tablas y 157 filas originales conservadas**, 169 después; hasta V035,
+  restricciones, idempotencia y bytes documentales aprobados. Informes locales sin secretos en
+  tmp/migracion-v0-v1.json y tmp/migracion-v1-v1.1.json; copias/esquemas retirados.
+- verify:clean contrasta además la versión de la API con el último SQL versionado, cero objetos
+  inválidos y cero migraciones pendientes; guarda tmp/aceptacion-limpia.json. README y DECISIONES
+  documentan la aceptación, las transformaciones permitidas, la seguridad y los límites operativos.
+
+#### Supuestos y límites
+
+- No se proporcionó un respaldo externo v1. Se ensaya una copia reproducible del corte Git con
+  datos históricos de regresión; desplegar requiere complementar con el respaldo real de empresa.
+- Los datos de prueba viven exclusivamente en esquemas/proyectos desechables. No se migró ni
+  reinició la instalación operativa V034: su actualización a V035 sigue siendo el despliegue
+  documentado en R2-8/R2-9. Esta fase verifica el paquete final en instalaciones aisladas.
+- Docker tenía el disco al 100 %. Se liberaron 3.513 GB de caché regenerable sin uso y 996.1 MB
+  de imágenes sin etiqueta/sin contenedores; se conservaron imágenes etiquetadas, volúmenes y datos.
+- Un ensayo redundante de Oracle vacío simultáneo a otras suites agotó la capacidad de los 8 GB
+  de Docker: provocó tiempos de espera de pruebas/limpieza. Se interrumpieron esos procesos propios,
+  se retiraron sus contenedores/volúmenes y el único esquema parcial sin sesiones, y se continúa
+  en secuencia. La primera instalación limpia y primera regresión 69/69 ya habían pasado.
+- Los avisos previos de tamaño de chunk Vite permanecen; no se cambia el límite para ocultarlos.
+
+#### Validación y pendientes
+
+- Regresión final con ambas correcciones e imágenes reales API/nginx: **69/69 E2E aprobados (6.4 min)**.
+  Matriz de **142 vistas y 1,960 pasos de ayuda** (ADMIN 64, RH 62, EMPLEADO 16), más ventanas.
+  Cubre login sin avisos, lazy/MIME/caché/recuperación, barra azul/Inicio, avisos propios, borradores,
+  asistente mínimo/completo, catálogos, cascada, cuatro recuadros, documentos y pagos/cierre.
+- Node 20.20.2: 760 pruebas aprobadas (419 backend, 334 frontend y siete del exportador), lint,
+  TypeScript strict, build, Prettier y secretos. Controles afectados por el asistente repetidos
+  sobre el código de entrega; 334/334 frontend aprobadas de nuevo. Contraste numérico, ayuda
+  solo manual, hints, teclado, anchos y axe A/AA pasan sin omitir reglas ni relajar aserciones.
+- **212/212 Oracle/Supertest** aprobados en catorce suites: seguridad 82, solicitudes 20, dashboard 11,
+  catálogos 11, empleados 3, pagos 16, novedades 14, vacaciones 2, horarios 6, empresa 6, ubicaciones 6,
+  códigos 9, prestaciones 10 y comunicación 16. Se repitió empleados tras la falta de recursos;
+  3/3 aprobadas sin cambiar tiempos ni aserciones. Todos sus esquemas desechables retirados.
+  db:verify desde cero V000–V035, restricciones, índices y seeds repetibles aprobado.
+- **Instalación limpia final aprobada** con el código de entrega: Compose completo desde volúmenes
+  nuevos, V035, Oracle thin, cero objetos inválidos/migraciones pendientes, login, cambio obligatorio,
+  cookie Secure/Strict, administración, ayuda manual y axe A/AA. Contenedores, imágenes, credenciales,
+  red y volúmenes exclusivos retirados al terminar. verify:infra aprobado para la instalación
+  conservada: Oracle/API/nginx, rutas SPA/assets y visor/worker PDF.
+- Capturas finales de asistente, catálogos y dashboard en escritorio/móvil inspeccionadas:
+  campos cortos comparten fila, etiquetas/hints/errores alineados, sin desbordamiento y leyenda legible.
+  Artefactos locales en tmp/pdfs y playwright-report, ignorados por Git.
+- Lint, TypeScript strict, build, Prettier, secretos y diff --check aprobados. Sin pendientes técnicos
+  de R2-10. El despliegue operativo a V035 y el ensayo del respaldo real siguen como tareas de
+  operación explícitas; no se sustituyen por fixtures ni por la reconstrucción del corte Git.
+  AGENTS.md previo del usuario permanece fuera del commit de cierre.
+
+#### Cómo probar
+
+1. Configurar .env desde .env.example; `docker compose up --build -d --wait --wait-timeout 900`.
+2. Node 20, npm ci y Chromium: `npm run verify:all` (secuencial; Oracle de trabajo saludable).
+3. Solo navegador Docker: `npm run test:e2e -- --production`; migración v1: `npm run verify:migration:v1`.
+4. Instalación vacía: `npm run verify:clean`; informes locales en tmp y playwright-report.
+5. Revisar Ayuda manual, asistentes, decisiones de borrador, catálogos inválidos/duplicados/en uso,
+   notificaciones propias, cascada y alternancias del dashboard en escritorio y móvil.

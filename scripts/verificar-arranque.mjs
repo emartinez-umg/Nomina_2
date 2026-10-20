@@ -4,7 +4,7 @@ import console from 'node:console';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
@@ -13,6 +13,12 @@ import { AxeBuilder } from '@axe-core/playwright';
 const proyecto = `nomina2-aceptacion-${randomBytes(4).toString('hex')}`;
 const carpeta = await mkdtemp(join(tmpdir(), 'nomina2-aceptacion-'));
 const archivo = join(carpeta, '.env');
+const versionEsperada = Math.max(
+  ...(await readdir('db/migrations')).flatMap((n) => {
+    const m = /^V(\d+)__.*\.sql$/.exec(n);
+    return m ? [Number(m[1])] : [];
+  }),
+);
 const puerto = () =>
   new Promise((resolve, reject) => {
     const s = createServer();
@@ -120,6 +126,32 @@ try {
   assert.deepEqual(errores, []);
   await page.goto(`https://127.0.0.1:${WEB_HTTPS_PORT}/admin/usuarios`);
   await page.getByRole('heading', { name: 'Usuarios y roles' }).waitFor();
+  const tablero = await contexto.request.get(
+    `https://127.0.0.1:${WEB_HTTPS_PORT}/api/tableros/admin`,
+  );
+  assert.equal(tablero.status(), 200);
+  const sistema = (await tablero.json()).data.sistema;
+  assert.equal(sistema.version, versionEsperada);
+  assert.equal(sistema.migracionesPendientes, 0);
+  assert.equal(sistema.objetosInvalidos, 0);
+  await mkdir('tmp', { recursive: true });
+  await writeFile(
+    'tmp/aceptacion-limpia.json',
+    JSON.stringify(
+      {
+        version: sistema.version,
+        migracionesPendientes: 0,
+        objetosInvalidos: 0,
+        oracleThin: true,
+        loginYCambioObligatorio: true,
+        sesionSecure: true,
+        ayudaSoloManual: true,
+        axeSinInfracciones: true,
+      },
+      null,
+      2,
+    ),
+  );
   console.log(
     '✓ Instalación vacía: migraciones/seeds, nginx TLS, login, cambio obligatorio, sesión Secure y administración funcionan.',
   );
