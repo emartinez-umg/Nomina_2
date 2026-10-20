@@ -2385,6 +2385,74 @@ El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
 5. Revisar Ayuda manual, asistentes, decisiones de borrador, catálogos inválidos/duplicados/en uso,
    notificaciones propias, cascada y alternancias del dashboard en escritorio y móvil.
 
+### Ajuste visual — Centrado compartido de páginas de formulario
+
+Estado: completado y validado el 20/10/2026 en `v1.1`.
+
+#### Causa y corrección
+
+- `app-contenido` ocupaba todo el ancho con padding, mientras `form:has(.form-grid)` solo
+  limitaba el formulario a 72 rem, sin márgenes automáticos. Los títulos y pestañas quedaban
+  fuera de ese límite. La regresión con Préstamos nuevos falla antes del arreglo a 1920 px:
+  **712 px de diferencia entre los márgenes izquierdo y derecho** de la tarjeta.
+- Nuevo `FormPageContainer` con `Outlet`, aplicado por grupos de rutas sin cambiar URLs ni
+  permisos: las seis novedades en alta/edición, empleado nuevo/edición, carga masiva, empresa,
+  tarifas de parqueo, simulación de pago y Mis datos. El bloque incluye encabezado, pestañas,
+  borrador, código, tarjetas y acciones, también durante carga o error.
+- `.form-page`: ancho 100 %, máximo 75 rem (1200 px), márgenes horizontales automáticos y
+  padding de 24 px en escritorio / 16 px bajo 768 px. El padding sustituye al del contenido
+  solo en esas páginas. La barra superior mantiene su ancho completo y estilos originales.
+- `CampoCodigo` reserva 18 caracteres visuales como mínimo y crece con el código recibido;
+  conserva la propiedad `tamano` explícita. Se mantiene visible el prefijo/año/correlativo
+  completo, sin modificar sus valores, API, hints ni readonly. Las acciones compartidas de
+  novedades permiten saltar de fila en móvil.
+
+#### Supuestos y alcance
+
+- Los formularios de catálogos, usuarios, comunicaciones, solicitudes y operaciones contextuales
+  ya se muestran en diálogos centrados mediante `.modal`; no requieren estrechar sus listados.
+  Se mantiene la proporción de campos y el tope interno de FormGrid.
+- Se respeta la instrucción de conservar textos, hints, colores, tipografía, orden y validaciones.
+  Los objetivos y recorridos de ayuda existentes siguen asociados a sus controles; las seis
+  ediciones comprueban que la ayuda abre y cierra. Sin cambios de backend ni migraciones.
+- Las pruebas usan API/Oracle reales con un esquema N2E2E desechable. No se reemplazan los
+  servicios operativos ni se modifican sus datos. El despliegue de este ajuste queda a elección
+  del usuario mediante la reconstrucción del servicio web; se completó por su solicitud posterior
+  de reiniciar, registrada al final de este documento.
+
+#### Validación
+
+- 760 pruebas existentes aprobadas (419 backend, 334 frontend y siete del exportador), lint,
+  TypeScript strict y build con Node 20.20.2. Permanece el aviso previo de chunk Vite >500 kB.
+- Nueva regresión de Playwright: centrado y alineación, código legible, barra sin estrechar,
+  campos/botones dentro del viewport y ausencia de scroll horizontal. Matriz de 19 vistas
+  en 1920, 2560, 1366, 768 y 390 px; incluye las seis altas y las seis ediciones de novedades.
+  Capturas de Préstamos en escritorio/móvil inspeccionadas en tmp/pdfs/formulario-centrado-*.
+- **17 E2E existentes y cuatro nuevos aprobados** en producción con imágenes API/nginx, TLS
+  y Oracle reales: primero se verificaron las suites Ronda 2/asistente; el ensayo final de
+  las cuatro regresiones nuevas pasó completo (30.5 s, incluido arranque). Las 95 combinaciones
+  mantienen márgenes iguales con tolerancia de 2 px; se verifica el ancho del código contra
+  su texto real. Se retiraron los esquemas, contenedores e imágenes exclusivos de pruebas.
+- Lint, TypeScript, build, Prettier, revisión de secretos y diff --check aprobados. Sin pendientes
+  de implementación del centrado. El despliegue posterior está completado; se conserva únicamente
+  la incidencia previa de correo descrita en este registro.
+- Mis datos verifica restauración del borrador y error de correo; Comisiones comprueba validación,
+  guardado real con confirmación y limpieza del borrador. En el primer ensayo se corrigió un selector de
+  la prueba: la etiqueta existente es Correo electrónico; no se cambió texto de la aplicación.
+- Pendiente ajeno al centrado: el `pattern` HTML de EmailField ya contiene dobles barras
+  literales en JSX. En Mis datos (formulario con validación nativa) el navegador bloquea un
+  correo válido antes de confirmar; se observó con contacto.layout@example.test. Se conserva
+  por la instrucción expresa de no cambiar validaciones. No se omiten restricciones ni se
+  fuerza el envío para esconderlo; el envío solicitado se verifica en el formulario de comisión.
+
+#### Cómo probar
+
+1. Node 20: `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`.
+2. Oracle saludable: `npm run test:e2e -- --production formularios-layout.spec.ts ronda2.spec.ts asistente-empleado.spec.ts`.
+3. Para cargarlo en la instalación local: `docker compose up --build -d --no-deps nomina2-web`.
+4. Revisar altas/ediciones con los cinco anchos indicados; título, pestañas, aviso y tarjeta deben
+   compartir alineación, y Código debe verse completo. Probar Ayuda, borrador, validación y envío.
+
 ## Despliegue operativo posterior al cierre de Ronda 2
 
 Estado: completado el 20/10/2026, por solicitud explícita de reiniciar y cargar los ajustes.
@@ -2407,3 +2475,26 @@ Estado: completado el 20/10/2026, por solicitud explícita de reiniciar y cargar
 - Resueltos el despliegue operativo V035 y el ensayo del respaldo real que figuraban pendientes
   en R2-8/R2-9/R2-10. Las verificaciones nuevas fueron de despliegue/conservación; no hubo cambios
   de código de aplicación ni migraciones adicionales.
+
+### Reinicio y despliegue del centrado de formularios
+
+Completado el 20/10/2026 por solicitud del usuario, para cargar la corrección de formularios.
+
+- Imágenes API/web reconstruidas; los tres servicios se detuvieron y se levantaron de nuevo con
+  Compose. Oracle, API y web saludables. Volúmenes Oracle/TLS y credenciales conservados.
+- `npm run verify:infra` aprobado: Oracle thin, API, HTTP/HTTPS, rutas React, assets y worker PDF.
+  Se comprobó el CSS de centrado dentro de nginx y se solicitó abrir https://localhost:8443/login
+  en el panel de Codex para probar con las credenciales habituales. Sin cambios de esquema ni
+  lógica de aplicación.
+
+### Verificación de la pestaña existente en Safari
+
+- El usuario reportó que seguía alineado a la izquierda después del despliegue. Se reprodujo
+  en su pestaña de Safari: Consumo en tienda conservaba la aplicación anterior ya cargada.
+  La comprobación previa del servidor no había recargado esa pestaña del usuario.
+- Al recargar Safari con Cmd+R, el mismo formulario quedó centrado. Se abrió después Nuevo
+  empleado y se confirmó título, aviso, pasos y tarjeta dentro del bloque centrado. El borrador
+  existente sigue disponible para Continuar; no se restauró, descartó ni envió ningún dato.
+- Evidencia local en tmp/pdfs/empleado-centrado-safari.jpg. Sin cambios de código adicionales:
+  las pruebas anteriores validaban el build nuevo; esta comprobación cubre la pestaña operativa
+  que todavía ejecutaba la versión anterior al reinicio.

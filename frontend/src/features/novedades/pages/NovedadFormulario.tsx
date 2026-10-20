@@ -278,7 +278,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
             mensajes={Object.values(errors).map((e) => e?.message)}
             mensajeServidor={error}
           />
-          <div className="my-5 flex justify-end gap-3" data-tour="novedad-guardar">
+          <div className="my-5 flex flex-wrap justify-end gap-3" data-tour="novedad-guardar">
             <Button
               cancelarFormulario
               icono="cancelar"

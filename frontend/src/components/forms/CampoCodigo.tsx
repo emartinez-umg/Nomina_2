@@ -64,7 +64,7 @@ export function CampoCodigo({
         }
         error={!codigo && entrada === consulta ? q.error?.message : undefined}
         tipo="codigo"
-        tamano={tamano}
+        tamano={tamano ?? Math.max(18, vista?.length ?? 0)}
       >
         <div className="control-grupo">
           <input
