@@ -30,7 +30,9 @@ export function amortizar(monto: string, cuotas: number, inicio: string) {
       'El monto debe permitir al menos Q 0.01 por cuota. Reduce las cuotas.',
     );
   let saldo = total;
-  let fecha = quincena(inicio).fin;
+  let fecha = new Date(Date.UTC(Number(inicio.slice(0, 4)), Number(inicio.slice(5, 7)), 0))
+    .toISOString()
+    .slice(0, 10);
   return Array.from({ length: cuotas }, (_, i) => {
     const importe = i === cuotas - 1 ? saldo : regular;
     saldo = saldo.minus(importe);
@@ -39,7 +41,9 @@ export function amortizar(monto: string, cuotas: number, inicio: string) {
       const siguiente = sumarDias(fecha, 1);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(siguiente))
         throw new ErrorConflicto('El calendario de cuotas excede el año 9999.');
-      fecha = quincena(siguiente).fin;
+      fecha = new Date(Date.UTC(Number(siguiente.slice(0, 4)), Number(siguiente.slice(5, 7)), 0))
+        .toISOString()
+        .slice(0, 10);
     }
     return fila;
   });

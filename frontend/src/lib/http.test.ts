@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { ErrorApi, guardarCsrf, solicitar, mapearErrores } from './http';
+import { iniciarSesion } from '../features/auth/api/auth';
 const response = (status: number, cuerpo: unknown) => ({
   status,
   ok: status < 400,
@@ -8,6 +9,67 @@ const response = (status: number, cuerpo: unknown) => ({
 });
 beforeEach(() => guardarCsrf());
 describe('cliente HTTP', () => {
+  it('un 401 tardío de otra generación no invalida la sesión nueva', async () => {
+    const evento = vi.fn();
+    window.addEventListener('nomina2:sesion-expirada', evento);
+    let resolver!: (respuesta: unknown) => void;
+    const cuerpo = new Promise((resolve) => {
+      resolver = resolve;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 401, json: () => cuerpo }),
+    );
+    guardarCsrf('anterior');
+    const solicitud = solicitar('/privado', z.object({}));
+    guardarCsrf('sesion-nueva');
+    resolver({ error: { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para continuar.' } });
+    try {
+      await expect(solicitud).rejects.toBeInstanceOf(ErrorApi);
+      expect(evento).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('nomina2:sesion-expirada', evento);
+    }
+  });
+  it('renueva el CSRF prelogin tras una cookie vencida y envía el login una sola vez sin anunciar expiración', async () => {
+    const evento = vi.fn();
+    window.addEventListener('nomina2:sesion-expirada', evento);
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(401, {
+          error: { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para continuar.' },
+        }),
+      )
+      .mockResolvedValueOnce(response(200, { ok: true, data: { csrfToken: 'prelogin' } }))
+      .mockResolvedValueOnce(
+        response(200, {
+          ok: true,
+          data: {
+            csrfToken: 'sesion',
+            usuario: {
+              idUsuario: 1,
+              usuario: 'ana.perez',
+              correo: 'ana@example.test',
+              idRol: 1,
+              rol: 'RH',
+              activo: true,
+              cambioObligatorio: false,
+            },
+          },
+        }),
+      );
+    vi.stubGlobal('fetch', fetch);
+    try {
+      await expect(
+        iniciarSesion({ usuario: 'ana.perez', contrasena: 'Valida!123456' }),
+      ).resolves.toMatchObject({ rol: 'RH' });
+      expect(evento).not.toHaveBeenCalled();
+      expect(fetch.mock.calls.filter(([ruta]) => ruta === '/api/auth/login')).toHaveLength(1);
+    } finally {
+      window.removeEventListener('nomina2:sesion-expirada', evento);
+    }
+  });
   it('recupera CSRF y envía cookies en una escritura sin persistir secretos', async () => {
     const fetch = vi
       .fn()

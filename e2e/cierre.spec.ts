@@ -1,15 +1,12 @@
+import { personalesEmpleado } from './empleado.helpers.js';
 import { test, expect, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { AxeBuilder } from '@axe-core/playwright';
 const hoy = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Guatemala' }).format(new Date());
 const visible = (iso: string) => iso.split('-').reverse().join('/');
-async function oferta(page: Page) {
-  const b = page.getByRole('button', { name: 'Ahora no', exact: true });
-  if (await b.isVisible()) await b.click();
-}
 async function entrar(page: Page, rol: 'ADMIN' | 'RH' | 'EMPLEADO') {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/login');
-  await oferta(page);
   await page
     .getByLabel('Usuario', { exact: true })
     .fill(rol === 'ADMIN' ? 'admin.e2e' : rol === 'RH' ? 'revisor.pruebas' : 'persona.pruebas');
@@ -20,7 +17,15 @@ async function entrar(page: Page, rol: 'ADMIN' | 'RH' | 'EMPLEADO') {
   await expect(page).toHaveURL(
     rol === 'ADMIN' ? /\/admin$/ : rol === 'RH' ? /\/rh$/ : /\/mis-gestiones$/,
   );
-  await oferta(page);
+}
+async function salir(page: Page) {
+  const token = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+  expect(
+    (
+      await page.request.post('/api/auth/logout', { headers: { 'X-CSRF-Token': token }, data: {} })
+    ).status(),
+  ).toBe(200);
+  await page.goto('/login');
 }
 async function clavesBorradores(page: Page) {
   return page.evaluate(() =>
@@ -37,8 +42,9 @@ async function elegir(page: Page, label: string, texto?: string) {
   await expect(opcion).toBeVisible();
   await opcion.click();
 }
-async function tour(page: Page, ventana = false) {
-  if (!ventana) await oferta(page);
+async function tour(page: Page, ventana = false, completo = false) {
+  await expect(page.getByText('Conoce esta página', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.driver-popover')).toHaveCount(0);
   const activador = page
     .getByRole('button', {
       name: ventana ? 'Ayuda de esta ventana' : 'Ayuda de esta página',
@@ -50,11 +56,82 @@ async function tour(page: Page, ventana = false) {
   expect((await page.locator('.driver-popover-description').innerText()).length).toBeGreaterThan(
     80,
   );
+  const titulos: string[] = [];
+  if (completo) {
+    for (let paso = 0; paso < 160; paso++) {
+      const titulo = await page.locator('.driver-popover-title').innerText();
+      titulos.push(titulo);
+      expect(
+        (await page.locator('.driver-popover-description').innerText()).length,
+      ).toBeGreaterThan(80);
+      const siguiente = page
+        .locator('.driver-popover')
+        .getByRole('button', { name: 'Siguiente', exact: true });
+      if (!(await siguiente.isVisible())) break;
+      const avance = await page.locator('.driver-popover-progress-text').innerText();
+      await siguiente.click();
+      await expect(page.locator('.driver-popover-progress-text')).not.toHaveText(avance);
+    }
+    if (!ventana && (await page.locator('[data-tour="navegacion"]').count())) {
+      for (const titulo of [
+        'Navegación según tu rol',
+        'Encontrar una sección',
+        'Avisos y seguimiento',
+        'Tu sesión',
+        'Volver a consultar la ayuda',
+      ])
+        expect(titulos).toContain(titulo);
+    }
+    await expect(
+      page.locator('.driver-popover').getByRole('button', { name: 'Terminar', exact: true }),
+    ).toBeVisible();
+  }
   await page.getByRole('button', { name: 'Cerrar recorrido', exact: true }).click();
   await expect(activador).toBeFocused();
+  return titulos;
+}
+async function revisarAnchos(page: Page) {
+  const camposFueraDeEscala = await page.locator('.campo:visible').evaluateAll((campos) =>
+    campos
+      .filter((c) => {
+        const ancho = c.getBoundingClientRect().width;
+        return (
+          ancho > 640.5 || ancho > innerWidth || (innerWidth >= 1024 && ancho >= innerWidth * 0.9)
+        );
+      })
+      .map((c) => ({
+        campo: c.getAttribute('data-campo'),
+        ancho: c.getBoundingClientRect().width,
+      })),
+  );
+  expect(camposFueraDeEscala).toEqual([]);
+  const controlesFueraDeCaja = await page.locator('.campo:visible').evaluateAll((campos) =>
+    campos.flatMap((campo) => {
+      const caja = campo.getBoundingClientRect();
+      return [
+        ...campo.querySelectorAll(
+          '.control-grupo, textarea, .campo-etiqueta, .campo-hint, .campo-error',
+        ),
+      ]
+        .filter((n) => n.getClientRects().length > 0)
+        .filter((n) => {
+          const r = n.getBoundingClientRect();
+          return r.left < caja.left - 1 || r.right > caja.right + 1;
+        })
+        .map(() => campo.getAttribute('data-campo'));
+    }),
+  );
+  expect(controlesFueraDeCaja).toEqual([]);
 }
 async function revisarUi(page: Page) {
   await expect(page.locator('h1').first()).toBeVisible();
+  await expect(page.getByText('Conoce esta página', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.driver-popover')).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      Object.keys(localStorage).filter((k) => k.startsWith('nomina2:ayuda:')),
+    ),
+  ).toEqual([]);
   await expect(page.locator('[role="status"]').filter({ hasText: 'Cargando' })).toHaveCount(0);
   const faltas = await page
     .locator('.campo:visible')
@@ -62,12 +139,13 @@ async function revisarUi(page: Page) {
       campos
         .filter(
           (c) =>
-            !!c.querySelector('input:not([type=hidden]), textarea') &&
+            !!c.querySelector('input:not([type=hidden]), textarea, select') &&
             (!c.querySelector('.campo-hint')?.textContent?.trim() || !c.querySelector('label')),
         )
         .map((c) => c.textContent),
     );
   expect(faltas).toEqual([]);
+  await revisarAnchos(page);
   const ancho = await page.evaluate(() => ({
     pagina: document.documentElement.scrollWidth,
     pantalla: innerWidth,
@@ -77,7 +155,15 @@ async function revisarUi(page: Page) {
   expect(axe.violations.map((v) => ({ id: v.id, nodos: v.nodes.map((n) => n.target) }))).toEqual(
     [],
   );
-  await tour(page);
+  const sinIcono = await page
+    .locator('button:visible')
+    .evaluateAll((botones) =>
+      botones
+        .filter((b) => !b.querySelector('svg') && !b.closest('.rdp-root'))
+        .map((b) => b.textContent),
+    );
+  expect(sinIcono).toEqual([]);
+  return tour(page, false, true);
 }
 
 test.describe('Cierre del proyecto con API y Oracle reales', () => {
@@ -99,16 +185,15 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     test(`navegación horizontal y Ctrl/⌘ K de ${rol} en escritorio y móvil`, async ({ page }) => {
       await entrar(page, rol);
       const menu = page.getByRole('navigation', { name: 'Secciones del sistema' });
-      const inicio = menu.getByRole('button', { name: 'Inicio', exact: true });
+      const inicio = menu.getByRole('link', { name: 'Inicio', exact: true });
       await inicio.focus();
+      await expect(inicio).not.toHaveAttribute('aria-expanded');
+      await expect(menu.getByText('Resumen', { exact: true })).toHaveCount(0);
       await page.keyboard.press('Enter');
-      await expect(inicio).toHaveAttribute('aria-expanded', 'true');
-      await page.keyboard.press('Space');
-      await expect(inicio).toHaveAttribute('aria-expanded', 'false');
-      await page.keyboard.press('ArrowDown');
-      await expect(menu.getByRole('link', { name: /^Resumen/ })).toBeFocused();
-      await page.keyboard.press('Escape');
-      await expect(inicio).toBeFocused();
+      await expect(page).toHaveURL(
+        rol === 'ADMIN' ? /\/admin$/ : rol === 'RH' ? /\/rh$/ : /\/mis-gestiones$/,
+      );
+      await inicio.focus();
       await page.keyboard.press('ArrowRight');
       await expect(
         menu.getByRole('button', {
@@ -160,7 +245,6 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       await expect(page).toHaveURL(
         rol === 'EMPLEADO' ? /\/mis-gestiones\/boletas$/ : /\/planilla$/,
       );
-      await oferta(page);
       await page.keyboard.press('Meta+k');
       await expect(dialogo.getByText('Recientes', { exact: true })).toBeVisible();
       await page.keyboard.press('Escape');
@@ -172,7 +256,6 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       await expect(page).toHaveURL(
         rol === 'EMPLEADO' ? /\/mis-gestiones\/datos$/ : /\/novedades\/comisiones\/nuevo$/,
       );
-      await oferta(page);
       await mkdir('tmp/pdfs', { recursive: true });
       await page.screenshot({ path: `tmp/pdfs/navegacion-${rol}-desktop.png`, fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
@@ -205,12 +288,58 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       await page.keyboard.press('Escape');
       await expect(buscar).toBeFocused();
     });
-  test('alta guiada de empleado y validaciones de formato/fechas', async ({ page }) => {
+  test('FASE V1-12: aguinaldo proporcional confirmado y boleta privada', async ({
+    page,
+    browser,
+    baseURL,
+  }) => {
+    await entrar(page, 'RH');
+    await page.goto('/nomina/simular');
+    await elegir(page, 'Tipo de pago', 'Aguinaldo');
+    await page
+      .getByRole('combobox', { name: 'Año de mes del pago', exact: true })
+      .selectOption('2025');
+    await elegir(page, 'Objetivo', 'Un empleado');
+    await page.getByRole('combobox', { name: 'Empleado', exact: true }).fill('Persona E2E');
+    await page.getByRole('option').filter({ hasText: 'Persona E2E' }).click();
+    await page.getByRole('button', { name: 'Simular', exact: true }).click();
+    // Junio–noviembre 2025: 183 días; Q5,000 × 183 / 365 = Q2,506.85.
+    await expect(page.getByRole('table')).toContainText('2,506.85');
+    await expect(page.getByRole('table')).toContainText('183 / 365');
+    await page
+      .getByRole('checkbox', {
+        name: 'Confirmo que la historia salarial, comisiones y horas extra del ciclo están completas',
+      })
+      .check();
+    await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+    const pago = page.waitForResponse((r) => r.url().endsWith('/api/nomina/pagar'));
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    const respuesta = await pago;
+    expect(respuesta.status()).toBe(201);
+    const id = (await respuesta.json()).data.pagados[0];
+    const descarga = page.waitForEvent('download');
+    await page.getByRole('button', { name: `Boleta ${id}`, exact: true }).click();
+    expect((await descarga).suggestedFilename()).toMatch(/\.pdf$/);
+    await salir(page);
+    await entrar(page, 'EMPLEADO');
+    expect((await page.request.get(`/api/nomina/boletas/${id}/pdf`)).status()).toBe(200);
+    const ajeno = await browser.newContext({ baseURL: baseURL!, ignoreHTTPSErrors: true });
+    const token = (await (await ajeno.request.get('/api/auth/csrf')).json()).data.csrfToken;
+    expect(
+      (
+        await ajeno.request.post('/api/auth/login', {
+          headers: { 'X-CSRF-Token': token },
+          data: { usuario: 'ajeno.pruebas', contrasena: process.env.E2E_PASSWORD },
+        })
+      ).status(),
+    ).toBe(200);
+    expect((await ajeno.request.get(`/api/nomina/boletas/${id}/pdf`)).status()).toBe(403);
+    await ajeno.close();
+  });
+
+  test('FASE V1-7: alta guiada de empleado y validaciones de formato/fechas', async ({ page }) => {
     await entrar(page, 'RH');
     await page.goto('/empleados/nuevo');
-    await oferta(page);
-    await expect(page.getByLabel('Código', { exact: true })).toBeVisible();
-    await page.getByLabel('Código', { exact: true }).fill('E2E_ALTA');
     await page.getByLabel('Nombres', { exact: true }).fill('Nueva123 Persona');
     expect(await page.getByLabel('Nombres', { exact: true }).inputValue()).toBe('Nueva Persona');
     await page.getByLabel('Apellidos', { exact: true }).fill('Prueba');
@@ -222,22 +351,177 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await page.getByLabel('Fecha de nacimiento', { exact: true }).fill('01/01/1995');
     await elegir(page, 'Sexo', 'Femenino');
     await elegir(page, 'Estado civil', 'SOLTERO');
-    await page.getByLabel('Dirección', { exact: true }).fill('Dirección de pruebas E2E');
+    await elegir(page, 'Zona', 'Zona 1');
+    await page.getByLabel('Dirección', { exact: true }).fill('12-A');
     await page.getByLabel('Teléfono', { exact: true }).fill('55552222');
     await page.getByLabel('Correo', { exact: true }).fill('alta@example.test');
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
     await elegir(page, 'Departamento', 'Departamento E2E');
+    await expect(page.getByLabel('Código', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
     await elegir(page, 'Puesto', 'Analista E2E');
+    await expect(page.getByLabel('Fecha de ingreso', { exact: true })).toHaveValue(visible(hoy));
+    await elegir(page, 'Tipo de contrato', 'A plazo fijo');
+    await expect(page.getByLabel('Fin de contrato', { exact: true })).toBeEnabled();
+    await page.getByLabel('Fin de contrato', { exact: true }).fill('01/01/2027');
     await elegir(page, 'Tipo de contrato', 'Por tiempo indefinido');
+    await expect(page.getByLabel('Fin de contrato', { exact: true })).toBeDisabled();
+    await expect(page.getByLabel('Fin de contrato', { exact: true })).toHaveValue('');
     await elegir(page, 'Centro de trabajo', 'Centro E2E');
     await elegir(page, 'Horario', 'Horario E2E');
     await page.getByLabel('Fecha de ingreso', { exact: true }).fill(visible(hoy));
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
     await page.getByLabel('Salario base mensual', { exact: true }).fill('5000');
+    await elegir(page, 'Banco', 'Banco E2E');
+    await page.getByLabel('Cuenta bancaria', { exact: true }).fill('12345678');
+    await elegir(page, 'Tipo de cuenta', 'AHORRO');
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
     await page.getByLabel('Nombre del contacto', { exact: true }).fill('Contacto Prueba');
-    await page.getByLabel('Parentesco', { exact: true }).fill('Hermana');
+    await elegir(page, 'Parentesco', 'Hermano/a');
     await page.getByLabel('Teléfono de emergencia', { exact: true }).fill('55553333');
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    const accesibilidad = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(accesibilidad.violations.map((v) => v.id)).toEqual([]);
+    await mkdir('tmp/pdfs', { recursive: true });
+    await page.screenshot({ path: 'tmp/pdfs/empleado-v1-7-movil.png', fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('button', { name: 'Guardar empleado', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar y guardar empleado', exact: true }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cerrar entrega', exact: true })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(
+      page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
+    ).toBeVisible();
+    const descargaCredenciales = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Descargar PDF', exact: true }).click();
+    expect((await descargaCredenciales).suggestedFilename()).toBe('credenciales-temporales.pdf');
+    await expect(page.getByRole('button', { name: 'Descargar PDF', exact: true })).toBeDisabled();
+    await tour(page, true);
+    await page.bringToFront();
+    await page.getByRole('button', { name: 'Copiar credenciales', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Credenciales copiadas.' }),
+    ).toBeVisible();
+    await page.getByLabel('Ya copié o descargué las credenciales').check();
+    await page.getByRole('button', { name: 'Cerrar entrega', exact: true }).click();
     await expect(page).toHaveURL(/\/empleados\/\d+$/);
-    await expect(page.getByText('Nueva Persona Prueba', { exact: false }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nueva Prueba', exact: true })).toBeVisible();
+    const id = Number(page.url().split('/').pop());
+    const previo = (await (await page.request.get(`/api/empleados/${id}`)).json()).data;
+    expect(previo.nombres).toBe('Nueva Persona');
+    expect(previo.apellidos).toBe('Prueba');
+    await page.getByRole('button', { name: 'Editar', exact: true }).click();
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
+    await expect(page.getByLabel('Código', { exact: true })).toHaveValue(previo.codigo);
+    await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
+    await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+      'Guatemala',
+    );
+    await page.getByLabel('Dirección', { exact: true }).fill('12-B');
+    await page
+      .getByLabel('Motivo de edición', { exact: true })
+      .fill('Corrección de vivienda del empleado');
+    await page.getByRole('button', { name: 'Guardar empleado', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar y guardar empleado', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/empleados/${id}$`));
+    const posterior = (await (await page.request.get(`/api/empleados/${id}`)).json()).data;
+    expect(posterior.codigo).toBe(previo.codigo);
+    expect(posterior.direccion).toBe('12-B');
+    await page.getByRole('button', { name: 'Restablecer contraseña', exact: true }).click();
+    await page
+      .getByLabel('Motivo del restablecimiento', { exact: true })
+      .fill('Entrega de credencial nueva solicitada');
+    await page.getByRole('button', { name: 'Revisar restablecimiento', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar restablecimiento', exact: true }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
+    ).toBeVisible();
+    await page.bringToFront();
+    await page.getByRole('button', { name: 'Copiar credenciales', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Credenciales copiadas.' }),
+    ).toBeVisible();
+    await page.getByLabel('Ya copié o descargué las credenciales').check();
+    await page.getByRole('button', { name: 'Cerrar entrega', exact: true }).click();
+  });
+  test('FASE V1-7: CSV automatizado y un solo PDF privado del lote', async ({ page }) => {
+    await entrar(page, 'RH');
+    const lista = (await (await page.request.get('/api/empleados?nombre=Persona%20E2E')).json())
+      .data;
+    const base = (await (await page.request.get(`/api/empleados/${lista.registros[0].id}`)).json())
+      .data;
+    const municipios = (await (await page.request.get('/api/ubicaciones/municipios')).json()).data;
+    const lugar = municipios.find((m: { codigo: string }) => m.codigo === '0101');
+    const horario = (
+      await (await page.request.get(`/api/catalogos/horarios/${base.idHorario}`)).json()
+    ).data;
+    const plantilla = (await (await page.request.get('/api/empleados/cargas/plantilla')).json())
+      .data as string;
+    const encabezado = plantilla.replace(/^\uFEFF/, '').split('\r\n')[0]!;
+    const columnas = encabezado.split(',').map((v) => v.replaceAll('"', ''));
+    const filas = [
+      { nombres: 'Carga', dpi: '3456789012345', nit: '10003-K', sexo: 'F' },
+      { nombres: 'Otra', dpi: '3456789012346', nit: '10004-8', sexo: 'M' },
+    ].map(
+      (d, index) =>
+        ({
+          ...base,
+          ...d,
+          apellidos: 'Masiva',
+          correo: `masiva${index}@example.test`,
+          afiliacionIgss: null,
+          idDepartamentoGt: lugar.idDepartamentoGt,
+          idMunicipioGt: lugar.id,
+          zona: 1,
+          direccion: '13-A',
+          codigoHorario: horario.codigo,
+          fechaIngreso: hoy,
+          fechaFinContrato: null,
+          contactoNombre: 'Contacto Masiva',
+          contactoParentesco: 'Madre',
+          contactoTelefono: '55554321',
+        }) as Record<string, unknown>,
+    );
+    const csv = [
+      encabezado,
+      ...filas.map((d) =>
+        columnas.map((k) => `"${String(d[k] ?? '').replaceAll('"', '""')}"`).join(','),
+      ),
+    ].join('\r\n');
+    await page.goto('/empleados/carga-masiva');
+    await page
+      .locator('input[name="csv"]')
+      .setInputFiles({ name: 'v17.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+    await page.getByRole('button', { name: 'Validar y ver vista previa', exact: true }).click();
+    await expect(
+      page.getByText('2 filas · 2 válidas · 0 con errores.', { exact: false }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Importar empleados', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    const entrega = page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' });
+    await expect(entrega).toBeVisible();
+    await expect(entrega.getByRole('row')).toHaveCount(3);
+    const descarga = page.waitForEvent('download');
+    await entrega.getByRole('button', { name: 'Descargar PDF', exact: true }).click();
+    await descarga;
+    await expect(
+      entrega.getByRole('button', { name: 'Descargar PDF', exact: true }),
+    ).toBeDisabled();
+    await entrega.getByLabel('Ya copié o descargué las credenciales').check();
+    await entrega.getByRole('button', { name: 'Cerrar entrega', exact: true }).click();
+    await expect(page.getByText('Importación completada', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Descargar reporte de resultados', exact: true }),
+    ).toBeVisible();
   });
   test('solicitud de vacaciones, aprobación RH y descuento propio', async ({ browser }) => {
     const empleado = await browser.newContext(),
@@ -246,7 +530,6 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       r = await rh.newPage();
     await entrar(p, 'EMPLEADO');
     await p.goto('/mis-gestiones/vacaciones');
-    await oferta(p);
     const calendario = p.locator('.calendario');
     await expect(calendario.getByRole('button').first()).toBeVisible();
     const dias = calendario.locator('button.rdp-day_button:enabled');
@@ -260,7 +543,6 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await expect(p.getByText('Solicitud enviada a RRHH.', { exact: true })).toBeVisible();
     await entrar(r, 'RH');
     await r.goto('/vacaciones');
-    await oferta(r);
     const fila = r.getByRole('row').filter({ hasText: 'Persona E2E' });
     await expect(fila).toHaveCount(1);
     await fila.getByRole('button', { name: 'Aprobar', exact: true }).click();
@@ -274,27 +556,178 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await empleado.close();
     await rh.close();
   });
-  test('cálculo, revisión, aprobación y cierre de una quincena', async ({ page }) => {
+  test('FASE V1-8: solicitables enteros, revisión actual y cancelación con devolución', async ({
+    browser,
+  }) => {
+    const ec = await browser.newContext(),
+      rc = await browser.newContext();
+    const p = await ec.newPage(),
+      r = await rc.newPage();
+    await entrar(p, 'EMPLEADO');
+    await entrar(r, 'RH');
+    const saldo = (await (await p.request.get('/api/vacaciones/mi-saldo')).json()).data;
+    const token = (await (await r.request.get('/api/auth/csrf')).json()).data.csrfToken;
+    const quitar = Number(saldo.disponible) - 6.25;
+    expect(quitar).toBeGreaterThan(0);
+    expect(
+      (
+        await r.request.post(`/api/vacaciones/empleados/${saldo.idEmpleado}/cargar`, {
+          headers: { 'X-CSRF-Token': token },
+          data: {
+            tipo: 'TOMADAS',
+            dias: quitar.toFixed(2),
+            referencia: 'E2E_V18',
+            motivo: 'Vacaciones previas verificadas para prueba',
+            confirmado: true,
+          },
+        })
+      ).status(),
+    ).toBe(201);
+    await p.goto('/mis-gestiones/vacaciones');
+    const tarjeta = p.locator('[data-tour="vacaciones-saldo"]');
+    await expect(tarjeta.getByText('Disponibles').locator('..')).toContainText('6.25');
+    await expect(tarjeta.getByText('Solicitables', { exact: true }).locator('..')).toContainText(
+      '6 días',
+    );
+    const calendario = p.locator('.calendario');
+    await calendario.locator('.rdp-button_next').click();
+    const dia = (fecha: string) => calendario.locator('[data-day="' + fecha + '"] button').first();
+    await dia('2026-11-01').click();
+    await dia('2026-11-15').click();
+    await expect(p.getByText('10.00 días laborales', { exact: true })).toBeVisible();
+    await expect(p.getByRole('button', { name: 'Enviar solicitud', exact: true })).toBeDisabled();
+    await expect(
+      p.getByText(/Puedes solicitar 6 días completos/, { exact: false }).first(),
+    ).toBeVisible();
+    await p.getByRole('button', { name: 'Limpiar rango', exact: true }).click();
+    await dia('2026-11-02').click();
+    await dia('2026-11-09').click();
+    await expect(p.getByText('6.00 días laborales', { exact: true })).toBeVisible();
+    await p.getByRole('button', { name: 'Enviar solicitud', exact: true }).click();
+    await p.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(p.getByText('Solicitud enviada a RRHH.', { exact: true })).toBeVisible();
+    await r.goto('/vacaciones');
+    const fila = r
+      .getByRole('row')
+      .filter({ hasText: 'Persona E2E' })
+      .filter({ hasText: '02/11/2026' });
+    await fila.getByRole('button', { name: 'Aprobar', exact: true }).click();
+    let modal = r.locator('dialog[open]');
+    await expect(modal.getByText('Solicitables', { exact: true }).locator('..')).toContainText(
+      '6 días',
+    );
+    await tour(r, true);
+    await modal.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(
+      r.getByText('Vacaciones aprobadas; saldo actualizado.', { exact: true }),
+    ).toBeVisible();
+    await p.reload();
+    await expect(tarjeta.getByText('Disponibles').locator('..')).toContainText('0.25');
+    await expect(tarjeta.getByText('Solicitables', { exact: true }).locator('..')).toContainText(
+      '0 días',
+    );
+    const propia = p.getByRole('row').filter({ hasText: '02/11/2026' });
+    await propia.getByRole('button', { name: 'Cancelar vacaciones', exact: true }).click();
+    modal = p.locator('dialog[open]');
+    await modal.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(
+      modal.getByText('Explica el motivo con al menos 10 caracteres.', { exact: true }).first(),
+    ).toBeVisible();
+    await modal
+      .getByLabel('Motivo de cancelación', { exact: true })
+      .fill('Cambio de fechas solicitado por el empleado');
+    await tour(p, true);
+    await modal.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(
+      p.getByText('Vacaciones canceladas; días devueltos al saldo.', { exact: true }),
+    ).toBeVisible();
+    await expect(tarjeta.getByText('Disponibles').locator('..')).toContainText('6.25');
+    await propia.getByRole('button', { name: 'Ver solicitud', exact: true }).click();
+    await expect(p.locator('dialog[open]').getByText(/Cancelado por:/)).toBeVisible();
+    await expect(p.locator('dialog[open]').getByText(/Resuelto por:/)).toBeVisible();
+    await p
+      .locator('dialog[open]')
+      .getByRole('button', { name: 'Cerrar ventana', exact: true })
+      .click();
+    await p.setViewportSize({ width: 390, height: 844 });
+    await revisarUi(p);
+    await mkdir('tmp/pdfs', { recursive: true });
+    const avisos = p.getByRole('button', { name: 'Cerrar aviso', exact: true });
+    while (await avisos.count()) await avisos.first().click();
+    await p.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      window.scrollTo(0, 0);
+    });
+    await p.screenshot({
+      path: 'tmp/pdfs/vacaciones-v1-8-movil.png',
+      fullPage: true,
+      animations: 'disabled',
+    });
+    await ec.close();
+    await rc.close();
+  });
+  test('FASE V1-10: simulación, pago mensual, PDF, portal y cierre', async ({ page }) => {
     await entrar(page, 'RH');
-    await page.goto('/planilla');
-    await oferta(page);
-    await page.getByLabel('Fecha de la quincena', { exact: true }).fill('02/01/2026');
-    await page.getByRole('button', { name: 'Crear periodo', exact: true }).click();
-    await expect(page).toHaveURL(/periodo=/);
-    for (const [boton, accion] of [
-      ['Calcular', 'calcular'],
-      ['Marcar revisada', 'revisar'],
-      ['Aprobar', 'aprobar'],
-      ['Cerrar', 'cerrar'],
-    ] as const) {
-      await page.getByRole('button', { name: boton, exact: true }).click();
-      await page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }).click();
+    for (const tipo of ['Anticipo', 'Pago del mes']) {
+      await page.goto('/nomina/simular');
+      await page.getByRole('combobox', { name: 'Mes del pago', exact: true }).selectOption('01');
+      if (tipo === 'Pago del mes') await elegir(page, 'Tipo de pago', tipo);
+      await page.getByRole('button', { name: 'Simular', exact: true }).click();
+      await expect(page.getByRole('table')).toContainText('Persona E2E');
+      await expect(page.getByRole('table')).toContainText(
+        tipo === 'Anticipo' ? '2,750.00' : '2,208.07',
+      );
       await expect(
-        page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }),
-      ).toHaveCount(0);
+        page.getByRole('button', { name: 'Confirmar y pagar', exact: true }),
+      ).toBeDisabled();
+      if (tipo === 'Anticipo') {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await revisarUi(page);
+        await mkdir('tmp/pdfs', { recursive: true });
+        await page.screenshot({ path: 'tmp/pdfs/pago-v1-10-movil.png', fullPage: true });
+        await page.setViewportSize({ width: 1440, height: 1000 });
+      }
+      await page
+        .getByRole('checkbox', { name: 'Confirmo que las novedades del mes están completas' })
+        .check();
+      await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+      const respuesta = page.waitForResponse(
+        (r) => r.url().endsWith('/api/nomina/pagar') && r.request().method() === 'POST',
+      );
+      await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const respuestaPago = await respuesta;
+      expect(respuestaPago.status()).toBe(201);
+      const pago = (await respuestaPago.json()).data;
+      await expect(page.getByText('Pagados: 2.', { exact: false })).toBeVisible();
+      const descarga = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'ZIP de boletas por departamento' }).click();
+      expect((await descarga).suggestedFilename()).toBe('boletas-2026-01.zip');
+      const estadoPeriodo = await page.request.get(`/api/nomina/periodos/${pago.idPeriodo}`);
+      expect(estadoPeriodo.status()).toBe(200);
+      const filasPeriodo = await page.request.get(
+        `/api/nomina/periodos/${pago.idPeriodo}/planilla`,
+      );
+      expect(filasPeriodo.status()).toBe(200);
+      await page.goto(`/planilla?periodo=${pago.idPeriodo}`);
+      for (const [boton, accion] of [
+        ['Marcar revisada', 'revisar'],
+        ['Aprobar', 'aprobar'],
+        ['Cerrar', 'cerrar'],
+      ] as const) {
+        await page.getByRole('button', { name: boton, exact: true }).click();
+        await page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }).click();
+        await expect(
+          page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }),
+        ).toHaveCount(0);
+      }
+      await expect(page.getByRole('heading', { name: /· CERRADO$/ })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Recalcular', exact: true })).toHaveCount(0);
     }
-    await expect(page.getByRole('heading', { name: /· CERRADO$/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Recalcular', exact: true })).toBeDisabled();
+    await salir(page);
+    await entrar(page, 'EMPLEADO');
+    await page.goto('/mis-gestiones/boletas');
+    await expect(page.getByRole('table')).toContainText('2,750.00');
+    await expect(page.getByRole('table')).toContainText('2,208.07');
   });
   test('constancia laboral: solicitud, vista previa, entrega y descarga propia', async ({
     browser,
@@ -305,7 +738,6 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       r = await rh.newPage();
     await entrar(p, 'EMPLEADO');
     await p.goto('/mis-gestiones/solicitudes');
-    await oferta(p);
     await p
       .getByRole('heading', { name: 'Constancia laboral', exact: true })
       .locator('..')
@@ -318,7 +750,6 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     ).toBeVisible();
     await entrar(r, 'RH');
     await r.goto('/solicitudes');
-    await oferta(r);
     await r
       .getByRole('row')
       .filter({ hasText: 'Persona E2E' })
@@ -346,7 +777,6 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
   }) => {
     await entrar(page, 'ADMIN');
     await page.goto('/admin/usuarios');
-    await oferta(page);
     await page.getByRole('button', { name: 'Crear acceso', exact: true }).click();
     await tour(page, true);
     await page.getByLabel('Nombre', { exact: true }).fill('Julia');
@@ -361,7 +791,13 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await expect(
       page.getByRole('dialog', { name: 'Contraseñas temporales · entrega privada' }),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Ya las guardé · cerrar', exact: true }).click();
+    await page.bringToFront();
+    await page.getByRole('button', { name: 'Copiar credenciales', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Credenciales copiadas.' }),
+    ).toBeVisible();
+    await page.getByLabel('Ya copié o descargué las credenciales').check();
+    await page.getByRole('button', { name: 'Cerrar entrega', exact: true }).click();
     await expect(page.getByRole('row').filter({ hasText: 'julia.accesos' })).toHaveCount(1);
     const sinCsrf = await page.request.post('/api/usuarios', { data: {} });
     expect(sinCsrf.status()).toBe(403);
@@ -373,35 +809,93 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       data: { activo: false, motivo: 'No debe desactivar último ADMIN' },
     });
     expect(ultimo.status()).toBe(409);
-    const redEmpresa = page.waitForResponse((r) => r.url().includes('/api/catalogos/empresa?'));
     await page.goto('/catalogos/empresa');
-    const recibidaEmpresa = await redEmpresa;
-    expect((await recibidaEmpresa.json()).data.total, new URL(recibidaEmpresa.url()).search).toBe(
-      1,
-    );
-    await oferta(page);
-    const comprobacionEmpresa = (
-      await (await page.request.get('/api/catalogos/empresa?activo=1')).json()
-    ).data;
-    expect(comprobacionEmpresa.total).toBe(1);
-    await page
-      .getByRole('button', { name: /^Editar registro / })
-      .first()
-      .click();
-    await tour(page, true);
-    await page.getByLabel('Representante', { exact: true }).fill('Representante Pruebas');
-    await page.getByLabel('Teléfono de empresa', { exact: true }).fill('55551234');
-    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(
-      page.getByRole('dialog').filter({ has: page.getByLabel('Representante', { exact: true }) }),
-    ).toHaveCount(0);
-    const empresa = (await (await page.request.get('/api/catalogos/empresa')).json()).data
-      .registros[0];
+      page.getByRole('heading', { name: 'Configuración de empresa', exact: true }),
+    ).toBeVisible();
+    await tour(page);
+    await page.getByLabel('Teléfono', { exact: true }).fill('55551234');
+    await page.getByLabel('Nombre comercial', { exact: true }).fill('Empresa Pruebas');
+    await page.getByRole('button', { name: 'Guardar configuración', exact: true }).click();
+    await expect(
+      page.getByText('Configuración de empresa guardada.', { exact: true }),
+    ).toBeVisible();
+    const empresa = (await (await page.request.get('/api/empresa')).json()).data;
     expect(empresa.telefono).toBe('55551234');
-    expect(empresa.representante).toBe('Representante Pruebas');
+    expect(empresa.nombreComercial).toBe('Empresa Pruebas');
   });
-  test('RBAC, recursos propios y tiempos de consultas reales', async ({ page, browser }) => {
-    const anon = await browser.newContext();
+  test('FASE V1-5: logo privado, borrador y membrete en documentos', async ({ page }) => {
+    await entrar(page, 'RH');
+    await page.goto('/catalogos/empresa');
+    await page.getByLabel('Nombre comercial', { exact: true }).fill('Identidad v1');
+    await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByLabel('Nombre comercial', { exact: true })).toHaveValue('Identidad v1');
+    await page.getByLabel('Logo', { exact: true }).setInputFiles({
+      name: 'logo.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="60"><rect width="180" height="60" fill="#213F60"/><text x="15" y="40" fill="white" font-size="30">EMPRESA</text></svg>',
+      ),
+    });
+    await expect(page.getByAltText('Vista previa del logo')).toBeVisible();
+    await revisarUi(page);
+    await page.getByRole('button', { name: 'Guardar configuración', exact: true }).click();
+    await expect(
+      page.getByText('Configuración de empresa guardada.', { exact: true }),
+    ).toBeVisible();
+    await expect.poll(() => clavesBorradores(page)).toEqual([]);
+    const empresa = (await (await page.request.get('/api/empresa')).json()).data;
+    expect(empresa.logo.mime).toBe('image/png');
+    await mkdir('tmp/pdfs', { recursive: true });
+    await page.screenshot({ path: 'tmp/pdfs/empresa-v1-5.png', fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await revisarUi(page);
+    await salir(page);
+    await entrar(page, 'EMPLEADO');
+    expect((await page.request.get('/api/empresa')).status()).toBe(403);
+    const token = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+    const solicitud = await page.request.post('/api/solicitudes', {
+      headers: { 'X-CSRF-Token': token },
+      data: { tipo: 'CONSTANCIA_LABORAL', confirmado: true },
+    });
+    expect(solicitud.status()).toBe(201);
+    const id = (await solicitud.json()).data.id;
+    await salir(page);
+    await entrar(page, 'RH');
+    const csrfRh = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+    expect(
+      (
+        await page.request.post(`/api/solicitudes/${id}/resolver`, {
+          headers: { 'X-CSRF-Token': csrfRh },
+          data: { estado: 'APROBADA', confirmado: true },
+        })
+      ).status(),
+    ).toBe(200);
+    const documento = (await (await page.request.get(`/api/solicitudes/${id}/documento`)).json())
+      .data;
+    const bytes = Buffer.from(documento.base64, 'base64');
+    expect(bytes.toString('latin1')).toContain('/Subtype /Image');
+    await writeFile('tmp/pdfs/empresa-solicitud-v1-5.pdf', bytes);
+    expect(
+      (
+        await page.request.post(`/api/solicitudes/${id}/entregar`, {
+          headers: { 'X-CSRF-Token': csrfRh },
+          data: { confirmado: true, sha256: documento.sha256 },
+        })
+      ).status(),
+    ).toBe(200);
+    await salir(page);
+    await entrar(page, 'EMPLEADO');
+    expect((await page.request.get(`/api/solicitudes/${id}/documento`)).status()).toBe(200);
+  });
+  test('RBAC, recursos propios y tiempos de consultas reales', async ({
+    page,
+    browser,
+    baseURL,
+  }) => {
+    const anon = await browser.newContext({ baseURL: baseURL!, ignoreHTTPSErrors: true });
     for (const ruta of [
       '/usuarios',
       '/auditoria',
@@ -415,8 +909,20 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       '/notificaciones',
       '/comunicacion/anuncios',
       '/tableros/admin',
+      '/tableros/rh/remuneraciones',
+      '/tableros/rh/inasistencias',
+      '/tableros/rh/vacaciones',
+      '/tableros/rh/celebraciones',
+      '/empleados/selector?departamentoId=1',
+      '/empresa',
+      '/ubicaciones/departamentos',
+      '/codigos/vista-previa?entidad=departamentos&palabra=Ingeniería',
+      '/novedades/parqueo',
+      '/novedades/parqueo/tarifas',
+      '/novedades/pendientes?mes=2026-01',
+      '/nomina/pagos/zip?mes=2026-01',
     ])
-      expect((await anon.request.get(`http://127.0.0.1:5178/api${ruta}`)).status()).toBe(401);
+      expect((await anon.request.get(`/api${ruta}`)).status()).toBe(401);
     await anon.close();
     await entrar(page, 'EMPLEADO');
     for (const ruta of [
@@ -430,23 +936,28 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       '/solicitudes/plantillas',
       '/vacaciones/empleados/2/saldo',
       '/tableros/admin',
+      '/tableros/rh',
+      '/tableros/rh/remuneraciones',
+      '/tableros/rh/inasistencias',
+      '/tableros/rh/vacaciones',
+      '/tableros/rh/celebraciones',
+      '/empleados/selector?departamentoId=1',
+      '/empresa',
+      '/novedades/pendientes?mes=2026-01',
+      '/nomina/pagos/zip?mes=2026-01',
     ])
       expect((await page.request.get(`/api${ruta}`)).status()).toBe(403);
     const propias = (await (await page.request.get('/api/solicitudes')).json()).data.registros;
     const documento = propias.find((s: { tipo: string }) => s.tipo === 'CONSTANCIA_LABORAL').id;
     expect((await page.request.get(`/api/solicitudes/${documento}/documento`)).status()).toBe(200);
-    const ajeno = await browser.newContext();
-    const r = await ajeno.request.get('http://127.0.0.1:5178/api/auth/csrf');
-    const login = await ajeno.request.post('http://127.0.0.1:5178/api/auth/login', {
+    const ajeno = await browser.newContext({ baseURL: baseURL!, ignoreHTTPSErrors: true });
+    const r = await ajeno.request.get('/api/auth/csrf');
+    const login = await ajeno.request.post('/api/auth/login', {
       headers: { 'X-CSRF-Token': (await r.json()).data.csrfToken },
       data: { usuario: 'ajeno.pruebas', contrasena: process.env.E2E_PASSWORD },
     });
     expect(login.status()).toBe(200);
-    expect(
-      (
-        await ajeno.request.get(`http://127.0.0.1:5178/api/solicitudes/${documento}/documento`)
-      ).status(),
-    ).toBe(403);
+    expect((await ajeno.request.get(`/api/solicitudes/${documento}/documento`)).status()).toBe(403);
     await ajeno.close();
     await page.context().clearCookies();
     await entrar(page, 'ADMIN');
@@ -476,7 +987,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
   test('todas las páginas por rol, ayuda, hints, teclado, accesibilidad y móvil', async ({
     page,
   }) => {
-    test.setTimeout(480000);
+    test.setTimeout(900000);
+    const auditoria: { rol: string; ruta: string; ancho: number; pasos: string[] }[] = [];
     const errores: string[] = [];
     page.on('pageerror', (e) => errores.push(e.message));
     await entrar(page, 'ADMIN');
@@ -502,8 +1014,9 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         fechaDesembolso: hoy,
         referencia: 'AUDITORIA_PRESTAMO',
       },
-      comisiones: { fecha: '2026-02-03', monto: '100.00', referencia: 'AUDITORIA_COMISION' },
-      'horas-extra': { fecha: '2026-02-03', horas: '1.00', jornada: 'DIURNA', estado: 'PENDIENTE' },
+      'consumo-tienda': { mes: '2026-02', monto: '20.00', referencia: 'AUDITORIA_TIENDA' },
+      comisiones: { mes: '2026-02', monto: '100.00', referencia: 'AUDITORIA_COMISION' },
+      'horas-extra': { mes: '2026-02', horas: '1.00' },
       ausencias: {
         idTipo: await opcion('ausencias'),
         fechaInicio: '2026-02-04',
@@ -534,6 +1047,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
           ? [
               '/mis-gestiones',
               '/mis-gestiones/boletas',
+              '/mis-gestiones/parqueo',
               '/mis-gestiones/vacaciones',
               '/mis-gestiones/solicitudes',
               '/mis-gestiones/datos',
@@ -549,7 +1063,11 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
               '/empleados/1/editar',
               '/empleados/carga-masiva',
               '/novedades',
+              '/novedades/pendientes',
+              '/novedades/parqueo',
+              '/configuracion/parqueo',
               '/planilla',
+              '/nomina/simular',
               '/prestaciones',
               '/vacaciones',
               '/solicitudes',
@@ -561,17 +1079,26 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         const cs = await page.request.get('/api/catalogos');
         const cats = (await cs.json()).data as { slug: string }[];
         rutas.push(...cats.map((c) => `/catalogos/${c.slug}`), ...detalles);
-        for (const tipo of ['descuentos', 'prestamos', 'comisiones', 'horas-extra', 'ausencias'])
+        for (const tipo of [
+          'descuentos',
+          'prestamos',
+          'comisiones',
+          'consumo-tienda',
+          'horas-extra',
+          'ausencias',
+        ])
           rutas.push(`/novedades/${tipo}`, `/novedades/${tipo}/nuevo`);
       }
       for (const ruta of rutas) {
         await page.goto(ruta);
-        await revisarUi(page);
+        const pasos = await revisarUi(page);
+        auditoria.push({ rol, ruta, ancho: page.viewportSize()!.width, pasos });
         if (ruta === '/mis-gestiones/solicitudes')
           await expect(page.getByLabel('Buscar empleado', { exact: true })).toHaveCount(0);
-        if (ruta.startsWith('/catalogos/')) {
+        if (ruta.startsWith('/catalogos/') && ruta !== '/catalogos/empresa') {
           await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
-          await tour(page, true);
+          await revisarAnchos(page);
+          await tour(page, true, true);
           const a11y = await new AxeBuilder({ page })
             .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
             .analyze();
@@ -583,7 +1110,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         await page.setViewportSize({ width: 390, height: 844 });
         for (const ruta of rutas) {
           await page.goto(ruta);
-          await revisarUi(page);
+          const pasos = await revisarUi(page);
+          auditoria.push({ rol, ruta, ancho: 390, pasos });
           // Una captura completa debe comenzar arriba para ubicar correctamente elementos sticky.
           await page.evaluate(() => window.scrollTo(0, 0));
           await page.screenshot({
@@ -605,6 +1133,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       }
     }
     expect(errores).toEqual([]);
+    await mkdir('tmp', { recursive: true });
+    await writeFile('tmp/auditoria-ui-v1.json', JSON.stringify(auditoria, null, 2));
   });
 });
 
@@ -615,9 +1145,8 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
   }) => {
     await entrar(page, 'RH');
     await page.goto('/empleados/nuevo');
-    await oferta(page);
     await page.getByLabel('Nombres', { exact: true }).fill('Borrador Persona');
-    await page.getByLabel('Nombre del contacto', { exact: true }).fill('Contacto Borrador');
+    await page.getByLabel('Dirección', { exact: true }).fill('Contacto Borrador');
     await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
     await page.close();
     const volver = await context.newPage();
@@ -626,9 +1155,7 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
     await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('');
     await volver.getByRole('button', { name: 'Continuar', exact: true }).click();
     await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('Borrador Persona');
-    await expect(volver.getByLabel('Nombre del contacto', { exact: true })).toHaveValue(
-      'Contacto Borrador',
-    );
+    await expect(volver.getByLabel('Dirección', { exact: true })).toHaveValue('Contacto Borrador');
     const axe = await new AxeBuilder({ page: volver })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
       .analyze();
@@ -655,26 +1182,17 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
     await expect(volver.getByLabel('Nombres', { exact: true })).toHaveValue('');
     await expect(volver.getByText(/Tienes un borrador guardado hace/)).toHaveCount(0);
   });
-  test('catálogo restaura, conserva ante conflicto y limpia al guardar y editar', async ({
-    page,
-  }) => {
+  test('catálogo restaura, genera código y limpia al guardar y editar', async ({ page }) => {
     await entrar(page, 'RH');
     await page.goto('/catalogos/departamentos');
-    await oferta(page);
     await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
-    await page.getByLabel('Código', { exact: true }).fill('E2E');
+    await expect(page.getByLabel('Código', { exact: true })).toHaveAttribute('readonly');
     await page.getByLabel('Nombre', { exact: true }).fill('Departamento Borrador');
     await page.reload();
     await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
     await page.getByRole('button', { name: 'Continuar', exact: true }).click();
     await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Departamento Borrador');
-    const conflicto = page.waitForResponse(
-      (r) => r.request().method() === 'POST' && r.url().endsWith('/catalogos/departamentos'),
-    );
-    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
-    expect((await conflicto).status()).toBe(409);
-    expect(await clavesBorradores(page)).toHaveLength(1);
-    await page.getByLabel('Código', { exact: true }).fill('E2E_BORRADOR');
+    await expect(page.getByLabel('Código', { exact: true })).toHaveValue('DB');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.getByText('Registro guardado y auditado.', { exact: true })).toBeVisible();
     expect(await clavesBorradores(page)).toHaveLength(0);
@@ -697,7 +1215,6 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
   }) => {
     await entrar(page, 'RH');
     await page.goto('/planilla');
-    await oferta(page);
     await page.getByRole('button', { name: 'Configurar IGSS', exact: true }).click();
     await page.getByLabel('Número patronal', { exact: true }).fill('123456');
     await page.getByRole('button', { name: 'Asignación de empleados', exact: true }).click();
@@ -713,4 +1230,605 @@ test.describe('FASE V1-2: borradores con API y Oracle reales', () => {
     await entrar(page, 'EMPLEADO');
     expect(await clavesBorradores(page)).toHaveLength(0);
   });
+});
+
+test.describe('FASE V1-3: códigos automáticos con API real', () => {
+  test('vista previa, colisiones, búsqueda e inmutabilidad en formularios', async ({ page }) => {
+    await entrar(page, 'RH');
+    await page.goto('/catalogos/departamentos');
+    const codigos: string[] = [];
+    for (const [nombre, esperado] of [
+      ['Ventas de códigos', 'VC'],
+      ['Ventas de cuentas', 'VNT'],
+      ['Ventas de cobros', 'VC2'],
+    ]) {
+      await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+      const codigo = page.getByLabel('Código', { exact: true });
+      await expect(codigo).toHaveAttribute('readonly');
+      await page.getByLabel('Nombre', { exact: true }).fill(nombre!);
+      await expect(codigo).toHaveValue(esperado!);
+      const respuesta = page.waitForResponse(
+        (r) => r.request().method() === 'POST' && r.url().endsWith('/catalogos/departamentos'),
+      );
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+      const guardado = await respuesta;
+      expect(guardado.status()).toBe(201);
+      codigos.push((await guardado.json()).data.codigo);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+    expect(new Set(codigos).size).toBe(3);
+    await page.getByLabel('Buscar', { exact: true }).fill('VC2');
+    await page.getByRole('button', { name: 'Aplicar búsqueda y filtros', exact: true }).click();
+    const fila = page.getByRole('row').filter({ hasText: 'Ventas de cobros' });
+    await expect(fila).toHaveCount(1);
+    await fila.getByRole('button', { name: /^Editar registro/ }).click();
+    await page.getByLabel('Nombre', { exact: true }).fill('Nombre renombrado');
+    await expect(page.getByLabel('Código', { exact: true })).toHaveValue('VC2');
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations).toEqual([]);
+    await tour(page, true);
+    await mkdir('tmp/pdfs', { recursive: true });
+    await page.screenshot({ path: 'tmp/pdfs/codigos-automaticos.png', fullPage: true });
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.getByRole('row').filter({ hasText: 'Nombre renombrado' })).toContainText(
+      'VC2',
+    );
+  });
+});
+test.describe('FASE V1-4: ubicaciones oficiales', () => {
+  test('centros con ubicación oficial, cascada, borrador y ayuda', async ({ page }) => {
+    await entrar(page, 'RH');
+    await page.goto('/catalogos/centros-trabajo');
+    await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+    await expect(
+      page.getByRole('combobox', { name: 'Departamento de Guatemala', exact: true }),
+    ).toHaveValue('Guatemala');
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+      'Guatemala',
+    );
+    await page.getByLabel('Nombre', { exact: true }).fill('Sede de ubicaciones');
+    await elegir(page, 'Departamento de Guatemala', 'El Progreso');
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue('');
+    await elegir(page, 'Municipio', 'Guastatoya');
+    await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations).toEqual([]);
+    await tour(page, true);
+    await mkdir('tmp/pdfs', { recursive: true });
+    await page.getByRole('combobox', { name: 'Municipio', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: 'tmp/pdfs/ubicaciones-centro.png', fullPage: true });
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await page.getByRole('button', { name: 'Conservar borrador y salir', exact: true }).click();
+    await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+      'Guastatoya',
+    );
+    const guardado = page.waitForResponse(
+      (r) => r.url().includes('/api/catalogos/centros-trabajo') && r.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    const respuesta = await guardado;
+    expect(respuesta.status()).toBe(201);
+    const centro = (await respuesta.json()).data;
+    expect(centro.idDepartamentoGtEtiqueta).toBe('El Progreso');
+    expect(centro.idMunicipioGtEtiqueta).toBe('Guastatoya');
+    const fila = page.getByRole('row').filter({ hasText: 'Sede de ubicaciones' });
+    await expect(fila).toContainText('Guastatoya');
+    expect(
+      (await clavesBorradores(page)).filter((k) => k.includes('catalogo-centros-trabajo')),
+    ).toEqual([]);
+    const detalleCentro = page.waitForResponse(
+      (r) =>
+        r.url().endsWith(`/api/catalogos/centros-trabajo/${centro.id}`) &&
+        r.request().method() === 'GET',
+    );
+    await fila.getByRole('button', { name: /^Editar registro/ }).click();
+    expect((await detalleCentro).status()).toBe(200);
+    await expect(
+      page.getByRole('dialog', { name: 'Editar · Centros de trabajo', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+      'Guastatoya',
+    );
+    await elegir(page, 'Departamento de Guatemala', 'Guatemala');
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue('');
+    await elegir(page, 'Municipio', 'Mixco');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(fila).toContainText('Mixco');
+  });
+});
+
+test('FASE V1-6: bloques, borrador, duplicado y horario desde empleado', async ({ page }) => {
+  await entrar(page, 'RH');
+  await page.goto('/catalogos/horarios');
+  await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill('Horario por bloques');
+  await page.getByRole('button', { name: 'Agregar bloque', exact: true }).click();
+  await page.getByRole('button', { name: 'Agregar bloque', exact: true }).click();
+  const segundo = page.getByRole('region', { name: 'Bloque 2', exact: true });
+  await segundo.getByRole('button', { name: 'Fin de semana', exact: true }).click();
+  await segundo.getByRole('button', { name: 'Domingo', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'Salida · bloque 2', exact: true })
+    .selectOption('12:30');
+  await page.getByRole('combobox', { name: 'Descanso · bloque 2', exact: true }).selectOption('30');
+  await expect(page.getByText('Horas semanales: 44.00 · Jornada diurna')).toBeVisible();
+  await expect(page.locator('[data-tour="horario-totales"]')).toContainText('Domingo');
+  expect(
+    await page
+      .getByRole('combobox', { name: 'Entrada · bloque 1', exact: true })
+      .locator('option')
+      .count(),
+  ).toBe(48);
+  await expect(page.getByText('Borrador guardado', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await page.getByRole('button', { name: 'Conservar borrador y salir', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear registro', exact: true }).click();
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(page.getByText('Horas semanales: 44.00 · Jornada diurna')).toBeVisible();
+  await tour(page, true);
+  const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  expect(axe.violations.map((v) => ({ id: v.id, nodos: v.nodes.map((n) => n.target) }))).toEqual(
+    [],
+  );
+  await mkdir('tmp/pdfs', { recursive: true });
+  await page.screenshot({ path: 'tmp/pdfs/horarios-bloques.png', fullPage: true });
+  await page.locator('[data-tour="horario-totales"]').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'tmp/pdfs/horarios-constructor.png' });
+  const respuesta = page.waitForResponse(
+    (r) => r.url().endsWith('/api/catalogos/horarios') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  const guardado = await respuesta;
+  expect(guardado.status()).toBe(201);
+  const horario = (await guardado.json()).data;
+  expect(horario.bloques).toHaveLength(2);
+  expect((await clavesBorradores(page)).filter((k) => k.includes('catalogo-horarios'))).toEqual([]);
+  const fila = page.getByRole('row').filter({ hasText: 'Horario por bloques' });
+  await fila.getByRole('button', { name: `Duplicar horario ${horario.id}`, exact: true }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Duplicar · Horarios laborales', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill('Horario duplicado');
+  const copia = page.waitForResponse(
+    (r) => r.url().endsWith('/api/catalogos/horarios') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  const duplicado = await copia;
+  expect(duplicado.status()).toBe(201);
+  expect((await duplicado.json()).data.codigo).not.toBe(horario.codigo);
+  await page.goto('/empleados/nuevo');
+  await personalesEmpleado(page, 'Ficha en progreso');
+  await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear horario personalizado', exact: true }).click();
+  const modal = page.getByRole('dialog', { name: 'Crear · Horarios laborales', exact: true });
+  await expect(modal).toBeVisible();
+  await modal
+    .getByRole('textbox', { name: 'Nombre', exact: true })
+    .fill('Horario dentro expediente');
+  await modal.getByRole('button', { name: 'Agregar bloque', exact: true }).click();
+  await tour(page, true);
+  const desdeFicha = page.waitForResponse(
+    (r) => r.url().endsWith('/api/catalogos/horarios') && r.request().method() === 'POST',
+  );
+  await modal.getByRole('button', { name: 'Guardar', exact: true }).click();
+  expect((await desdeFicha).status()).toBe(201);
+  await expect(modal).not.toBeVisible();
+  await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Nombres', exact: true })).toHaveValue(
+    'Ficha en progreso',
+  );
+  await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Horario', exact: true })).toHaveValue(
+    'Horario dentro expediente',
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Crear horario personalizado', exact: true }).click();
+  await page.getByRole('button', { name: 'Agregar bloque', exact: true }).click();
+  const ancho = await page.evaluate(() => ({
+    pagina: document.documentElement.scrollWidth,
+    pantalla: innerWidth,
+  }));
+  expect(ancho.pagina).toBeLessThanOrEqual(ancho.pantalla);
+  await page
+    .getByRole('combobox', { name: 'Entrada · bloque 1', exact: true })
+    .scrollIntoViewIfNeeded();
+  const anchoModal = await page
+    .locator('dialog[open]')
+    .evaluate((d) => ({ contenido: d.scrollWidth, visible: d.clientWidth }));
+  expect(anchoModal.contenido).toBeLessThanOrEqual(anchoModal.visible);
+  await page.screenshot({ path: 'tmp/pdfs/horarios-bloques-movil.png' });
+  const axeMovil = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(axeMovil.violations.map((v) => v.id)).toEqual([]);
+});
+
+test('FASE V1-9: novedades mensuales, tarifas y ciclo de parqueo con ayuda y móvil', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  await page.goto('/configuracion/parqueo');
+  for (const vehiculo of ['Carro', 'Moto']) {
+    await elegir(page, 'Vehículo', vehiculo);
+    await page
+      .getByLabel('Tarifa mensual', { exact: true })
+      .fill(vehiculo === 'Carro' ? '150.00' : '75.00');
+    await page
+      .getByLabel('Motivo del cambio', { exact: true })
+      .fill('Tarifa mensual aprobada para pruebas');
+    await page.getByRole('button', { name: 'Revisar y guardar tarifa', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Confirmar tarifa mensual' })).not.toBeVisible();
+  }
+  await revisarUi(page);
+  const empleadosSelector = (
+    await (await page.request.get('/api/empleados/selector?buscar=Persona')).json()
+  ).data.registros as { codigo: string; nombre: string; departamento: string }[];
+  const empleadoOpcion = empleadosSelector.find((e) => e.nombre === 'Persona E2E')!;
+  const elegirPersona = async () => {
+    await page.getByRole('combobox', { name: 'Empleado', exact: true }).fill(empleadoOpcion.codigo);
+    await page
+      .getByRole('option', {
+        name: `${empleadoOpcion.codigo} · ${empleadoOpcion.nombre} · ${empleadoOpcion.departamento}`,
+        exact: true,
+      })
+      .click();
+  };
+  await page.goto('/novedades/horas-extra/nuevo');
+  await elegirPersona();
+  await page.getByLabel('Horas registradas', { exact: true }).fill('2.5');
+  await page
+    .getByLabel('Motivo o descripción', { exact: true })
+    .fill('Horas adicionales del mes con respaldo');
+  await page.getByRole('button', { name: 'Revisar cálculo', exact: true }).click();
+  await expect(page.getByText(/Total estimado:/)).toBeVisible();
+  await page.getByRole('button', { name: 'Revisar y guardar', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page).toHaveURL(/\/novedades\/horas-extra\/\d+$/);
+  await revisarUi(page);
+  for (const tipo of ['comisiones', 'consumo-tienda']) {
+    await page.goto(`/novedades/${tipo}/nuevo`);
+    await elegirPersona();
+    await page
+      .getByLabel(tipo === 'comisiones' ? 'Comisión' : 'Consumo en tienda', { exact: true })
+      .fill('123.45');
+    await page.getByLabel('Referencia', { exact: true }).fill(`E2E_V19_${tipo}`);
+    await page
+      .getByLabel('Motivo o descripción', { exact: true })
+      .fill('Carga manual del mes con respaldo');
+    await page.getByRole('button', { name: 'Revisar y guardar', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/novedades/${tipo}/\\d+$`));
+  }
+  await page.goto('/novedades/pendientes');
+  await revisarUi(page);
+  await expect(page.getByRole('table', { name: 'Resumen por departamento' })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await revisarUi(page);
+  await mkdir('tmp/pdfs', { recursive: true });
+  await page.screenshot({ path: 'tmp/pdfs/novedades-v1-9-movil.png' });
+  await salir(page);
+  await entrar(page, 'EMPLEADO');
+  await page.goto('/mis-gestiones/solicitudes');
+  await page
+    .locator('.gestiones-tarjeta')
+    .filter({ has: page.getByRole('heading', { name: 'Parqueo', exact: true }) })
+    .getByRole('button', { name: 'Solicitar', exact: true })
+    .click();
+  const modal = page.getByRole('dialog', { name: 'Solicitar Parqueo' });
+  await elegir(page, 'Tipo de vehículo', 'Carro');
+  await page.getByLabel('Placa (opcional)', { exact: true }).fill('P123ABC');
+  await modal.getByRole('button', { name: 'Revisar y enviar', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await salir(page);
+  await entrar(page, 'RH');
+  const solicitudes = (
+    await (await page.request.get('/api/solicitudes?tipo=PARQUEO&estado=EN_PROCESO')).json()
+  ).data.registros;
+  expect(solicitudes.length).toBe(1);
+  await page.goto(`/solicitudes?solicitud=${solicitudes[0].id}`);
+  const detalle = page.getByRole('dialog', {
+    name: `Solicitud #${solicitudes[0].id}`,
+    exact: true,
+  });
+  await expect(detalle.getByRole('button', { name: 'Aprobar', exact: true })).toBeEnabled();
+  await detalle.getByRole('button', { name: 'Aprobar', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Aprobar solicitud' })).toContainText(
+    'tarifa mensual de Q 150.00',
+  );
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(detalle.getByRole('button', { name: 'Aprobar', exact: true })).toHaveCount(0);
+  await salir(page);
+  await entrar(page, 'EMPLEADO');
+  await page.goto('/mis-gestiones/parqueo');
+  await revisarUi(page);
+  await page.getByRole('button', { name: 'Solicitar baja', exact: true }).click();
+  await page.getByLabel('Motivo', { exact: true }).fill('Ya no utilizaré el parqueo');
+  await page.getByRole('button', { name: 'Revisar cambio', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Solicitar baja', exact: true })).toBeDisabled();
+  await salir(page);
+  await entrar(page, 'RH');
+  await page.goto('/novedades/parqueo');
+  await page.getByRole('button', { name: 'Dar de baja', exact: true }).click();
+  await page.getByLabel('Motivo', { exact: true }).fill('Baja solicitada por el empleado');
+  await page.getByRole('button', { name: 'Revisar cambio', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Dar de baja', exact: true })).toBeDisabled();
+  await revisarUi(page);
+  // La auditoría dejó una ausencia pendiente histórica; se retira exclusivamente esa fixture.
+  const pendientes = (
+    await (await page.request.get('/api/novedades/ausencias?idEmpleado=1&estado=PENDIENTE')).json()
+  ).data.registros;
+  const csrf = (await (await page.request.get('/api/auth/csrf')).json()).data.csrfToken;
+  for (const ausencia of pendientes) {
+    expect(
+      (
+        await page.request.post(`/api/novedades/ausencias/${ausencia.id}/anular`, {
+          headers: { 'X-CSRF-Token': csrf },
+          data: {
+            motivo: 'Retiro de fixture pendiente para comprobar el pago mensual',
+            confirmado: true,
+          },
+        })
+      ).status(),
+    ).toBe(200);
+  }
+  // Completa la historia real de la fixture; no abre un acumulado sobre nóminas cerradas.
+  for (let numero = 2; numero <= 9; numero++) {
+    const body = {
+      mes: `2026-${String(numero).padStart(2, '0')}`,
+      tipoPago: 'PAGO',
+      objetivo: 'EMPLEADO',
+      idEmpleado: 1,
+    };
+    const simulacionPrevia = await page.request.post('/api/nomina/simular', {
+      headers: { 'X-CSRF-Token': csrf },
+      data: body,
+    });
+    expect(simulacionPrevia.status()).toBe(200);
+    const resultadoPrevio = (await simulacionPrevia.json()).data;
+    expect(resultadoPrevio.registros[0].alertas).toEqual([]);
+    expect(
+      (
+        await page.request.post('/api/nomina/pagar', {
+          headers: { 'X-CSRF-Token': csrf },
+          data: { ...body, hash: resultadoPrevio.hash, confirmado: true, novedadesCompletas: true },
+        })
+      ).status(),
+    ).toBe(201);
+  }
+  await page.goto('/nomina/simular');
+  await elegir(page, 'Tipo de pago', 'Pago del mes');
+  await elegir(page, 'Objetivo', 'Un empleado');
+  await page.getByRole('combobox', { name: 'Empleado', exact: true }).fill('Persona E2E');
+  await page.getByRole('option').filter({ hasText: 'Persona E2E' }).click();
+  const simulacion = page.waitForResponse((r) => r.url().endsWith('/api/nomina/simular'));
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  const resultado = (await (await simulacion).json()).data.registros[0];
+  expect(resultado.alertas).toEqual([]);
+  expect(
+    resultado.resultado.lineas.find(
+      (l: { concepto: { codigo: string } }) => l.concepto.codigo === 'PARQUEO',
+    ).monto,
+  ).toBe('150.00');
+  await page
+    .getByRole('checkbox', { name: 'Confirmo que las novedades del mes están completas' })
+    .check();
+  await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+  const pago = page.waitForResponse((r) => r.url().endsWith('/api/nomina/pagar'));
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  const respuesta = await pago;
+  expect(respuesta.status()).toBe(201);
+  const id = (await respuesta.json()).data.pagados[0];
+  const detallePago = (await (await page.request.get(`/api/nomina/boletas/${id}`)).json()).data;
+  expect(
+    detallePago.resultado.lineas.find(
+      (l: { concepto: { codigo: string } }) => l.concepto.codigo === 'PARQUEO',
+    ).monto,
+  ).toBe('150.00');
+  const descarga = page.waitForEvent('download');
+  await page.getByRole('button', { name: `Boleta ${id}`, exact: true }).click();
+  expect((await descarga).suggestedFilename()).toMatch(/\.pdf$/);
+});
+
+test('FASE V1-10: pagar departamento, revertir como ADMIN y volver a pagar empleado', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  await page.goto('/nomina/simular');
+  await page.getByRole('combobox', { name: 'Mes del pago', exact: true }).selectOption('02');
+  await elegir(page, 'Objetivo', 'Un departamento');
+  await elegir(page, 'Departamento', 'Departamento E2E');
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(page.getByRole('table')).toContainText('Persona E2E');
+  await page
+    .getByRole('checkbox', { name: 'Confirmo que las novedades del mes están completas' })
+    .check();
+  await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+  const respuesta = page.waitForResponse(
+    (r) => r.url().endsWith('/api/nomina/pagar') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  const rp = await respuesta;
+  expect(rp.status()).toBe(201);
+  const pago = (await rp.json()).data;
+  await salir(page);
+  await entrar(page, 'ADMIN');
+  const cargaPlanilla = page.waitForResponse(
+    (r) =>
+      r.url().includes(`/api/nomina/periodos/${pago.idPeriodo}/planilla`) &&
+      r.request().method() === 'GET',
+  );
+  await page.goto(`/planilla?periodo=${pago.idPeriodo}`);
+  const tablaPago = await cargaPlanilla;
+  expect(tablaPago.status()).toBe(200);
+  const fila = page.getByRole('row').filter({ hasText: 'Ajeno E2E' });
+  await fila.getByRole('button', { name: 'Revertir', exact: true }).click();
+  const modal = page.locator('dialog[open]');
+  await expect(
+    modal.getByRole('button', { name: 'Confirmar reversión', exact: true }),
+  ).toBeDisabled();
+  await modal
+    .getByLabel('Motivo de reversión', { exact: true })
+    .fill('Corrección de novedades antes del cierre');
+  await tour(page, true);
+  await modal.getByRole('button', { name: 'Confirmar reversión', exact: true }).click();
+  await expect(
+    page.getByText('Pago revertido; cuotas y novedades devueltas.', { exact: true }),
+  ).toBeVisible();
+  await page.goto('/nomina/simular');
+  await page.getByRole('combobox', { name: 'Mes del pago', exact: true }).selectOption('02');
+  await elegir(page, 'Objetivo', 'Un empleado');
+  const campo = page.getByRole('combobox', { name: 'Empleado', exact: true });
+  await campo.fill('Ajeno E2E');
+  await page.getByRole('option').filter({ hasText: 'Ajeno E2E' }).click();
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(page.getByRole('table').getByRole('row')).toHaveCount(2);
+  await page
+    .getByRole('checkbox', { name: 'Confirmo que las novedades del mes están completas' })
+    .check();
+  await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  await expect(page.getByText('Pagados: 1.', { exact: false })).toBeVisible();
+});
+
+test('FASE V1-11: Bono 14 automático, confirmación, boleta y precálculo propio', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  await page.goto('/prestaciones');
+  await expect(
+    page.getByRole('heading', { name: 'Prestaciones automáticas · revisión y pago' }),
+  ).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Resultados de simulación' })).toBeVisible();
+  await page.getByRole('button', { name: 'Indemnización y finiquito', exact: true }).click();
+  await tour(page);
+  await page.getByRole('button', { name: 'Bono 14 y aguinaldo', exact: true }).click();
+  await tour(page);
+  await page.goto('/nomina/simular');
+  await elegir(page, 'Tipo de pago', 'Bono 14');
+  await elegir(page, 'Objetivo', 'Un empleado');
+  await page.getByRole('combobox', { name: 'Empleado', exact: true }).fill('Ajeno E2E');
+  await page.getByRole('option').filter({ hasText: 'Ajeno E2E' }).click();
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(page.getByRole('table')).toContainText('2,479.45');
+  await expect(page.getByRole('table')).toContainText('181 / 365');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await revisarUi(page);
+  await mkdir('tmp/pdfs', { recursive: true });
+  await page.screenshot({ path: 'tmp/pdfs/prestaciones-v1-11-movil.png', fullPage: true });
+  await page
+    .getByRole('checkbox', {
+      name: 'Confirmo que la historia salarial, comisiones y horas extra del ciclo están completas',
+    })
+    .check();
+  await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
+  const response = page.waitForResponse((r) => r.url().endsWith('/api/nomina/pagar'));
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
+  const r = await response;
+  expect(r.status()).toBe(201);
+  const data = (await r.json()).data;
+  const descarga = page.waitForEvent('download');
+  await page.getByRole('button', { name: `Boleta ${data.pagados[0]}`, exact: true }).click();
+  expect((await descarga).suggestedFilename()).toMatch(/\.pdf$/);
+  await page.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(page.getByRole('table')).toContainText('ya tiene este pago registrado');
+});
+
+test('FASE V1-11: finiquito al elegir empleado y cambiar egreso, PDF y baja confirmada', async ({
+  page,
+}) => {
+  await entrar(page, 'RH');
+  // Corte anterior a julio: no requiere un Bono 14 anterior, incluso al ejecutar aisladamente.
+  await page.goto('/prestaciones?empleado=2');
+  await page.getByRole('textbox', { name: 'Fecha de egreso', exact: true }).fill('30/06/2026');
+  await expect(page.getByText('Total:', { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole('table').first()).toContainText('INDEMNIZACION');
+  await expect(page.getByRole('table').first()).toContainText('VACACIONES PENDIENTES');
+  const antes = await page.getByText('Total:', { exact: false }).first().textContent();
+  await elegir(page, 'Causa del egreso', 'Renuncia');
+  await expect
+    .poll(() => page.getByText('Total:', { exact: false }).first().textContent())
+    .not.toBe(antes);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await revisarUi(page);
+  await page.screenshot({ path: 'tmp/pdfs/finiquito-v1-11-movil.png', fullPage: true });
+  const nueva = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Vista previa del finiquito PDF', exact: true }).click();
+  await (await nueva).close();
+  await page
+    .getByRole('textbox', { name: 'Motivo', exact: true })
+    .first()
+    .fill('Liquidación revisada y confirmada por recursos humanos');
+  await page.getByRole('button', { name: 'Confirmar liquidación y baja', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).last().click();
+  await expect(
+    page.getByRole('button', { name: 'Confirmar liquidación y baja', exact: true }),
+  ).toBeEnabled();
+  await page.getByRole('button', { name: 'Confirmar liquidación y baja', exact: true }).click();
+  const liquidacion = page.waitForResponse((r) => r.url().endsWith('/api/prestaciones/liquidar'));
+  await page.getByRole('button', { name: 'Confirmar', exact: true }).last().click();
+  expect((await liquidacion).status()).toBe(201);
+  const ficha = await page.request.get('/api/empleados/2');
+  expect((await ficha.json()).data.estado).toBe('EGRESADO');
+});
+
+// Estas páginas existen fuera del layout autenticado y conservan su propia ayuda.
+test('FASE V1-12: ayuda, hints y accesibilidad en login y salud', async ({ page }) => {
+  for (const ruta of ['/login', '/salud']) {
+    await page.goto(ruta);
+    await revisarUi(page);
+  }
+});
+
+test('FASE V1-12: subpantallas de planilla, prestaciones y plantillas por rol', async ({
+  page,
+}) => {
+  test.setTimeout(180000);
+  for (const rol of ['ADMIN', 'RH'] as const) {
+    await entrar(page, rol);
+    await page.goto('/planilla');
+    await page.getByRole('button', { name: 'Historial por mes y año', exact: true }).click();
+    await revisarUi(page);
+    for (const nombre of ['Historia fiscal y deducciones', 'Configurar IGSS']) {
+      await page.getByRole('button', { name: nombre, exact: true }).click();
+      const modal = page.locator('dialog[open]').last();
+      await expect(modal.locator('[role="status"]').filter({ hasText: 'Cargando' })).toHaveCount(0);
+      await tour(page, true, true);
+      const axe = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+        .analyze();
+      expect(axe.violations.map((v) => v.id)).toEqual([]);
+      await modal.getByRole('button', { name: 'Cerrar ventana', exact: true }).click();
+    }
+    await page.goto('/prestaciones');
+    for (const nombre of ['Indemnización y finiquito', 'Constancias de salario']) {
+      await page.getByRole('button', { name: nombre, exact: true }).click();
+      await revisarUi(page);
+    }
+    await page.goto('/solicitudes');
+    await page.getByRole('button', { name: 'Plantillas de documentos', exact: true }).click();
+    await expect(
+      page.getByRole('textbox', { name: 'Texto de la plantilla', exact: true }),
+    ).toBeVisible();
+    await tour(page, true, true);
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+    await page
+      .locator('dialog[open]')
+      .last()
+      .getByRole('button', { name: 'Cerrar ventana', exact: true })
+      .click();
+    await salir(page);
+  }
 });

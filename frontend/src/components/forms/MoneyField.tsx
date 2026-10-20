@@ -13,7 +13,7 @@ export function MoneyField(props: CampoProps) {
   return (
     <InputField
       {...props}
-      ancho={props.ancho ?? 'corto'}
+      tipoDato="monto"
       prefijo="Q"
       inputMode="decimal"
       maxLength={16}

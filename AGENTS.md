@@ -351,3 +351,127 @@ AFECTO_IGSS = SB − AUS + COM + HE                  # la bonificación incentiv
 Integradas a **Simular un pago** (A11) y también disponibles en sus pantallas:
 - **Bono 14** (periodo 1 jul – 30 jun) y **Aguinaldo** (1 dic – 30 nov): el sistema los calcula **solo** a partir de la fecha de contratación. Con menos de 1 año en el periodo, **proporcional** (`promedio × días laborados en el periodo / 365`); con 1 año o más, **pago completo** (100 % del promedio mensual de los últimos 12 meses, incluyendo comisiones y horas extra). Exentos de ISR dentro del límite legal. El cálculo aparece **precalculado y listo para revisar** al llegar su fecha de pago (julio y diciembre).
 - **Indemnización**: se calcula **automáticamente** al elegir el empleado, desde su fecha de contratación hasta la fecha de baja (por defecto hoy): promedio de los últimos 6 meses × tiempo laborado en años y fracción de año, más vacaciones pendientes (`días × salario / 30`) y aguinaldo y bono 14 proporcionales (finiquito). Muestra el desglose paso a paso y genera el documento PDF membretado.
+
+---
+
+# ADENDO v1.1 — Segunda ronda de correcciones sobre la v1
+
+> Agrega este bloque **al final de `AGENTS.md`** (después del adendo v1). Donde contradiga a versiones anteriores, **este adendo manda**.
+
+## B0. Alcance y reglas de la ronda
+
+- Se trabaja sobre la v1 ya construida. Rama `v1.1` creada desde `v1`.
+- **No edites migraciones anteriores**; los cambios de esquema van en migraciones nuevas que conserven los datos existentes.
+- Cada fase corrige causas raíz, **no síntomas**: reproduce el problema, identifica la causa, corrígela y agrega una prueba de regresión que fallaba antes del arreglo.
+- Bitácora: `docs/PROGRESO_V1.md`, sección "Ronda 2".
+- No rompas pruebas existentes; si una regla cambia a propósito, actualiza la prueba y anótalo.
+- Si el usuario adjuntó capturas de pantalla de referencia (por ejemplo para el tamaño de los campos), úsalas como guía visual.
+
+## B1. Correcciones críticas
+
+**Login.** Tras ingresar credenciales válidas y pulsar "Iniciar sesión" aparece el aviso "Inicia sesión para continuar." cuando no debería. Debe iniciar sesión y redirigir sin ningún aviso. Hipótesis a descartar: el manejador global de 401 mostrando un aviso por una verificación de sesión previa al login; el guard de rutas evaluándose antes de que la sesión se actualice; un mensaje "flash" que queda guardado en el estado de redirección; la obtención del token CSRF. El aviso solo debe mostrarse cuando un usuario **sin sesión** es redirigido desde una ruta protegida o cuando la sesión **realmente expiró**, nunca después de un login exitoso. No lo resuelvas ocultando el mensaje.
+
+**Anuncios/Eventos (error de módulo).** En la pantalla de Anuncios/Eventos aparece: *"'text/html' is not a valid JavaScript MIME type for module script '…/assets/ComunicacionPage-….js'"* (servido en `https://localhost:8443`). Es el síntoma típico de que el servidor devolvió `index.html` (fallback de SPA) en lugar de un archivo JS que no existe (hash antiguo tras recompilar, o chunk faltante). Corrige la causa: revisa la configuración de nginx (`try_files` para `/assets/` debe responder 404 real con el tipo de contenido correcto, no `index.html`), cabeceras de caché (`index.html` sin caché; `/assets/*` con hash como inmutables), que el build de Docker no deje chunks viejos mezclados y que el chunk exista en el `dist`. Además: manejo de `vite:preloadError` (recarga única controlada para obtener la versión nueva) y un `errorElement`/ErrorBoundary de rutas con pantalla amigable ("Algo salió mal", botones Reintentar y Recargar), no la pantalla técnica de React Router.
+
+**Borradores (descartar/cancelar).** Hoy, al pulsar "Descartar borrador" o cancelar a medias, el borrador reaparece al reabrir el formulario. Corrige:
+- **Descartar borrador** elimina el borrador de forma definitiva y reinicia el formulario. Cancela cualquier guardado automático pendiente (el *debounce* no debe reescribirlo) y marca el formulario como descartado hasta que el usuario vuelva a escribir.
+- **Cancelar**: si hay datos escritos, muestra un diálogo con dos opciones claras: **Conservar borrador y salir** / **Descartar y salir**. Sin datos, sale directamente.
+- El resto de reglas A3 se mantiene (se elimina al guardar con éxito y al cerrar sesión).
+
+## B2. Barra superior, inicio y notificaciones
+
+- **Color**: la barra de menú horizontal es **azul**, usando el azul primario de la paleta del mockup (token del sistema de diseño, no un color nuevo). Texto e íconos claros con contraste AA. Estados hover, activo y foco coherentes; botón de búsqueda, notificaciones, ayuda y menú de usuario legibles sobre el azul. Los paneles desplegables pueden ser superficies claras con acentos azules, coherentes con el mockup.
+- **Inicio**: es un **botón simple con ícono** que lleva al dashboard; **sin desplegable** y sin la opción "Resumen" (elimina esa ruta o redirígela). Actualiza `navigation.config.ts` y el buscador Ctrl/⌘ K.
+- **Nombre mostrado**: en todo el sistema (saludo, menú de usuario, listados donde se muestre la persona) se muestra **"Nombre Apellido"** (primer nombre + primer apellido, tomados de la ficha del empleado) en lugar de `nombre.apellido`. Si no hay ficha, convierte el usuario separando por el punto y capitalizando cada parte. El nombre de usuario sigue mostrándose solo donde sea técnico (administración de usuarios, credenciales).
+- **Recorrido de ayuda**: elimina por completo el aviso/botón "Conoce esta página" y cualquier oferta automática del recorrido en la primera visita (y su bandera persistida). El recorrido **solo** se inicia al pulsar el botón de ayuda.
+- **Notificaciones**: agrega **borrar una** (ícono por notificación) y **borrar todas** (con confirmación). Es un borrado por usuario (no afecta a otros destinatarios), valida que la notificación pertenezca al usuario, y actualiza el contador de la campana. Conserva "marcar como leída".
+
+## B3. Tamaño de los campos de formulario
+
+Los campos no deben ocupar todo el ancho disponible: se ajustan al contenido esperado.
+- Los componentes de formulario compartidos calculan su ancho **a partir de la longitud máxima** y el tipo de dato, con un prop `tamano` opcional para forzarlo. Referencia (en caracteres): código y zona ≈ 10–12; DPI y NIT ≈ 18; teléfono ≈ 14; fecha ≈ 16; monto ≈ 16; select corto ≈ 20; texto hasta 30 caracteres ≈ 30; correo ≈ 36; texto hasta 50 ≈ 44; dirección y nombres largos ≈ 56–60 (tope); `textarea` ancho completo con tope (~640 px).
+- Un campo con límite de 30, uno de 50 y uno de 100 caracteres **nunca** se ven iguales.
+- Los formularios usan un ancho máximo cómodo (no se estiran en pantallas grandes) y alinean etiquetas, hints y errores al ancho del campo. Varios campos cortos pueden compartir fila.
+- Aplica el cambio a **todos** los formularios (empleados, catálogos, novedades, solicitudes, parámetros, etc.) y mantén responsive (en móvil los campos pueden ocupar el ancho completo).
+
+## B4. Catálogos: validación, duplicados y consistencia
+
+Aplica a **todos** los catálogos (departamentos, puestos, jefaturas, tipos de contrato, tipos de ausencia, motivos de baja, tipos de día, tipos de ingreso, tipos de descuento, conceptos, zonas, países, centros de trabajo, horarios, parentescos, etc.). Implementa una sola vez (validador y componente de CRUD genéricos) y reutilízala; la misma validación corre al **crear y al editar**, en frontend y backend.
+
+**Nombres.** Validador compartido `validarNombreCatalogo`:
+1. Recortar espacios al inicio y al final y colapsar espacios múltiples (el recorte se aplica antes de validar y se guarda recortado).
+2. Un nombre de solo espacios es **vacío** (campo requerido).
+3. Debe contener **al menos una letra** (rechaza nombres solo numéricos o solo símbolos como `123456` o `/*%$#&/@#^`) y mínimo 2 caracteres.
+4. Caracteres permitidos: letras (con acentos, ñ, ü), dígitos, espacios y `. , - / & ( ) '`. Cualquier otro (`* % $ # @ ^ < > ! ? = + ~ | \ { } [ ]`, etc.) se **bloquea al escribir** y se rechaza en el servidor con un mensaje claro que lo explique.
+5. Longitud máxima por catálogo, con ancho de campo según B3.
+
+**Duplicados.** No se permiten nombres duplicados dentro de un catálogo, **sin distinguir mayúsculas/minúsculas ni acentos ni espacios sobrantes** ("Ingeniería", "ingenieria" y " INGENIERÍA " son el mismo nombre).
+- Guarda un `NOMBRE_NORMALIZADO` (sin acentos, minúsculas, espacios colapsados) con índice `UNIQUE` por catálogo, además de la verificación en el servicio. Error HTTP 409 con código `DUPLICADO` mapeado al campo, con mensaje claro: *"Ya existe un departamento llamado «Ingeniería». Usa otro nombre o edita el existente."*
+- Si el duplicado está **inactivo**, el mensaje lo indica y ofrece **Reactivar**.
+- Migración: normaliza los datos existentes; si ya hay duplicados, **no falles**: conserva el más antiguo, renombra los demás con sufijo `(duplicado 2)`, márcalos inactivos y repórtalo en `docs/PROGRESO_V1.md`.
+
+**Edición.** Editar un registro revalida con las mismas reglas (no se puede dejar el nombre en caracteres especiales).
+
+**Eliminar.** Un registro **en uso** (por empleados u otras tablas) **no se puede eliminar**: el backend lo bloquea revisando todas las referencias y responde con mensaje claro (*"No se puede eliminar: lo usan N empleado(s). Puedes inactivarlo."*); el frontend deshabilita el botón con un tooltip explicativo y muestra una columna "En uso". Inactivar sí se permite (con advertencia si está en uso); un elemento inactivo no aparece en los selectores de formularios nuevos pero sigue visible en los registros existentes.
+
+**Acciones por fila consistentes.** Todos los catálogos usan el mismo componente de acciones: Ver, Editar, Inactivar/Activar, Historial y Eliminar (cuando no está en uso), cada una con ícono. Hoy **Motivos de baja** solo muestra "Historial" y "Ver": debe tener las mismas acciones que los demás.
+
+**Casos específicos.**
+- **Zonas**: el código postal acepta **solo dígitos** (5 dígitos, formato guatemalteco), con teclado numérico y bloqueo de letras al escribir; mensaje claro.
+- **Países**: el código ISO acepta **solo letras**, exactamente 2 (ISO 3166-1 alfa-2), convertidas a mayúsculas automáticamente; mensaje claro.
+- **Tipos de contrato y demás**: los espacios al inicio o al final se recortan al guardar.
+
+## B5. Empleado nuevo: asistente por pasos
+
+El formulario único se divide en un **asistente de 4 pasos** (también para editar un empleado):
+1. **Datos personales**: nombres, apellidos, DPI, NIT, fecha de nacimiento, sexo, estado civil, teléfono, correo y dirección (departamento, municipio, zona y **Dirección**).
+2. **Datos laborales**: código (vista previa), departamento, puesto, jefatura, tipo de contrato, fechas, horario y centro de trabajo.
+3. **Datos salariales y banco** — **opcional**.
+4. **Contacto de emergencia** — **opcional**.
+
+Comportamiento:
+- Indicador de progreso (stepper con ícono por paso, estado completo / con errores / opcional), botones **Anterior** y **Siguiente** con íconos, y navegación directa a pasos ya visitados. Valida cada paso antes de avanzar; los errores se marcan en el paso correspondiente.
+- **Guardar empleado** está disponible cuando los pasos 1 y 2 son válidos. Los pasos 3 y 4 pueden omitirse; si se llenan parcialmente, se exige completar el grupo (ej. si elige banco, falta el número de cuenta).
+- Un empleado sin salario queda con la marca **"Perfil incompleto"** (con la lista de lo que falta, visible en el listado y la ficha). Mientras no tenga salario, la simulación de planilla lo **excluye con una alerta** (sin bloquear a los demás) y aparece en las alertas del dashboard.
+- Antes de guardar, un resumen indica los datos opcionales omitidos y sus consecuencias.
+- El borrador (B1) conserva el paso actual y los datos de todos los pasos.
+- Se mantienen la creación automática de usuario, el modal de credenciales (copiar y PDF) y la carga masiva.
+
+**Dirección.** Se renombra "Número de casa/vivienda" a **"Dirección"** (también en la plantilla CSV de carga masiva y en la ficha). Permite letras (con acentos y ñ), números y espacios, además de `. , # - / °` propios de una dirección; debe contener al menos una letra o un número. Máximo 100 caracteres. Migración: renombra la columna y amplía su longitud sin perder datos.
+
+**NIT.** Se relaja la validación para datos de prueba: se acepta una secuencia de **5 a 12 dígitos** con una `K` final opcional (y guion opcional), **sin comprobar el dígito verificador**. Sigue siendo único. Conserva la validación módulo 11 en el código, controlada por un parámetro de sistema `VALIDAR_DIGITO_NIT` (por defecto **desactivado**, activable por ADMIN para producción). Actualiza hints y mensajes.
+
+## B6. Cascada departamento → empleado
+
+En **todo** formulario o filtro donde existan selectores de departamento y de empleado (prestaciones: aguinaldo, bono 14 e indemnización; simular pago; novedades como comisiones, horas extra, ausencias, descuentos, préstamos, consumo en tienda, parqueo; vacaciones; solicitudes y reportes) el selector de empleado se **filtra por el departamento elegido** y solo lista sus empleados. Reglas:
+- Un único componente `SelectorEmpleado` con búsqueda, que acepta `departamentoId`, carga desde el servidor filtrando por departamento (y solo empleados activos cuando aplique) y muestra código y nombre.
+- Al cambiar el departamento se limpia el empleado elegido si ya no pertenece a él. Sin departamento elegido, el selector lista todos (con búsqueda) mostrando el departamento de cada uno.
+- Estado vacío claro si el departamento no tiene empleados. Revisa el repositorio buscando todos los lugares donde aplique.
+
+## B7. Dashboard de RRHH (primera vista)
+
+**Encabezado**: saludo "Hola, Nombre Apellido" y fecha. Debajo, **lo primero que se ve** es un tablero de **4 recuadros de estadísticas**, visualmente atractivos, con gráficas y animaciones, y con opciones para alternar los datos. El resto de indicadores del dashboard actual (nómina del periodo, solicitudes pendientes, alertas, etc.) pasan **debajo** de esa primera vista.
+
+1. **Top 5 de remuneraciones**: alternar **Empleados / Departamentos** y la métrica **Salario base / Comisiones / Horas extra / Total devengado**, con selector de mes. Barras horizontales animadas con posición, nombre y monto.
+2. **Top de inasistencias**: alternar **Empleados / Departamentos** y periodo (mes / trimestre / año). Barras apiladas por categoría, con estos colores fijos:
+   - Inasistencias por enfermedad justificadas por **IGSS** → **verde**
+   - Inasistencias justificadas **con goce** de sueldo → **amarillo**
+   - Inasistencias justificadas **sin goce** de sueldo → **naranja**
+   - Inasistencias **sin justificación** → **rojo**
+   Leyenda con totales en días y desglose al pasar el cursor.
+3. **Vacaciones**: pestañas **En curso** / **Próximas** (30, 60 o 90 días). Lista con línea de tiempo y chips de fechas y días; contador de personas ausentes hoy.
+4. **Cumpleaños y aniversarios**: pestañas **Cumpleaños** / **Aniversarios** con los próximos 30 días (aniversario muestra los años cumplidos; no se muestra la edad). Resalta a quien cumple hoy.
+
+Requisitos transversales:
+- **Datos**: agrega a los tipos de ausencia el campo `CATEGORIA_INASISTENCIA` (`IGSS_JUSTIFICADA`, `JUSTIFICADA_CON_GOCE`, `JUSTIFICADA_SIN_GOCE`, `SIN_JUSTIFICAR`), editable en el catálogo, con migración que asigna la categoría a los tipos existentes según su efecto (subsidio IGSS, con goce, sin goce) y un tipo nuevo "Inasistencia sin justificación" (efecto sin goce para la nómina). Endpoints de agregación solo para RH y ADMIN, con filtros, índices adecuados y pruebas de autorización (los datos de salario son sensibles).
+- **Animaciones**: `framer-motion` (o equivalente) para entrada escalonada, barras que crecen, números con conteo y transiciones entre pestañas; respetan `prefers-reduced-motion`. Esqueletos de carga, estados vacíos útiles y actualización de datos con indicador "Actualizado hace X".
+- **Utilidad**: cada elemento enlaza a la pantalla correspondiente ya filtrada (ej. clic en un empleado de inasistencias abre sus ausencias).
+- Mantén fidelidad con el mockup (paleta, tipografía, tarjetas) y funcionamiento responsive.
+- Actualiza el recorrido de ayuda del dashboard.
+
+## B8. Reglas anteriores que cambian
+
+- A2 (v1): el buscador y el menú leen el nuevo `navigation.config.ts` con **Inicio sin desplegable** y barra azul.
+- Sección 9 (v0): el recorrido guiado **ya no se ofrece automáticamente**; solo desde el botón de ayuda.
+- A8 (v1): el NIT no exige dígito verificador por defecto; el formulario de empleado es un asistente de 4 pasos con los pasos 3 y 4 opcionales; "Número de casa" pasa a "Dirección".
+- A3 (v1): "Descartar borrador" elimina de forma definitiva y "Cancelar" ofrece conservar o descartar.

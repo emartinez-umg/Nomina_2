@@ -8,7 +8,6 @@ import process from 'node:process';
 const requireBackend = createRequire(new URL('../backend/package.json', import.meta.url));
 const oracledb = requireBackend('oracledb');
 const { verify } = requireBackend('argon2');
-const { tsImport } = requireBackend('tsx/esm/api');
 
 // DDL administrativo exclusivo de esta prueba. Los identificadores son aleatorios y validados;
 // Oracle no permite binds para nombres de esquema. Nunca se borra el esquema de aplicación.
@@ -24,7 +23,7 @@ function administrar(sql) {
     {
       input: `WHENEVER SQLERROR EXIT FAILURE\nALTER SESSION SET CONTAINER = XEPDB1;\n${sql}\nEXIT;\n`,
       encoding: 'utf8',
-      timeout: 60000,
+      timeout: 120000,
     },
   );
   if (resultado.error || resultado.status !== 0) {
@@ -41,21 +40,12 @@ const admin = {
 };
 process.env.TZ = 'America/Guatemala';
 oracledb.fetchAsString = [oracledb.CLOB];
-const { crearBaseDatos } = await tsImport('../backend/src/shared/db/pool.ts', import.meta.url);
-const { validarEntorno } = await tsImport('../backend/src/config/env.schema.ts', import.meta.url);
-const { crearLogger } = await tsImport('../backend/src/config/logger.ts', import.meta.url);
-const { ejecutarMigraciones } = await tsImport(
-  '../backend/src/shared/db/migraciones.ts',
-  import.meta.url,
-);
-const { ejecutarSeeds, aplicarSeeds } = await tsImport(
-  '../backend/src/shared/db/seeds.ts',
-  import.meta.url,
-);
-const { crearSeedsRepository } = await tsImport(
-  '../backend/src/shared/db/seeds.repository.ts',
-  import.meta.url,
-);
+const { crearBaseDatos } = await import('../backend/src/shared/db/pool.ts');
+const { validarEntorno } = await import('../backend/src/config/env.schema.ts');
+const { crearLogger } = await import('../backend/src/config/logger.ts');
+const { ejecutarMigraciones } = await import('../backend/src/shared/db/migraciones.ts');
+const { ejecutarSeeds, aplicarSeeds } = await import('../backend/src/shared/db/seeds.ts');
+const { crearSeedsRepository } = await import('../backend/src/shared/db/seeds.repository.ts');
 const logger = crearLogger('silent');
 let db;
 let creado = false;
@@ -75,7 +65,7 @@ try {
       DB_POOL_MAX: '1',
     }),
   );
-  assert.equal(await ejecutarMigraciones(db, logger), 21, 'Deben aplicar V000–V020 desde cero.');
+  assert.equal(await ejecutarMigraciones(db, logger), 36, 'Deben aplicar V000–V035 desde cero.');
   assert.equal(
     await ejecutarMigraciones(db, logger),
     0,
@@ -93,7 +83,7 @@ try {
     );
     assert.equal(
       await escalar("SELECT COUNT(*) FROM VERSION_ESQUEMA WHERE ESTADO = 'APLICADA'"),
-      21,
+      36,
     );
     assert.equal(
       await escalar(`SELECT COUNT(*) FROM USER_CONSTRAINTS
@@ -166,22 +156,25 @@ try {
     assert.equal(await escalar('SELECT COUNT(*) FROM FERIADOS'), 13);
     assert.equal(
       await escalar(
-        "SELECT TO_CHAR(FECHA, 'YYYY-MM-DD') FROM FERIADOS WHERE CODIGO = 'DIA_EJERCITO'",
+        "SELECT TO_CHAR(FECHA, 'YYYY-MM-DD') FROM FERIADOS WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'DIA_EJERCITO'",
       ),
       '2026-06-29',
     );
     assert.equal(await escalar('SELECT COUNT(*) FROM FERIADOS WHERE MINUTO_INICIO = 720'), 2);
     assert.equal(
       await escalar(
-        "SELECT VALOR FROM PARAMETROS_LEGALES WHERE CODIGO = 'IGSS_LABORAL_PORCENTAJE'",
+        "SELECT VALOR FROM PARAMETROS_LEGALES WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'IGSS_LABORAL_PORCENTAJE'",
       ),
       4.83,
     );
 
     // Simula ajustes legítimos de RRHH y un ADMIN que ya cambió la contraseña.
-    await conexion.execute("UPDATE TIPOS_DESCUENTO SET NOMBRE = :nombre WHERE CODIGO = 'PARQUEO'", {
-      nombre: 'Parqueo editado por RRHH',
-    });
+    await conexion.execute(
+      "UPDATE TIPOS_DESCUENTO SET NOMBRE = :nombre WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'PARQUEO'",
+      {
+        nombre: 'Parqueo editado por RRHH',
+      },
+    );
     await conexion.execute(
       "UPDATE PLANTILLAS_DOCUMENTO SET CONTENIDO = :texto WHERE CODIGO = 'CONSTANCIA_LABORAL'",
       { texto: 'Plantilla editada por RRHH' },
@@ -222,7 +215,9 @@ try {
     antes === (await snapshot()),
     'Seeds idempotentes: conservar filas, valores, hash y fechas.',
   );
-  console.log('✓ V000–V020 desde cero; 54 tablas, identities, auditoría, CHECK y FKs indexadas.');
+  console.log(
+    '✓ V000–V035 desde cero; tablas del manifiesto, identities, auditoría, CHECK y FKs indexadas.',
+  );
   console.log('✓ Seeds repetibles; parámetros, feriados, plantillas y ADMIN argon2id verificados.');
 
   await db.conConexion(async (conexion) => {
@@ -300,7 +295,7 @@ try {
       LOCALIDAD: 'GUATEMALA_CIUDAD',
     });
     const contrato = await escalar(
-      "SELECT ID_TIPO_CONTRATO FROM TIPOS_CONTRATO WHERE CODIGO = 'INDEFINIDO'",
+      "SELECT ID_TIPO_CONTRATO FROM TIPOS_CONTRATO WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'INDEFINIDO'",
     );
     const persona = {
       CODIGO: 'PRUEBA_A',
@@ -398,7 +393,7 @@ try {
       ID_HISTORIAL_SALARIAL: otroSalario,
     });
     const tipoVacaciones = await escalar(
-      "SELECT ID_TIPO_SOLICITUD FROM TIPOS_SOLICITUD WHERE CODIGO = 'VACACIONES'",
+      "SELECT ID_TIPO_SOLICITUD FROM TIPOS_SOLICITUD WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'VACACIONES'",
     );
     const solicitud = await insertar('SOLICITUDES', 'ID_SOLICITUD', {
       ID_EMPLEADO: empleado,
@@ -492,7 +487,10 @@ try {
         ),
       /otro rol/,
     );
-    assert.equal(await escalar("SELECT COUNT(*) FROM BANCOS WHERE CODIGO = 'ROLLBACK'"), 0);
+    assert.equal(
+      await escalar("SELECT COUNT(*) FROM BANCOS WHERE NVL(CODIGO_ANTERIOR,CODIGO) = 'ROLLBACK'"),
+      0,
+    );
   });
   console.log(
     '✓ Rechazo real de duplicados, identidades manuales, FKs inválidas, quincenas solapadas y bitácora mutable.',

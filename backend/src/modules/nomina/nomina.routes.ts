@@ -9,6 +9,11 @@ export function crearNominaRouter(s: ReturnType<typeof crearNominaService>) {
   r.get('/boletas/:id', c.detalle);
   r.get('/boletas/:id/pdf', c.boleta);
   r.use(permitirRoles('ADMIN', 'RH'));
+  r.post('/simular', c.simular);
+  r.post('/simular/:id/pdf', c.previewPago);
+  r.post('/pagar', c.pagar);
+  r.post('/pagos/:id/revertir', permitirRoles('ADMIN'), c.revertirPago);
+  r.get('/pagos/zip', c.zipPagos);
   r.get('/periodos', c.periodos);
   r.post('/periodos', c.crear);
   r.get('/periodos/:id', c.periodo);

@@ -1,3 +1,6 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
+import { nombreEmpleado } from '../../../lib/nombre';
+import { RestablecerEmpleadoModal } from './RestablecerEmpleadoModal';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -46,6 +49,7 @@ export function EmpleadoDetallePage() {
     queryKey: ['empleados', 'reglas'],
     queryFn: ({ signal }) => reglas(signal),
   });
+  const [restableciendo, setRestableciendo] = useState(false);
   const [tab, setTab] = useState('resumen');
   if (d.isPending || r.isPending) return <Skeleton lineas={8} />;
   const error = d.error ?? r.error;
@@ -70,14 +74,21 @@ export function EmpleadoDetallePage() {
   const empleado = d.data!;
   return (
     <>
-      <h1>
-        {empleado.nombres} {empleado.apellidos}
-      </h1>
+      <h1>{nombreEmpleado(empleado.nombres, empleado.apellidos)}</h1>
       <p className="my-3">
         {empleado.codigo} · {empleado.estado} ·{' '}
-        {empleado.usuario ? `Usuario: ${empleado.usuario}` : 'Sin usuario generado'}
+        {empleado.usuario ? 'Acceso al portal habilitado' : 'Sin usuario generado'}
       </p>
 
+      {empleado.perfilIncompleto && (
+        <div className="alerta my-4" data-tour="empleado-perfil">
+          <strong>Perfil incompleto</strong>
+          <p>Falta: {empleado.faltantes.join(', ')}.</p>
+          {!empleado.salarioBase && (
+            <p>Excluido de la simulación de planilla hasta registrar un salario vigente.</p>
+          )}
+        </div>
+      )}
       <div className="my-5 flex flex-wrap gap-3">
         <Button icono="anterior" variante="secundario" onClick={() => nav('/empleados')}>
           Volver
@@ -94,6 +105,16 @@ export function EmpleadoDetallePage() {
         >
           Editar
         </Button>
+        <span data-tour="empleado-restablecer">
+          <Button
+            icono="seguridad"
+            disabled={!empleado.idUsuario || empleado.estado === 'EGRESADO'}
+            title="Genera una contraseña nueva, exige cambiarla y cierra las sesiones del empleado."
+            onClick={() => setRestableciendo(true)}
+          >
+            Restablecer contraseña
+          </Button>
+        </span>
         <span data-tour="empleado-salario">
           <Button
             icono="planilla"
@@ -143,6 +164,9 @@ export function EmpleadoDetallePage() {
           />
         </div>
       </Card>
+      {restableciendo && (
+        <RestablecerEmpleadoModal empleado={empleado} cerrar={() => setRestableciendo(false)} />
+      )}
       {accion && (
         <Accion empleado={empleado} reglas={r.data!} tipo={accion} cerrar={() => setAccion(null)} />
       )}
@@ -159,21 +183,25 @@ function Resumen({ empleado: e }: { empleado: Empleado }) {
             {s.campos.map((f) => (
               <div
                 key={f.nombre}
-                className={f.ancho === 'ancho' ? 'col-span-12' : 'col-span-12 md:col-span-4'}
+                className={f.tipo === 'area' ? 'col-span-12' : 'col-span-12 md:col-span-4'}
               >
                 <dt className="text-sm text-secundario">{f.label}</dt>
                 <dd>
                   {e[f.nombre] == null
                     ? 'Sin registro'
-                    : f.tipo === 'dinero'
-                      ? `Q ${formatoMoneda(String(e[f.nombre]))}`
-                      : f.tipo === 'fecha'
-                        ? fechaVisible(String(e[f.nombre]))
-                        : f.nombre === 'idDepartamento'
-                          ? String(e.departamento)
-                          : f.nombre === 'idPuesto'
-                            ? String(e.puesto)
-                            : String(e[f.nombre + 'Etiqueta'] ?? e[f.nombre])}
+                    : f.nombre === 'sexo'
+                      ? e[f.nombre] === 'F'
+                        ? 'Femenino'
+                        : 'Masculino'
+                      : f.tipo === 'dinero'
+                        ? `Q ${formatoMoneda(String(e[f.nombre]))}`
+                        : f.tipo === 'fecha'
+                          ? fechaVisible(String(e[f.nombre]))
+                          : f.nombre === 'idDepartamento'
+                            ? String(e.departamento)
+                            : f.nombre === 'idPuesto'
+                              ? String(e.puesto)
+                              : String(e[f.nombre + 'Etiqueta'] ?? e[f.nombre])}
                 </dd>
               </div>
             ))}
@@ -310,9 +338,9 @@ function Accion({
           setRevision(true);
         }}
       >
-        <div className="form-grid">
+        <FormGrid>
           {tipo === 'salario' && (
-            <div className="col-span-12 md:col-span-6" data-tour="empleado-cambio-salario">
+            <div className="contents" data-tour="empleado-cambio-salario">
               <MoneyField
                 name="salarioBase"
                 label="Nuevo salario mensual"
@@ -328,7 +356,7 @@ function Accion({
               />
             </div>
           )}
-          <div className="col-span-12 md:col-span-6" data-tour="empleado-cambio-fecha">
+          <div className="contents" data-tour="empleado-cambio-fecha">
             <DateField
               name={fechaKey}
               label={tipo === 'salario' ? 'Fecha efectiva' : 'Fecha de egreso'}
@@ -360,7 +388,7 @@ function Accion({
               disabled={ocupado}
             />
           </div>
-        </div>
+        </FormGrid>
         {tipo === 'salario' &&
           (bajo || !minimo || reglaSalario.error || reglaSalario.isFetching) && (
             <p className="alerta my-4">
@@ -383,7 +411,13 @@ function Accion({
           </div>
         )}
         <div className="my-5 flex justify-end gap-3" data-tour="empleado-cambio-confirmar">
-          <Button icono="cancelar" variante="secundario" disabled={ocupado} onClick={cerrar}>
+          <Button
+            icono="cancelar"
+            variante="secundario"
+            disabled={ocupado}
+            onClick={cerrar}
+            cancelarFormulario
+          >
             Cancelar
           </Button>
           {!revision ? (
@@ -412,7 +446,10 @@ function Accion({
                     draft.limpiar();
                     if (Array.isArray(guardado.advertencias))
                       for (const aviso of guardado.advertencias) toast(aviso, 'peligro');
-                    await cliente.invalidateQueries({ queryKey: ['empleados'] });
+                    await Promise.all([
+                      cliente.invalidateQueries({ queryKey: ['empleados'] }),
+                      cliente.invalidateQueries({ queryKey: ['tablero'] }),
+                    ]);
                     toast('Cambio guardado y auditado.');
                     cerrar();
                   })

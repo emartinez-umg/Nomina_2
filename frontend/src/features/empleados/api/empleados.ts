@@ -1,5 +1,25 @@
 import { z } from 'zod';
 import { solicitar } from '../../../lib/http';
+const opcionEmpleadoSchema = z.object({
+  value: z.string(),
+  codigo: z.string(),
+  nombre: z.string(),
+  idDepartamento: z.number(),
+  departamento: z.string(),
+  estado: z.string(),
+});
+export const seleccionarEmpleados = (q: Record<string, string>, signal?: AbortSignal) =>
+  solicitar(
+    `/empleados/selector?${new URLSearchParams(q)}`,
+    z.object({
+      registros: z.array(opcionEmpleadoSchema),
+      seleccionado: opcionEmpleadoSchema.nullable(),
+      total: z.number(),
+      pagina: z.number(),
+      limite: z.number(),
+    }),
+    { signal },
+  );
 export const empleadoSchema = z
   .object({
     id: z.number(),
@@ -10,6 +30,8 @@ export const empleadoSchema = z
     idUsuario: z.number().nullable(),
     usuario: z.string().nullable(),
     activo: z.boolean(),
+    perfilIncompleto: z.boolean(),
+    faltantes: z.array(z.string()),
   })
   .catchall(z.union([z.string(), z.number(), z.boolean(), z.null()]));
 export type Empleado = z.infer<typeof empleadoSchema>;
@@ -17,6 +39,8 @@ const filaSchema = z.object({
   id: z.number(),
   codigo: z.string(),
   nombre: z.string(),
+  perfilIncompleto: z.boolean(),
+  faltantes: z.array(z.string()),
   dpi: z.string(),
   nit: z.string(),
   departamento: z.string(),
@@ -38,6 +62,7 @@ const reglasSchema = z.object({
   edadMaxima: z.number(),
   ultimoCierre: z.string().nullable(),
   salarioMinimo: z.string().nullable(),
+  validarDigitoNit: z.boolean().optional(),
 });
 export type Reglas = z.infer<typeof reglasSchema>;
 export const reglas = (signal?: AbortSignal, fecha?: string) =>
@@ -58,10 +83,17 @@ export const opciones = (
 ) =>
   solicitar(
     `/empleados/opciones/${ref}?${new URLSearchParams({ buscar, pagina: String(pagina), ...(seleccionado ? { seleccionado } : {}), ...(departamento ? { departamento } : {}) })}`,
-    z.array(z.object({ value: z.string(), label: z.string() })),
+    z.array(
+      z.object({
+        value: z.string(),
+        label: z.string(),
+        requiereFechaFin: z.number().nullable().optional(),
+      }),
+    ),
     { signal },
   );
 const credencialSchema = z.object({
+  nombre: z.string().optional(),
   idUsuario: z.number(),
   usuario: z.string(),
   contrasenaTemporal: z.string(),
@@ -72,7 +104,8 @@ export const crear = (body: unknown) =>
     '/empleados',
     z.object({
       empleado: empleadoSchema,
-      credenciales: credencialSchema.nullable(),
+      credenciales: credencialSchema,
+      pdfCredenciales: z.string(),
       advertencias: z.array(z.string()),
     }),
     { method: 'POST', body },
@@ -123,6 +156,7 @@ export const confirmar = (id: number, modalidad: string) =>
       id: z.number(),
       importadas: z.number(),
       credenciales: z.array(credencialSchema.extend({ numero: z.number() })),
+      pdfCredenciales: z.string(),
     }),
     { method: 'POST', body: { modalidad, confirmado: true }, timeoutMs: 120000 },
   );
@@ -135,3 +169,14 @@ export function descargar(texto: string, nombre: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+export const parentescos = (signal?: AbortSignal) =>
+  solicitar('/empleados/parentescos', z.array(z.object({ value: z.string(), label: z.string() })), {
+    signal,
+  });
+export const restablecer = (id: number, motivo: string) =>
+  solicitar(
+    `/empleados/${id}/restablecer-contrasena`,
+    z.object({ credenciales: credencialSchema, pdfCredenciales: z.string() }),
+    { method: 'POST', body: { motivo } },
+  );

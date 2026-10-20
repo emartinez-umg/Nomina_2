@@ -5,7 +5,7 @@ export function PhoneField(props: CampoProps) {
   return (
     <InputField
       {...props}
-      ancho={props.ancho ?? 'corto'}
+      tipoDato="telefono"
       maxLength={9}
       inputMode="tel"
       autoComplete="tel-national"

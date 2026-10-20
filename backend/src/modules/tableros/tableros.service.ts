@@ -1,3 +1,4 @@
+import { crearEstadisticasService } from './estadisticas.service.js';
 import type { BaseDatos } from '../../shared/db/pool.js';
 import type { Autenticacion } from '../auth/auth.types.js';
 import { ErrorProhibido, ErrorConflicto } from '../../shared/errors/errors.js';
@@ -8,6 +9,7 @@ import { listar, reloj } from '../comunicacion/comunicacion.repository.js';
 import * as repo from './tableros.repository.js';
 export function crearTablerosService(db: BaseDatos) {
   return {
+    estadisticas: crearEstadisticasService(db),
     consultar: (auth: Autenticacion, rol: 'rh' | 'admin' | 'empleado') =>
       db.conConexion(async (c) => {
         if (
@@ -46,7 +48,15 @@ export function crearTablerosService(db: BaseDatos) {
             };
           const id = await vacaciones.propio(c, auth.idUsuario),
             e = id ? await vacaciones.empleado(c, id) : undefined;
-          let saldo: { disponible: string | null; mensaje: string | null } = {
+          const sinSaldo = { acumulado: null, tomados: null, disponible: null, solicitables: null };
+          let saldo: {
+            acumulado: string | null;
+            tomados: string | null;
+            disponible: string | null;
+            solicitables: number | null;
+            mensaje: string | null;
+          } = {
+            ...sinSaldo,
             disponible: null,
             mensaje: 'Tu usuario no tiene un expediente vinculado. Solicita a RRHH que lo revise.',
           };
@@ -55,17 +65,17 @@ export function crearTablerosService(db: BaseDatos) {
               const corte =
                 e.egreso && e.egreso < ahora.slice(0, 10) ? e.egreso : ahora.slice(0, 10);
               saldo = {
-                disponible: calcularSaldo(
+                ...calcularSaldo(
                   e.ingreso,
                   corte,
                   await vacaciones.parametros(c),
                   await vacaciones.movimientos(c, e.id),
-                ).disponible,
+                ),
                 mensaje: null,
               };
             } catch (error) {
               if (!(error instanceof ErrorConflicto)) throw error;
-              saldo = { disponible: null, mensaje: error.message };
+              saldo = { ...sinSaldo, mensaje: error.message };
             }
           const q = {
             pagina: 1,

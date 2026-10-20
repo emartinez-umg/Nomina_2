@@ -13,6 +13,7 @@ export interface GrupoNavegacion {
   id: string;
   titulo: string;
   icono: NombreIcono;
+  directo?: boolean;
   items: Acceso[];
   acciones?: Acceso[];
 }
@@ -85,6 +86,17 @@ const compartidos: GrupoNavegacion[] = [
       ]),
       catalogo('feriados', 'Feriados', 'Define los descansos del calendario laboral.', ['asuetos']),
       catalogo('tipos-contrato', 'Tipos de contrato', 'Configura las modalidades de contratación.'),
+      catalogo('parentescos', 'Parentescos', 'Administra vínculos de contactos de emergencia.'),
+      catalogo('motivos-baja', 'Motivos de baja', 'Administra los motivos de salida del personal.'),
+      catalogo('zonas', 'Zonas', 'Administra zonas y sus códigos postales.'),
+      catalogo('paises', 'Países', 'Administra países y sus códigos ISO de dos letras.'),
+      catalogo('conceptos', 'Conceptos de nómina', 'Configura conceptos y banderas por vigencia.'),
+      catalogo('tipos-solicitud', 'Tipos de solicitud', 'Administra nombres y flujo de trámites.'),
+      catalogo(
+        'tipos-deduccion-isr',
+        'Tipos de deducción ISR',
+        'Configura deducciones y su parámetro de tope.',
+      ),
       catalogo('bancos', 'Bancos', 'Administra los bancos para pagos al personal.'),
     ],
   },
@@ -93,6 +105,27 @@ const compartidos: GrupoNavegacion[] = [
     titulo: 'Novedades',
     icono: 'tiempo',
     items: [
+      acceso(
+        'novedades-pendientes',
+        'Novedades pendientes',
+        '/novedades/pendientes',
+        'planilla',
+        'Revisa cargas por empleado y departamento antes de pagar.',
+      ),
+      acceso(
+        'parqueo',
+        'Suscripciones de parqueo',
+        '/novedades/parqueo',
+        'planilla',
+        'Gestiona altas, bajas y suspensiones de parqueo.',
+      ),
+      acceso(
+        'consumo-tienda',
+        'Consumo en tienda',
+        '/novedades/consumo-tienda',
+        'planilla',
+        'Carga consumos por empleado y mes.',
+      ),
       acceso(
         'novedades',
         'Todas las novedades',
@@ -106,7 +139,7 @@ const compartidos: GrupoNavegacion[] = [
         '/novedades/descuentos',
         'planilla',
         'Gestiona descuentos fijos, únicos y en cuotas.',
-        ['parqueo', 'consumo', 'tienda', 'embargos'],
+        ['embargos'],
       ),
       acceso(
         'prestamos',
@@ -188,6 +221,14 @@ const compartidos: GrupoNavegacion[] = [
     titulo: 'Nómina',
     icono: 'planilla',
     items: [
+      acceso(
+        'simular-pago',
+        'Simular pago',
+        '/nomina/simular',
+        'planilla',
+        'Simula anticipo o pago mensual y confirma boletas.',
+        ['anticipo', 'simulación', 'pago mensual'],
+      ),
       acceso(
         'planilla',
         'Planilla y boletas',
@@ -271,6 +312,13 @@ const compartidos: GrupoNavegacion[] = [
     titulo: 'Configuración',
     icono: 'configuracion',
     items: [
+      acceso(
+        'tarifas-parqueo',
+        'Tarifas de parqueo',
+        '/configuracion/parqueo',
+        'configuracion',
+        'Configura Carro y Moto con vigencia y auditoría.',
+      ),
       catalogo(
         'parametros-legales',
         'Parámetros legales',
@@ -282,7 +330,7 @@ const compartidos: GrupoNavegacion[] = [
       ]),
       catalogo(
         'empresa',
-        'Datos de empresa',
+        'Configuración de empresa',
         'Administra los datos empresariales para documentos.',
       ),
     ],
@@ -290,10 +338,11 @@ const compartidos: GrupoNavegacion[] = [
 ];
 const inicio = (ruta: string, descripcion: string): GrupoNavegacion => ({
   id: 'inicio',
+  directo: true,
   titulo: 'Inicio',
   icono: 'inicio',
   items: [
-    acceso('inicio', 'Resumen', ruta, 'inicio', descripcion, ['inicio', 'dashboard', 'tablero']),
+    acceso('inicio', 'Inicio', ruta, 'inicio', descripcion, ['inicio', 'dashboard', 'tablero']),
   ],
 });
 export const navigation: Record<Rol, GrupoNavegacion[]> = {
@@ -340,6 +389,13 @@ export const navigation: Record<Rol, GrupoNavegacion[]> = {
       titulo: 'Mis gestiones',
       icono: 'documento',
       items: [
+        acceso(
+          'mi-parqueo',
+          'Mi parqueo',
+          '/mis-gestiones/parqueo',
+          'planilla',
+          'Consulta tu suscripción y solicita la baja.',
+        ),
         acceso(
           'mis-boletas',
           'Boletas de pago',

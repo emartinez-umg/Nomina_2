@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Semaforo, AprobarVacaciones } from './pages/VacacionesPage';
+import { Semaforo, AprobarVacaciones, SaldoCard } from './pages/VacacionesPage';
 import { rangoLibre } from './api/vacaciones';
 import type { Fila } from './api/vacaciones';
 import { TextField } from '../../components/forms/TextField';
 const base: Fila = {
+  codigo: 'SOL_2026_0001',
   id: 1,
   idEmpleado: 1,
   empleado: 'Expediente de prueba',
@@ -16,12 +17,49 @@ const base: Fila = {
   saldoAlResolver: null,
   estado: 'EN_PROCESO',
   motivo: null,
+  saldo: null,
+  solicitables: 3,
+  puedeCancelar: false,
+  solicitadoPor: 'empleado.prueba',
+  solicitadoEn: '2026-10-15 08:00:00',
+  aprobadoPor: null,
+  aprobadoEn: null,
+  canceladoPor: null,
+  canceladoEn: null,
+  motivoCancelacion: null,
   disponible: '3.00',
   alcanza: true,
   puedeAprobar: true,
   bloqueo: null,
 };
 describe('Semáforo y prevención de vacaciones', () => {
+  it('muestra todos los saldos y conserva la fracción de cinco meses', () => {
+    render(
+      <SaldoCard
+        s={{
+          idEmpleado: 1,
+          empleado: 'Persona',
+          corte: '2026-10-15',
+          mesesCompletos: 5,
+          tasaMensual: '1.25',
+          acumulado: '6.25',
+          tomados: '0.00',
+          previas: '0.00',
+          disponible: '6.25',
+          solicitables: 6,
+          saldoInicial: '0.00',
+          movimientos: '0.00',
+          kardex: [],
+        }}
+      />,
+    );
+    expect(screen.getByText('Solicitables').nextElementSibling).toHaveTextContent('6 días');
+    expect(screen.getByText('Disponibles').nextElementSibling).toHaveTextContent('6.25 días');
+    expect(screen.getByText('Tomados / aprobados')).toBeVisible();
+    expect(screen.getByText(/la fracción se conserva/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver kardex' }));
+    expect(screen.getByText(/No hay consumos ni ajustes/)).toBeVisible();
+  });
   it('habilita aprobar con saldo suficiente y presenta comparación verde', () => {
     const fn = vi.fn();
     render(

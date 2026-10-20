@@ -65,7 +65,7 @@ export const querySchema = z
     paraTodos: z.enum(['0', '1']).optional(),
     grupo: destinatarioSchema.shape.tipo.optional(),
     idGrupo: idSchema.optional(),
-    ordenarPor: z.enum(['titulo', 'inicio', 'fin', 'id']).default('inicio'),
+    ordenarPor: z.enum(['titulo', 'inicio', 'fin', 'id', 'codigo']).default('inicio'),
   })
   .strict()
   .superRefine((q, ctx) => {

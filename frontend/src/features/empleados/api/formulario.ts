@@ -1,14 +1,24 @@
+import {
+  direccionValida,
+  mensajeDireccion,
+  formatoNitValido,
+  mensajeNit,
+  digitoNitValido,
+  grupoParcial,
+  camposSalariales,
+  camposContacto,
+} from '../../../../../backend/src/shared/empleados/validadores';
 import { z } from 'zod';
 import { Decimal } from 'decimal.js';
 import {
   dpiSchema,
-  nitSchema,
   telefonoSchema,
   correoSchema,
   fechaSchema,
   validarNacimiento,
   validarIngreso,
   fechaValida,
+  hoyGuatemala,
 } from '../../../lib/validadores';
 import type { Empleado, Reglas } from './empleados';
 export interface CampoEmpleado {
@@ -31,21 +41,17 @@ export interface CampoEmpleado {
   max?: number;
   required?: boolean;
   opciones?: string[];
-  ancho?: 'corto' | 'medio' | 'ancho';
 }
-export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
+export const secciones: {
+  titulo: string;
+  icono: 'usuario' | 'empleados' | 'planilla' | 'correo';
+  opcional?: boolean;
+  campos: CampoEmpleado[];
+}[] = [
   {
     titulo: 'Datos personales',
+    icono: 'usuario',
     campos: [
-      {
-        nombre: 'codigo',
-        label: 'Código',
-        tipo: 'texto',
-        hint: 'Código único en mayúsculas, números y guion. Ejemplo: EMP_001.',
-        max: 40,
-        required: true,
-        ancho: 'corto',
-      },
       {
         nombre: 'nombres',
         label: 'Nombres',
@@ -68,15 +74,13 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'dpi',
         hint: '13 dígitos del Documento Personal de Identificación.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'nit',
         label: 'NIT',
         tipo: 'nit',
-        hint: 'Número de RTU con dígito verificador. Ejemplo: 1234567-9.',
+        hint: mensajeNit,
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'afiliacionIgss',
@@ -84,7 +88,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'numero',
         hint: 'Número de afiliación personal, hasta 20 dígitos (opcional).',
         max: 20,
-        ancho: 'corto',
       },
       {
         nombre: 'fechaNacimiento',
@@ -92,16 +95,14 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'fecha',
         hint: 'dd/mm/aaaa. Respeta la edad mínima y máxima configuradas.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'sexo',
         label: 'Sexo',
         tipo: 'opcion',
         hint: 'Selecciona el dato del expediente.',
-        opciones: ['F', 'M', 'O'],
+        opciones: ['F', 'M'],
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'estadoCivil',
@@ -112,13 +113,32 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         required: true,
       },
       {
+        nombre: 'idDepartamentoGt',
+        label: 'Departamento de Guatemala',
+        tipo: 'referencia',
+        hint: 'Departamento geográfico del catálogo oficial del INE.',
+        required: true,
+      },
+      {
+        nombre: 'idMunicipioGt',
+        label: 'Municipio',
+        tipo: 'referencia',
+        hint: 'Municipio del departamento elegido.',
+        required: true,
+      },
+      {
+        nombre: 'zona',
+        label: 'Zona',
+        tipo: 'texto',
+        hint: 'Del 1 al 25. Obligatoria en Guatemala.',
+      },
+      {
         nombre: 'direccion',
         label: 'Dirección',
-        tipo: 'area',
-        hint: 'Dirección completa de residencia, hasta 500 caracteres.',
-        max: 500,
+        tipo: 'texto',
+        hint: mensajeDireccion,
+        max: 100,
         required: true,
-        ancho: 'ancho',
       },
       {
         nombre: 'telefono',
@@ -126,7 +146,6 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'telefono',
         hint: '8 dígitos, sin código de país.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'correo',
@@ -139,7 +158,17 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
   },
   {
     titulo: 'Datos laborales',
+    icono: 'empleados',
     campos: [
+      {
+        nombre: 'codigo',
+        label: 'Código',
+        tipo: 'texto',
+        hint: 'Código automático: EMP, código de departamento y contador. Se conserva al trasladar al empleado.',
+        max: 40,
+        required: true,
+      },
+
       ...[
         ['idDepartamento', 'Departamento'],
         ['idPuesto', 'Puesto'],
@@ -160,14 +189,12 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
         tipo: 'fecha',
         hint: 'Desde la edad mínima y hasta 30 días en el futuro. Se conserva tras el alta.',
         required: true,
-        ancho: 'corto',
       },
       {
         nombre: 'fechaFinContrato',
         label: 'Fin de contrato',
         tipo: 'fecha',
-        hint: 'Opcional. Igual o posterior al ingreso.',
-        ancho: 'corto',
+        hint: 'Obligatoria y posterior al ingreso cuando el contrato tiene plazo. El contrato indefinido la mantiene vacía.',
       },
       {
         nombre: 'estado',
@@ -180,50 +207,17 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
     ],
   },
   {
-    titulo: 'Datos salariales',
+    titulo: 'Datos salariales y banco',
+    icono: 'planilla',
+    opcional: true,
     campos: [
       {
         nombre: 'salarioBase',
         label: 'Salario base mensual',
         tipo: 'dinero',
         hint: 'Salario mensual en quetzales, mayor a cero. Los cambios posteriores se registran en la ficha.',
-        required: true,
-        ancho: 'corto',
       },
-    ],
-  },
-  {
-    titulo: 'Contacto de emergencia',
-    campos: [
-      {
-        nombre: 'contactoNombre',
-        label: 'Nombre del contacto',
-        tipo: 'nombre',
-        hint: 'Nombre completo de la persona a contactar.',
-        max: 200,
-        required: true,
-      },
-      {
-        nombre: 'contactoParentesco',
-        label: 'Parentesco',
-        tipo: 'texto',
-        hint: 'Relación con el empleado. Ejemplo: Hermana.',
-        max: 60,
-        required: true,
-      },
-      {
-        nombre: 'contactoTelefono',
-        label: 'Teléfono de emergencia',
-        tipo: 'telefono',
-        hint: '8 dígitos, sin código de país.',
-        required: true,
-        ancho: 'corto',
-      },
-    ],
-  },
-  {
-    titulo: 'Banco',
-    campos: [
+
       {
         nombre: 'idBanco',
         label: 'Banco',
@@ -246,20 +240,54 @@ export const secciones: { titulo: string; campos: CampoEmpleado[] }[] = [
       },
     ],
   },
+  {
+    titulo: 'Contacto de emergencia',
+    icono: 'correo',
+    opcional: true,
+    campos: [
+      {
+        nombre: 'contactoNombre',
+        label: 'Nombre del contacto',
+        tipo: 'nombre',
+        hint: 'Nombre completo de la persona a contactar.',
+        max: 200,
+      },
+      {
+        nombre: 'contactoParentesco',
+        label: 'Parentesco',
+        tipo: 'texto',
+        hint: 'Selecciona la relación del contacto desde el catálogo. Ejemplo: Hermano/a.',
+        max: 60,
+      },
+      {
+        nombre: 'contactoTelefono',
+        label: 'Teléfono de emergencia',
+        tipo: 'telefono',
+        hint: '8 dígitos, sin código de país.',
+      },
+    ],
+  },
 ];
 export const todosCampos = secciones.flatMap((s) => s.campos);
-export function iniciales(d?: Empleado): Record<string, string> {
+export function iniciales(d?: Empleado, hoy = hoyGuatemala()): Record<string, string> {
   return {
     ...Object.fromEntries(
       todosCampos.map((f) => [f.nombre, d?.[f.nombre] == null ? '' : String(d[f.nombre])]),
     ),
     estado: d?.estado ?? 'ACTIVO',
-    generarUsuario: 'false',
+    fechaIngreso: String(d?.fechaIngreso ?? hoy),
     motivo: '',
     fechaHorario: '',
   };
 }
-export function schemaFormulario(r: Reglas, editar = false) {
+export function schemaFormulario(
+  r: Reglas,
+  editar = false,
+  requiereFin?: boolean,
+  codigoMunicipio?: string,
+  parentescos?: string[],
+  paso?: number,
+) {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const f of todosCampos) {
     let schema: z.ZodTypeAny = z
@@ -273,7 +301,14 @@ export function schemaFormulario(r: Reglas, editar = false) {
         .max(f.max ?? 100)
         .regex(/^[\p{L}\p{M} '-]+$/u, 'Usa letras y espacios.');
     if (f.tipo === 'dpi') schema = dpiSchema;
-    if (f.tipo === 'nit') schema = nitSchema;
+    if (f.tipo === 'nit')
+      schema = z
+        .string()
+        .refine(formatoNitValido, mensajeNit)
+        .refine(
+          (v) => !r.validarDigitoNit || digitoNitValido(v),
+          'El dígito verificador del NIT no coincide. Revisa el número.',
+        );
     if (f.tipo === 'telefono') schema = telefonoSchema;
     if (f.tipo === 'correo') schema = correoSchema;
     if (f.tipo === 'fecha') schema = fechaSchema;
@@ -300,18 +335,34 @@ export function schemaFormulario(r: Reglas, editar = false) {
     else schema = z.string().min(1, 'Completa este campo obligatorio.').pipe(schema);
     shape[f.nombre] = schema;
   }
-  shape.codigo = z
-    .string()
-    .regex(/^[A-Z0-9_-]{1,40}$/, 'Usa mayúsculas, números, guion o guion bajo.');
+  if (parentescos)
+    shape.contactoParentesco = z
+      .string()
+      .refine((v) => !v || parentescos.includes(v), 'Selecciona un parentesco del catálogo.');
+  shape.codigo = z.string().default('');
   shape.cuentaBancaria = z.string().regex(/^[A-Za-z0-9-]{0,34}$/, 'Usa letras, números o guiones.');
-  shape.generarUsuario = z.enum(['true', 'false']);
+  shape.zona = z
+    .string()
+    .refine(
+      (v) => v === '' || /^(?:[1-9]|1\d|2[0-5])$/.test(v),
+      'Selecciona una zona del 1 al 25.',
+    );
+  shape.direccion = z
+    .string()
+    .trim()
+    .transform((v) => v.normalize('NFC'))
+    .refine(direccionValida, mensajeDireccion);
   shape.motivo = editar
     ? z.string().trim().min(5, 'Explica el motivo con al menos 5 caracteres.').max(500)
     : z.string();
   shape.fechaHorario = z.union([z.literal(''), fechaSchema]);
+  const permitidos = paso === undefined ? null : camposPaso(paso, editar);
+  if (permitidos)
+    for (const key of Object.keys(shape)) if (!permitidos.includes(key)) shape[key] = z.any();
   return z.object(shape).superRefine((d, ctx) => {
     const add = (path: string, mensaje: string | undefined) => {
-      if (mensaje) ctx.addIssue({ code: 'custom', path: [path], message: mensaje });
+      if (mensaje && (!permitidos || permitidos.includes(path)))
+        ctx.addIssue({ code: 'custom', path: [path], message: mensaje });
     };
     if (fechaValida(d.fechaNacimiento))
       add(
@@ -320,22 +371,31 @@ export function schemaFormulario(r: Reglas, editar = false) {
       );
     if (fechaValida(d.fechaIngreso) && fechaValida(d.fechaNacimiento))
       add('fechaIngreso', validarIngreso(d.fechaIngreso, d.fechaNacimiento, r.hoy, r.edadMinima));
-    if (d.fechaFinContrato && d.fechaFinContrato < d.fechaIngreso)
-      add('fechaFinContrato', 'El fin de contrato no puede ser anterior al ingreso.');
-    const presentes = [d.idBanco, d.cuentaBancaria, d.tipoCuenta].filter(Boolean).length;
-    if (presentes && presentes !== 3)
-      add('cuentaBancaria', 'Completa banco, cuenta y tipo, o deja los tres vacíos.');
+    if (d.fechaFinContrato && d.fechaFinContrato <= d.fechaIngreso)
+      add('fechaFinContrato', 'El fin de contrato debe ser posterior al ingreso.');
+    if (requiereFin === true && !d.fechaFinContrato)
+      add('fechaFinContrato', 'Este contrato exige una fecha de fin posterior al ingreso.');
+    if (requiereFin === false && d.fechaFinContrato)
+      add('fechaFinContrato', 'El contrato indefinido no tiene fecha de fin.');
+    if (codigoMunicipio === '0101' && !d.zona)
+      add('zona', 'Selecciona una zona del 1 al 25 para el municipio de Guatemala.');
+    for (const campos of [camposSalariales, camposContacto]) {
+      if (grupoParcial(d, campos))
+        for (const key of campos)
+          if (!d[key]) add(key, 'Completa este grupo opcional o déjalo completamente vacío.');
+    }
   });
 }
-export function cuerpo(d: Record<string, string>, editar = false) {
+export function cuerpo(d: Record<string, string>, editar = false, salarioExistente = true) {
   const result: Record<string, unknown> = {};
   for (const f of todosCampos) {
-    if (editar && f.nombre === 'salarioBase') continue;
+    if (f.nombre === 'codigo') continue;
+    if (editar && salarioExistente && f.nombre === 'salarioBase') continue;
     const v = d[f.nombre] ?? '';
     result[f.nombre] =
       v === ''
         ? null
-        : f.tipo === 'referencia'
+        : f.tipo === 'referencia' || f.nombre === 'zona'
           ? Number(v)
           : f.tipo === 'dpi' || f.tipo === 'telefono'
             ? v.replace(/\s/g, '')
@@ -348,6 +408,28 @@ export function cuerpo(d: Record<string, string>, editar = false) {
   if (editar) {
     result.motivo = d.motivo;
     if (d.fechaHorario) result.fechaHorario = d.fechaHorario;
-  } else result.generarUsuario = d.generarUsuario === 'true';
+  }
   return result;
+}
+
+export function camposPaso(paso: number, editar = false) {
+  return [
+    ...(secciones[paso]?.campos.map((f) => f.nombre) ?? []),
+    ...(paso === 1 && editar ? ['fechaHorario'] : []),
+  ];
+}
+export function omisionesOpcionales(d: Record<string, string>) {
+  return [
+    ...(!d.salarioBase
+      ? [
+          'Sin salario: perfil incompleto; se excluye de la simulación y aparece en alertas del dashboard.',
+        ]
+      : []),
+    ...(!d.idBanco
+      ? ['Sin datos bancarios: no hay cuenta registrada para depositar el pago.']
+      : []),
+    ...(!d.contactoNombre
+      ? ['Sin contacto de emergencia: no habrá una persona registrada a quien avisar.']
+      : []),
+  ];
 }

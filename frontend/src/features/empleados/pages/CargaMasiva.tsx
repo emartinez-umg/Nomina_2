@@ -1,3 +1,4 @@
+import { AvisoEmpresa } from '../../empresa/pages/AvisoEmpresa';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -32,6 +33,7 @@ export function CargaMasivaPage() {
     [confirmacion, setConfirmacion] = useState(false),
     [resultado, setResultado] = useState<{ id: number; importadas: number } | null>(null),
     [credenciales, setCredenciales] = useState<Credencial[] | null>(null);
+  const [pdf, setPdf] = useState('');
   const invalidas = preview?.filas.filter((f) => Object.keys(f.errores).length).length ?? 0;
   const operar = async (fn: () => Promise<void>) => {
     if (ocupado) return;
@@ -60,14 +62,16 @@ export function CargaMasivaPage() {
           Volver a empleados
         </Button>
       </div>
+      <AvisoEmpresa />
       <FormDraftNotice draft={draft} />
       <Card>
         <section data-tour="carga-archivo">
           <h2>1. Preparar archivo</h2>
           <p className="my-3">
             CSV UTF-8, máximo 100 empleados y 1 MB. Conserva la cabecera; reemplaza la fila
-            ilustrativa. Fechas aaaa-mm-dd, IDs reales de Catálogos, salario sin Q ni separadores y
-            generarUsuario true/false.
+            ilustrativa. Fechas aaaa-mm-dd, IDs reales de catálogos y ubicaciones, horario por su
+            código y salario sin Q ni separadores. Sexo M/F y parentesco del catálogo. Código y
+            usuario se crean automáticamente.
           </p>
           <Button
             icono="exportar"
@@ -236,6 +240,7 @@ export function CargaMasivaPage() {
               draft.limpiar();
               setResultado({ id: saved.id, importadas: saved.importadas });
               setConfirmacion(false);
+              setPdf(saved.pdfCredenciales);
               if (saved.credenciales.length) setCredenciales(saved.credenciales);
               await cliente.invalidateQueries({ queryKey: ['empleados'] });
               toast('Carga importada y auditada.');
@@ -246,7 +251,16 @@ export function CargaMasivaPage() {
           })
         }
       />
-      {credenciales && <Credenciales datos={credenciales} onCerrar={() => setCredenciales(null)} />}
+      {credenciales && (
+        <Credenciales
+          datos={credenciales}
+          pdf={pdf}
+          onCerrar={() => {
+            setCredenciales(null);
+            setPdf('');
+          }}
+        />
+      )}
     </>
   );
 }

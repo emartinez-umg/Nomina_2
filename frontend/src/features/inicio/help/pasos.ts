@@ -1,13 +1,41 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaInicio: DefinicionAyuda = {
-  id: 'tableros-fase11',
+  id: 'tableros-r2-9',
   pasos: [
+    {
+      elemento: 'rh-remuneraciones',
+      titulo: 'Comparar remuneraciones confirmadas',
+      roles: ['RH'],
+      descripcion:
+        'Los cuatro recuadros son tu primera vista. Alterna Empleados o Departamentos, elige Salario base, Comisiones, Horas extra o Total devengado y cambia el mes y año. Las barras muestran los cinco importes mayores, posición y monto exacto en quetzales. Se suman pagos mensuales confirmados e históricos v0 cerrados; no anticipos, prestaciones ni simulaciones. Sin pagos aparece vacío, nunca una proyección. Cada barra abre Planilla con el mes y empleado o departamento del snapshot ya filtrados. Actualizado hace indica la antigüedad del corte; se consulta cada minuto y con Actualizar. Un fallo conserva su explicación y permite reintentar este recuadro.',
+    },
+    {
+      elemento: 'rh-inasistencias',
+      titulo: 'Distinguir días de inasistencia',
+      roles: ['RH'],
+      descripcion:
+        'Compara empleados o departamentos actuales y el mes, trimestre o año que contiene hoy de Guatemala. Solo se cuentan ausencias aprobadas activas, recortadas al rango mostrado. IGSS es verde (IG); con goce amarillo y diagonales (CG); sin goce naranja y líneas (SG); sin justificación rojo y puntos (SJ). Las siglas se leen sobre fondo blanco sólido dentro de cada muestra; el color, la trama y el nombre identifican la categoría. La leyenda suma días de todos, incluso fuera del top cinco. Pasa el cursor o enfoca una fila para leer las cuatro cantidades; Escape cierra el detalle. Cada fila abre Ausencias con empleado o departamento, fechas y estado Aprobada. Estos días son calendario y pueden tener fracciones históricas; no son los días laborales de vacaciones.',
+    },
+    {
+      elemento: 'rh-vacaciones',
+      titulo: 'Organizar las vacaciones del equipo',
+      roles: ['RH'],
+      descripcion:
+        'En curso muestra rangos aprobados o tomados que incluyen hoy; Próximas permite elegir 30, 60 o 90 días desde mañana. La línea de tiempo conserva fechas completas y días laborales aprobados. El contador deduplica personas ausentes hoy y excluye descansos y feriados de su horario: puede diferir de En curso. Usa Anterior y Siguiente si hay más de cinco registros. Cambiar pestaña o plazo vuelve a la primera página. Cada persona abre Vacaciones con su empleado y rango; allí se consultan sus solicitudes. Las flechas izquierda/derecha cambian pestaña; Inicio y Fin van a los extremos.',
+    },
+    {
+      elemento: 'rh-celebraciones',
+      titulo: 'Celebrar cumpleaños y aniversarios',
+      roles: ['RH'],
+      descripcion:
+        'Cambia entre Cumpleaños y Aniversarios para hoy y los próximos 30 días. Hoy se identifica con texto, borde y una animación sutil; los aniversarios muestran años en el equipo, nunca se publica la edad en cumpleaños. Un 29 de febrero se conmemora el 28 en años comunes. Cada nombre abre su expediente. Las listas se desplazan cuando hay muchas personas. Las animaciones de entrada, barras, conteos y pestañas se desactivan con la preferencia de movimiento reducido del dispositivo.',
+    },
     {
       elemento: 'indicadores',
       titulo: 'Indicadores de Recursos Humanos',
       roles: ['RH'],
       descripcion:
-        'Los empleados activos tienen ingreso efectivo hasta hoy. Altas y bajas cuentan fechas efectivas del mes actual. Bruto, neto y aportes patronales pertenecen a la quincena de hoy y a su versión de cálculo actual. Sin calcular indica que falta crear o calcular esa quincena; no representa un pago en cero. Solicitudes incluye vacaciones, que también aparecen por separado.',
+        'Los empleados activos tienen ingreso efectivo hasta hoy. Altas y bajas cuentan fechas efectivas del mes actual. Bruto, neto y aportes patronales pertenecen a la quincena de hoy y a los pagos vigentes del periodo (o a la versión histórica v0). Sin calcular indica que falta crear o calcular esa quincena; no representa un pago en cero. Solicitudes incluye vacaciones, que también aparecen por separado.',
     },
     {
       elemento: 'graficas',
@@ -21,21 +49,14 @@ export const ayudaInicio: DefinicionAyuda = {
       titulo: 'Acciones que requieren atención',
       roles: ['RH'],
       descripcion:
-        'Revisa los periodos iniciados que siguen sin cerrar y los contratos vencidos o que vencen dentro de 30 días. Revisar abre el módulo correspondiente. Se muestran hasta 50 alertas, empezando por las fechas más antiguas. No se cierra una nómina automáticamente desde este tablero.',
-    },
-    {
-      elemento: 'celebraciones',
-      titulo: 'Cumpleaños y aniversarios',
-      roles: ['RH'],
-      descripcion:
-        'La lista muestra hasta 50 celebraciones de empleados activos para hoy y los próximos 30 días, ordenadas por fecha. Los aniversarios cuentan años cumplidos, no el ingreso del año actual. Los aniversarios de febrero se ajustan al calendario del año.',
+        'Los perfiles incompletos sin salario se excluyen de planilla; Revisar abre la ficha para completar su salario. Revisa los periodos iniciados que siguen sin cerrar y los contratos vencidos o que vencen dentro de 30 días. Revisar abre el módulo correspondiente. Se muestran hasta 50 alertas, empezando por las fechas más antiguas. No se cierra una nómina automáticamente desde este tablero.',
     },
     {
       elemento: 'indicadores',
       titulo: 'Tu saldo y última boleta',
       roles: ['EMPLEADO'],
       descripcion:
-        'El saldo suma meses cumplidos con la tasa vigente y resta vacaciones previas y aprobadas. No anticipa meses futuros. Si falta historia o configuración, verás Por revisar y la indicación de RRHH. La última boleta corresponde exclusivamente a tu nómina cerrada más reciente; abre Boletas de pago para consultar o descargar su PDF.',
+        'Se muestran acumulados por meses completos, tomados/aprobados, disponibles decimales y solicitables enteros (redondeo hacia abajo). Cinco meses a 1.25 dan 6.25 disponibles y 6 solicitables. Abre Vacaciones para revisar previas, kardex o cancelar una aprobada antes de iniciar. No anticipa meses futuros. Si falta historia o configuración, verás Por revisar y la indicación de RRHH. La última boleta corresponde a tu pago confirmado más reciente o a una nómina histórica cerrada; abre Boletas de pago para consultar o descargar su PDF.',
     },
     {
       elemento: 'accesos',

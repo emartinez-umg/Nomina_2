@@ -1,3 +1,6 @@
+import { CatalogoAcciones } from './CatalogoAcciones';
+import { CatalogoHistorial } from './CatalogoHistorial';
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -7,6 +10,8 @@ import { CatalogoFormulario, valorVisible, valorCampo } from './CatalogoFormular
 import { CatalogoAccion } from './CatalogoAccion';
 import { CampoEditor } from './CampoEditor';
 import { FeriadosCalendario } from './FeriadosCalendario';
+import { ConstructorHorario } from '../../horarios/ConstructorHorario';
+import type { BloqueHorario } from '../api/catalogos';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Table } from '../../../components/ui/Table';
@@ -126,6 +131,8 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
   const [expandido, setExpandido] = useState(false);
   const [formulario, setFormulario] = useState(false);
   const [actual, setActual] = useState<Fila>();
+  const [duplicar, setDuplicar] = useState(false);
+  const [historia, setHistoria] = useState<Fila>();
   const [ver, setVer] = useState<Fila>();
   const [accion, setAccion] = useState<{ fila: Fila; tipo: 'eliminar' | 'estado' }>();
   const [ocupado, setOcupado] = useState(false);
@@ -156,12 +163,13 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
   });
   const camposFiltro = filtrosCampos(cat);
   const actualizar = (campo: string, v: string) => setBorrador((d) => ({ ...d, [campo]: v }));
-  const abrir = async (fila: Fila, editar: boolean) => {
+  const abrir = async (fila: Fila, editar: boolean, copia = false) => {
     if (ocupado) return;
     setOcupado(true);
     try {
       const datos = await detalle(cat.slug, fila.id);
       if (editar) {
+        setDuplicar(copia);
         setActual(datos);
         setFormulario(true);
       } else setVer(datos);
@@ -235,6 +243,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 !permitidoCrear ? 'Espera a que se validen los periodos cerrados.' : undefined
               }
               onClick={() => {
+                setDuplicar(false);
                 setActual(undefined);
                 setFormulario(true);
               }}
@@ -272,7 +281,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
             setPagina(1);
           }}
         >
-          <div className="form-grid">
+          <FormGrid>
             <TextField
               name="buscar"
               label="Buscar"
@@ -306,9 +315,9 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 Limpiar filtros
               </Button>
             </div>
-          </div>
+          </FormGrid>
           {expandido && (
-            <div className="form-grid mt-5">
+            <FormGrid className="mt-5">
               <SelectField
                 name="activo"
                 label="Estado"
@@ -336,6 +345,8 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 <CampoEditor
                   key={f.nombre}
                   campo={f}
+                  departamentoId={borrador.idDepartamento}
+                  soloActivos={false}
                   name={f.nombre}
                   label={f.etiqueta}
                   hint={`Filtro: ${f.hint}`}
@@ -393,14 +404,14 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                     { nombre: 'descansoMin', etiqueta: 'Descanso desde (minutos)' },
                     { nombre: 'descansoMax', etiqueta: 'Descanso hasta (minutos)' },
                     { nombre: 'salidaMax', etiqueta: 'Salida hasta (minutos)' },
-                    { nombre: 'horasMin', etiqueta: 'Horas diarias desde' },
-                    { nombre: 'horasMax', etiqueta: 'Horas diarias hasta' },
+                    { nombre: 'horasMin', etiqueta: 'Horas por bloque desde' },
+                    { nombre: 'horasMax', etiqueta: 'Horas por bloque hasta' },
                   ].map((f) => (
                     <NumberField
                       key={f.nombre}
                       name={f.nombre}
                       label={f.etiqueta}
-                      hint="Todos los filtros diarios deben coincidir en el mismo día laborable."
+                      hint="Entrada, salida, descanso y horas deben coincidir en el mismo bloque y día laborable."
                       value={borrador[f.nombre] ?? ''}
                       onValueChange={(v) => actualizar(f.nombre, v)}
                       decimales={f.nombre.startsWith('horas') ? 2 : 0}
@@ -408,7 +419,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                   ))}
                 </>
               )}
-            </div>
+            </FormGrid>
           )}
         </form>
         <div role="group" className="my-4 flex flex-wrap gap-2" aria-label="Filtros activos">
@@ -485,51 +496,35 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 ),
               },
               {
+                id: 'usos',
+                titulo: 'En uso',
+                render: (fila: Fila) => (fila.enUso ? `${fila.usos} registro(s)` : 'Sin uso'),
+              },
+              {
                 id: 'acciones',
                 titulo: 'Acciones',
                 render: (fila: Fila) => (
-                  <div className="flex gap-1">
-                    <Button
-                      icono="ver"
-                      variante="texto"
-                      soloIcono
-                      aria-label={`Ver registro ${fila.id}`}
-                      disabled={ocupado}
-                      onClick={() => void abrir(fila, false)}
-                    />
-                    <Button
-                      icono="editar"
-                      variante="texto"
-                      soloIcono
-                      aria-label={`Editar registro ${fila.id}`}
-                      disabled={ocupado || !permitidoCrear}
-                      onClick={() => void abrir(fila, true)}
-                    />
-                    <Button
-                      icono={fila.activo ? 'rechazar' : 'aprobar'}
-                      variante="texto"
-                      soloIcono
-                      aria-label={`${fila.activo ? 'Desactivar' : 'Activar'} registro ${fila.id}`}
-                      onClick={() => setAccion({ fila, tipo: 'estado' })}
-                    />
-                    <Button
-                      icono="eliminar"
-                      variante="texto"
-                      soloIcono
-                      aria-label={`Eliminar registro ${fila.id}`}
-                      disabled={fila.enUso}
-                      motivoDeshabilitado={
-                        fila.enUso ? 'El registro está en uso. Puedes desactivarlo.' : undefined
-                      }
-                      onClick={() => setAccion({ fila, tipo: 'eliminar' })}
-                    />
-                  </div>
+                  <CatalogoAcciones
+                    cat={cat}
+                    fila={fila}
+                    ocupado={ocupado}
+                    puedeEditar={permitidoCrear}
+                    soloLectura={
+                      fila.claveInterna === 'VALIDAR_DIGITO_NIT' && usuario?.rol !== 'ADMIN'
+                        ? 'Solo ADMIN puede configurar la verificación del dígito NIT.'
+                        : undefined
+                    }
+                    abrir={(editar, copia) => void abrir(fila, editar, copia)}
+                    estado={() => setAccion({ fila, tipo: 'estado' })}
+                    eliminar={() => setAccion({ fila, tipo: 'eliminar' })}
+                    historial={() => setHistoria(fila)}
+                  />
                 ),
               },
             ]}
           />
         </div>
-        <div className="mt-4 max-w-xs">
+        <div className="mt-4">
           <SelectField
             name="limite"
             label="Registros por página"
@@ -548,6 +543,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
             variante="texto"
             disabled={!permitidoCrear}
             onClick={() => {
+              setDuplicar(false);
               setActual(undefined);
               setFormulario(true);
             }}
@@ -580,9 +576,13 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
         <CatalogoFormulario
           cat={cat}
           actual={actual}
+          duplicar={duplicar}
           cierre={reglas.data?.ultimoCierre ?? null}
           onCerrar={() => setFormulario(false)}
         />
+      )}
+      {historia && (
+        <CatalogoHistorial cat={cat} fila={historia} onCerrar={() => setHistoria(undefined)} />
       )}
       {accion && (
         <CatalogoAccion
@@ -605,44 +605,12 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 </div>
               ))}
             </dl>
-            {Array.isArray(ver.dias) && (
-              <div className="table-scroll">
-                <table>
-                  <caption>Distribución semanal</caption>
-                  <thead>
-                    <tr>
-                      <th>Día</th>
-                      <th>Entrada</th>
-                      <th>Salida</th>
-                      <th>Descanso (min)</th>
-                      <th>Cruza medianoche</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ver.dias.map((d) => (
-                      <tr key={d.diaSemana}>
-                        <td>
-                          {
-                            [
-                              'Lunes',
-                              'Martes',
-                              'Miércoles',
-                              'Jueves',
-                              'Viernes',
-                              'Sábado',
-                              'Domingo',
-                            ][d.diaSemana - 1]
-                          }
-                        </td>
-                        <td>{d.laborable ? d.entrada : 'Descanso'}</td>
-                        <td>{d.salida}</td>
-                        <td>{d.minutosDescanso}</td>
-                        <td>{d.cruzaMedianoche ? 'Sí' : 'No'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {cat.slug === 'horarios' && Array.isArray(ver.bloques) && (
+              <ConstructorHorario
+                value={ver.bloques as BloqueHorario[]}
+                onChange={() => undefined}
+                disabled
+              />
             )}
             <p className="my-4">
               {ver.enUso

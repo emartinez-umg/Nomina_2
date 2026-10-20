@@ -6,10 +6,10 @@ export interface Campo {
   nombre: string;
   label: string;
   hint: string;
-  tipo: 'referencia' | 'opcion' | 'fecha' | 'dinero' | 'numero' | 'texto' | 'area';
+  tipo: 'referencia' | 'opcion' | 'fecha' | 'mes' | 'dinero' | 'numero' | 'texto' | 'area';
   opciones?: string[];
   ref?: string;
-  ancho?: 'corto' | 'medio' | 'ancho';
+
   opcional?: boolean;
 }
 const motivo: Campo = {
@@ -17,35 +17,30 @@ const motivo: Campo = {
   label: 'Motivo o descripción',
   tipo: 'area',
   hint: 'Explica el origen o cambio con 5–500 caracteres. Queda en auditoría.',
-  ancho: 'ancho',
 };
 const monto: Campo = {
   nombre: 'monto',
   label: 'Monto total',
   tipo: 'dinero',
   hint: 'Capital o total a descontar; Q, hasta dos decimales. Mayor que cero.',
-  ancho: 'corto',
 };
 const cuotas: Campo = {
   nombre: 'cuotas',
   label: 'Número de cuotas',
   tipo: 'numero',
-  hint: 'Entre 1 y 600. Se distribuyen por quincena; la última ajusta los centavos.',
-  ancho: 'corto',
+  hint: 'Entre 1 y 600. Se distribuyen por mes; la última ajusta los centavos.',
 };
 const inicio: Campo = {
   nombre: 'fechaInicio',
   label: 'Fecha de inicio',
   tipo: 'fecha',
-  hint: 'El descuento comienza en esta fecha; las cuotas vencen al cierre de cada quincena.',
-  ancho: 'corto',
+  hint: 'El descuento comienza en esta fecha; las cuotas vencen al cierre de cada mes.',
 };
-const fecha: Campo = {
-  nombre: 'fecha',
-  label: 'Fecha',
-  tipo: 'fecha',
-  hint: 'Fecha dentro de la relación laboral y de una quincena abierta.',
-  ancho: 'corto',
+const mes: Campo = {
+  nombre: 'mes',
+  label: 'Mes y año',
+  tipo: 'mes',
+  hint: 'Mes actual o anterior, sin periodos cerrados. Se registra el total del mes.',
 };
 const estado: Campo = {
   nombre: 'estado',
@@ -58,7 +53,7 @@ const referencia: Campo = {
   nombre: 'referencia',
   label: 'Referencia',
   tipo: 'texto',
-  hint: 'Identificador de respaldo, hasta 100 caracteres. Evita cargas duplicadas.',
+  hint: 'Identificador del respaldo, hasta 100 caracteres. No lo repitas para el mismo empleado y mes.',
 };
 const tipo = (ref: string): Campo => ({
   nombre: 'idTipo',
@@ -84,10 +79,10 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
         nombre: 'modalidad',
         label: 'Modalidad',
         tipo: 'opcion',
-        hint: 'Fijo se repite cada quincena; cuotas distribuye un total; único se cobra una vez.',
+        hint: 'Fijo se repite cada mes; cuotas distribuye un total; único se cobra una vez.',
         opciones: ['FIJO', 'CUOTAS', 'UNICO'],
       },
-      { ...monto, label: modalidad === 'FIJO' ? 'Monto por quincena' : 'Monto total' },
+      { ...monto, label: modalidad === 'FIJO' ? 'Monto por mes' : 'Monto total' },
       ...(modalidad === 'CUOTAS' ? [cuotas] : []),
       inicio,
       ...(modalidad === 'FIJO'
@@ -97,7 +92,6 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
               label: 'Fecha final (opcional)',
               tipo: 'fecha' as const,
               hint: 'Vacía para mantenerlo vigente. No anterior al inicio.',
-              ancho: 'corto' as const,
               opcional: true,
             },
           ]
@@ -110,43 +104,26 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
       {
         ...inicio,
         label: 'Primera cuota',
-        hint: 'Hoy o una fecha futura. Vence al final de la quincena elegida.',
+        hint: 'Hoy o una fecha futura. Vence al final de la mes elegido.',
       },
       {
         nombre: 'fechaDesembolso',
         label: 'Fecha de desembolso',
         tipo: 'fecha',
         hint: 'Desde el ingreso y hasta la primera cuota.',
-        ancho: 'corto',
       },
       referencia,
     ],
-    comisiones: [
-      {
-        ...fecha,
-        label: 'Quincena de comisión',
-        hint: 'Selecciona un día de la quincena. El sistema usa del 1 al 15 o del 16 al fin de mes.',
-      },
-      { ...monto, label: 'Comisión' },
-      referencia,
-    ],
+    comisiones: [mes, { ...monto, label: 'Comisión' }, referencia],
+    'consumo-tienda': [mes, { ...monto, label: 'Consumo en tienda' }, referencia],
     'horas-extra': [
-      fecha,
+      mes,
       {
         nombre: 'horas',
         label: 'Horas registradas',
         tipo: 'numero',
-        hint: 'Mayor que cero, máximo 24. Hasta dos decimales. Un registro por empleado y día.',
-        ancho: 'corto',
+        hint: 'Horas completas o medias horas, por ejemplo 2.5. Un total por empleado y mes; superar el tope mensual requiere revisión.',
       },
-      {
-        nombre: 'jornada',
-        label: 'Tipo de jornada',
-        tipo: 'opcion',
-        hint: 'Usa la jornada de la labor realizada. Horas diarias y recargo provienen de parámetros vigentes.',
-        opciones: ['DIURNA', 'MIXTA', 'NOCTURNA'],
-      },
-      estado,
     ],
     ausencias: [
       tipo('ausencias'),
@@ -156,7 +133,6 @@ export function campos(tipoN: Tipo, modalidad = 'CUOTAS'): Campo[] {
         label: 'Fecha final',
         tipo: 'fecha',
         hint: 'Igual o posterior al inicio. No puede cruzar rangos ocupados ni periodos cerrados.',
-        ancho: 'corto',
       },
       estado,
     ],
@@ -174,6 +150,7 @@ export function iniciales(tipo: Tipo, hoy: string, actual?: Fila) {
     fechaFin: '',
     fechaDesembolso: hoy,
     fecha: hoy,
+    mes: hoy.slice(0, 7),
     referencia: '',
     horas: '',
     jornada: 'DIURNA',
@@ -207,6 +184,8 @@ export function schemaFormulario(tipo: Tipo, hoy: string) {
         error(f.nombre, 'Selecciona una opción de la lista.');
       if (f.tipo === 'opcion' && !f.opciones?.includes(v))
         error(f.nombre, 'Selecciona una opción válida.');
+      if (f.tipo === 'mes' && (!/^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/.test(v) || v > hoy.slice(0, 7)))
+        error(f.nombre, 'Selecciona un mes actual o anterior válido.');
       if (f.tipo === 'fecha' && !fechaValida(v))
         error(f.nombre, 'Ingresa una fecha real con formato dd/mm/aaaa.');
       if (f.tipo === 'dinero' && (!/^\d{1,10}(\.\d{1,2})?$/.test(v) || !new Decimal(v || 0).gt(0)))
@@ -215,11 +194,13 @@ export function schemaFormulario(tipo: Tipo, hoy: string) {
         error(f.nombre, 'Indica entre 1 y 600 cuotas enteras.');
       if (
         f.nombre === 'horas' &&
-        (!/^\d+(\.\d{1,2})?$/.test(v) || !new Decimal(v || 0).gt(0) || new Decimal(v || 0).gt(24))
+        (!/^\d+(\.\d{1,2})?$/.test(v) ||
+          !new Decimal(v || 0).gt(0) ||
+          !new Decimal(v || 0).mod('0.5').isZero())
       )
         error(
           f.nombre,
-          'Ingresa horas mayores que cero y hasta 24, con dos decimales como máximo.',
+          'Ingresa horas mayores que cero en múltiplos de media hora, por ejemplo 2.5.',
         );
       if (f.nombre === 'motivo' && (v.length < 5 || v.length > 500))
         error(f.nombre, 'Explica el motivo con 5–500 caracteres.');

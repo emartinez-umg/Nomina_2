@@ -21,3 +21,7 @@ La cuenta inicial genera una entrada de bitácora sin secretos. CREADO_POR nulo 
 
 No hay seeds ficticios de empleados, estructura, bancos o datos de la empresa. Los valores legales
 son de referencia y deben validarse antes del uso real. Ver fuentes y supuestos en `docs/ERD.md`.
+
+S006 carga 22 departamentos y 340 municipios oficiales del INE y propone coincidencias
+únicas para localidades históricas. Repetible por código INE sin sobrescribir filas ni
+confirmaciones de RH. Fuente, huella y reproducción en `db/data/ine/README.md`.

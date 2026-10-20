@@ -24,7 +24,7 @@ export const ayudaLogin: DefinicionAyuda = {
       elemento: 'entrar',
       titulo: 'Iniciar sesión',
       descripcion:
-        'El sistema comprueba las credenciales con el servidor y abre la página de tu rol. Evita repetir intentos: cinco fallos bloquean la cuenta durante 15 minutos. Si aparece un error de conexión, espera y vuelve a intentar.',
+        'El sistema renueva el token de acceso previo, comprueba las credenciales y abre la página de tu rol sin avisos. Si llegaste desde una sección protegida sin sesión, se te pide entrar; una sesión vencida se explica por separado. Evita repetir intentos: cinco fallos bloquean la cuenta durante 15 minutos. Si aparece un error de conexión, espera y vuelve a intentar.',
     },
     {
       elemento: 'soporte',

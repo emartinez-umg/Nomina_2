@@ -1,8 +1,13 @@
+import { CatalogoAcciones } from './pages/CatalogoAcciones';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import catalogos from './catalogos.fixture.json';
+import {
+  datosCatalogoQa,
+  nombresInvalidosQa,
+} from '../../../../backend/src/shared/catalogos/qa.fixture';
 import { catalogoSchema, csv, filaSchema } from './api/catalogos';
 import { cuerpo, schemaFormulario, valoresIniciales } from './api/validacion';
 import { listarTodos } from './pages/CatalogosPage';
@@ -43,6 +48,161 @@ beforeEach(() => {
   guardarCsrf('csrf-prueba');
 });
 describe('Catálogos: validación y formularios', () => {
+  it('centros conserva ubicación en borrador, invalida el formato anterior y limpia tras guardar', async () => {
+    const c = cat('centros-trabajo');
+    const clave = claveBorrador(7, 'catalogo-centros-trabajo', undefined);
+    const valores = {
+      ...valoresIniciales(c),
+      nombre: 'Sede guardada',
+      idDepartamentoGt: '2',
+      idMunicipioGt: '201',
+    };
+    localStorage.setItem(clave, JSON.stringify({ version: 3, guardado: Date.now(), valores }));
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      const u = String(url);
+      const data = u.includes('/ubicaciones/departamentos')
+        ? [
+            { id: 1, codigo: '01', nombre: 'Guatemala' },
+            { id: 2, codigo: '02', nombre: 'El Progreso' },
+          ]
+        : u.includes('/ubicaciones/municipios')
+          ? u.includes('idDepartamentoGt=2')
+            ? [
+                {
+                  id: 201,
+                  codigo: '0201',
+                  nombre: 'Guastatoya',
+                  idDepartamentoGt: 2,
+                  departamento: 'El Progreso',
+                },
+              ]
+            : [
+                {
+                  id: 101,
+                  codigo: '0101',
+                  nombre: 'Guatemala',
+                  idDepartamentoGt: 1,
+                  departamento: 'Guatemala',
+                },
+              ]
+          : u.includes('/codigos/')
+            ? { codigo: 'SG', definitivo: false }
+            : { ...JSON.parse(String(init?.body)), id: 9, activo: true, enUso: false };
+      return new Response(JSON.stringify({ ok: true, data }), {
+        status: init?.method === 'POST' ? 201 : 200,
+      });
+    });
+    const cliente = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const cerrar = vi.fn();
+    const r = render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={c} cierre={null} onCerrar={cerrar} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Municipio' })).toHaveValue('Guastatoya'),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(cerrar).toHaveBeenCalledOnce());
+    expect(localStorage.getItem(clave)).toBeNull();
+    const llamada = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(JSON.parse(String(llamada?.[1]?.body))).toMatchObject({
+      idDepartamentoGt: 2,
+      idMunicipioGt: 201,
+    });
+    expect(JSON.parse(String(llamada?.[1]?.body))).not.toHaveProperty('localidad');
+    r.unmount();
+    localStorage.setItem(
+      clave,
+      JSON.stringify({
+        version: 2,
+        guardado: Date.now(),
+        valores: { nombre: 'Antiguo', localidad: 'Texto libre' },
+      }),
+    );
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={c} cierre={null} onCerrar={vi.fn()} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Municipio' })).toHaveValue('Guatemala'),
+    );
+    expect(screen.queryByRole('button', { name: 'Continuar' })).toBeNull();
+    expect(screen.getByLabelText(/^Nombre/)).toHaveValue('');
+    cliente.clear();
+  });
+  it('centros históricos muestran referencia y aplican la propuesta solo al pedirlo', async () => {
+    const c = cat('centros-trabajo');
+    vi.mocked(fetch).mockImplementation(
+      async (url) =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: String(url).includes('/departamentos')
+              ? [{ id: 1, codigo: '01', nombre: 'Guatemala' }]
+              : [
+                  {
+                    id: 101,
+                    codigo: '0101',
+                    nombre: 'Guatemala',
+                    idDepartamentoGt: 1,
+                    departamento: 'Guatemala',
+                  },
+                ],
+          }),
+          { status: 200 },
+        ),
+    );
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario
+              cat={c}
+              cierre={null}
+              onCerrar={vi.fn()}
+              actual={{
+                id: 8,
+                activo: true,
+                enUso: false,
+                nombre: 'Sede previa',
+                codigo: 'SP',
+                localidadAnterior: 'GUATEMALA_CIUDAD',
+                idDepartamentoGt: null,
+                idMunicipioGt: null,
+                idDepartamentoGtPropuesto: 1,
+                idMunicipioGtPropuesto: 101,
+                ubicacionPropuesta: 'Guatemala, Guatemala',
+              }}
+            />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('Localidad anterior: GUATEMALA_CIUDAD')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Municipio' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Usar coincidencia propuesta' }));
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Municipio' })).toHaveValue('Guatemala'),
+    );
+    expect(
+      vi.mocked(fetch).mock.calls.every(([, init]) => !init?.method || init.method === 'GET'),
+    ).toBe(true);
+    cliente.clear();
+  });
   it('valida las definiciones de la API y conserva el dinero como texto decimal', () => {
     for (const c of catalogos)
       expect(catalogoSchema.safeParse({ ...c, legal: !!c.legal }).success).toBe(true);
@@ -75,19 +235,9 @@ describe('Catálogos: validación y formularios', () => {
       d = valoresIniciales(c);
     Object.assign(d, { codigo: 'NOCHE', nombre: 'Horario', jornada: 'NOCTURNA' });
     expect(schemaFormulario(c, null).safeParse(d).success).toBe(false);
-    const dias = JSON.parse(d.dias!) as {
-      laborable: boolean;
-      entrada: string;
-      salida: string;
-      cruzaMedianoche: boolean;
-    }[];
-    Object.assign(dias[0]!, {
-      laborable: true,
-      entrada: '22:00',
-      salida: '05:00',
-      cruzaMedianoche: true,
-    });
-    d.dias = JSON.stringify(dias);
+    d.bloques = JSON.stringify([
+      { dias: [1], entrada: '22:00', salida: '05:00', cruzaMedianoche: true, minutosDescanso: 60 },
+    ]);
     expect(schemaFormulario(c, null).safeParse(d).success).toBe(true);
   });
   it('muestra anterior/nuevo y exige motivo antes de confirmar el cambio legal', async () => {
@@ -171,7 +321,7 @@ describe('Catálogos: validación y formularios', () => {
     localStorage.setItem(
       clave,
       JSON.stringify({
-        version: 1,
+        version: 2,
         guardado: Date.now(),
         valores: { ...valoresIniciales(c, actual), valor: '5', motivo: 'Norma revisada' },
         paso: 'revision',
@@ -218,4 +368,302 @@ describe('Catálogos: validación y formularios', () => {
     expect(resultado).toContain('""citado""');
     expect(resultado).toContain('segunda línea');
   });
+});
+
+describe('R2-4: nombres comunes', () => {
+  it('todas las definiciones comparten el rechazo y el recorte de nombres', () => {
+    for (const definicion of catalogos) {
+      const c = catalogoSchema.parse({ ...definicion, legal: !!definicion.legal });
+      if (!c.campos.some((f) => f.nombre === 'nombre')) continue;
+      for (const nombre of ['   ', 'A', '123456', '/*%$#&/@#^', 'Área!']) {
+        const r = schemaFormulario(c, null).safeParse({ ...valoresIniciales(c), nombre });
+        expect(r.success, `${c.slug}: ${nombre}`).toBe(false);
+        if (!r.success) expect(r.error.issues.some((i) => i.path[0] === 'nombre')).toBe(true);
+      }
+      expect(
+        cuerpo(c, { ...valoresIniciales(c), nombre: '  Área   de  Ingeniería  ' }).nombre,
+      ).toBe('Área de Ingeniería');
+    }
+  });
+  it('bloquea caracteres al escribir/pegar y muestra el error junto al nombre', async () => {
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, data: { codigo: 'CAT', definitivo: false } })),
+    );
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={cat('departamentos')} cierre={null} onCerrar={vi.fn()} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    const campo = screen.getByRole('textbox', { name: 'Nombre' });
+    await userEvent.type(campo, '123@%$#');
+    expect(campo).toHaveValue('123');
+    await userEvent.tab();
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    await userEvent.clear(campo);
+    fireEvent.paste(campo, {
+      clipboardData: { getData: () => "Área <Central> / Pingüino & Niñez (2), S.A. 'Norte'" },
+    });
+    expect(campo).toHaveValue("Área Central / Pingüino & Niñez (2), S.A. 'Norte'");
+    cliente.clear();
+  });
+  it('mapea DUPLICADO al nombre y reactiva el ID existente con motivo, sin otro alta', async () => {
+    const cliente = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const cerrar = vi.fn();
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      const data = {
+        id: 87,
+        nombre: 'Ingeniería',
+        descripcion: null,
+        codigo: 'ING',
+        activo: false,
+        enUso: true,
+        usos: 3,
+      };
+      if (init?.method === 'POST')
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            data: null,
+            error: {
+              codigo: 'DUPLICADO',
+              mensaje:
+                'Ya existe un departamento llamado «Ingeniería». Está inactivo. Puedes reactivarlo.',
+              campos: { nombre: ['Ya existe un departamento inactivo.'] },
+              duplicado: { id: 87, activo: false },
+            },
+          }),
+          { status: 409 },
+        );
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: String(url).includes('/codigos/')
+            ? { codigo: 'ING', definitivo: false }
+            : { ...data, activo: init?.method === 'PATCH' },
+        }),
+      );
+    });
+    render(
+      <QueryClientProvider client={cliente}>
+        <ToastProvider>
+          <HelpProvider>
+            <CatalogoFormulario cat={cat('departamentos')} cierre={null} onCerrar={cerrar} />
+          </HelpProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.type(screen.getByRole('textbox', { name: 'Nombre' }), 'Ingenieria');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Nombre' })).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Reactivar registro existente' }));
+    const modal = await screen.findByRole('dialog', { name: 'Activar registro' });
+    await userEvent.type(
+      within(modal).getByRole('textbox', { name: 'Motivo' }),
+      'Reactivar registro para uso',
+    );
+    await userEvent.click(within(modal).getByRole('button', { name: 'Confirmar' }));
+    await waitFor(() => expect(cerrar).toHaveBeenCalledOnce());
+    const patch = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(String(patch?.[0])).toBe('/api/catalogos/departamentos/87/estado');
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({
+      activo: true,
+      motivo: 'Reactivar registro para uso',
+    });
+    expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(
+      1,
+    );
+    cliente.clear();
+  });
+});
+
+describe('R2-4: acciones compartidas', () => {
+  it('ofrece las mismas acciones y bloquea la papelera en todos los catálogos en uso', () => {
+    for (const definicion of catalogos) {
+      const c = catalogoSchema.parse({ ...definicion, legal: !!definicion.legal });
+      const r = render(
+        <CatalogoAcciones
+          cat={c}
+          fila={filaSchema.parse({ id: 42, activo: true, enUso: true, usos: 7 })}
+          ocupado={false}
+          puedeEditar
+          abrir={vi.fn()}
+          estado={vi.fn()}
+          eliminar={vi.fn()}
+          historial={vi.fn()}
+        />,
+      );
+      for (const accion of ['Ver', 'Editar', 'Inactivar', 'Historial del'])
+        expect(
+          within(r.container).getByRole('button', { name: `${accion} registro 42` }),
+        ).toBeEnabled();
+      expect(
+        within(r.container).getByRole('button', { name: 'Eliminar registro 42' }),
+      ).toBeDisabled();
+      r.unmount();
+    }
+  });
+});
+
+describe('R2-5: regresiones de todos los catálogos', () => {
+  it('valida las letras ISO antes de convertir a mayúsculas, sin aceptar expansiones Unicode', () => {
+    const c = cat('paises');
+    for (const codigoIso of ['ß', 'ıT', '***']) {
+      const r = schemaFormulario(c, null).safeParse({
+        ...valoresIniciales(c),
+        nombre: 'País válido',
+        codigoIso,
+      });
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error.flatten().fieldErrors.codigoIso).toBeDefined();
+    }
+  });
+  for (const definicion of catalogos.filter(
+    (c) => c.slug !== 'empresa' && c.campos.some((f) => f.nombre === 'nombre'),
+  )) {
+    it(`recorta y rechaza la matriz completa en ${definicion.slug}`, () => {
+      const c = cat(definicion.slug);
+      const datos = datosCatalogoQa(definicion, '  Gerente  ', {
+        departamento: 1,
+        departamentoGt: 1,
+        municipioGt: 1,
+      });
+      const formulario = Object.fromEntries(
+        Object.entries(datos).map(([k, v]) => [
+          k,
+          k === 'bloques'
+            ? JSON.stringify(v)
+            : v === null
+              ? ''
+              : typeof v === 'boolean'
+                ? v
+                  ? '1'
+                  : '0'
+                : String(v),
+        ]),
+      );
+      expect(schemaFormulario(c, null).safeParse(formulario).success).toBe(true);
+      expect(cuerpo(c, formulario).nombre).toBe('Gerente');
+      for (const nombre of nombresInvalidosQa) {
+        const r = schemaFormulario(c, null).safeParse({ ...formulario, nombre });
+        expect(r.success, nombre).toBe(false);
+        if (!r.success) expect(r.error.flatten().fieldErrors.nombre).toBeDefined();
+      }
+    });
+  }
+  it('todas las acciones usan icono y ejecutan su callback, también en motivos de baja e inactivos', async () => {
+    for (const definicion of catalogos) {
+      for (const activo of [true, false]) {
+        const abrir = vi.fn(),
+          estado = vi.fn(),
+          historial = vi.fn(),
+          eliminar = vi.fn();
+        const r = render(
+          <CatalogoAcciones
+            cat={cat(definicion.slug)}
+            fila={filaSchema.parse({ id: 42, activo, enUso: false, usos: 0 })}
+            ocupado={false}
+            puedeEditar
+            abrir={abrir}
+            estado={estado}
+            historial={historial}
+            eliminar={eliminar}
+          />,
+        );
+        for (const accion of [
+          'Ver',
+          'Editar',
+          activo ? 'Inactivar' : 'Activar',
+          'Historial del',
+          'Eliminar',
+        ]) {
+          const boton = within(r.container).getByRole('button', { name: `${accion} registro 42` });
+          expect(boton.querySelector('svg')).not.toBeNull();
+          await userEvent.click(boton);
+        }
+        expect(abrir.mock.calls).toEqual([[false], [true]]);
+        expect(estado).toHaveBeenCalledOnce();
+        expect(historial).toHaveBeenCalledOnce();
+        expect(eliminar).toHaveBeenCalledOnce();
+        r.unmount();
+      }
+    }
+  });
+  for (const [slug, etiqueta, entrada, esperado, modo, longitud, pattern] of [
+    ['zonas', 'Código postal', 'no0hi1o001', '01001', 'numeric', '5', '[0-9]{5}'],
+    ['paises', 'Código ISO', '*g1@t', 'GT', 'text', '2', '[A-Z]{2}'],
+  ]) {
+    it(`${slug}: bloquea escritura y pegado inválidos y valida antes de enviar`, async () => {
+      const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: { codigo: 'QA', definitivo: false } })),
+      );
+      render(
+        <QueryClientProvider client={cliente}>
+          <ToastProvider>
+            <HelpProvider>
+              <CatalogoFormulario cat={cat(slug!)} cierre={null} onCerrar={vi.fn()} />
+            </HelpProvider>
+          </ToastProvider>
+        </QueryClientProvider>,
+      );
+      const campo = screen.getByRole('textbox', { name: etiqueta! });
+      expect(campo).toHaveAttribute('inputmode', modo);
+      expect(campo).toHaveAttribute('maxlength', longitud);
+      expect(campo).toHaveAttribute('pattern', pattern);
+      await userEvent.type(campo, entrada!);
+      expect(campo).toHaveValue(esperado);
+      await userEvent.clear(campo);
+      fireEvent.paste(campo, { clipboardData: { getData: () => entrada! } });
+      expect(campo).toHaveValue(esperado);
+      await userEvent.clear(campo);
+      await userEvent.type(campo, '0g');
+      await userEvent.tab();
+      expect(campo).toHaveAttribute('aria-invalid', 'true');
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+      expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+      cliente.clear();
+    });
+  }
+});
+
+it('R2-6: política NIT 0/1 es de sistema y los parámetros financieros conservan el cierre', () => {
+  const c = cat('parametros-legales');
+  const politica = {
+    ...valoresIniciales(c),
+    nombre: 'Validar dígito NIT',
+    claveInterna: 'VALIDAR_DIGITO_NIT',
+    valor: '1',
+    unidad: 'CANTIDAD',
+    vigenteDesde: '2000-01-01',
+    vigenteHasta: '',
+    fundamento: 'Configuración de validación',
+    motivo: 'Activar verificador',
+  };
+  expect(schemaFormulario(c, '2026-12-15').safeParse(politica).success).toBe(true);
+  expect(schemaFormulario(c, '2026-12-15').safeParse({ ...politica, valor: '0' }).success).toBe(
+    true,
+  );
+  for (const cambio of [{ valor: '2' }, { valor: '0.5' }, { unidad: 'PORCENTAJE' }])
+    expect(schemaFormulario(c, '2026-12-15').safeParse({ ...politica, ...cambio }).success).toBe(
+      false,
+    );
+  expect(
+    schemaFormulario(c, '2026-12-15').safeParse({
+      ...politica,
+      nombre: 'Tasa legal',
+      claveInterna: 'TASA_LEGAL',
+    }).success,
+  ).toBe(false);
 });

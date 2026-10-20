@@ -1,5 +1,6 @@
+import { vehiculoSchema, placaSchema } from '../novedades/parqueo.schemas.js';
 import { z } from 'zod';
-import { crearEmpleadoSchema, fecha, dinero } from '../empleados/empleados.schemas.js';
+import { crearEmpleadoSchema, fecha } from '../empleados/empleados.schemas.js';
 export const tipos = [
   'CONSTANCIA_LABORAL',
   'CERTIFICADO_IGSS',
@@ -9,16 +10,24 @@ export const tipos = [
   'ACTUALIZACION_DATOS',
 ] as const;
 export const tipoSchema = z.enum(tipos);
-export const estados = z.enum(['EN_PROCESO', 'APROBADA', 'RECHAZADA', 'ENTREGADA']);
+export const estados = z.enum(['EN_PROCESO', 'APROBADA', 'RECHAZADA', 'ENTREGADA', 'CANCELADA']);
 const expediente = crearEmpleadoSchema.innerType();
-export const contactoSchema = expediente.pick({
-  telefono: true,
-  direccion: true,
-  correo: true,
-  contactoNombre: true,
-  contactoParentesco: true,
-  contactoTelefono: true,
-});
+export const contactoSchema = expediente
+  .pick({
+    telefono: true,
+    correo: true,
+    contactoNombre: true,
+    contactoParentesco: true,
+    contactoTelefono: true,
+  })
+  .extend({
+    direccion: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .regex(/^\P{Cc}*$/u, 'No uses caracteres de control.'),
+  });
 export const criticosSchema = expediente.pick({
   nombres: true,
   apellidos: true,
@@ -31,10 +40,20 @@ export const crearSchema = z
     tipo: tipoSchema,
     observaciones: z.string().trim().max(1000).default(''),
     datos: criticosSchema.optional(),
+    vehiculo: vehiculoSchema.optional(),
+    placa: placaSchema.optional(),
     confirmado: z.literal(true),
   })
   .strict()
   .superRefine((d, c) => {
+    if (d.tipo === 'PARQUEO' && !d.vehiculo)
+      c.addIssue({ code: 'custom', path: ['vehiculo'], message: 'Selecciona Carro o Moto.' });
+    if (d.tipo !== 'PARQUEO' && (d.vehiculo || d.placa))
+      c.addIssue({
+        code: 'custom',
+        path: ['vehiculo'],
+        message: 'El vehículo solo aplica a parqueo.',
+      });
     if ((d.tipo === 'ACTUALIZACION_DATOS') !== !!d.datos)
       c.addIssue({
         code: 'custom',
@@ -46,7 +65,6 @@ export const resolverSchema = z
   .object({
     estado: z.enum(['APROBADA', 'RECHAZADA']),
     motivo: z.string().trim().max(500).default(''),
-    parqueo: z.object({ monto: dinero, fechaInicio: fecha }).strict().optional(),
     confirmado: z.literal(true),
   })
   .strict()
@@ -56,12 +74,6 @@ export const resolverSchema = z
         code: 'custom',
         path: ['motivo'],
         message: 'Explica por qué se rechaza y cómo corregirlo (mínimo 5 caracteres).',
-      });
-    if (d.estado === 'RECHAZADA' && d.parqueo)
-      c.addIssue({
-        code: 'custom',
-        path: ['parqueo'],
-        message: 'Un rechazo no debe crear un descuento.',
       });
   });
 export const confirmarSchema = z.object({ confirmado: z.literal(true) }).strict();
@@ -85,7 +97,8 @@ export const variables = [
   'empresa',
   'nit_empresa',
   'direccion_empresa',
-  'representante',
+  'firmante_nombre',
+  'firmante_cargo',
   'fecha_emision',
 ] as const;
 export const plantillaSchema = z
@@ -125,7 +138,7 @@ export const querySchema = z
     buscar: z.string().trim().max(200).optional(),
     desde: fecha.optional(),
     hasta: fecha.optional(),
-    ordenarPor: z.enum(['id', 'empleado', 'tipo', 'estado', 'fecha']).default('fecha'),
+    ordenarPor: z.enum(['id', 'codigo', 'empleado', 'tipo', 'estado', 'fecha']).default('fecha'),
     direccion: z.enum(['asc', 'desc']).default('desc'),
   })
   .strict()

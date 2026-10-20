@@ -1,3 +1,4 @@
+import { bloquearCatalogos } from '../catalogos/catalogos.repository.js';
 import type { Connection } from 'oracledb';
 import type { z } from 'zod';
 import type { BaseDatos } from '../../shared/db/pool.js';
@@ -14,7 +15,11 @@ import { revalidarActor } from '../auth/auth.service.js';
 import { usuarioPublico } from '../auth/auth.types.js';
 import type { ActorAuditoria, Autenticacion, Rol } from '../auth/auth.types.js';
 import * as repository from './usuarios.repository.js';
-import { nuevoUsuarioInternoSchema, crearUsuarioSchema } from './usuarios.schemas.js';
+import {
+  nuevoUsuarioInternoSchema,
+  crearUsuarioSchema,
+  expedienteSchema,
+} from './usuarios.schemas.js';
 import type { UsuariosQuery } from './usuarios.schemas.js';
 
 export async function generarNombreUsuario(c: Connection, nombre: string, apellido: string) {
@@ -134,6 +139,35 @@ export function crearUsuariosService(db: BaseDatos) {
     });
   }
   return {
+    vincular: (auth: Autenticacion, ip: string, id: number, raw: unknown) =>
+      enTransaccion(db, async (c) => {
+        const d = expedienteSchema.parse(raw);
+        await bloquearCatalogos(c, true);
+        await repository.bloquearAdministracion(c);
+        const actor = { ...(await revalidarActor(c, auth)), ip };
+        if (actor.rol !== 'ADMIN') throw new ErrorProhibido();
+        const u = await buscarUsuario(c, { id });
+        if (!u || !u.activo || !['RH', 'ADMIN'].includes(u.rol))
+          throw new ErrorConflicto('Selecciona una cuenta RH o ADMIN activa.');
+        const previo = await repository.expedienteUsuario(c, id);
+        const e = await repository.expedienteDisponible(c, d.idEmpleado);
+        if (!e) throw new ErrorConflicto('Selecciona una ficha activa con puesto activo.');
+        if (previo || e.usuario)
+          throw new ErrorConflicto(
+            'La cuenta o ficha ya está vinculada. No se permite reemplazar otra identidad.',
+          );
+        await repository.vincularExpediente(c, d.idEmpleado, id, actor.idUsuario);
+        await registrarAuditoria(c, {
+          actor,
+          accion: 'VINCULAR_FICHA_FIRMANTE',
+          entidad: 'EMPLEADOS',
+          idEntidad: d.idEmpleado,
+          antes: { idUsuario: null },
+          despues: { idUsuario: id },
+          motivo: d.motivo,
+        });
+        return { vinculado: true };
+      }),
     crear: (auth: Autenticacion, ip: string, entrada: z.infer<typeof crearUsuarioSchema>) =>
       enTransaccion(db, async (c) => {
         await repository.bloquearAdministracion(c);

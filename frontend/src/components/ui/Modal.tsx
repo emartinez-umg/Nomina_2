@@ -1,7 +1,9 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from './Button';
 import { DialogHelpButton } from '../help/HelpProvider';
+import { DraftExitContext } from '../forms/DraftExitContext';
+import type { FormDraft } from '../../hooks/useFormDraft';
 export function Modal({
   abierto,
   titulo,
@@ -14,6 +16,20 @@ export function Modal({
   onCerrar: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const draft = useRef<FormDraft | null>(null);
+  const scope = useMemo(
+    () => ({
+      registrar: (valor: FormDraft) => {
+        draft.current = valor;
+        return () => {
+          if (draft.current === valor) draft.current = null;
+        };
+      },
+      solicitar: (salir: () => void) => (draft.current ? draft.current.cancelar(salir) : salir()),
+    }),
+    [],
+  );
+  const cerrar = () => scope.solicitar(onCerrar);
   const id = useId();
   useEffect(() => {
     const dialog = ref.current;
@@ -26,29 +42,32 @@ export function Modal({
     };
   }, [abierto]);
   return (
-    <dialog
-      ref={ref}
-      className="modal"
-      aria-labelledby={id}
-      data-tour="dialogo"
-      onCancel={(e) => {
-        e.preventDefault();
-        onCerrar();
-      }}
-    >
-      <div className="flex items-center justify-between gap-4">
-        <h2 id={id}>{titulo}</h2>
-        <DialogHelpButton />
-        <Button
-          icono="cancelar"
-          soloIcono
-          variante="texto"
-          aria-label="Cerrar ventana"
-          onClick={onCerrar}
-        />
-      </div>
-      {children}
-    </dialog>
+    <DraftExitContext.Provider value={scope}>
+      <dialog
+        ref={ref}
+        className="modal"
+        aria-labelledby={id}
+        data-tour="dialogo"
+        onCancel={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          cerrar();
+        }}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <h2 id={id}>{titulo}</h2>
+          <DialogHelpButton />
+          <Button
+            icono="cancelar"
+            soloIcono
+            variante="texto"
+            aria-label="Cerrar ventana"
+            onClick={cerrar}
+          />
+        </div>
+        {children}
+      </dialog>
+    </DraftExitContext.Provider>
   );
 }
 export function ConfirmModal({

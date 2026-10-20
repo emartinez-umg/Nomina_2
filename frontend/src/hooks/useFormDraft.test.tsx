@@ -4,6 +4,8 @@ import { useForm } from 'react-hook-form';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDraftValues, useFormDraft } from './useFormDraft';
 import { FormDraftNotice } from '../components/forms/FormDraftNotice';
+import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
 import {
   activarBorradoresUsuario,
   claveBorrador,
@@ -53,6 +55,67 @@ afterEach(() => {
 });
 
 describe('useFormDraft con React Hook Form', () => {
+  it('cancelar después de borrar todo sale directamente y elimina una versión anterior del borrador', () => {
+    const { result, unmount } = preparar();
+    act(() => result.current.form.setValue('nombre', 'Edición', { shouldDirty: true }));
+    tick();
+    act(() => result.current.form.setValue('nombre', 'Inicial', { shouldDirty: true }));
+    const salir = vi.fn();
+    act(() => result.current.draft.cancelar(salir));
+    expect(salir).toHaveBeenCalledTimes(1);
+    unmount();
+    tick();
+    expect(localStorage.getItem(clave)).toBeNull();
+  });
+  it.each(['conservar', 'descartar', 'sin datos'] as const)(
+    'Cancelar ofrece una decisión y respeta %s, incluso antes del debounce',
+    (accion) => {
+      const salir = vi.fn();
+      function Editor() {
+        const form = useForm({ defaultValues: { nombre: '' } });
+        const draft = useFormDraft('expediente', undefined, { form, version: 1 });
+        return (
+          <Modal abierto titulo="Editar" onCerrar={salir}>
+            <FormDraftNotice draft={draft} />
+            <input aria-label="Nombre" {...form.register('nombre')} />
+            <Button cancelarFormulario icono="cancelar" onClick={salir}>
+              Cancelar
+            </Button>
+          </Modal>
+        );
+      }
+      const primero = render(<Editor />);
+      if (accion !== 'sin datos')
+        fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Edición' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      if (accion !== 'sin datos') {
+        expect(salir).not.toHaveBeenCalled();
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: accion === 'conservar' ? 'Conservar borrador y salir' : 'Descartar y salir',
+          }),
+        );
+      }
+      expect(salir).toHaveBeenCalledTimes(1);
+      primero.unmount();
+      tick();
+      const segundo = preparar();
+      expect(!!segundo.result.current.draft.pendiente).toBe(accion === 'conservar');
+      if (accion === 'conservar') expect(leerBorrador(clave, 1)?.valores.nombre).toBe('Edición');
+    },
+  );
+  it('descartar cancela el debounce y bloquea cambios automáticos tardíos hasta una nueva edición', async () => {
+    const { result, unmount } = preparar();
+    act(() => result.current.form.setValue('nombre', 'Pendiente', { shouldDirty: true }));
+    await act(async () => result.current.draft.descartar());
+    act(() => result.current.form.setValue('nombre', 'Valor derivado', { shouldDirty: false }));
+    act(() => result.current.setPaso('banco'));
+    tick();
+    unmount();
+    expect(localStorage.getItem(clave)).toBeNull();
+    const reabierto = preparar();
+    expect(reabierto.result.current.draft.pendiente).toBeNull();
+  });
   it('no crea borradores por montar ni al resetear datos de la API', () => {
     const { result } = preparar();
     act(() => result.current.form.reset({ nombre: 'Servidor', contrasena: '', archivo: null }));
@@ -117,7 +180,7 @@ describe('useFormDraft con React Hook Form', () => {
     expect(result.current.form.getValues('nombre')).toBe('Inicial');
     tick();
     expect(localStorage.getItem(clave)).toBeNull();
-    act(() => result.current.form.setValue('nombre', 'Nuevo borrador'));
+    act(() => result.current.form.setValue('nombre', 'Nuevo borrador', { shouldDirty: true }));
     tick();
     expect(leerBorrador(clave, 1)?.valores.nombre).toBe('Nuevo borrador');
   });
@@ -144,7 +207,7 @@ describe('useFormDraft con React Hook Form', () => {
     const { result } = preparar();
     act(() => result.current.form.setValue('nombre', 'Guardado en el servidor'));
     await act(async () => result.current.draft.limpiar());
-    act(() => result.current.form.setValue('nombre', 'Nueva edición'));
+    act(() => result.current.form.setValue('nombre', 'Nueva edición', { shouldDirty: true }));
     tick();
     await act(async () => result.current.draft.descartar());
     expect(result.current.form.getValues('nombre')).toBe('Guardado en el servidor');

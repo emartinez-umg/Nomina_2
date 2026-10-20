@@ -1,4 +1,5 @@
-import { forwardRef } from 'react';
+import { forwardRef, useContext } from 'react';
+import { DraftExitContext } from '../forms/DraftExitContext';
 import type { ButtonHTMLAttributes } from 'react';
 import { iconos } from './icons';
 import type { NombreIcono } from './icons';
@@ -9,6 +10,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   cargando?: boolean;
   soloIcono?: boolean;
   motivoDeshabilitado?: string | undefined;
+  cancelarFormulario?: boolean;
 };
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
   {
@@ -17,6 +19,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     cargando = false,
     soloIcono = false,
     motivoDeshabilitado,
+    cancelarFormulario = false,
     children,
     className = '',
     disabled,
@@ -25,11 +28,16 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
   },
   ref,
 ) {
+  const salida = useContext(DraftExitContext);
   const Icono = iconos[cargando ? 'cargando' : icono];
   const etiqueta = props['aria-label'] ?? (typeof children === 'string' ? children : 'Acción');
   const boton = (
     <button
       {...props}
+      onClick={(evento) => {
+        if (cancelarFormulario) salida.solicitar(() => props.onClick?.(evento));
+        else props.onClick?.(evento);
+      }}
       ref={ref}
       type={type}
       disabled={disabled || cargando}

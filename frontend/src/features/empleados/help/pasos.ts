@@ -31,36 +31,65 @@ export function ayudaEmpleados(
       },
     ],
     formulario: [
+      {
+        elemento: 'empleado-revision',
+        titulo: 'Resumen previo al guardado',
+        descripcion:
+          'Revisa identidad, Dirección, ingreso, salario y los grupos opcionales. El resumen enumera cada omisión: sin salario no participa en simulación; sin banco no hay cuenta para el depósito; sin contacto no hay una persona para emergencias. Volver al asistente permite corregir; Confirmar y guardar envía una sola operación transaccional y la revalida en el servidor.',
+      },
+      {
+        elemento: 'empleado-pasos',
+        titulo: 'Asistente de cuatro pasos',
+        descripcion:
+          'Completa Datos personales y Datos laborales. Siguiente espera a consultar la regla del contrato en Datos laborales y después valida el paso actual; si la consulta falla, usa Reintentar regla o elige otro contrato. Anterior y los pasos visitados permiten regresar. El indicador marca errores, pasos completos y opcionales. Guardar empleado se habilita con los dos primeros válidos y revisa todos los datos; si un grupo opcional está a medias, debes completarlo o vaciarlo. El borrador conserva datos de todos los pasos y el paso actual. Antes del guardado verás un resumen con omisiones y consecuencias.',
+      },
+      {
+        elemento: 'codigo-automatico',
+        titulo: 'Código automático por departamento',
+        descripcion:
+          'Selecciona el departamento en Datos laborales para ver EMP, su código y un contador de cuatro dígitos. Cada departamento tiene su propio contador. La vista previa no reserva el número. El código definitivo se asigna al guardar y nunca cambia, incluso si el empleado se traslada.',
+      },
       ...secciones.map((s, i) => ({
         elemento: `empleado-seccion-${i}`,
         titulo: s.titulo,
         descripcion: [
-          'Ingresa los nombres del DPI. DPI requiere 13 dígitos; NIT incluye verificador y teléfono 8 dígitos. El servidor comprueba unicidad, incluso frente a empleados egresados. El calendario impide fechas futuras y edades fuera de los parámetros vigentes.',
-          'Selecciona primero el departamento: puesto y jefatura deben pertenecer a él. Ingreso debe respetar la edad mínima y no superar 30 días futuros. Se conserva al editar porque inicia el historial. Cambiar horario exige fecha efectiva posterior a su último registro y al último cierre.',
-          'El salario es mensual en quetzales. Se crea su historial desde el ingreso. Revisa el aviso del mínimo legal parametrizado. Después del alta utiliza Cambiar salario en la ficha para conservar importe, fecha, motivo y actor de cada modificación.',
-          'Registra una persona real de contacto, su parentesco y teléfono de 8 dígitos. El contacto principal se guarda junto al expediente en la misma transacción.',
-          'Los datos bancarios son opcionales. Si completas alguno debes indicar banco, cuenta y tipo. Usa letras, números o guiones en la cuenta y verifica el número antes de guardar.',
+          'Ingresa los nombres del DPI. DPI requiere 13 dígitos; NIT admite 5–12 dígitos, K final y guion opcionales; módulo 11 solo si ADMIN lo activa y teléfono 8 dígitos. Dirección usa departamento y municipio INE, zona obligatoria en Guatemala y Dirección hasta 100 caracteres: letras con acentos y ñ, números, espacios y . , # - / °; incluye una letra o número. Al editar revisa la dirección histórica como referencia; sexo solo Masculino/Femenino. El servidor comprueba unicidad, incluso frente a empleados egresados. El calendario impide fechas futuras y edades fuera de los parámetros vigentes.',
+          'Selecciona primero el departamento: puesto y jefatura deben pertenecer a él. Ingreso comienza en hoy y debe respetar la edad mínima y no superar 30 días futuros. Se conserva al editar porque inicia el historial. La bandera del contrato bloquea y vacía el fin en indefinidos; en contratos con plazo exige fecha posterior al ingreso. Cambiar horario exige fecha efectiva posterior a su último registro y al último cierre. Crear horario personalizado abre un modal sin perder el expediente: agrega bloques con rangos/chips, horas en desplegables de 30 minutos y descanso de 30 o 60; revisa totales, jornada y límites vigentes. Al guardar se selecciona el nuevo horario. Cada formulario conserva su propio borrador.',
+          'Paso opcional: completa salario, banco, cuenta y tipo juntos o déjalos todos vacíos. Sin salario se marca Perfil incompleto, se excluye al empleado de la simulación sin bloquear al resto y aparece en las alertas del dashboard. El salario es mensual en quetzales. Se crea su historial desde el ingreso. Revisa el aviso del mínimo legal parametrizado. Después del alta utiliza Cambiar salario en la ficha para conservar importe, fecha, motivo y actor de cada modificación.',
+          'Paso opcional: puedes omitir todos sus datos. Si escribes alguno, completa nombre, parentesco y teléfono. Registra una persona real de contacto, su parentesco desde el catálogo (sin texto libre) y teléfono de 8 dígitos. Los parentescos inactivos se conservan en fichas existentes y no se ofrecen en contactos nuevos. El contacto principal se guarda junto al expediente en la misma transacción.',
         ][i]!,
       })),
+      {
+        elemento: 'empleado-crear-horario',
+        titulo: 'Crear un horario sin salir del expediente',
+        descripcion:
+          'Este botón abre el mismo constructor del catálogo en un modal. El código es automático. Selecciona rangos, ajusta los chips y elige horas/descanso de la lista. Revisa jornada, totales y avisos. Guardar crea el patrón y lo selecciona aquí. Al cancelar con cambios eliges Conservar borrador y salir o Descartar y salir; sin cambios se cierra directamente. Los datos del empleado se mantienen y se guardan después con su propia acción.',
+      },
       {
         elemento: 'empleado-usuario',
         titulo: 'Acceso al portal',
         descripcion:
-          'Generar usuario crea nombre.apellido con sufijo si ya existe. La contraseña aleatoria aparece una sola vez tras guardar: copia o imprime y entrégala en privado. El empleado debe cambiarla en su primer acceso. No se recupera al consultar la ficha.',
+          'Guardar crea automáticamente nombre.apellido con sufijo si ya existe. La contraseña aleatoria aparece una sola vez tras guardar: copia o descarga el PDF membretado y entrégala en privado. Copia o descarga antes de marcar Ya copié o descargué; sin confirmación no se cierra. El PDF solo se descarga una vez y no se conserva en el servidor. El empleado debe cambiarla en su primer acceso. No se recupera al consultar la ficha.',
       },
       {
         elemento: 'empleado-guardar',
         titulo: 'Guardar y corregir',
         descripcion:
-          'Los errores aparecen junto al campo y en el resumen. Corrige los datos indicados. El expediente, contacto, salario, horario, usuario opcional y auditoría se guardan juntos; si una operación falla se revierte el alta.',
+          'Los errores aparecen junto al campo y en el resumen. Corrige los datos indicados. Se abre un resumen antes de confirmar el guardado. Los pasos opcionales vacíos no crean registros ficticios. El expediente, los datos opcionales presentes, horario, usuario obligatorio y auditoría se guardan juntos; si una operación falla se revierte el alta.',
       },
     ],
     detalle: [
       {
+        elemento: 'empleado-restablecer',
+        titulo: 'Restablecer acceso',
+        descripcion:
+          'RH/ADMIN puede restablecer una cuenta EMPLEADO activa con motivo y confirmación. Se revocan sesiones y se entrega una contraseña nueva una sola vez, con cambio obligatorio. Cuentas RH/ADMIN se administran en Usuarios.',
+      },
+      {
         elemento: 'empleado-resumen',
         titulo: 'Expediente',
         descripcion:
-          'Esta ficha contiene información personal completa y solo está disponible para RH y ADMIN. Resumen muestra organización, contacto y banco. Las otras pestañas consultan registros reales del empleado, con páginas independientes.',
+          'Esta ficha contiene información personal completa y solo está disponible para RH y ADMIN. Resumen muestra Dirección, organización, contacto y banco. Perfil incompleto enumera datos omitidos; sin salario no se incluye en planilla. Completa el salario inicial desde Editar o Cambiar salario; cambios posteriores usan vigencias. Las otras pestañas consultan registros reales del empleado, con páginas independientes.',
       },
       {
         elemento: 'empleado-salario',
@@ -72,7 +101,7 @@ export function ayudaEmpleados(
         elemento: 'empleado-baja',
         titulo: 'Dar de baja',
         descripcion:
-          'La baja exige fecha igual o posterior al ingreso y motivo. Tras confirmar se conserva el expediente, se desactiva el usuario vinculado y se revocan sus sesiones. La fecha no puede afectar periodos cerrados.',
+          'Liquidar y dar de baja abre Prestaciones con el empleado seleccionado y calcula automáticamente el finiquito. Revisa promedio de seis meses, años y fracción, vacaciones pendientes y prestaciones proporcionales; la fecha empieza en hoy y se puede ajustar desde el ingreso. La baja exige motivo y confirmación. Tras confirmar se conserva el expediente, se desactiva el usuario vinculado y se revocan sus sesiones. La fecha no puede afectar periodos cerrados.',
       },
       {
         elemento: 'empleado-tabs',
@@ -94,13 +123,13 @@ export function ayudaEmpleados(
         elemento: 'carga-archivo',
         titulo: 'Preparar CSV',
         descripcion:
-          'Descarga la plantilla y reemplaza la fila ilustrativa con empleados reales. Conserva las columnas; usa fechas aaaa-mm-dd, montos sin Q ni separadores de miles, IDs reales de catálogos y true/false para generarUsuario. Máximo 100 empleados y 1 MB. Textos con comas llevan comillas dobles.',
+          'La columna direccion reemplaza numeroCasa: admite hasta 100 caracteres con letras, números, espacios y . , # - / °, y debe incluir una letra o número. NIT admite 5–12 dígitos, K final y guion opcionales; ADMIN controla módulo 11. Puedes omitir todo el grupo salarial/banco y todo el contacto; los grupos parciales se rechazan. El CSV no pide código ni usuario: se asignan al importar. Ubicaciones deben pertenecer al catálogo oficial y zona es obligatoria en Guatemala. Descarga la plantilla y reemplaza la fila ilustrativa con empleados reales. Conserva las columnas; usa fechas aaaa-mm-dd, montos sin Q ni separadores de miles, IDs reales de catálogos y código del horario, sexo M/F y parentesco del catálogo. Máximo 100 empleados y 1 MB. Textos con comas llevan comillas dobles.',
       },
       {
         elemento: 'carga-preview',
         titulo: 'Revisar cada fila',
         descripcion:
-          'Validar crea una vista previa, sin dar de alta empleados. Revisa los errores por número de fila y las advertencias salariales. Repetir un DPI, NIT, correo, IGSS o código dentro del archivo invalida todas sus apariciones. Corrige el CSV y vuelve a validar.',
+          'Validar crea una vista previa, sin dar de alta empleados. Revisa los errores por número de fila y las advertencias salariales. Repetir un DPI, NIT, correo o IGSS dentro del archivo invalida todas sus apariciones. Corrige el CSV y vuelve a validar.',
       },
       {
         elemento: 'carga-confirmar',
@@ -112,11 +141,14 @@ export function ayudaEmpleados(
         elemento: 'carga-reporte',
         titulo: 'Reporte y contraseñas',
         descripcion:
-          'Después de importar descarga el reporte con estados e IDs. Las contraseñas de usuarios nuevos aparecen una sola vez: copia o imprime antes de cerrar. El reporte persistente nunca incluye contraseñas. Solo quien subió el archivo puede confirmar y descargar su reporte.',
+          'Después de importar descarga el reporte con estados e IDs. Las contraseñas de usuarios nuevos aparecen una sola vez: copia o descarga el PDF membretado antes de cerrar. El reporte persistente nunca incluye contraseñas. Solo quien subió el archivo puede confirmar y descargar su reporte.',
       },
     ],
   };
-  return { id: `empleados-${pagina}`, pasos: pasos[pagina] };
+  return {
+    id: `empleados-${pagina}-r2-6`,
+    pasos: pasos[pagina],
+  };
 }
 
 export function ayudaCambio(tipo: 'salario' | 'baja'): DefinicionAyuda {
@@ -152,3 +184,45 @@ export function ayudaCambio(tipo: 'salario' | 'baja'): DefinicionAyuda {
     ],
   };
 }
+
+export const ayudaCredenciales: DefinicionAyuda = {
+  id: 'empleados-credenciales-v1-7',
+  pasos: [
+    {
+      elemento: 'credenciales-aviso',
+      titulo: 'Entrega privada de una sola vez',
+      descripcion:
+        'Empleado y usuario ya se guardaron juntos. Estas contraseñas solo existen en esta respuesta y no se recuperan desde la ficha. El primer ingreso obliga a cambiarlas. Entrégalas de forma privada al empleado correcto.',
+    },
+    {
+      elemento: 'credenciales-entrega',
+      titulo: 'Copiar o descargar',
+      descripcion:
+        'Copiar credenciales coloca los accesos en el portapapeles. Descargar PDF entrega un único documento membretado con una página por empleado e instrucciones. Después de descargar, el botón queda deshabilitado. El servidor no archiva este archivo ni la contraseña.',
+    },
+    {
+      elemento: 'credenciales-confirmar',
+      titulo: 'Confirmar antes de cerrar',
+      descripcion:
+        'Después de copiar o descargar, marca Ya copié o descargué las credenciales. Sin esa confirmación, Cerrar y Escape mantienen la ventana abierta. Al cerrar se descarta el contenido de memoria. Si pierdes las credenciales solicita un restablecimiento a RH/ADMIN.',
+    },
+  ],
+};
+
+export const ayudaRestablecer: DefinicionAyuda = {
+  id: 'empleados-restablecer-v1-7',
+  pasos: [
+    {
+      elemento: 'restablecer-motivo',
+      titulo: 'Motivo obligatorio',
+      descripcion:
+        'Indica por qué necesita otra contraseña el empleado (5–500 caracteres). El motivo se guarda en bitácora con tu identidad; ninguna contraseña se incluye en esa auditoría. La operación solo está disponible para cuentas EMPLEADO activas.',
+    },
+    {
+      elemento: 'restablecer-confirmar',
+      titulo: 'Revisar y confirmar',
+      descripcion:
+        'Revisar permite comprobar el usuario afectado. Confirmar invalida su contraseña anterior y revoca sus sesiones. La nueva contraseña y PDF aparecen una vez; copia o descarga antes de confirmar la entrega. El siguiente inicio obliga al empleado a cambiarla.',
+    },
+  ],
+};

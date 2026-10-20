@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+const produccion = process.env.E2E_PRODUCTION === '1';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -10,7 +11,8 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     ...devices['Desktop Chrome'],
-    baseURL: 'http://127.0.0.1:5178',
+    baseURL: produccion ? 'https://localhost:8448' : 'http://127.0.0.1:5178',
+    ignoreHTTPSErrors: produccion,
     actionTimeout: 15000,
     trace: 'off',
     video: 'off',
@@ -18,15 +20,20 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'node node_modules/tsx/dist/cli.mjs backend/e2e/server.ts',
+      command: produccion
+        ? 'node scripts/servir-api-e2e.mjs'
+        : 'node node_modules/tsx/dist/cli.mjs backend/e2e/server.ts',
       url: 'http://127.0.0.1:3018/api/salud',
       timeout: 120000,
       reuseExistingServer: false,
       stdout: 'ignore',
     },
     {
-      command: 'npm run dev -w frontend -- --port 5178 --strictPort',
-      url: 'http://127.0.0.1:5178/login',
+      command: produccion
+        ? 'node scripts/servir-web-e2e.mjs'
+        : 'npm run dev -w frontend -- --port 5178 --strictPort',
+      url: produccion ? 'https://localhost:8448/login' : 'http://127.0.0.1:5178/login',
+      ignoreHTTPSErrors: produccion,
       env: { VITE_PROXY_TARGET: 'http://127.0.0.1:3018' },
       reuseExistingServer: false,
       stdout: 'ignore',

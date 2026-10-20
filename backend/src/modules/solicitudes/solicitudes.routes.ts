@@ -15,6 +15,7 @@ export function crearSolicitudesRouter(s: ReturnType<typeof crearSolicitudesServ
   r.get('/:id', c.detalle);
   r.get('/:id/documento', c.documento);
   r.post('/:id/resolver', permitirRoles('ADMIN', 'RH'), c.resolver);
+  r.post('/:id/reemitir', permitirRoles('ADMIN', 'RH'), c.reemitir);
   r.post('/:id/entregar', permitirRoles('ADMIN', 'RH'), c.entregar);
   return r;
 }
@@ -23,5 +24,7 @@ export function crearNotificacionesRouter(s: ReturnType<typeof crearSolicitudesS
     c = crearSolicitudesController(s);
   r.get('/', c.notificaciones);
   r.post('/:id/leida', c.leer);
+  r.delete('/', c.borrarNotificaciones);
+  r.delete('/:id', c.borrarNotificacion);
   return r;
 }

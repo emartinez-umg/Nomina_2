@@ -32,9 +32,33 @@ function mostrar(ruta = '/login') {
 }
 beforeEach(() => localStorage.clear());
 describe('autenticación y guards', () => {
+  it('explica la redirección anónima y consume su motivo después de un login exitoso', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.endsWith('/sesion'))
+          return respuesta(401, {
+            codigo: 'NO_AUTORIZADO',
+            mensaje: 'Inicia sesión para continuar.',
+          });
+        if (url.endsWith('/csrf')) return respuesta(200, { csrfToken: 'previo' });
+        return respuesta(200, { usuario: usuario(), csrfToken: 'nuevo' });
+      }),
+    );
+    const router = mostrar('/admin');
+    await screen.findByRole('heading', { name: 'Iniciar Sesión' });
+    expect(router.state.location.pathname).toBe('/login');
+    expect(screen.getByRole('alert')).toHaveTextContent('Inicia sesión para continuar.');
+    await userEvent.type(screen.getByLabelText(/^Usuario/), 'ana.perez');
+    await userEvent.type(screen.getByLabelText(/^Contraseña/), 'Temporal!123');
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin'));
+    expect(router.state.location.state).toBeNull();
+    expect(screen.queryByText('Inicia sesión para continuar.')).not.toBeInTheDocument();
+  });
   it.each([
     ['ADMIN', '/admin', 'Administración'],
-    ['RH', '/rh', 'Recursos Humanos'],
+    ['RH', '/rh', 'Hola, Ana Perez'],
     ['EMPLEADO', '/mis-gestiones', 'Mis gestiones'],
   ] as const)('login redirige %s', async (rol, ruta, titulo) => {
     vi.stubGlobal(
@@ -48,11 +72,15 @@ describe('autenticación y guards', () => {
     );
     const router = mostrar();
     await screen.findByRole('heading', { name: 'Iniciar Sesión' });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/^Usuario/), 'ana.perez');
     await userEvent.type(screen.getByLabelText(/^Contraseña/), 'Temporal!123');
     await userEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
     await waitFor(() => expect(router.state.location.pathname).toBe(ruta));
     expect(await screen.findByRole('heading', { name: titulo })).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Inicia sesión para continuar|Tu sesión expiró/),
+    ).not.toBeInTheDocument();
     if (rol === 'EMPLEADO')
       expect(screen.queryByRole('button', { name: 'Usuarios' })).not.toBeInTheDocument();
   });

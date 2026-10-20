@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { Field } from './Field';
+import type { TamanoCampo } from './tamanoCampo';
 import { iconos } from '../ui/icons';
 export function FileField({
   name,
@@ -11,7 +12,9 @@ export function FileField({
   required = false,
   error,
   disabled = false,
+  tamano,
 }: {
+  tamano?: TamanoCampo;
   name: string;
   label: string;
   hint: string;
@@ -32,7 +35,8 @@ export function FileField({
       hint={hint}
       required={required}
       error={error ?? problema}
-      ancho="ancho"
+      tipo="archivo"
+      tamano={tamano}
     >
       <div className="control-grupo">
         <Subir size={18} className="ml-3" aria-hidden="true" />

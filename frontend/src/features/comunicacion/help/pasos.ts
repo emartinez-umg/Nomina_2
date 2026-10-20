@@ -3,10 +3,16 @@ export const ayudaComunicacion: DefinicionAyuda = {
   id: 'comunicacion',
   pasos: [
     {
+      elemento: 'codigo-automatico',
+      titulo: 'Código asignado por el sistema',
+      descripcion:
+        'La vista previa consulta el contador actual sin reservar números. Guardar asigna el código definitivo dentro de la transacción. Será permanente, también después de editar o desactivar el registro. Puedes copiarlo para localizarlo en la búsqueda del listado.',
+    },
+    {
       elemento: 'calendario-eventos',
       titulo: 'Agenda mensual',
       descripcion:
-        'Cambia de mes y selecciona un día marcado para ver todos sus eventos, incluidos los que abarcan varios días. La agenda consulta el mes completo independientemente de la página del listado. Las horas son locales de Guatemala.',
+        'Los códigos internos se asignan automáticamente al guardar y se conservan al editar. Puedes buscarlos en el listado. Cambia de mes y selecciona un día marcado para ver todos sus eventos, incluidos los que abarcan varios días. La agenda consulta el mes completo independientemente de la página del listado. Las horas son locales de Guatemala.',
     },
     {
       elemento: 'calendario-eventos',
@@ -19,7 +25,7 @@ export const ayudaComunicacion: DefinicionAyuda = {
       elemento: 'comunicacion-filtros',
       titulo: 'Buscar y combinar filtros',
       descripcion:
-        'Abre Filtros para buscar por título o rango. El rango incluye las publicaciones que lo intersectan. Los chips muestran los filtros enviados al servidor; quítalos uno a uno o limpia todos. Exportar CSV descarga toda la consulta, no solo la página visible, con un máximo de 10,000 publicaciones.',
+        'Abre Filtros para buscar por título, código o rango. El rango incluye las publicaciones que lo intersectan. Los chips muestran los filtros enviados al servidor; quítalos uno a uno o limpia todos. Exportar CSV descarga toda la consulta, no solo la página visible, con un máximo de 10,000 publicaciones.',
     },
     {
       elemento: 'comunicacion-filtros',

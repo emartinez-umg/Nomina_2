@@ -1,3 +1,19 @@
+import { nitValido } from './empleados.schemas.js';
+import {
+  normalizarNit,
+  grupoParcial,
+  camposSalariales,
+} from '../../shared/empleados/validadores.js';
+import { nombrePersona } from '../../shared/utils/nombre.js';
+import { membrete } from '../empresa/empresa.service.js';
+import { credencialesTemporalesPdf } from '../../shared/pdf/credenciales.js';
+import { municipio } from '../ubicaciones/ubicaciones.repository.js';
+import { zonaValida } from '../ubicaciones/ubicaciones.schemas.js';
+import { buscarUsuario, cambiarCredencial } from '../auth/auth.repository.js';
+import {
+  generarContrasenaTemporal,
+  hashearContrasena,
+} from '../../shared/security/credenciales.js';
 import { createHash } from 'node:crypto';
 import { Decimal } from 'decimal.js';
 import type { Connection } from 'oracledb';
@@ -88,18 +104,57 @@ export function crearEmpleadosService(db: BaseDatos) {
     antes?: repo.Empleado,
   ) {
     const errores = { ...erroresFechas(d, r), ...(await repo.duplicados(c, d, antes?.id)) };
+    if (r.validarDigitoNit && !nitValido(d.nit))
+      errores.nit = ['El dígito verificador del NIT no coincide. Revisa el número.'];
+    if (
+      grupoParcial(
+        {
+          ...d,
+          salarioBase:
+            'salarioBase' in d ? (d.salarioBase ?? antes?.salarioBase) : antes?.salarioBase,
+        },
+        camposSalariales,
+      )
+    )
+      for (const key of camposSalariales)
+        if (!(key === 'salarioBase' ? (d.salarioBase ?? antes?.salarioBase) : d[key]))
+          errores[key] = ['Completa salario, banco, cuenta y tipo, o deja el paso vacío.'];
     for (const key of Object.keys(repo.referencias) as (keyof typeof repo.referencias)[]) {
       const value = d[key];
       if (value === null) continue;
       const ref = await repo.referencia(c, key, value);
       if (!ref || (!ref.activo && antes?.[key] !== value))
         errores[key] = ['Selecciona un registro activo de la lista.'];
+      if (key === 'idTipoContrato' && ref) {
+        if (ref.requiereFechaFin && (!d.fechaFinContrato || d.fechaFinContrato <= d.fechaIngreso))
+          errores.fechaFinContrato = ['Este contrato exige una fecha de fin posterior al ingreso.'];
+        if (!ref.requiereFechaFin && d.fechaFinContrato)
+          errores.fechaFinContrato = [
+            'El contrato indefinido no tiene fecha de fin. Deja el campo vacío.',
+          ];
+      }
       if (ref?.departamento && ref.departamento !== d.idDepartamento)
         errores[key] = ['La selección debe pertenecer al departamento del empleado.'];
     }
+    const lugar = await municipio(c, d.idMunicipioGt);
+    if (!lugar || lugar.idDepartamentoGt !== d.idDepartamentoGt)
+      errores.idMunicipioGt = ['Selecciona un municipio activo del departamento elegido.'];
+    if (lugar && !zonaValida(lugar.codigo, d.zona))
+      errores.zona = ['Selecciona una zona del 1 al 25 para el municipio de Guatemala.'];
+    if (
+      d.contactoParentesco &&
+      antes?.contactoParentesco !== d.contactoParentesco &&
+      !(await repo.parentescos(c)).some((p) => p.value === d.contactoParentesco)
+    )
+      errores.contactoParentesco = ['Selecciona un parentesco del catálogo.'];
     if (Object.keys(errores).length) rechazar(errores, 409);
+    return `${d.direccion}${d.zona ? ', zona ' + d.zona : ''}, ${lugar!.nombre}, ${lugar!.departamento}`;
   }
-  async function advertencias(c: Connection, salario: string, desde: string) {
+  async function advertencias(c: Connection, salario: string | null, desde: string) {
+    if (!salario)
+      return [
+        'Perfil incompleto: falta salario base. Se excluye de la simulación de planilla hasta registrar una vigencia salarial.',
+      ];
     const minimo = await repo.salarioMinimo(c, desde);
     return minimo
       ? new Decimal(salario).lt(minimo)
@@ -130,24 +185,25 @@ export function crearEmpleadosService(db: BaseDatos) {
       motivo,
     });
   async function alta(c: Connection, actor: ActorAuditoria, d: DatosEmpleado) {
-    const credenciales = d.generarUsuario
-      ? await crearUsuarioInterno(c, actor, {
-          nombre: d.nombres.split(' ')[0]!,
-          apellido: d.apellidos.split(' ')[0]!,
-          correo: d.correo,
-          rol: 'EMPLEADO',
-        })
-      : null;
-    const id = await repo.guardar(c, d, actor.idUsuario, undefined, credenciales?.idUsuario);
-    await repo.agregarHistorial(
-      c,
-      id,
-      'salario',
-      d.salarioBase,
-      d.fechaIngreso,
-      'Salario inicial al contratar',
-      actor.idUsuario,
-    );
+    const direccion = await validar(c, d, await reglas(c));
+    const id = await repo.guardar(c, d, actor.idUsuario, undefined, undefined, direccion);
+    const credenciales = await crearUsuarioInterno(c, actor, {
+      nombre: d.nombres.split(' ')[0]!,
+      apellido: d.apellidos.split(' ')[0]!,
+      correo: d.correo,
+      rol: 'EMPLEADO',
+    });
+    await repo.vincularUsuario(c, id, credenciales.idUsuario, actor.idUsuario);
+    if (d.salarioBase)
+      await repo.agregarHistorial(
+        c,
+        id,
+        'salario',
+        d.salarioBase,
+        d.fechaIngreso,
+        'Salario inicial al contratar',
+        actor.idUsuario,
+      );
     await repo.agregarHistorial(
       c,
       id,
@@ -161,7 +217,7 @@ export function crearEmpleadosService(db: BaseDatos) {
     await audit(c, actor, id, 'CREAR_EMPLEADO', null, empleado, 'Alta de empleado');
     return {
       empleado,
-      credenciales,
+      credenciales: { ...credenciales, nombre: `${d.nombres} ${d.apellidos}` },
       advertencias: await advertencias(c, d.salarioBase, d.fechaIngreso),
     };
   }
@@ -200,7 +256,7 @@ export function crearEmpleadosService(db: BaseDatos) {
         ? key === 'correo'
           ? v.trim().toLowerCase()
           : key === 'nit'
-            ? v.trim().toUpperCase()
+            ? normalizarNit(v)
             : v
         : v;
     const conteos: Record<string, Map<unknown, number>> = {};
@@ -215,10 +271,23 @@ export function crearEmpleadosService(db: BaseDatos) {
     const salida = [];
     for (const f of filas) {
       const errores: Record<string, string[]> = f.errores.csv ? { csv: f.errores.csv } : {};
-      const p = crearEmpleadoSchema.safeParse(f.datos);
+      const datos = { ...f.datos };
+      if ('codigoHorario' in datos) {
+        datos.idHorario = await repo.horarioPorCodigo(c, String(datos.codigoHorario));
+        delete datos.codigoHorario;
+      }
+      const p = crearEmpleadoSchema.safeParse(datos);
       if (!p.success)
         for (const issue of p.error.issues)
-          (errores[issue.path.join('.')] ??= []).push(issue.message);
+          (errores[
+            issue.path.join('.') === 'idHorario' && 'codigoHorario' in f.datos
+              ? 'codigoHorario'
+              : issue.path.join('.')
+          ] ??= []).push(
+            issue.path.join('.') === 'idHorario' && 'codigoHorario' in f.datos
+              ? 'El código de horario no existe o está inactivo. Consulta Organización → Horarios.'
+              : issue.message,
+          );
       else
         try {
           await validar(c, p.data, r);
@@ -233,7 +302,7 @@ export function crearEmpleadosService(db: BaseDatos) {
           ];
       salida.push({
         ...f,
-        datos: p.success ? p.data : f.datos,
+        datos: 'codigoHorario' in f.datos ? f.datos : p.success ? p.data : f.datos,
         errores,
         advertencias: p.success
           ? await advertencias(c, p.data.salarioBase, p.data.fechaIngreso)
@@ -245,7 +314,7 @@ export function crearEmpleadosService(db: BaseDatos) {
   const publicas = (filas: Awaited<ReturnType<typeof revisarFilas>>) =>
     filas.map((f) => ({
       numero: f.numero,
-      nombre: `${String(f.datos.nombres ?? '')} ${String(f.datos.apellidos ?? '')}`,
+      nombre: nombrePersona(String(f.datos.nombres ?? ''), String(f.datos.apellidos ?? '')),
       errores: f.errores,
       advertencias: f.advertencias,
     }));
@@ -257,6 +326,43 @@ export function crearEmpleadosService(db: BaseDatos) {
     return carga;
   }
   return {
+    parentescos: () => db.conConexion(repo.parentescos),
+    restablecer: (auth: Autenticacion, ip: string, id: number, motivo: string) =>
+      tx(auth, ip, async (c, actor) => {
+        const e = await buscar(c, id);
+        await bloquearAdministracion(c);
+        const u = e.idUsuario ? await buscarUsuario(c, { id: e.idUsuario }) : null;
+        if (!u || u.rol !== 'EMPLEADO' || !u.activo || e.estado === 'EGRESADO')
+          throw new ErrorConflicto(
+            'Solo puedes restablecer el acceso activo de un empleado. Las cuentas RH/ADMIN se administran en Usuarios.',
+          );
+        const empresa = await membrete(c);
+        const contrasenaTemporal = generarContrasenaTemporal();
+        await cambiarCredencial(
+          c,
+          u.idUsuario,
+          await hashearContrasena(contrasenaTemporal),
+          true,
+          actor.idUsuario,
+        );
+        await revocarSesiones(c, u.idUsuario, actor.idUsuario);
+        await registrarAuditoria(c, {
+          actor,
+          accion: 'RESTABLECER_CONTRASENA',
+          entidad: 'USUARIOS',
+          idEntidad: u.idUsuario,
+          motivo,
+          despues: { cambioObligatorio: true },
+        });
+        const credenciales = {
+          idUsuario: u.idUsuario,
+          nombre: `${e.nombres} ${e.apellidos}`,
+          usuario: u.usuario,
+          contrasenaTemporal,
+        };
+        const pdf = await credencialesTemporalesPdf(empresa, [credenciales]);
+        return { credenciales, pdfCredenciales: pdf.toString('base64') };
+      }),
     reglas: (desde?: string) =>
       db.conConexion(async (c) => {
         const r = await reglas(c);
@@ -269,6 +375,8 @@ export function crearEmpleadosService(db: BaseDatos) {
       seleccionado?: number,
       departamento?: number,
     ) => db.conConexion((c) => repo.opciones(c, key, buscar, pagina, seleccionado, departamento)),
+    selector: (q: Parameters<typeof repo.selector>[1]) =>
+      db.conConexion((c) => repo.selector(c, q)),
     listar: (q: QueryEmpleados) => db.conConexion((c) => repo.listar(c, q)),
     exportar: (q: QueryEmpleados) =>
       db.conConexion(async (c) => {
@@ -283,6 +391,8 @@ export function crearEmpleadosService(db: BaseDatos) {
             'Ingreso',
             'Salario mensual',
             'Estado',
+            'Perfil',
+            'Datos pendientes',
           ],
         ];
         let pagina = 1;
@@ -299,6 +409,8 @@ export function crearEmpleadosService(db: BaseDatos) {
               d.fechaIngreso,
               d.salarioBase,
               d.estado,
+              d.perfilIncompleto ? 'Perfil incompleto' : 'Completo',
+              (d.faltantes as string[]).join(', '),
             ]);
           if (pagina * 100 >= r.total) break;
           pagina++;
@@ -317,8 +429,10 @@ export function crearEmpleadosService(db: BaseDatos) {
       }),
     crear: (auth: Autenticacion, ip: string, d: DatosEmpleado) =>
       tx(auth, ip, async (c, actor) => {
-        await validar(c, d, await reglas(c));
-        return alta(c, actor, d);
+        const empresa = await membrete(c);
+        const a = await alta(c, actor, d);
+        const pdf = await credencialesTemporalesPdf(empresa, [a.credenciales]);
+        return { ...a, pdfCredenciales: pdf.toString('base64') };
       }),
     editar: (auth: Autenticacion, ip: string, id: number, d: EditarEmpleado) =>
       tx(auth, ip, async (c, actor) => {
@@ -328,7 +442,7 @@ export function crearEmpleadosService(db: BaseDatos) {
             'El empleado está egresado. Su expediente se conserva para consulta.',
           );
         const r = await reglas(c);
-        await validar(c, d, r, antes);
+        const direccion = await validar(c, d, r, antes);
         if (antes.fechaIngreso !== d.fechaIngreso)
           rechazar({
             fechaIngreso: [
@@ -364,7 +478,30 @@ export function crearEmpleadosService(db: BaseDatos) {
             actor.idUsuario,
           );
         }
-        await repo.guardar(c, d, actor.idUsuario, id);
+        if (d.salarioBase) {
+          const historia = await repo.historial(c, id, 'salario');
+          if (historia.length)
+            rechazar({
+              salarioBase: ['Utiliza Cambiar salario en la ficha para conservar las vigencias.'],
+            });
+          if (r.ultimoCierre && d.fechaIngreso <= r.ultimoCierre)
+            rechazar({
+              salarioBase: [
+                'El ingreso afecta un periodo cerrado. Registra el salario inicial desde Cambiar salario en la ficha, con una fecha posterior al último cierre.',
+              ],
+            });
+          await validarHistorial(c, id, 'salario', d.fechaIngreso, d.fechaIngreso, r);
+          await repo.agregarHistorial(
+            c,
+            id,
+            'salario',
+            d.salarioBase,
+            d.fechaIngreso,
+            d.motivo,
+            actor.idUsuario,
+          );
+        }
+        await repo.guardar(c, d, actor.idUsuario, id, undefined, direccion);
         const despues = await buscar(c, id);
         await audit(c, actor, id, 'EDITAR_EMPLEADO', antes, despues, d.motivo);
         return despues;
@@ -481,6 +618,7 @@ export function crearEmpleadosService(db: BaseDatos) {
           );
         if (!filas.some((f) => !Object.keys(f.errores).length))
           throw new ErrorConflicto('No hay filas válidas para importar. Corrige el archivo.');
+        const empresa = await membrete(c);
         const credenciales = [];
         let importadas = 0;
         for (const f of filas) {
@@ -488,7 +626,12 @@ export function crearEmpleadosService(db: BaseDatos) {
             await repo.actualizarFila(c, id, f.numero, f.errores, actor.idUsuario);
             continue;
           }
-          const a = await alta(c, actor, crearEmpleadoSchema.parse(f.datos));
+          const datos = { ...f.datos };
+          if ('codigoHorario' in datos) {
+            datos.idHorario = await repo.horarioPorCodigo(c, String(datos.codigoHorario));
+            delete datos.codigoHorario;
+          }
+          const a = await alta(c, actor, crearEmpleadoSchema.parse(datos));
           importadas++;
           await repo.actualizarFila(c, id, f.numero, {}, actor.idUsuario, a.empleado.id);
           if (a.credenciales) credenciales.push({ numero: f.numero, ...a.credenciales });
@@ -501,19 +644,21 @@ export function crearEmpleadosService(db: BaseDatos) {
           idEntidad: id,
           despues: { importadas, modalidad },
         });
-        return { id, importadas, credenciales };
+        const pdf = await credencialesTemporalesPdf(empresa, credenciales);
+        return { id, importadas, credenciales, pdfCredenciales: pdf.toString('base64') };
       }),
     reporte: (id: number, actor: number) =>
       db.conConexion(async (c) => {
         await autorizarCarga(c, id, actor);
         const filas = await repo.filasCarga(c, id);
         return escribirCsv([
-          ['Fila', 'Nombre', 'Estado', 'ID empleado', 'Usuario', 'Errores'],
+          ['Fila', 'Nombre', 'Estado', 'ID empleado', 'Código', 'Usuario', 'Errores'],
           ...filas.map((f) => [
             f.numero,
             `${String(f.datos.nombres ?? '')} ${String(f.datos.apellidos ?? '')}`,
             f.estado,
             f.idEmpleado,
+            f.codigo,
             f.usuario,
             Object.entries(f.errores)
               .map(([k, v]) => `${k}: ${v.join(' ')}`)

@@ -10,18 +10,36 @@ import {
   crearEmpleadoSchema,
   editarEmpleadoSchema,
   querySchema,
+  selectorEmpleadosSchema,
   salarioSchema,
   bajaSchema,
   cargaSchema,
   confirmarCargaSchema,
 } from './empleados.schemas.js';
+import { restablecerSchema } from '../usuarios/usuarios.schemas.js';
 import { plantillaCsv } from './empleados.csv.js';
 import type { crearEmpleadosService } from './empleados.service.js';
 const idDe = (req: Request) => z.object({ id: idSchema }).strict().parse(req.params).id;
 export function crearEmpleadosController(s: ReturnType<typeof crearEmpleadosService>) {
   const responder = (res: Response, d: unknown, status = 200) =>
-    res.status(status).json(respuestaOk(d));
+    res
+      .set('Cache-Control', 'no-store')
+      .set('Pragma', 'no-cache')
+      .status(status)
+      .json(respuestaOk(d));
   return {
+    parentescos: async (req: Request, res: Response) => {
+      sinDatos.parse(req.query);
+      responder(res, await s.parentescos());
+    },
+    restablecer: async (req: Request, res: Response) => {
+      sinDatos.parse(req.query);
+      const d = restablecerSchema.parse(req.body);
+      responder(
+        res,
+        await s.restablecer(autenticacionDe(req), contextoDe(req).ip, idDe(req), d.motivo),
+      );
+    },
     reglas: async (req: Request, res: Response) => {
       const q = z.object({ fecha: fecha.optional() }).strict().parse(req.query);
       responder(res, await s.reglas(q.fecha));
@@ -57,6 +75,8 @@ export function crearEmpleadosController(s: ReturnType<typeof crearEmpleadosServ
     },
     listar: async (req: Request, res: Response) =>
       responder(res, await s.listar(querySchema.parse(req.query))),
+    selector: async (req: Request, res: Response) =>
+      responder(res, await s.selector(selectorEmpleadosSchema.parse(req.query))),
     exportar: async (req: Request, res: Response) =>
       responder(res, await s.exportar(querySchema.parse(req.query))),
     detalle: async (req: Request, res: Response) => {

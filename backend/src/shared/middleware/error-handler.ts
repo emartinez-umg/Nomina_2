@@ -34,6 +34,18 @@ export function manejarErrores(logger: Logger): ErrorRequestHandler {
       }
     }
 
+    if (error && typeof error === 'object' && 'errorNum' in error) {
+      if (error.errorNum === 20041)
+        normalizado = new ErrorValidacion({
+          nombre: ['El nombre debe contener una palabra significativa para generar el código.'],
+        });
+      if (error.errorNum === 20042)
+        normalizado = new ErrorNegocio(
+          'Los códigos asignados son permanentes y no se pueden editar.',
+          409,
+          'CODIGO_INMUTABLE',
+        );
+    }
     const esperado = normalizado instanceof ErrorNegocio ? normalizado : undefined;
     const estado = esperado?.estado ?? 500;
     if (estado >= 500) {
@@ -49,6 +61,7 @@ export function manejarErrores(logger: Logger): ErrorRequestHandler {
           ? esperado.message
           : 'Ocurrió un error interno. Intenta nuevamente en unos momentos.',
         ...(esperado?.campos ? { campos: esperado.campos } : {}),
+        ...(esperado?.duplicado ? { duplicado: esperado.duplicado } : {}),
       },
     };
     res.status(estado).json(respuesta);

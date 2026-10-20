@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { HelpButton, HelpOffer } from '../../../components/help/HelpProvider';
+import { HelpButton } from '../../../components/help/HelpProvider';
 export function AuthFrame({ children }: { children: ReactNode }) {
   return (
     <div className="auth-pagina">
@@ -29,7 +29,6 @@ export function AuthFrame({ children }: { children: ReactNode }) {
       </header>
       <main className="auth-contenedor">
         <div className="auth-panel">{children}</div>
-        <HelpOffer />
       </main>
     </div>
   );

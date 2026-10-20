@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useEffect, useState } from 'react';
@@ -121,7 +122,7 @@ export function Fiscal() {
         Registra únicamente importes acreditados. La apertura certifica pagos anteriores al sistema
         y se permite una sola vez por empleado/año, antes de aprobar su primera nómina.
       </p>
-      <div className="form-grid">
+      <FormGrid>
         <SelectField
           name="operacion"
           label="Operación fiscal"
@@ -136,7 +137,7 @@ export function Fiscal() {
             { value: 'deducciones', label: 'Deducción acreditada' },
           ]}
         />
-      </div>
+      </FormGrid>
       <form
         onSubmit={form.handleSubmit((d) => {
           setError('');
@@ -149,14 +150,15 @@ export function Fiscal() {
         })}
         noValidate
       >
-        <div className="form-grid my-4">
+        <FormGrid className="my-4">
           <Controller
             control={form.control}
             name="idEmpleado"
             render={({ field, fieldState }) => (
-              <div className="campo campo-medio">
+              <div className="contents">
                 <ReferenciaNovedad
                   referencia="empleados"
+                  soloActivos={false}
                   label="Empleado"
                   hint="Expediente al que pertenecen los comprobantes."
                   name={field.name}
@@ -305,7 +307,7 @@ export function Fiscal() {
               />
             )}
           />
-        </div>
+        </FormGrid>
         <FormErrorSummary
           mensajes={[error, ...Object.values(form.formState.errors).map((v) => v.message)]}
         />

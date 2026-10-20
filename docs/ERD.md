@@ -1,3 +1,601 @@
+<!-- EXPORTACION_ERD_INICIO -->
+
+## Esquema completo comprobado mediante Oracle (V000–V030)
+
+Diagrama generado por `npm run db:export`: **73 tablas**, **249 FK**.
+Incluye relaciones de auditoría y ciclos; la obligatoriedad exacta se consulta en `01_esquema.sql`.
+Las entidades muestran columnas ID; las cardinalidades representan referencias, incluidas FK compuestas.
+Las secuencias identity, índices, restricciones, comentarios y código PL/SQL están en la exportación.
+La tabla VERSION_ESQUEMA pertenece al runner; PRUEBA_INFRAESTRUCTURA corresponde a V000.
+
+```mermaid
+erDiagram
+  ANUNCIOS {
+    number ID_ANUNCIO PK
+  }
+  ANUNCIO_DESTINATARIOS {
+    number ID_ANUNCIO_DESTINATARIO PK
+    number ID_ANUNCIO FK
+    number ID_DEPARTAMENTO FK
+    number ID_PUESTO FK
+    number ID_JEFATURA FK
+  }
+  AUSENCIAS {
+    number ID_AUSENCIA PK
+    number ID_EMPLEADO FK
+    number ID_TIPO_AUSENCIA FK
+  }
+  BANCOS {
+    number ID_BANCO PK
+  }
+  BITACORA_AUDITORIA {
+    number ID_BITACORA_AUDITORIA PK
+    number ID_USUARIO FK
+    number ID_ROL FK
+    number ID_ENTIDAD
+  }
+  BOLETAS_PAGO {
+    number ID_BOLETA_PAGO PK
+    number ID_NOMINA_EMPLEADO FK
+  }
+  CARGAS_MASIVAS {
+    number ID_CARGA_MASIVA PK
+    number ID_USUARIO FK
+  }
+  CARGA_MASIVA_FILAS {
+    number ID_CARGA_MASIVA_FILA PK
+    number ID_CARGA_MASIVA FK
+    number ID_EMPLEADO FK
+  }
+  CENTROS_TRABAJO {
+    number ID_CENTRO_TRABAJO PK
+    number ID_DEPARTAMENTO_GT FK
+    number ID_MUNICIPIO_GT FK
+    number ID_MUNICIPIO_GT_PROPUESTO FK
+  }
+  COMISIONES {
+    number ID_COMISION PK
+    number ID_EMPLEADO FK
+    number ID_PERIODO_NOMINA FK
+  }
+  CONCEPTOS_NOMINA {
+    number ID_CONCEPTO_NOMINA PK
+  }
+  CONFIGURACION_EMPRESA {
+    number ID_CONFIGURACION_EMPRESA PK
+  }
+  CONFIG_CODIGOS {
+    number ID_CONFIG_CODIGO PK
+  }
+  CONSTANCIAS_SALARIO_PDF {
+    number ID_CONSTANCIA_SALARIO_PDF PK
+    number ID_EMPLEADO FK
+  }
+  DEPARTAMENTOS {
+    number ID_DEPARTAMENTO PK
+  }
+  DEPARTAMENTOS_GT {
+    number ID_DEPARTAMENTO_GT PK
+  }
+  DESCUENTOS_APLICACIONES {
+    number ID_DESCUENTO_APLICACION PK
+    number ID_NOMINA_EMPLEADO FK
+    number ID_EMPLEADO FK
+    number ID_PERIODO_NOMINA FK
+    number ID_DESCUENTO_EMPLEADO FK
+    number ID_DESCUENTO_CUOTA FK
+  }
+  DESCUENTOS_CUOTAS {
+    number ID_DESCUENTO_CUOTA PK
+    number ID_DESCUENTO_EMPLEADO FK
+    number ID_EMPLEADO FK
+    number ID_PERIODO_NOMINA FK
+  }
+  DESCUENTOS_EMPLEADO {
+    number ID_DESCUENTO_EMPLEADO PK
+    number ID_EMPLEADO FK
+    number ID_TIPO_DESCUENTO FK
+    number ID_SOLICITUD FK
+  }
+  DOCUMENTOS_GENERADOS {
+    number ID_DOCUMENTO_GENERADO PK
+    number ID_EMPLEADO FK
+    number ID_SOLICITUD FK
+    number ID_NOMINA_EMPLEADO FK
+    number ID_PERIODO_NOMINA FK
+    number ID_PLANTILLA_DOCUMENTO FK
+  }
+  EMPLEADOS {
+    number ID_EMPLEADO PK
+    number ID_USUARIO FK
+    number ID_BANCO FK
+    number ID_PUESTO FK
+    number ID_DEPARTAMENTO FK
+    number ID_JEFATURA FK
+    number ID_TIPO_CONTRATO FK
+    number ID_CENTRO_TRABAJO FK
+    number ID_DEPARTAMENTO_GT FK
+    number ID_MUNICIPIO_GT FK
+  }
+  EMPLEADO_CONTACTOS_EMERGENCIA {
+    number ID_CONTACTO_EMERGENCIA PK
+    number ID_EMPLEADO FK
+  }
+  EMPLEADO_HORARIO {
+    number ID_EMPLEADO_HORARIO PK
+    number ID_EMPLEADO FK
+    number ID_HORARIO FK
+  }
+  EVENTOS {
+    number ID_EVENTO PK
+  }
+  EVENTO_DESTINATARIOS {
+    number ID_EVENTO_DESTINATARIO PK
+    number ID_EVENTO FK
+    number ID_DEPARTAMENTO FK
+    number ID_PUESTO FK
+    number ID_JEFATURA FK
+  }
+  FERIADOS {
+    number ID_FERIADO PK
+  }
+  FIRMAS_DOCUMENTO {
+    number ID_FIRMA_DOCUMENTO PK
+    number ID_REGISTRO
+    number ID_USUARIO FK
+  }
+  HISTORIAL_SALARIAL {
+    number ID_HISTORIAL_SALARIAL PK
+    number ID_EMPLEADO FK
+  }
+  HORARIOS {
+    number ID_HORARIO PK
+  }
+  HORARIO_BLOQUES {
+    number ID_HORARIO_BLOQUE PK
+    number ID_HORARIO FK
+  }
+  HORARIO_BLOQUE_DIAS {
+    number ID_HORARIO_BLOQUE_DIA PK
+    number ID_HORARIO_BLOQUE FK
+  }
+  HORARIO_DIAS {
+    number ID_HORARIO_DIA PK
+    number ID_HORARIO FK
+  }
+  HORAS_EXTRA {
+    number ID_HORA_EXTRA PK
+    number ID_EMPLEADO FK
+    number ID_PERIODO_NOMINA FK
+  }
+  IDENTIDAD_EMPRESA {
+    number ID_IDENTIDAD_EMPRESA PK
+    number ID_CONFIGURACION_EMPRESA FK
+  }
+  ISR_APERTURAS {
+    number ID_ISR_APERTURA PK
+    number ID_EMPLEADO FK
+  }
+  ISR_DEDUCCIONES_EMPLEADO {
+    number ID_DEDUCCION_ISR PK
+    number ID_EMPLEADO FK
+    number ID_TIPO_DEDUCCION_ISR FK
+  }
+  ISR_PROYECCIONES {
+    number ID_ISR_PROYECCION PK
+    number ID_NOMINA_EMPLEADO FK
+  }
+  JEFATURAS {
+    number ID_JEFATURA PK
+    number ID_DEPARTAMENTO FK
+    number ID_EMPLEADO_RESPONSABLE FK
+  }
+  MUNICIPIOS_GT {
+    number ID_MUNICIPIO_GT PK
+    number ID_DEPARTAMENTO_GT FK
+  }
+  NOMINA_DETALLE {
+    number ID_NOMINA_DETALLE PK
+    number ID_NOMINA_EMPLEADO FK
+    number ID_EMPLEADO FK
+    number ID_PERIODO_NOMINA FK
+    number ID_CONCEPTO_NOMINA FK
+    number ID_COMISION FK
+    number ID_HORA_EXTRA FK
+    number ID_AUSENCIA FK
+    number ID_DESCUENTO_APLICACION FK
+  }
+  NOMINA_EMPLEADO {
+    number ID_NOMINA_EMPLEADO PK
+    number ID_PERIODO_NOMINA FK
+    number ID_EMPLEADO FK
+    number ID_HISTORIAL_SALARIAL FK
+  }
+  NOMINA_PARAMETROS {
+    number ID_NOMINA_PARAMETRO PK
+    number ID_NOMINA_EMPLEADO FK
+    number ID_PARAMETRO_LEGAL FK
+  }
+  NOTIFICACIONES {
+    number ID_NOTIFICACION PK
+    number ID_USUARIO FK
+    number ID_SOLICITUD FK
+    number ID_DOCUMENTO_GENERADO FK
+    number ID_ANUNCIO FK
+    number ID_EVENTO FK
+  }
+  NOVEDADES_MENSUALES {
+    number ID_NOVEDAD_MENSUAL PK
+    number ID_EMPLEADO FK
+    number ID_NOMINA_EMPLEADO FK
+    number ID_AUSENCIA FK
+    number ID_PARQUEO_SUSCRIPCION FK
+  }
+  NOVEDADES_ORIGEN {
+    number ID_NOVEDAD_ORIGEN PK
+    number ID_NOVEDAD_MENSUAL FK
+    number ID_ORIGEN
+  }
+  PAGOS_NOMINA {
+    number ID_PAGO_NOMINA PK
+    number ID_EMPLEADO FK
+    number ID_NOMINA_EMPLEADO FK
+  }
+  PARAMETROS_LEGALES {
+    number ID_PARAMETRO_LEGAL PK
+  }
+  PARENTESCOS {
+    number ID_PARENTESCO PK
+  }
+  PARQUEO_SUSCRIPCIONES {
+    number ID_PARQUEO_SUSCRIPCION PK
+    number ID_EMPLEADO FK
+    number ID_SOLICITUD FK
+    number ID_DESCUENTO_ORIGEN FK
+  }
+  PARQUEO_TARIFAS {
+    number ID_PARQUEO_TARIFA PK
+  }
+  PERIODOS_NOMINA {
+    number ID_PERIODO_NOMINA PK
+  }
+  PLANTILLAS_DOCUMENTO {
+    number ID_PLANTILLA_DOCUMENTO PK
+    number ID_TIPO_SOLICITUD FK
+  }
+  PRESTACIONES {
+    number ID_PRESTACION PK
+    number ID_EMPLEADO FK
+    number ID_PERIODO_NOMINA FK
+    number ID_NOMINA_EMPLEADO FK
+  }
+  PRESTACION_DETALLE {
+    number ID_PRESTACION_DETALLE PK
+    number ID_PRESTACION FK
+  }
+  PRESTAMOS {
+    number ID_PRESTAMO PK
+    number ID_DESCUENTO_EMPLEADO FK
+    number ID_EMPLEADO FK
+  }
+  PRUEBA_INFRAESTRUCTURA {
+    number ID_PRUEBA_INFRAESTRUCTURA PK
+  }
+  PUESTOS {
+    number ID_PUESTO PK
+    number ID_DEPARTAMENTO FK
+  }
+  REGISTRO_CODIGOS {
+    number ID_REGISTRO_CODIGO PK
+  }
+  ROLES {
+    number ID_ROL PK
+  }
+  SECUENCIAS_CODIGOS {
+    number ID_SECUENCIA_CODIGO PK
+  }
+  SESIONES {
+    number ID_SESION PK
+    number ID_USUARIO FK
+  }
+  SOLICITUDES {
+    number ID_SOLICITUD PK
+    number ID_EMPLEADO FK
+    number ID_TIPO_SOLICITUD FK
+  }
+  SOLICITUD_HISTORIAL {
+    number ID_SOLICITUD_HISTORIAL PK
+    number ID_SOLICITUD FK
+    number ID_USUARIO FK
+  }
+  TIPOS_AUSENCIA {
+    number ID_TIPO_AUSENCIA PK
+  }
+  TIPOS_CONTRATO {
+    number ID_TIPO_CONTRATO PK
+  }
+  TIPOS_DEDUCCION_ISR {
+    number ID_TIPO_DEDUCCION_ISR PK
+  }
+  TIPOS_DESCUENTO {
+    number ID_TIPO_DESCUENTO PK
+  }
+  TIPOS_SOLICITUD {
+    number ID_TIPO_SOLICITUD PK
+  }
+  TRAMOS_ISR {
+    number ID_TRAMO_ISR PK
+  }
+  USUARIOS {
+    number ID_USUARIO PK
+    number ID_ROL FK
+  }
+  VACACIONES_MOVIMIENTOS {
+    number ID_VACACIONES_MOVIMIENTO PK
+    number ID_EMPLEADO FK
+    number ID_VACACIONES_SOLICITUD FK
+  }
+  VACACIONES_SOLICITUDES {
+    number ID_VACACIONES_SOLICITUD PK
+    number ID_EMPLEADO FK
+    number ID_SOLICITUD FK
+  }
+  VERSION_ESQUEMA {
+    number ID_VERSION_ESQUEMA PK
+  }
+  USUARIOS o|--o{ ANUNCIOS : "FK_ANUNCIOS_CREADOR"
+  USUARIOS o|--o{ ANUNCIOS : "FK_ANUNCIOS_EDITOR"
+  ANUNCIOS ||--o{ ANUNCIO_DESTINATARIOS : "FK_ANUNCIO_DESTINATARIOS_1"
+  DEPARTAMENTOS o|--o{ ANUNCIO_DESTINATARIOS : "FK_ANUNCIO_DESTINATARIOS_2"
+  PUESTOS o|--o{ ANUNCIO_DESTINATARIOS : "FK_ANUNCIO_DESTINATARIOS_3"
+  JEFATURAS o|--o{ ANUNCIO_DESTINATARIOS : "FK_ANUNCIO_DESTINATARIOS_4"
+  USUARIOS o|--o{ ANUNCIO_DESTINATARIOS : "FK_ANUNCIO_DESTINATARIOS_CREADOR"
+  USUARIOS o|--o{ ANUNCIO_DESTINATARIOS : "FK_ANUNCIO_DESTINATARIOS_EDITOR"
+  EMPLEADOS ||--o{ AUSENCIAS : "FK_AUSENCIAS_1"
+  TIPOS_AUSENCIA ||--o{ AUSENCIAS : "FK_AUSENCIAS_2"
+  USUARIOS o|--o{ AUSENCIAS : "FK_AUSENCIAS_3"
+  USUARIOS o|--o{ AUSENCIAS : "FK_AUSENCIAS_CREADOR"
+  USUARIOS o|--o{ AUSENCIAS : "FK_AUSENCIAS_EDITOR"
+  USUARIOS o|--o{ BANCOS : "FK_BANCOS_CREADOR"
+  USUARIOS o|--o{ BANCOS : "FK_BANCOS_EDITOR"
+  USUARIOS o|--o{ BITACORA_AUDITORIA : "FK_BITACORA_AUDITORIA_1"
+  ROLES o|--o{ BITACORA_AUDITORIA : "FK_BITACORA_AUDITORIA_2"
+  USUARIOS o|--o{ BITACORA_AUDITORIA : "FK_BITACORA_AUDITORIA_CREADOR"
+  USUARIOS o|--o{ BITACORA_AUDITORIA : "FK_BITACORA_AUDITORIA_EDITOR"
+  NOMINA_EMPLEADO ||--o{ BOLETAS_PAGO : "FK_BOLETA_RESULTADO"
+  USUARIOS ||--o{ CARGAS_MASIVAS : "FK_CARGAS_MASIVAS_1"
+  USUARIOS o|--o{ CARGAS_MASIVAS : "FK_CARGAS_MASIVAS_CREADOR"
+  USUARIOS o|--o{ CARGAS_MASIVAS : "FK_CARGAS_MASIVAS_EDITOR"
+  CARGAS_MASIVAS ||--o{ CARGA_MASIVA_FILAS : "FK_CARGA_MASIVA_FILAS_1"
+  EMPLEADOS o|--o{ CARGA_MASIVA_FILAS : "FK_CARGA_MASIVA_FILAS_2"
+  USUARIOS o|--o{ CARGA_MASIVA_FILAS : "FK_CARGA_MASIVA_FILAS_CREADOR"
+  USUARIOS o|--o{ CARGA_MASIVA_FILAS : "FK_CARGA_MASIVA_FILAS_EDITOR"
+  DEPARTAMENTOS_GT o|--o{ CENTROS_TRABAJO : "FK_CENTROS_GT_DEP"
+  MUNICIPIOS_GT o|--o{ CENTROS_TRABAJO : "FK_CENTROS_GT_MUN"
+  MUNICIPIOS_GT o|--o{ CENTROS_TRABAJO : "FK_CENTROS_GT_PROP"
+  USUARIOS o|--o{ CENTROS_TRABAJO : "FK_CENTROS_TRABAJO_CREADOR"
+  USUARIOS o|--o{ CENTROS_TRABAJO : "FK_CENTROS_TRABAJO_EDITOR"
+  EMPLEADOS ||--o{ COMISIONES : "FK_COMISIONES_1"
+  PERIODOS_NOMINA ||--o{ COMISIONES : "FK_COMISIONES_2"
+  USUARIOS o|--o{ COMISIONES : "FK_COMISIONES_CREADOR"
+  USUARIOS o|--o{ COMISIONES : "FK_COMISIONES_EDITOR"
+  USUARIOS o|--o{ CONCEPTOS_NOMINA : "FK_CONCEPTOS_NOMINA_CREADOR"
+  USUARIOS o|--o{ CONCEPTOS_NOMINA : "FK_CONCEPTOS_NOMINA_EDITOR"
+  USUARIOS o|--o{ CONFIGURACION_EMPRESA : "FK_CONFIGURACION_EMPRESA_CREADOR"
+  USUARIOS o|--o{ CONFIGURACION_EMPRESA : "FK_CONFIGURACION_EMPRESA_EDITOR"
+  USUARIOS o|--o{ CONFIG_CODIGOS : "FK generada"
+  USUARIOS o|--o{ CONFIG_CODIGOS : "FK generada"
+  USUARIOS ||--o{ CONSTANCIAS_SALARIO_PDF : "FK_CONSTANCIA_APR"
+  EMPLEADOS ||--o{ CONSTANCIAS_SALARIO_PDF : "FK_CONSTANCIA_EMP"
+  USUARIOS o|--o{ DEPARTAMENTOS : "FK_DEPARTAMENTOS_CREADOR"
+  USUARIOS o|--o{ DEPARTAMENTOS : "FK_DEPARTAMENTOS_EDITOR"
+  USUARIOS o|--o{ DEPARTAMENTOS_GT : "FK_DEPARTAMENTOS_GT_CREADOR"
+  USUARIOS o|--o{ DEPARTAMENTOS_GT : "FK_DEPARTAMENTOS_GT_EDITOR"
+  DESCUENTOS_CUOTAS o|--o{ DESCUENTOS_APLICACIONES : "FK_APLICACION_CUOTA_DESCUENTO"
+  NOMINA_EMPLEADO ||--o{ DESCUENTOS_APLICACIONES : "FK_DESCUENTOS_APLICACIONES_1"
+  DESCUENTOS_EMPLEADO ||--o{ DESCUENTOS_APLICACIONES : "FK_DESCUENTOS_APLICACIONES_2"
+  DESCUENTOS_CUOTAS o|--o{ DESCUENTOS_APLICACIONES : "FK_DESCUENTOS_APLICACIONES_3"
+  PERIODOS_NOMINA ||--o{ DESCUENTOS_APLICACIONES : "FK_DESCUENTOS_APLICACIONES_4"
+  EMPLEADOS ||--o{ DESCUENTOS_APLICACIONES : "FK_DESCUENTOS_APLICACIONES_5"
+  USUARIOS o|--o{ DESCUENTOS_APLICACIONES : "FK_DESCUENTOS_APLICACIONES_CREADOR"
+  USUARIOS o|--o{ DESCUENTOS_APLICACIONES : "FK_DESCUENTOS_APLICACIONES_EDITOR"
+  PERIODOS_NOMINA o|--o{ DESCUENTOS_CUOTAS : "FK_CUOTA_PERIODO"
+  DESCUENTOS_EMPLEADO ||--o{ DESCUENTOS_CUOTAS : "FK_DESCUENTOS_CUOTAS_1"
+  EMPLEADOS ||--o{ DESCUENTOS_CUOTAS : "FK_DESCUENTOS_CUOTAS_2"
+  USUARIOS o|--o{ DESCUENTOS_CUOTAS : "FK_DESCUENTOS_CUOTAS_CREADOR"
+  USUARIOS o|--o{ DESCUENTOS_CUOTAS : "FK_DESCUENTOS_CUOTAS_EDITOR"
+  EMPLEADOS ||--o{ DESCUENTOS_EMPLEADO : "FK_DESCUENTOS_EMPLEADO_1"
+  TIPOS_DESCUENTO ||--o{ DESCUENTOS_EMPLEADO : "FK_DESCUENTOS_EMPLEADO_2"
+  USUARIOS o|--o{ DESCUENTOS_EMPLEADO : "FK_DESCUENTOS_EMPLEADO_CREADOR"
+  USUARIOS o|--o{ DESCUENTOS_EMPLEADO : "FK_DESCUENTOS_EMPLEADO_EDITOR"
+  SOLICITUDES o|--o{ DESCUENTOS_EMPLEADO : "FK_DESCUENTO_TRAMITE"
+  USUARIOS o|--o{ DOCUMENTOS_GENERADOS : "FK_DOCUMENTOS_APROBADOR"
+  EMPLEADOS ||--o{ DOCUMENTOS_GENERADOS : "FK_DOCUMENTOS_GENERADOS_1"
+  SOLICITUDES o|--o{ DOCUMENTOS_GENERADOS : "FK_DOCUMENTOS_GENERADOS_2"
+  NOMINA_EMPLEADO o|--o{ DOCUMENTOS_GENERADOS : "FK_DOCUMENTOS_GENERADOS_3"
+  PERIODOS_NOMINA o|--o{ DOCUMENTOS_GENERADOS : "FK_DOCUMENTOS_GENERADOS_4"
+  PLANTILLAS_DOCUMENTO o|--o{ DOCUMENTOS_GENERADOS : "FK_DOCUMENTOS_GENERADOS_5"
+  USUARIOS o|--o{ DOCUMENTOS_GENERADOS : "FK_DOCUMENTOS_GENERADOS_CREADOR"
+  USUARIOS o|--o{ DOCUMENTOS_GENERADOS : "FK_DOCUMENTOS_GENERADOS_EDITOR"
+  USUARIOS o|--o{ EMPLEADOS : "FK_EMPLEADOS_1"
+  BANCOS o|--o{ EMPLEADOS : "FK_EMPLEADOS_2"
+  DEPARTAMENTOS ||--o{ EMPLEADOS : "FK_EMPLEADOS_3"
+  PUESTOS ||--o{ EMPLEADOS : "FK_EMPLEADOS_4"
+  JEFATURAS o|--o{ EMPLEADOS : "FK_EMPLEADOS_5"
+  TIPOS_CONTRATO ||--o{ EMPLEADOS : "FK_EMPLEADOS_6"
+  CENTROS_TRABAJO ||--o{ EMPLEADOS : "FK_EMPLEADOS_7"
+  USUARIOS o|--o{ EMPLEADOS : "FK_EMPLEADOS_CREADOR"
+  USUARIOS o|--o{ EMPLEADOS : "FK_EMPLEADOS_EDITOR"
+  DEPARTAMENTOS_GT o|--o{ EMPLEADOS : "FK_EMPLEADOS_GT_DEP"
+  MUNICIPIOS_GT o|--o{ EMPLEADOS : "FK_EMPLEADOS_GT_MUN"
+  EMPLEADOS ||--o{ EMPLEADO_CONTACTOS_EMERGENCIA : "FK_EMPLEADO_CONTACTOS_EMERGENCIA_1"
+  USUARIOS o|--o{ EMPLEADO_CONTACTOS_EMERGENCIA : "FK_EMPLEADO_CONTACTOS_EMERGENCIA_CREADOR"
+  USUARIOS o|--o{ EMPLEADO_CONTACTOS_EMERGENCIA : "FK_EMPLEADO_CONTACTOS_EMERGENCIA_EDITOR"
+  EMPLEADOS ||--o{ EMPLEADO_HORARIO : "FK_EMPLEADO_HORARIO_1"
+  HORARIOS ||--o{ EMPLEADO_HORARIO : "FK_EMPLEADO_HORARIO_2"
+  USUARIOS o|--o{ EMPLEADO_HORARIO : "FK_EMPLEADO_HORARIO_CREADOR"
+  USUARIOS o|--o{ EMPLEADO_HORARIO : "FK_EMPLEADO_HORARIO_EDITOR"
+  USUARIOS o|--o{ EVENTOS : "FK_EVENTOS_CREADOR"
+  USUARIOS o|--o{ EVENTOS : "FK_EVENTOS_EDITOR"
+  EVENTOS ||--o{ EVENTO_DESTINATARIOS : "FK_EVENTO_DESTINATARIOS_1"
+  DEPARTAMENTOS o|--o{ EVENTO_DESTINATARIOS : "FK_EVENTO_DESTINATARIOS_2"
+  PUESTOS o|--o{ EVENTO_DESTINATARIOS : "FK_EVENTO_DESTINATARIOS_3"
+  JEFATURAS o|--o{ EVENTO_DESTINATARIOS : "FK_EVENTO_DESTINATARIOS_4"
+  USUARIOS o|--o{ EVENTO_DESTINATARIOS : "FK_EVENTO_DESTINATARIOS_CREADOR"
+  USUARIOS o|--o{ EVENTO_DESTINATARIOS : "FK_EVENTO_DESTINATARIOS_EDITOR"
+  USUARIOS o|--o{ FERIADOS : "FK_FERIADOS_CREADOR"
+  USUARIOS o|--o{ FERIADOS : "FK_FERIADOS_EDITOR"
+  USUARIOS ||--o{ FIRMAS_DOCUMENTO : "FK_FIRMAS_DOCUMENTO_USUARIO"
+  EMPLEADOS ||--o{ HISTORIAL_SALARIAL : "FK_HISTORIAL_SALARIAL_1"
+  USUARIOS o|--o{ HISTORIAL_SALARIAL : "FK_HISTORIAL_SALARIAL_CREADOR"
+  USUARIOS o|--o{ HISTORIAL_SALARIAL : "FK_HISTORIAL_SALARIAL_EDITOR"
+  USUARIOS o|--o{ HORARIOS : "FK_HORARIOS_CREADOR"
+  USUARIOS o|--o{ HORARIOS : "FK_HORARIOS_EDITOR"
+  USUARIOS o|--o{ HORARIO_BLOQUES : "FK_HB_CREADOR"
+  USUARIOS o|--o{ HORARIO_BLOQUES : "FK_HB_EDITOR"
+  HORARIOS ||--o{ HORARIO_BLOQUES : "FK_HB_HORARIO"
+  HORARIO_BLOQUES ||--o{ HORARIO_BLOQUE_DIAS : "FK_HBD_BLOQUE"
+  USUARIOS o|--o{ HORARIO_BLOQUE_DIAS : "FK_HBD_CREADOR"
+  USUARIOS o|--o{ HORARIO_BLOQUE_DIAS : "FK_HBD_EDITOR"
+  HORARIOS ||--o{ HORARIO_DIAS : "FK_HORARIO_DIAS_1"
+  USUARIOS o|--o{ HORARIO_DIAS : "FK_HORARIO_DIAS_CREADOR"
+  USUARIOS o|--o{ HORARIO_DIAS : "FK_HORARIO_DIAS_EDITOR"
+  EMPLEADOS ||--o{ HORAS_EXTRA : "FK_HORAS_EXTRA_1"
+  PERIODOS_NOMINA ||--o{ HORAS_EXTRA : "FK_HORAS_EXTRA_2"
+  USUARIOS o|--o{ HORAS_EXTRA : "FK_HORAS_EXTRA_3"
+  USUARIOS o|--o{ HORAS_EXTRA : "FK_HORAS_EXTRA_CREADOR"
+  USUARIOS o|--o{ HORAS_EXTRA : "FK_HORAS_EXTRA_EDITOR"
+  CONFIGURACION_EMPRESA ||--o{ IDENTIDAD_EMPRESA : "FK_IDENTIDAD_EMPRESA"
+  USUARIOS o|--o{ ISR_APERTURAS : "FK_ISR_APERTURA_CREADOR"
+  USUARIOS o|--o{ ISR_APERTURAS : "FK_ISR_APERTURA_EDITOR"
+  EMPLEADOS ||--o{ ISR_APERTURAS : "FK_ISR_APERTURA_EMP"
+  EMPLEADOS ||--o{ ISR_DEDUCCIONES_EMPLEADO : "FK_ISR_DEDUCCIONES_EMPLEADO_1"
+  TIPOS_DEDUCCION_ISR ||--o{ ISR_DEDUCCIONES_EMPLEADO : "FK_ISR_DEDUCCIONES_EMPLEADO_2"
+  USUARIOS o|--o{ ISR_DEDUCCIONES_EMPLEADO : "FK_ISR_DEDUCCIONES_EMPLEADO_CREADOR"
+  USUARIOS o|--o{ ISR_DEDUCCIONES_EMPLEADO : "FK_ISR_DEDUCCIONES_EMPLEADO_EDITOR"
+  NOMINA_EMPLEADO ||--o{ ISR_PROYECCIONES : "FK_ISR_PROYECCIONES_1"
+  USUARIOS o|--o{ ISR_PROYECCIONES : "FK_ISR_PROYECCIONES_CREADOR"
+  USUARIOS o|--o{ ISR_PROYECCIONES : "FK_ISR_PROYECCIONES_EDITOR"
+  DEPARTAMENTOS ||--o{ JEFATURAS : "FK_JEFATURAS_1"
+  USUARIOS o|--o{ JEFATURAS : "FK_JEFATURAS_CREADOR"
+  USUARIOS o|--o{ JEFATURAS : "FK_JEFATURAS_EDITOR"
+  EMPLEADOS o|--o{ JEFATURAS : "FK_JEFATURA_RESP"
+  USUARIOS o|--o{ MUNICIPIOS_GT : "FK_MUNICIPIOS_GT_CREADOR"
+  DEPARTAMENTOS_GT ||--o{ MUNICIPIOS_GT : "FK_MUNICIPIOS_GT_DEP"
+  USUARIOS o|--o{ MUNICIPIOS_GT : "FK_MUNICIPIOS_GT_EDITOR"
+  NOMINA_EMPLEADO ||--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_1"
+  EMPLEADOS ||--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_2"
+  PERIODOS_NOMINA ||--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_3"
+  CONCEPTOS_NOMINA ||--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_4"
+  COMISIONES o|--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_5"
+  HORAS_EXTRA o|--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_6"
+  AUSENCIAS o|--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_7"
+  DESCUENTOS_APLICACIONES o|--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_8"
+  USUARIOS o|--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_CREADOR"
+  USUARIOS o|--o{ NOMINA_DETALLE : "FK_NOMINA_DETALLE_EDITOR"
+  PERIODOS_NOMINA ||--o{ NOMINA_EMPLEADO : "FK_NOMINA_EMPLEADO_1"
+  EMPLEADOS ||--o{ NOMINA_EMPLEADO : "FK_NOMINA_EMPLEADO_2"
+  HISTORIAL_SALARIAL ||--o{ NOMINA_EMPLEADO : "FK_NOMINA_EMPLEADO_3"
+  USUARIOS o|--o{ NOMINA_EMPLEADO : "FK_NOMINA_EMPLEADO_CREADOR"
+  USUARIOS o|--o{ NOMINA_EMPLEADO : "FK_NOMINA_EMPLEADO_EDITOR"
+  HISTORIAL_SALARIAL ||--o{ NOMINA_EMPLEADO : "FK_NOMINA_SALARIO_PERSONA"
+  NOMINA_EMPLEADO ||--o{ NOMINA_PARAMETROS : "FK_NOMINA_PARAMETROS_1"
+  PARAMETROS_LEGALES ||--o{ NOMINA_PARAMETROS : "FK_NOMINA_PARAMETROS_2"
+  USUARIOS o|--o{ NOMINA_PARAMETROS : "FK_NOMINA_PARAMETROS_CREADOR"
+  USUARIOS o|--o{ NOMINA_PARAMETROS : "FK_NOMINA_PARAMETROS_EDITOR"
+  USUARIOS ||--o{ NOTIFICACIONES : "FK_NOTIFICACIONES_1"
+  SOLICITUDES o|--o{ NOTIFICACIONES : "FK_NOTIFICACIONES_2"
+  DOCUMENTOS_GENERADOS o|--o{ NOTIFICACIONES : "FK_NOTIFICACIONES_3"
+  ANUNCIOS o|--o{ NOTIFICACIONES : "FK_NOTIFICACIONES_4"
+  EVENTOS o|--o{ NOTIFICACIONES : "FK_NOTIFICACIONES_5"
+  USUARIOS o|--o{ NOTIFICACIONES : "FK_NOTIFICACIONES_CREADOR"
+  USUARIOS o|--o{ NOTIFICACIONES : "FK_NOTIFICACIONES_EDITOR"
+  AUSENCIAS o|--o{ NOVEDADES_MENSUALES : "FK_NOV_MES_AUS"
+  EMPLEADOS ||--o{ NOVEDADES_MENSUALES : "FK_NOV_MES_EMP"
+  NOMINA_EMPLEADO o|--o{ NOVEDADES_MENSUALES : "FK_NOV_MES_PAGO"
+  PARQUEO_SUSCRIPCIONES o|--o{ NOVEDADES_MENSUALES : "FK_NOV_MES_PAR"
+  NOVEDADES_MENSUALES ||--o{ NOVEDADES_ORIGEN : "FK_NOV_ORIGEN"
+  EMPLEADOS ||--o{ PAGOS_NOMINA : "FK_PAGO_PERSONA"
+  NOMINA_EMPLEADO ||--o{ PAGOS_NOMINA : "FK_PAGO_RESULTADO"
+  USUARIOS o|--o{ PARAMETROS_LEGALES : "FK_PARAMETROS_LEGALES_CREADOR"
+  USUARIOS o|--o{ PARAMETROS_LEGALES : "FK_PARAMETROS_LEGALES_EDITOR"
+  USUARIOS o|--o{ PARENTESCOS : "FK_PARENTESCOS_CREADOR"
+  USUARIOS o|--o{ PARENTESCOS : "FK_PARENTESCOS_EDITOR"
+  DESCUENTOS_EMPLEADO o|--o{ PARQUEO_SUSCRIPCIONES : "FK_PARQUEO_SUSC_DES"
+  EMPLEADOS ||--o{ PARQUEO_SUSCRIPCIONES : "FK_PARQUEO_SUSC_EMP"
+  SOLICITUDES o|--o{ PARQUEO_SUSCRIPCIONES : "FK_PARQUEO_SUSC_SOL"
+  USUARIOS o|--o{ PERIODOS_NOMINA : "FK_PERIODOS_NOMINA_1"
+  USUARIOS o|--o{ PERIODOS_NOMINA : "FK_PERIODOS_NOMINA_2"
+  USUARIOS o|--o{ PERIODOS_NOMINA : "FK_PERIODOS_NOMINA_CREADOR"
+  USUARIOS o|--o{ PERIODOS_NOMINA : "FK_PERIODOS_NOMINA_EDITOR"
+  TIPOS_SOLICITUD ||--o{ PLANTILLAS_DOCUMENTO : "FK_PLANTILLAS_DOCUMENTO_1"
+  USUARIOS o|--o{ PLANTILLAS_DOCUMENTO : "FK_PLANTILLAS_DOCUMENTO_CREADOR"
+  USUARIOS o|--o{ PLANTILLAS_DOCUMENTO : "FK_PLANTILLAS_DOCUMENTO_EDITOR"
+  EMPLEADOS ||--o{ PRESTACIONES : "FK_PRESTACIONES_1"
+  PERIODOS_NOMINA o|--o{ PRESTACIONES : "FK_PRESTACIONES_2"
+  USUARIOS o|--o{ PRESTACIONES : "FK_PRESTACIONES_APROBADOR"
+  USUARIOS o|--o{ PRESTACIONES : "FK_PRESTACIONES_CREADOR"
+  USUARIOS o|--o{ PRESTACIONES : "FK_PRESTACIONES_EDITOR"
+  NOMINA_EMPLEADO o|--o{ PRESTACIONES : "FK_PRESTACION_BOLETA"
+  PRESTACIONES ||--o{ PRESTACION_DETALLE : "FK_PRESTACION_DETALLE_1"
+  USUARIOS o|--o{ PRESTACION_DETALLE : "FK_PRESTACION_DETALLE_CREADOR"
+  USUARIOS o|--o{ PRESTACION_DETALLE : "FK_PRESTACION_DETALLE_EDITOR"
+  DESCUENTOS_EMPLEADO ||--o{ PRESTAMOS : "FK_PRESTAMOS_1"
+  EMPLEADOS ||--o{ PRESTAMOS : "FK_PRESTAMOS_2"
+  USUARIOS o|--o{ PRESTAMOS : "FK_PRESTAMOS_CREADOR"
+  USUARIOS o|--o{ PRESTAMOS : "FK_PRESTAMOS_EDITOR"
+  DEPARTAMENTOS ||--o{ PUESTOS : "FK_PUESTOS_1"
+  USUARIOS o|--o{ PUESTOS : "FK_PUESTOS_CREADOR"
+  USUARIOS o|--o{ PUESTOS : "FK_PUESTOS_EDITOR"
+  USUARIOS o|--o{ REGISTRO_CODIGOS : "FK generada"
+  USUARIOS o|--o{ REGISTRO_CODIGOS : "FK generada"
+  CONFIG_CODIGOS ||--o{ REGISTRO_CODIGOS : "FK generada"
+  USUARIOS o|--o{ ROLES : "FK_ROLES_CREADOR"
+  USUARIOS o|--o{ ROLES : "FK_ROLES_EDITOR"
+  USUARIOS o|--o{ SECUENCIAS_CODIGOS : "FK generada"
+  USUARIOS o|--o{ SECUENCIAS_CODIGOS : "FK generada"
+  CONFIG_CODIGOS ||--o{ SECUENCIAS_CODIGOS : "FK generada"
+  USUARIOS ||--o{ SESIONES : "FK_SESIONES_1"
+  USUARIOS o|--o{ SESIONES : "FK_SESIONES_CREADOR"
+  USUARIOS o|--o{ SESIONES : "FK_SESIONES_EDITOR"
+  EMPLEADOS ||--o{ SOLICITUDES : "FK_SOLICITUDES_1"
+  TIPOS_SOLICITUD ||--o{ SOLICITUDES : "FK_SOLICITUDES_2"
+  USUARIOS o|--o{ SOLICITUDES : "FK_SOLICITUDES_3"
+  USUARIOS o|--o{ SOLICITUDES : "FK_SOLICITUDES_CREADOR"
+  USUARIOS o|--o{ SOLICITUDES : "FK_SOLICITUDES_EDITOR"
+  SOLICITUDES ||--o{ SOLICITUD_HISTORIAL : "FK_SOLICITUD_HISTORIAL_1"
+  USUARIOS ||--o{ SOLICITUD_HISTORIAL : "FK_SOLICITUD_HISTORIAL_2"
+  USUARIOS o|--o{ SOLICITUD_HISTORIAL : "FK_SOLICITUD_HISTORIAL_CREADOR"
+  USUARIOS o|--o{ SOLICITUD_HISTORIAL : "FK_SOLICITUD_HISTORIAL_EDITOR"
+  USUARIOS o|--o{ TIPOS_AUSENCIA : "FK_TIPOS_AUSENCIA_CREADOR"
+  USUARIOS o|--o{ TIPOS_AUSENCIA : "FK_TIPOS_AUSENCIA_EDITOR"
+  USUARIOS o|--o{ TIPOS_CONTRATO : "FK_TIPOS_CONTRATO_CREADOR"
+  USUARIOS o|--o{ TIPOS_CONTRATO : "FK_TIPOS_CONTRATO_EDITOR"
+  USUARIOS o|--o{ TIPOS_DEDUCCION_ISR : "FK_TIPOS_DEDUCCION_ISR_CREADOR"
+  USUARIOS o|--o{ TIPOS_DEDUCCION_ISR : "FK_TIPOS_DEDUCCION_ISR_EDITOR"
+  USUARIOS o|--o{ TIPOS_DESCUENTO : "FK_TIPOS_DESCUENTO_CREADOR"
+  USUARIOS o|--o{ TIPOS_DESCUENTO : "FK_TIPOS_DESCUENTO_EDITOR"
+  USUARIOS o|--o{ TIPOS_SOLICITUD : "FK_TIPOS_SOLICITUD_CREADOR"
+  USUARIOS o|--o{ TIPOS_SOLICITUD : "FK_TIPOS_SOLICITUD_EDITOR"
+  USUARIOS o|--o{ TRAMOS_ISR : "FK_TRAMOS_ISR_CREADOR"
+  USUARIOS o|--o{ TRAMOS_ISR : "FK_TRAMOS_ISR_EDITOR"
+  ROLES ||--o{ USUARIOS : "FK_USUARIOS_1"
+  USUARIOS o|--o{ USUARIOS : "FK_USUARIOS_CREADOR"
+  USUARIOS o|--o{ USUARIOS : "FK_USUARIOS_EDITOR"
+  EMPLEADOS ||--o{ VACACIONES_MOVIMIENTOS : "FK_VACACIONES_MOVIMIENTOS_1"
+  VACACIONES_SOLICITUDES o|--o{ VACACIONES_MOVIMIENTOS : "FK_VACACIONES_MOVIMIENTOS_2"
+  USUARIOS o|--o{ VACACIONES_MOVIMIENTOS : "FK_VACACIONES_MOVIMIENTOS_CREADOR"
+  USUARIOS o|--o{ VACACIONES_MOVIMIENTOS : "FK_VACACIONES_MOVIMIENTOS_EDITOR"
+  USUARIOS o|--o{ VACACIONES_SOLICITUDES : "FK_VACACIONES_CANCELADO"
+  EMPLEADOS ||--o{ VACACIONES_SOLICITUDES : "FK_VACACIONES_SOLICITUDES_1"
+  USUARIOS o|--o{ VACACIONES_SOLICITUDES : "FK_VACACIONES_SOLICITUDES_2"
+  USUARIOS o|--o{ VACACIONES_SOLICITUDES : "FK_VACACIONES_SOLICITUDES_CREADOR"
+  USUARIOS o|--o{ VACACIONES_SOLICITUDES : "FK_VACACIONES_SOLICITUDES_EDITOR"
+  SOLICITUDES ||--o{ VACACIONES_SOLICITUDES : "FK_VACACIONES_TRAMITE"
+```
+
+<!-- EXPORTACION_ERD_FIN -->
+
 # Modelo Oracle — FASE 1
 
 54 tablas de negocio, más `VERSION_ESQUEMA` y `PRUEBA_INFRAESTRUCTURA` conservadas de FASE 0.
@@ -510,7 +1108,8 @@ erDiagram
 ## 9. Vacaciones
 
 Migraciones: [V009__vacaciones.sql](../db/migrations/V009__vacaciones.sql) y
-[V015__vacaciones_saldo_inicial.sql](../db/migrations/V015__vacaciones_saldo_inicial.sql).
+[V015__vacaciones_saldo_inicial.sql](../db/migrations/V015__vacaciones_saldo_inicial.sql) y
+[V026__vacaciones_deterministas_cancelacion.sql](../db/migrations/V026__vacaciones_deterministas_cancelacion.sql).
 
 ```mermaid
 erDiagram
@@ -520,6 +1119,9 @@ erDiagram
         DATE FECHA_INICIO
         DATE FECHA_FIN
         NUMBER RESUELTO_POR FK
+        NUMBER CANCELADO_POR FK
+        DATE CANCELADO_EN
+        VARCHAR2 MOTIVO_CANCELACION
         NUMBER ID_SOLICITUD FK
     }
     VACACIONES_MOVIMIENTOS {
@@ -532,7 +1134,7 @@ erDiagram
         VARCHAR2 CLAVE_ORIGEN
     }
     EMPLEADOS ||--o{ VACACIONES_SOLICITUDES : "ID_EMPLEADO"
-    USUARIOS ||--o{ VACACIONES_SOLICITUDES : "RESUELTO_POR"
+    USUARIOS ||--o{ VACACIONES_SOLICITUDES : "RESUELTO_POR, CANCELADO_POR"
     SOLICITUDES ||--o{ VACACIONES_SOLICITUDES : "ID_SOLICITUD, ID_EMPLEADO"
     EMPLEADOS ||--o{ VACACIONES_MOVIMIENTOS : "ID_EMPLEADO"
     VACACIONES_SOLICITUDES ||--o{ VACACIONES_MOVIMIENTOS : "ID_VACACIONES_SOLICITUD, ID_EMPLEADO"
@@ -930,3 +1532,430 @@ UNIQUE. No modifica tablas, relaciones ni migraciones anteriores. Los filtros ha
 en `db/filtros.json`; `db:verify` comprueba sus índices y las 21 migraciones V000–V020.
 CONFIGURACION_EMPRESA se administra desde el catálogo Datos de empresa; mantiene una sola empresa
 activa. El formato IGSS existente y snapshots de documentos no se sobrescriben al editar sus datos.
+
+## V1-3 — Identificadores automáticos (V021)
+
+V021 conserva PK, FK y snapshots; renumera los once catálogos con código editable de v0,
+`TIPOS_SOLICITUD`, empleados y las cinco entidades transaccionales indicadas en A4.
+`CODIGO_ANTERIOR` conserva el valor previo; es nulo en entidades que no tenían código.
+Los empleados se recorren por `FECHA_INGRESO, ID_EMPLEADO`. Las transacciones se numeran
+por año de `FECHA_CREACION` y por fecha/id, incluyendo registros inactivos.
+
+```mermaid
+erDiagram
+    CONFIG_CODIGOS ||--o{ SECUENCIAS_CODIGOS : configura
+    CONFIG_CODIGOS ||--o{ REGISTRO_CODIGOS : reserva
+    CONFIG_CODIGOS {
+        number ID_CONFIG_CODIGO PK
+        varchar ENTIDAD UK
+        varchar PREFIJO
+        number LONGITUD_MAXIMA
+        varchar PATRON
+    }
+    SECUENCIAS_CODIGOS {
+        number ID_SECUENCIA_CODIGO PK
+        varchar ENTIDAD FK
+        varchar AMBITO "UNIQUE entidad/ámbito"
+        number ULTIMO_NUMERO
+    }
+    REGISTRO_CODIGOS {
+        number ID_REGISTRO_CODIGO PK
+        varchar ENTIDAD FK
+        varchar CODIGO "UNIQUE entidad/código"
+        varchar LEGADO
+    }
+```
+
+Estas tres tablas de infraestructura tienen identity ALWAYS, auditoría y FKs indexadas.
+`N2_CODIGOS.ASIGNAR` crea el contador tolerando su creación simultánea, bloquea su fila
+con `SELECT ... FOR UPDATE` y registra la reserva dentro de la transacción llamante.
+No usa transacciones autónomas ni commits internos. El rollback revierte contador y reserva.
+El ámbito es GENERAL para catálogos, ID de departamento para empleados y año para transacciones.
+La reserva permanece tras eliminación física, impidiendo reutilización de identificadores.
+Los triggers de las entidades asignan el código al insertar y prohíben modificarlo después,
+independientemente del cliente. UNIQUE protege cada tabla; parámetros conserva UNIQUE por
+código/vigencia, compartiendo identidad entre sus versiones.
+
+Los parámetros tienen `CLAVE_INTERNA` inmutable: V021 copia su clave original y las altas
+la derivan automáticamente del nombre completo normalizado (p. ej. Salario mínimo mensual →
+SALARIO_MINIMO_MENSUAL). Sus nuevas vigencias heredan la clave y el código. Los cálculos
+consultan esa clave; los tipos de trámite conservan la referencia semántica mediante
+`NVL(CODIGO_ANTERIOR,CODIGO)`. Los seeds buscan también por dicha clave, conservando su idempotencia.
+Los códigos de roles, conceptos de nómina, plantillas y las referencias oficiales de IGSS
+no son identificadores introducidos por los formularios de A4 y conservan su significado.
+
+## Ubicaciones de Guatemala — V022 (FASE V1-4)
+
+```mermaid
+erDiagram
+  DEPARTAMENTOS_GT ||--|{ MUNICIPIOS_GT : contiene
+  DEPARTAMENTOS_GT o|--o{ CENTROS_TRABAJO : departamento_confirmado
+  MUNICIPIOS_GT o|--o{ CENTROS_TRABAJO : municipio_confirmado
+  MUNICIPIOS_GT o|--o{ CENTROS_TRABAJO : coincidencia_propuesta
+  DEPARTAMENTOS_GT {
+    number ID_DEPARTAMENTO_GT PK
+    varchar CODIGO_INE UK "2 posiciones"
+    varchar NOMBRE UK
+  }
+  MUNICIPIOS_GT {
+    number ID_MUNICIPIO_GT PK
+    number ID_DEPARTAMENTO_GT FK
+    varchar CODIGO_INE UK "4 posiciones"
+    varchar NOMBRE
+  }
+  CENTROS_TRABAJO {
+    number ID_CENTRO_TRABAJO PK
+    number ID_DEPARTAMENTO_GT FK
+    number ID_MUNICIPIO_GT FK
+    number ID_MUNICIPIO_GT_PROPUESTO FK
+    varchar LOCALIDAD_ANTERIOR "Referencia histórica inalterada"
+    varchar LOCALIDAD "Compatibilidad con feriados v0"
+  }
+```
+
+PK identity ALWAYS y códigos INE únicos; municipio único por departamento/nombre y por
+par ID_MUNICIPIO_GT/ID_DEPARTAMENTO_GT. La FK compuesta de centros y CHECK ambos-nulos/o-ambos
+impiden pares cruzados/parciales. Las referencias se admiten nulas para históricos pendientes;
+la API exige ambas para altas/ediciones. Todas las FKs/filtros están indexados. Los dos catálogos
+incluyen auditoría y ACTIVO, sin endpoints de escritura. S006 idempotente carga 22/340 desde
+la fuente íntegra versionada en db/data/ine, conservando nombres y códigos del INE.
+
+## V023 — Identidad privada y firma de documentos
+
+```mermaid
+erDiagram
+  CONFIGURACION_EMPRESA ||--|| IDENTIDAD_EMPRESA : amplia
+  USUARIOS ||--o{ FIRMAS_DOCUMENTO : aprueba
+  USUARIOS ||--o{ DOCUMENTOS_GENERADOS : firma
+  EMPLEADOS ||--o{ CONSTANCIAS_SALARIO_PDF : recibe
+  USUARIOS ||--o{ CONSTANCIAS_SALARIO_PDF : aprueba
+  IDENTIDAD_EMPRESA {
+    number ID_IDENTIDAD_EMPRESA PK
+    number ID_CONFIGURACION_EMPRESA FK,UK
+    varchar NOMBRE_COMERCIAL
+    varchar SITIO_WEB
+    blob LOGO_PNG "Privado, normalizado sin metadatos"
+    varchar LOGO_SHA256
+    number VERSION
+  }
+  FIRMAS_DOCUMENTO {
+    number ID_FIRMA_DOCUMENTO PK
+    varchar ENTIDAD "PERIODOS_NOMINA o PRESTACIONES"
+    number ID_REGISTRO "Único junto con entidad"
+    number ID_USUARIO FK
+    varchar NOMBRE "Snapshot del expediente"
+    varchar CARGO "Snapshot del puesto"
+    date APROBADO_EN
+  }
+  DOCUMENTOS_GENERADOS {
+    number APROBADO_POR FK
+    date APROBADO_EN
+    varchar FIRMANTE_NOMBRE
+    varchar FIRMANTE_CARGO
+    number VERSION_MEMBRETE
+  }
+  CONSTANCIAS_SALARIO_PDF {
+    number ID_CONSTANCIA_SALARIO_PDF PK
+    number ID_EMPLEADO FK
+    number APROBADO_POR FK
+    date APROBADO_EN
+    varchar FIRMANTE_NOMBRE
+    varchar FIRMANTE_CARGO
+    number VERSION_MEMBRETE
+    blob CONTENIDO_PDF
+    varchar SHA256
+  }
+```
+
+Las tres tablas incluyen auditoría y ACTIVO, PK identity ALWAYS y FKs indexadas. Se migra cada
+configuración existente sin alterar sus claves ni FORMATO_IGSS. Las firmas históricas recuperables
+usan el aprobador/fecha ya registrados y su expediente/puesto; no se inventan identidades faltantes.
+Las plantillas activas se versionan, preservando originales y archivos emitidos. Las columnas
+antiguas de firma quedan únicamente como datos históricos de la configuración; la aplicación ya
+no las consulta ni las ofrece para captura. Las constancias de salario guardan archivo/huella y
+aprobación en la misma transacción de auditoría. Los PDFs de solicitudes se versionan al reemitir.
+
+## V1-6 — Horarios por bloques (V024)
+
+```mermaid
+erDiagram
+    HORARIOS ||--o{ HORARIO_BLOQUES : contiene
+    HORARIO_BLOQUES ||--|{ HORARIO_BLOQUE_DIAS : trabaja
+    HORARIOS ||--o{ EMPLEADO_HORARIO : asignado
+    EMPLEADOS ||--o{ EMPLEADO_HORARIO : conserva_vigencias
+    HORARIO_BLOQUES {
+        NUMBER ID_HORARIO_BLOQUE PK
+        NUMBER ID_HORARIO FK
+        NUMBER MINUTO_ENTRADA
+        NUMBER MINUTO_SALIDA
+        NUMBER CRUZA_MEDIANOCHE
+        NUMBER MINUTOS_DESCANSO
+    }
+    HORARIO_BLOQUE_DIAS {
+        NUMBER ID_HORARIO_BLOQUE_DIA PK
+        NUMBER ID_HORARIO_BLOQUE FK
+        NUMBER DIA_SEMANA
+    }
+```
+
+Ambas tablas incluyen auditoría, ACTIVO, identities ALWAYS, CHECK e índices de FK/filtros.
+UNIQUE bloque/día evita repetidos. V024 agrupa tiempos v0 idénticos y mantiene `HORARIO_DIAS`
+como archivo; no cambia códigos, asignaciones, tiempos exactos, jornada histórica ni snapshots.
+Las lecturas operativas expanden bloques/días y generan los descansos que no tienen bloque.
+Para horas extra se suman los minutos efectivos de todos los bloques de cada día de entrada.
+Los solapes y límites vigentes se verifican en servicio dentro del bloqueo común de catálogos y empleados.
+Las 61 tablas de negocio quedan cubiertas por `db/filtros.json` y `db:verify`.
+
+## V1-7 — Empleados automatizados (V025)
+
+```mermaid
+erDiagram
+    DEPARTAMENTOS_GT ||--o{ EMPLEADOS : residencia
+    MUNICIPIOS_GT ||--o{ EMPLEADOS : municipio_del_departamento
+    USUARIOS |o--o| EMPLEADOS : acceso_automatico
+    PARENTESCOS {
+        NUMBER ID_PARENTESCO PK
+        VARCHAR NOMBRE UK
+        NUMBER ACTIVO
+    }
+    EMPLEADOS {
+        NUMBER ID_DEPARTAMENTO_GT FK
+        NUMBER ID_MUNICIPIO_GT FK
+        NUMBER ZONA
+        VARCHAR NUMERO_CASA
+        VARCHAR DIRECCION_ANTERIOR
+        VARCHAR SEXO_ANTERIOR
+    }
+    EMPLEADO_CONTACTOS_EMERGENCIA {
+        VARCHAR PARENTESCO
+        VARCHAR PARENTESCO_ANTERIOR
+    }
+    TIPOS_CONTRATO {
+        NUMBER REQUIERE_FECHA_FIN
+    }
+```
+
+PARENTESCOS contiene las 12 opciones A8, identity ALWAYS, auditoría, CHECK y FKs de actor indexadas.
+El servicio valida el nombre exacto contra este catálogo de lectura; el texto histórico se conserva.
+FK compuesta en EMPLEADOS impide cruzar municipio/departamento. Zona y casa tienen CHECK;
+la API exige ubicación/casa y zona en 0101. DIRECCION se deriva para consumidores documentales v0.
+No se asignan ubicaciones ficticias a históricos: DIRECCION_ANTERIOR conserva todo el texto.
+SEXO_ANTERIOR preserva el valor original; antiguos O quedan pendientes (NULL), sin reinterpretarlos.
+REQUIERE_FECHA_FIN es la bandera operativa; REQUIERE_FIN queda sincronizado por trigger como alias
+para seeds/herramientas históricas. Obra determinada requiere fecha final en nuevas escrituras.
+Las altas nuevas siempre vinculan usuario en la misma transacción. Históricos sin cuenta conservan
+su vínculo previo. Contraseñas/PDF no se persisten; se devuelve solo la entrega inicial en memoria.
+Las 62 tablas se verifican con db:verify; V000–V024 permanecen intactas.
+
+## Vacaciones deterministas y cancelación — V1-8
+
+V026 añade CANCELADO_POR (FK indexada a USUARIOS), CANCELADO_EN y MOTIVO_CANCELACION a
+VACACIONES_SOLICITUDES. Conserva CREADO_POR/FECHA_CREACION y RESUELTO_POR/RESUELTO_EN:
+cancelar no sobrescribe aprobación. SOLICITUDES admite CANCELADA; SOLICITUD_HISTORIAL registra
+APROBADA → CANCELADA con actor/fecha/motivo. Los nuevos campos tienen CHECK de integridad.
+
+VACACIONES_MOVIMIENTOS conserva ACUMULACION v0 como respaldo. AJUSTE MIGRACION_V1_8 compensa
+diferencias al corte sin alterar solicitudes/snapshots/débitos. DISFRUTE SOLICITUD:id reserva al
+aprobar; REVERSO CANCELACION:id devuelve exactamente el débito. UNIQUE empleado/clave protege
+idempotencia. El saldo y los solicitables son derivados, sin nuevas tablas ni acumulación materializada.
+
+## V1-9 — Novedades mensuales y suscripciones (V027–V028)
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ NOVEDADES_MENSUALES : recibe
+  NOMINA_EMPLEADO ||--o{ NOVEDADES_MENSUALES : aplica
+  AUSENCIAS ||--o{ NOVEDADES_MENSUALES : desglosa_por_mes
+  NOVEDADES_MENSUALES ||--o{ NOVEDADES_ORIGEN : conserva
+  EMPLEADOS ||--o{ PARQUEO_SUSCRIPCIONES : solicita
+  SOLICITUDES ||--o| PARQUEO_SUSCRIPCIONES : aprueba
+  DESCUENTOS_EMPLEADO ||--o| PARQUEO_SUSCRIPCIONES : origen_v0
+  PARQUEO_SUSCRIPCIONES ||--o{ NOVEDADES_MENSUALES : cargo_mensual
+  PARQUEO_TARIFAS {
+    number ID_PARQUEO_TARIFA PK
+    varchar VEHICULO "CARRO o MOTO"
+    number MONTO
+    date VIGENTE_DESDE
+    date VIGENTE_HASTA
+  }
+  PARQUEO_SUSCRIPCIONES {
+    number ID_PARQUEO_SUSCRIPCION PK
+    number ID_EMPLEADO FK
+    number ID_SOLICITUD FK
+    number ID_DESCUENTO_ORIGEN FK
+    varchar VEHICULO "nullable solo legado por completar"
+    varchar PLACA
+    date MES_INICIO
+    date MES_FIN "último mes cobrado completo"
+    varchar ESTADO "ACTIVA, BAJA, SUSPENDIDA"
+    number BAJA_SOLICITADA
+    number MONTO_ANTERIOR "cuota v0 de referencia"
+  }
+  NOVEDADES_MENSUALES {
+    number ID_NOVEDAD_MENSUAL PK
+    number ID_EMPLEADO FK
+    varchar TIPO "HORAS_EXTRA, COMISION, CONSUMO_TIENDA, AUSENCIA, PARQUEO"
+    date MES "primer día del mes"
+    number CANTIDAD "horas, días o unidad"
+    number MONTO "nullable histórico aún sin valoración"
+    number VALOR_UNITARIO
+    number RECARGO
+    varchar REFERENCIA
+    varchar CLAVE_REFERENCIA UK "cargas v1: clase/empleado/mes/referencia; NULL legado"
+    varchar DESCRIPCION
+    varchar AUTORIZACION "preserva autorización v0 y de ausencias"
+    varchar ESTADO "PENDIENTE o APLICADA"
+    number ID_NOMINA_EMPLEADO FK
+    number ID_AUSENCIA FK
+    number ID_PARQUEO_SUSCRIPCION FK
+  }
+  NOVEDADES_ORIGEN {
+    number ID_NOVEDAD_ORIGEN PK
+    number ID_NOVEDAD_MENSUAL FK
+    varchar ENTIDAD
+    number ID_ORIGEN
+  }
+```
+
+Las cuatro tablas tienen identity ALWAYS, auditoría, ACTIVO e índices de FK/filtros. Índices
+UNIQUE condicionales evitan la colisión de claves parcialmente NULL en Oracle: cargo por
+suscripción/mes, ausencia/mes/pago y horas pendientes por empleado/mes. V028 agrega CLAVE_REFERENCIA
+para cargas v1 por clase/empleado/mes; las referencias históricas repetidas conservan su texto/origen.
+La FK
+compuesta (pago, empleado) impide aplicar una novedad a otra persona. Estado/pago tienen CHECK
+coherente. SOLICITUDES añade VEHICULO/PLACA. Se agrega HORAS_EXTRA_TOPE_MENSUAL como parámetro
+operativo vigente. V027 migra orígenes y snapshots sin alterar las tablas/migraciones anteriores;
+los cobros de parqueo v0 conservan todas sus aplicaciones a través de NOVEDADES_ORIGEN.
+
+## V1-10: identidad del pago y boleta archivada
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ PAGOS_NOMINA : recibe
+  PERIODOS_NOMINA ||--o{ NOMINA_EMPLEADO : contiene
+  NOMINA_EMPLEADO ||--o| PAGOS_NOMINA : referencia_vigente
+  NOMINA_EMPLEADO ||--o| BOLETAS_PAGO : archiva
+  NOMINA_EMPLEADO ||--o{ NOVEDADES_MENSUALES : aplica
+  PAGOS_NOMINA {
+    number ID_PAGO_NOMINA PK
+    number ID_EMPLEADO FK
+    date MES "UNIQUE empleado-mes-tipo"
+    string TIPO_PAGO "ANTICIPO o PAGO"
+    number ID_NOMINA_EMPLEADO FK
+    string ESTADO "PAGADO o REVERTIDO"
+    string MOTIVO_REVERSION
+    number REVERTIDO_POR
+    date REVERTIDO_EN
+  }
+  BOLETAS_PAGO {
+    number ID_BOLETA_PAGO PK
+    number ID_NOMINA_EMPLEADO FK "UNIQUE"
+    blob CONTENIDO_PDF
+    string SHA256
+  }
+```
+
+V029 agrega MOTOR V0/V1 a PERIODOS_NOMINA, PERIODICIDAD mensual/FECHA_FIN_ANTERIOR a descuentos
+(incluidos préstamos) y FECHA_VENCIMIENTO_ANTERIOR a cuotas. Guarda PDFs y versiones anteriores al
+revertir/reemitir un pago; la referencia UNIQUE se actualiza al volver a pagar. No altera snapshots v0.
+
+## V1-11 — Prestaciones automáticas (V030)
+
+```mermaid
+erDiagram
+  NOMINA_EMPLEADO ||--o| PRESTACIONES : acredita_pago_anual
+  PRESTACIONES {
+    number ID_PRESTACION PK
+    number ID_NOMINA_EMPLEADO FK "nullable, UNIQUE; históricos conservados"
+  }
+```
+
+PAGOS_NOMINA admite ANTICIPO, PAGO, BONO_14 y AGUINALDO conservando UNIQUE empleado/mes/tipo.
+Las prestaciones anuales conservan fuente/detalle/exención y enlazan su boleta BLOB inmutable.
+PRESTACIONES_DIAS_ANIO parametriza el divisor de proporcionalidad. No se modifica V000–V029.
+
+## R2-4 — Nombres de catálogos y correcciones
+
+V031 añade `NOMBRE_NORMALIZADO` a los catálogos con nombre, con UNIQUE por catálogo (por vigencia
+para parámetros/conceptos, por departamento para municipios oficiales). `CONCEPTOS_NOMINA` y
+`TIPOS_DEDUCCION_ISR` conservan códigos anteriores y permiten códigos automáticos en altas.
+Los nombres anteriores de las filas duplicadas se conservan sin alterar PK/FK:
+
+```mermaid
+erDiagram
+  CATALOGOS_NOMBRES_CORREGIDOS {
+    NUMBER ID_CATALOGO_NOMBRE_CORREGIDO PK
+    VARCHAR2 TABLA
+    NUMBER ID_REGISTRO
+    VARCHAR2 NOMBRE_ANTERIOR
+    VARCHAR2 NOMBRE_NUEVO
+    DATE FECHA
+    NUMBER CREADO_POR FK
+    NUMBER MODIFICADO_POR FK
+  }
+  USUARIOS ||--o{ CATALOGOS_NOMBRES_CORREGIDOS : audita
+```
+
+TABLA/ID_REGISTRO identifican el registro corregido; no son una FK polimórfica. El reporte conserva
+la corrección aun si después ADMIN elimina físicamente un registro sin uso.
+
+V032 retira los UNIQUE exactos redundantes de nombres y conserva índices de nombre y la FK de municipio a departamento. Los UNIQUE normalizados de V031 siguen vigentes; el runner prepara V032 antes de V031 en instalaciones nuevas sin modificar su checksum aplicado.
+
+## R2-5 — Catálogos específicos de QA
+
+V033 agrega tres catálogos independientes vacíos, sin modificar las referencias históricas.
+Cada uno incluye código interno permanente, nombre/normalizado con UNIQUE, descripción,
+estado y las cinco columnas de auditoría habituales. CREADO_POR/MODIFICADO_POR referencian
+USUARIOS y tienen índices; CONFIG_CODIGOS y los triggers usan el generador transaccional existente.
+
+```mermaid
+erDiagram
+    USUARIOS ||--o{ MOTIVOS_BAJA : audita
+    USUARIOS ||--o{ ZONAS : audita
+    USUARIOS ||--o{ PAISES : audita
+    MOTIVOS_BAJA {
+        NUMBER ID_MOTIVO_BAJA PK
+        VARCHAR2 CODIGO UK
+        VARCHAR2 NOMBRE_NORMALIZADO UK
+        VARCHAR2 NOMBRE "50 caracteres"
+    }
+    ZONAS {
+        NUMBER ID_ZONA PK
+        VARCHAR2 CODIGO UK
+        VARCHAR2 NOMBRE_NORMALIZADO UK
+        VARCHAR2 NOMBRE "30 caracteres"
+        VARCHAR2 CODIGO_POSTAL "CHECK cinco digitos"
+    }
+    PAISES {
+        NUMBER ID_PAIS PK
+        VARCHAR2 CODIGO UK
+        VARCHAR2 NOMBRE_NORMALIZADO UK
+        VARCHAR2 NOMBRE "100 caracteres"
+        VARCHAR2 CODIGO_ISO UK "CHECK dos letras A-Z"
+    }
+```
+
+La zona domiciliaria 1–25 y MOTIVO_EGRESO de empleados conservan su significado y sus datos.
+No se infieren vínculos con estos nuevos catálogos ni se siembran países o códigos postales.
+
+## Ronda 2 — Asistente de empleados (V034)
+
+- `EMPLEADOS.NUMERO_CASA` se renombra a `DIRECCION VARCHAR2(100 CHAR)`, preservando sus valores.
+  El CHECK acepta letras, números, espacios y `. , # - / °`, con al menos una letra o número.
+- La anterior dirección compuesta de 500 caracteres se conserva como `DIRECCION_COMPLETA`;
+  `DIRECCION_ANTERIOR` permanece intacta. El portal y los documentos mantienen la dirección completa.
+- Salario y contacto opcionales se representan por ausencia de una vigencia en `HISTORIAL_SALARIAL`
+  y del contacto principal activo, respectivamente. No se crean montos cero ni contactos ficticios.
+  El estado «Perfil incompleto» y sus faltantes se calculan con esos datos, sin columna redundante.
+- `PARAMETROS_LEGALES.CLAVE_INTERNA = VALIDAR_DIGITO_NIT`: 0 por defecto; 1 activa módulo 11
+  para el NIT de empleado. Es una configuración de sistema editable solo por ADMIN, auditada y
+  ajena a los importes de periodos cerrados. La API conserva el NIT canónico con guion y el UNIQUE.
+
+## R2-8 — Categorías e índices del dashboard (V035)
+
+TIPOS_AUSENCIA incorpora CATEGORIA_INASISTENCIA (VARCHAR2(25), NOT NULL, CHECK de cuatro valores).
+Es independiente de EFECTO; el color se deriva en la API. Ausencias conserva su FK al tipo y
+todos sus días/importes. Se reconoce INJUSTIFICADA y se incorpora el nuevo tipo sin justificación.
+No se agregan tablas ni se modifican snapshots. Índices nuevos: IX_TA_CATEGORIA, IX_AUS_TABLERO,
+IX_VAC_TABLERO, IX_PAGO_TABLERO, IX_EMP_CUMPLE e IX_EMP_ANIVERSARIO.
+Contrato, filtros y semántica histórica en [DASHBOARD_RH.md](DASHBOARD_RH.md).

@@ -5,6 +5,7 @@ const errorSchema = z.object({
     codigo: z.string(),
     mensaje: z.string(),
     campos: z.record(z.array(z.string())).optional(),
+    duplicado: z.object({ id: z.number(), activo: z.boolean() }).optional(),
   }),
 });
 export class ErrorApi extends Error {
@@ -13,21 +14,39 @@ export class ErrorApi extends Error {
     public codigo: string,
     mensaje: string,
     public campos?: Record<string, string[]>,
+    public duplicado?: { id: number; activo: boolean },
   ) {
     super(mensaje);
   }
 }
 let csrf: string | undefined;
+let generacionSesion = 0;
 let recuperando: Promise<void> | undefined;
 export const guardarCsrf = (token?: string) => {
   csrf = token;
+  generacionSesion++;
 };
-async function recuperarCsrf() {
+async function recuperarCsrf(notificarSesion = true) {
   if (!recuperando)
     recuperando = (async () => {
-      const r = await solicitar('/auth/csrf', z.object({ csrfToken: z.string().min(1) }), {
-        notificarSesion: true,
-      });
+      const obtener = () =>
+        solicitar('/auth/csrf', z.object({ csrfToken: z.string().min(1) }), {
+          notificarSesion,
+        });
+      let r;
+      try {
+        r = await obtener();
+      } catch (error) {
+        // El servidor acaba de retirar las cookies vencidas. Solo el prelogin puede
+        // obtener ahora un token anónimo; nunca se repite la escritura de credenciales.
+        if (
+          notificarSesion ||
+          !(error instanceof ErrorApi) ||
+          !(error.estado === 401 || error.codigo === 'CSRF_INVALIDO')
+        )
+          throw error;
+        r = await obtener();
+      }
       csrf = r.csrfToken;
     })().finally(() => {
       recuperando = undefined;
@@ -47,7 +66,8 @@ export async function solicitar<T>(
   opciones: Opciones = {},
 ): Promise<T> {
   const method = opciones.method ?? 'GET';
-  if (method !== 'GET' && !csrf) await recuperarCsrf();
+  if (method !== 'GET' && !csrf) await recuperarCsrf(opciones.notificarSesion !== false);
+  const generacion = generacionSesion;
   const controller = new AbortController();
   const cancelar = () => controller.abort();
   if (opciones.signal?.aborted) cancelar();
@@ -68,6 +88,7 @@ export async function solicitar<T>(
       ...(opciones.body !== undefined ? { body: JSON.stringify(opciones.body) } : {}),
     });
     const cuerpo: unknown = await response.json();
+    if (controller.signal.aborted) throw new DOMException('Solicitud cancelada', 'AbortError');
     if (!response.ok) {
       const parseado = errorSchema.safeParse(cuerpo);
       const error = parseado.success
@@ -76,14 +97,17 @@ export async function solicitar<T>(
             parseado.data.error.codigo,
             parseado.data.error.mensaje,
             parseado.data.error.campos,
+            parseado.data.error.duplicado,
           )
         : new ErrorApi(
             response.status,
             'ERROR_HTTP',
             'No se pudo completar la solicitud. Intenta de nuevo.',
           );
-      if (error.codigo === 'CSRF_INVALIDO') guardarCsrf();
+      const sesionVigente = generacion === generacionSesion;
+      if (error.codigo === 'CSRF_INVALIDO' && sesionVigente) guardarCsrf();
       if (
+        sesionVigente &&
         opciones.notificarSesion !== false &&
         (response.status === 401 || (ruta === '/auth/csrf' && error.codigo === 'CSRF_INVALIDO')) &&
         error.codigo !== 'CREDENCIALES_INVALIDAS'

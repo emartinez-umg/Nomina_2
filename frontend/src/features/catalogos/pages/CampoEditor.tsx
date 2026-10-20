@@ -1,3 +1,16 @@
+import { InputField } from '../../../components/forms/Field';
+import {
+  validarCodigoPostal,
+  validarCodigoIso,
+  sanearCodigoPostal,
+  sanearCodigoIso,
+} from '../../../../../backend/src/shared/catalogos/formatos';
+import {
+  hintNombreCatalogo,
+  validarNombreCatalogo,
+  recortarNombreCatalogo,
+  sanearNombreCatalogo,
+} from '../../../../../backend/src/shared/catalogos/nombre';
 import { useEffect, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { Campo, Fila } from '../api/catalogos';
@@ -13,8 +26,8 @@ import {
   DateField,
   SelectField,
 } from '../../../components/forms';
-import { InputField } from '../../../components/forms/Field';
 import type { CampoProps } from '../../../components/forms/Field';
+import { SelectorEmpleado } from '../../../components/forms/SelectorEmpleado';
 import { Button } from '../../../components/ui/Button';
 export function Referencia({
   campo,
@@ -34,44 +47,88 @@ export function Referencia({
     getNextPageParam: (ultima, todas) => (ultima.length === 100 ? todas.length + 1 : undefined),
   });
   const lista = q.data?.pages.flat() ?? [];
-  if (props.value && !lista.some((o) => o.value === props.value))
+  if (
+    props.value &&
+    actual &&
+    String(actual[campo.nombre]) === props.value &&
+    !lista.some((o) => o.value === props.value)
+  )
     lista.unshift({
       value: props.value,
       label: String(actual?.[campo.nombre + 'Etiqueta'] ?? `Registro ${props.value}`),
     });
   return (
-    <div className="contents">
-      <SelectField {...props} opciones={lista} onBuscar={setBuscar} />
-      {q.hasNextPage && (
-        <div className="col-span-12">
-          <Button
-            icono="siguiente"
-            variante="texto"
-            cargando={q.isFetchingNextPage}
-            onClick={() => void q.fetchNextPage()}
-          >
-            Cargar más opciones de {campo.etiqueta}
-          </Button>
-        </div>
-      )}
-      {q.error && (
-        <p role="alert" className="campo-error col-span-12">
-          {q.error.message}
-          <Button icono="actualizar" variante="texto" onClick={() => void q.refetch()}>
-            Reintentar opciones
-          </Button>
-        </p>
-      )}
-    </div>
+    <SelectField
+      {...props}
+      opciones={lista}
+      onBuscar={setBuscar}
+      complemento={
+        <>
+          {q.hasNextPage && (
+            <div className="col-span-12">
+              <Button
+                icono="siguiente"
+                variante="texto"
+                cargando={q.isFetchingNextPage}
+                onClick={() => void q.fetchNextPage()}
+              >
+                Cargar más opciones de {campo.etiqueta}
+              </Button>
+            </div>
+          )}
+          {q.error && (
+            <p role="alert" className="campo-error col-span-12">
+              {q.error.message}
+              <Button icono="actualizar" variante="texto" onClick={() => void q.refetch()}>
+                Reintentar opciones
+              </Button>
+            </p>
+          )}
+        </>
+      }
+    />
   );
 }
 export function CampoEditor({
   campo,
   actual,
   minFecha,
+  departamentoId,
+  soloActivos,
   ...props
-}: CampoProps & { campo: Campo; actual?: Fila | undefined; minFecha?: string | undefined }) {
+}: CampoProps & {
+  campo: Campo;
+  actual?: Fila | undefined;
+  minFecha?: string | undefined;
+  departamentoId?: string | undefined;
+  soloActivos?: boolean;
+}) {
+  if (campo.nombre === 'nombre')
+    return (
+      <InputField
+        {...props}
+        hint={hintNombreCatalogo}
+        maxLength={campo.max ?? 120}
+        sanitizar={sanearNombreCatalogo}
+        alSalir={recortarNombreCatalogo}
+        validar={(v) => validarNombreCatalogo(v, campo.max)}
+        pattern={String.raw`[\p{L}\p{M}0-9 .,\-\/&\(\)']+`}
+      />
+    );
   switch (campo.tipo) {
+    case 'codigo-postal':
+    case 'codigo-iso':
+      return (
+        <InputField
+          {...props}
+          maxLength={campo.max!}
+          tipoDato="codigo"
+          inputMode={campo.tipo === 'codigo-postal' ? 'numeric' : 'text'}
+          pattern={campo.tipo === 'codigo-postal' ? '[0-9]{5}' : '[A-Z]{2}'}
+          sanitizar={campo.tipo === 'codigo-postal' ? sanearCodigoPostal : sanearCodigoIso}
+          validar={campo.tipo === 'codigo-postal' ? validarCodigoPostal : validarCodigoIso}
+        />
+      );
     case 'nit':
       return <NitField {...props} />;
     case 'correo':
@@ -81,6 +138,17 @@ export function CampoEditor({
     case 'nombre':
       return <TextField {...props} tipo="nombre" maxLength={campo.max ?? 200} />;
     case 'referencia':
+      if (campo.referencia === 'empleados')
+        return (
+          <SelectorEmpleado
+            {...props}
+            departamentoId={departamentoId}
+            soloActivos={soloActivos ?? true}
+            seleccionActual={
+              actual?.[campo.nombre] == null ? undefined : String(actual[campo.nombre])
+            }
+          />
+        );
       return <Referencia {...props} campo={campo} actual={actual} />;
     case 'fecha':
       return <DateField {...props} {...(minFecha ? { min: minFecha } : {})} />;
@@ -116,16 +184,7 @@ export function CampoEditor({
     case 'area':
       return <TextAreaField {...props} maxLength={campo.max ?? 500} />;
     case 'codigo':
-      return (
-        <InputField
-          {...props}
-          ancho="corto"
-          maxLength={campo.max ?? 40}
-          pattern="[A-Z][A-Z0-9_]*"
-          sanitizar={(v) => v.toUpperCase().replace(/[^A-Z0-9_]/g, '')}
-          placeholder="CODIGO_UNICO"
-        />
-      );
+      return null; // CampoCodigo recibe el contexto del formulario.
     default:
       return <TextField {...props} maxLength={campo.max ?? 120} />;
   }

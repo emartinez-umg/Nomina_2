@@ -1,5 +1,6 @@
+import { nombreUsuario } from '../../../lib/nombre';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { useSession } from '../../../app/session';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -18,6 +19,8 @@ import type { Fila } from '../../comunicacion/api/comunicacion';
 import { lazy, Suspense } from 'react';
 const RhGraficas = lazy(() => import('./RhGraficas').then((m) => ({ default: m.RhGraficas })));
 import { moneda } from '../../../lib/validadores';
+import { hoyGuatemala, fechaVisible } from '../../../lib/validadores';
+import { TableroRh } from '../components/TableroRh';
 export function Indicador({
   titulo,
   valor,
@@ -91,7 +94,7 @@ export function ResumenComunicaciones({
 }
 export function BitacoraResumen({ filas }: { filas: AuditoriaFila[] }) {
   return (
-    <div className="table-scroll">
+    <div className="table-scroll" role="region" aria-label="Bitácora reciente" tabIndex={0}>
       <table>
         <caption className="sr-only">Últimas acciones auditadas</caption>
         <thead>
@@ -137,11 +140,14 @@ const gestiones: { titulo: string; icono: NombreIcono; ruta: string }[] = [
   { titulo: 'Actualizar mis datos', icono: 'usuario', ruta: '/mis-gestiones/datos' },
 ];
 export function InicioPage() {
+  const cache = useQueryClient();
+  const estadisticasConsultando = useIsFetching({ queryKey: ['tablero-rh'] });
   const { usuario } = useSession(),
     nav = useNavigate();
   usePageHelp(ayudaInicio, usuario?.rol);
   const q = useQuery({
     queryKey: ['tablero', usuario?.rol],
+    refetchInterval: 60000,
     queryFn: ({ signal }) => consultar(usuario!.rol, signal),
     enabled: !!usuario,
   });
@@ -154,17 +160,36 @@ export function InicioPage() {
   return (
     <>
       <div className="flex justify-between gap-3 items-start">
-        <h1>{titulo}</h1>
+        <div>
+          {usuario?.rol === 'RH' ? (
+            <>
+              <h1 className="rh-saludo">Hola, {nombreUsuario(usuario)}</h1>
+              <p className="rh-fecha">
+                {new Intl.DateTimeFormat('es-GT', {
+                  weekday: 'long',
+                  timeZone: 'America/Guatemala',
+                }).format(new Date(`${hoyGuatemala()}T12:00:00-06:00`))}
+                , {fechaVisible(hoyGuatemala())}
+              </p>
+            </>
+          ) : (
+            <h1>{titulo}</h1>
+          )}
+        </div>
         <Button
           icono="actualizar"
           variante="secundario"
-          cargando={q.isFetching}
-          onClick={() => void q.refetch()}
+          cargando={q.isFetching || (usuario?.rol === 'RH' && estadisticasConsultando > 0)}
+          onClick={() => {
+            void q.refetch();
+            void cache.invalidateQueries({ queryKey: ['tablero-rh'] });
+          }}
         >
           Actualizar
         </Button>
       </div>
       <Breadcrumbs items={[{ titulo: 'Nómina' }, { titulo }]} />
+      {usuario?.rol === 'RH' && <TableroRh />}
       {q.isPending ? (
         <Skeleton lineas={8} />
       ) : q.error ? (
@@ -183,13 +208,15 @@ export function InicioPage() {
           const d = q.data;
           return (
             <>
-              <div className="banda-informativa">
-                <iconos.informacion aria-hidden="true" />
-                <span>
-                  Bienvenido, {d.rol === 'EMPLEADO' ? d.nombre : usuario?.usuario} · Datos al{' '}
-                  {fechaHora(d.ahora)} (Guatemala)
-                </span>
-              </div>
+              {d.rol !== 'RH' && (
+                <div className="banda-informativa">
+                  <iconos.informacion aria-hidden="true" />
+                  <span>
+                    Bienvenido, {usuario ? nombreUsuario(usuario) : ''} · Datos al{' '}
+                    {fechaHora(d.ahora)} (Guatemala)
+                  </span>
+                </div>
+              )}
               {d.rol === 'RH' ? (
                 <>
                   <section
@@ -274,7 +301,7 @@ export function InicioPage() {
                   <Suspense fallback={<Skeleton lineas={6} />}>
                     <RhGraficas departamentos={d.departamentos} evolucion={d.evolucion} />
                   </Suspense>
-                  <div className="tablero-dos">
+                  <div className="my-6">
                     <Card data-tour="alertas">
                       <h2>Alertas operativas</h2>
                       {!d.periodo && (
@@ -302,30 +329,14 @@ export function InicioPage() {
                           </article>
                         ))
                       ) : (
-                        <p className="my-4 text-secundario">Sin alertas de periodos o contratos.</p>
+                        <p className="my-4 text-secundario">
+                          Sin alertas de periodos, contratos o perfiles incompletos.
+                        </p>
                       )}
                       <p className="campo-hint">
-                        Hasta 50 alertas; contratos dentro de 30 días y vencidos.
+                        Hasta 50 alertas: periodos abiertos, contratos por vencer o vencidos y
+                        empleados sin salario.
                       </p>
-                    </Card>
-                    <Card data-tour="celebraciones">
-                      <h2>Cumpleaños y aniversarios</h2>
-                      <p className="campo-hint">Próximos 30 días · hasta 50 celebraciones</p>
-                      {d.celebraciones.length ? (
-                        d.celebraciones.map((c) => (
-                          <article className="comunicacion-resumen" key={`${c.tipo}:${c.id}`}>
-                            <strong>{c.nombre}</strong>
-                            <p>
-                              {c.tipo === 'CUMPLEANOS'
-                                ? 'Cumpleaños'
-                                : `Aniversario · ${c.anios} ${c.anios === 1 ? 'año' : 'años'}`}{' '}
-                              · {fechaHora(c.fecha)}
-                            </p>
-                          </article>
-                        ))
-                      ) : (
-                        <p className="my-4 text-secundario">Sin celebraciones próximas.</p>
-                      )}
                     </Card>
                   </div>
                 </>
@@ -339,7 +350,8 @@ export function InicioPage() {
                       }
                       icono="calendario"
                       detalle={
-                        d.saldo.mensaje ?? 'Saldo acumulado hasta hoy, menos días utilizados'
+                        d.saldo.mensaje ??
+                        `Acumulados: ${d.saldo.acumulado} · Tomados/aprobados: ${d.saldo.tomados} · Solicitables: ${d.saldo.solicitables} días completos`
                       }
                     />
                     <Indicador
@@ -435,11 +447,16 @@ export function InicioPage() {
                   </Card>
                   <Card data-tour="sesiones" className="mb-6">
                     <h2>Sesiones recientes</h2>
-                    <div className="table-scroll">
+                    <div
+                      className="table-scroll"
+                      role="region"
+                      aria-label="Sesiones recientes"
+                      tabIndex={0}
+                    >
                       <table>
                         <thead>
                           <tr>
-                            <th>Usuario</th>
+                            <th>Persona</th>
                             <th>Rol</th>
                             <th>Última actividad</th>
                             <th>Estado</th>

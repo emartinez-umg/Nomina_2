@@ -62,6 +62,7 @@ services:
       - '127.0.0.1:${WEB_HTTPS_PORT:-8443}:443'
     environment:
       WEB_HTTPS_PORT: ${WEB_HTTPS_PORT:-8443}
+      API_UPSTREAM: nomina2-api:3000
     volumes:
       - nomina2-tls:/etc/nginx/tls
     depends_on:

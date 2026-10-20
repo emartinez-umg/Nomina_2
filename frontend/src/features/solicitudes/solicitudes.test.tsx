@@ -1,3 +1,4 @@
+import * as parqueo from '../novedades/api/parqueo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -5,6 +6,7 @@ import { HelpProvider } from '../../components/help/HelpProvider';
 import { SolicitudDetalle } from './pages/SolicitudDetalle';
 import * as api from './api/solicitudes';
 import type { Detalle } from './api/solicitudes';
+vi.mock('../novedades/api/parqueo', () => ({ tarifas: vi.fn() }));
 vi.mock('../../app/session', () => ({
   useSession: () => ({ usuario: { idUsuario: 7, rol: 'RH' } }),
 }));
@@ -25,6 +27,7 @@ vi.mock('./pages/PdfView', async () => {
   };
 });
 const solicitud: Detalle = {
+  codigo: 'PRUEBA_2026_0001',
   id: 1,
   idEmpleado: 1,
   empleado: 'Persona de prueba',
@@ -67,6 +70,9 @@ function abrir(s: Detalle, empleado = false) {
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  vi.mocked(parqueo.tarifas).mockResolvedValue([
+    { id: 1, vehiculo: 'CARRO', monto: '100', desde: '2020-01-01', hasta: null },
+  ]);
   HTMLDialogElement.prototype.showModal = function () {
     this.setAttribute('open', '');
   };
@@ -118,15 +124,27 @@ describe('Gestiones: resolución, entrega y permisos en interfaz', () => {
     ).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Vista previa del PDF' })).toBeNull();
   });
-  it('parqueo necesita tarifa real y bloquea doble envío al confirmar', async () => {
-    vi.mocked(api.resolver).mockImplementation(() => new Promise(() => {}));
-    abrir({ ...solicitud, tipo: 'PARQUEO', nombreTipo: 'Parqueo', generaPdf: 0 });
-    fireEvent.click(await screen.findByRole('button', { name: 'Aprobar' }));
+  it('parqueo sin tarifa vigente bloquea aprobación y explica cómo completarla', async () => {
+    vi.mocked(parqueo.tarifas).mockResolvedValue([]);
+    abrir({ ...solicitud, tipo: 'PARQUEO', generaPdf: 0, vehiculo: 'CARRO' });
+    await screen.findByText('Configura una tarifa mensual vigente única para este vehículo.');
+    expect(screen.getByText(/Sin tarifa vigente/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Aprobar' })).toBeDisabled();
     expect(api.resolver).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByRole('textbox', { name: /Tarifa por quincena/ }), {
-      target: { value: '100.00' },
+  });
+  it('parqueo usa el vehículo solicitado y bloquea doble envío al confirmar', async () => {
+    vi.mocked(api.resolver).mockImplementation(() => new Promise(() => {}));
+    abrir({
+      ...solicitud,
+      tipo: 'PARQUEO',
+      nombreTipo: 'Parqueo',
+      generaPdf: 0,
+      vehiculo: 'CARRO',
     });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Aprobar' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Aprobar' }));
+    expect(screen.getByText(/tarifa mensual de Q 100.00/)).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: /Tarifa por quincena/ })).toBeNull();
     const confirmar = screen.getByRole('button', { name: 'Confirmar' });
     fireEvent.click(confirmar);
     await waitFor(() => expect(confirmar).toBeDisabled());

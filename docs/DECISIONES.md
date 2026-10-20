@@ -273,8 +273,8 @@ Todos los valores se concentran en `frontend/src/styles/tokens/index.ts` y Tailw
   aparecen una sola vez en memoria; listados/CSV no los contienen.
 - El recorrido conserva definiciones declarativas por módulo y agrega orientación de formato y
   errores de los campos visibles. Los objetivos son elementos del contexto activo, nunca selectores
-  globales ambiguos. Se escapa HTML y se ofrece ayuda en todos los diálogos. La bienvenida ocupa
-  espacio en el contenido: una oferta flotante ocultaba acciones y Playwright detectó el problema.
+  globales ambiguos. Se escapa HTML y se ofrece ayuda en todos los diálogos. Desde R2-2 el recorrido
+  solo se inicia al pulsar Ayuda: se retiraron todas las ofertas automáticas y sus banderas.
 - Compose sirve HTTPS local con certificado generado y volumen privado; conserva cookies Secure.
   Salud Oracle espera además la existencia del usuario de aplicación y sus grants, porque el
   healthcheck oficial puede aprobar cuando XEPDB1 abre y APP_USER todavía no está creado. nginx
@@ -318,3 +318,113 @@ la firma, fechas y SAN exacto antes de registrarlo únicamente para SSL en el ll
 No instala una autoridad certificadora ni modifica la validación TLS de los navegadores. Una entrada
 macOS con Policy String no sirve en Chromium: su [implementación de confianza](https://chromium.googlesource.com/chromium/src/+/main/net/cert/internal/trust_store_mac.cc)
 la omite. La restricción está en la identidad y naturaleza del certificado de servidor exacto.
+
+## v1 — Automatización y cierre V1-12
+
+Las decisiones siguientes sustituyen sus equivalentes quincenales/manuales de v0. Los detalles,
+referencias y resultados por fase están en [PROGRESO_V1.md](PROGRESO_V1.md).
+
+- Navegación horizontal y paleta comparten `navigation.config.ts`; roles y rutas del servidor siguen
+  siendo la autoridad. Sinónimos, tolerancia a errores y cinco recientes solo buscan destinos,
+  nunca expedientes. Menú, paleta y diálogos conservan teclado, foco y comportamiento móvil.
+- Borradores locales por usuario/formulario/registro y versión, con restauración explícita y debounce
+  de 500 ms. Se eliminan al guardar, descartar o cerrar sesión; otra cuenta purga los ajenos.
+  La expiración conserva el borrador propio. Contraseñas, tokens, credenciales, archivos y resultados
+  derivados quedan excluidos recursivamente. No se sincronizan con Oracle.
+- Oracle asigna códigos con locks de contadores y reservas únicas dentro de la transacción de negocio;
+  una vista previa no reserva. Códigos de empleado por departamento y transacciones por año nunca
+  cambian; las claves anteriores y semánticas legales se conservan separadas.
+- Geografía: archivo oficial INE versionado con huella, 22 departamentos y 340 municipios. Las
+  coincidencias históricas solo se proponen; no se inventan direcciones, sexo, parentescos ni vehículos.
+  Los datos anteriores se archivan y RH completa los campos pendientes al editar.
+- Empresa y logo privado en Oracle. SVG se valida y normaliza a PNG sin contenido activo ni recursos
+  externos. PDF compartido con membrete y firma de la ficha/puesto del aprobador. Las boletas v1
+  archivan bytes y SHA-256; credenciales/PDF temporal solo viven en la respuesta original y memoria.
+  Sin empresa completa o firmante verificable se bloquea la operación con una explicación.
+- Horarios por bloques semanales, selectores de media hora, descanso y cruce de medianoche explícitos.
+  Jornada y límites diarios/semanales se derivan; vacaciones y HE usan la asignación vigente real.
+  La migración mantiene minutos históricos exactos, incluidos patrones que requieren revisión.
+- Empleado, usuario, hash argon2id, contacto, salario, horario, código y auditoría se confirman juntos.
+  La contraseña aparece una vez y exige cambio inicial; perderla requiere restablecimiento. NIT
+  módulo 11, residencia, parentesco y contrato condicional se validan en ambas capas.
+- Vacaciones: meses completos × tasa vigente al corte, sin materializar movimientos al consultar.
+  Disponible conserva decimales; solicitables es su piso. Cancelar una aprobación futura devuelve
+  exactamente su débito original. El finiquito sí liquida el remanente decimal.
+- Novedades mensuales antes del pago; HE admite medias horas y tope de advertencia configurable.
+  Parqueo cobra el mes completo desde aprobación hasta baja/suspensión, sin prorratear. Una novedad
+  aplicada o afectada por cierre queda protegida. Las referencias v0 repetidas se conservan mediante
+  la reparación acotada V027/V028, sin editar los archivos anteriores.
+- Anticipo = mitad de SB + BI ajustada + COM/HE cargadas, sin deducciones; Pago liquida devengado
+  mensual menos anticipo real, IGSS, ISR y descuentos. BI sigue literalmente A11; SB se prorratea.
+  Simular no escribe; confirmar revalida fuentes y guarda pago/boletas/aplicaciones/avisos/auditoría
+  de forma atómica y única por empleado/mes/tipo. El cierre no vuelve a cobrar. ADMIN revierte
+  antes del cierre y respetando dependencias; una reapertura mantiene pagos para reversión explícita.
+- Cuotas v0 se espacian mensualmente conservando capital, saldo, importe y número; vencimientos/fin
+  anteriores se archivan. Los motores v0/v1 no se mezclan dentro de un periodo con resultados.
+- A12 calcula Bono 14/Aguinaldo con promedios de fuentes reales y días inclusivos / divisor anual
+  parametrizado, tope 100 %. Normaliza meses parciales sin doble prorrateo. ISR usa el excedente
+  gravado una sola vez. Indemnización conserva promedio de seis meses × años/fracción solicitado;
+  no añade alícuotas fuera del alcance. Los pagos no realizan transferencias bancarias.
+- Las opciones de Prestaciones cambian de color sin interpolación: animar texto y fondo a la vez
+  producía contraste insuficiente durante la transición. Su ayuda explica las tres gestiones.
+- El cierre verifica todos los pasos visibles de ayuda, incluyendo los controles comunes. Cerrar
+  durante la animación de driver.js también restaura el foco. Los días de calendarios son celdas
+  seleccionables numéricas; los botones de acciones, navegación y calendario llevan iconos.
+- `verify:migration` reconstruye una copia desechable con el código, migraciones y seeds de `v0.0`;
+  agrega historia de regresión y aplica las pendientes hasta V035 sin tocar el esquema operativo. Compara todas las
+  PK y columnas originales, documentos BLOB, snapshots, credenciales hash, saldos y conteos;
+  solo admite las transformaciones descritas y comprueba idempotencia. No sustituye un ensayo de
+  restauración de un respaldo particular de producción. La etiqueta `v0.0` debe estar disponible.
+- Los verificadores usan Node 20 y el cargador `--import tsx`, sin depender del Node 24 del host.
+  La instalación limpia usa un proyecto Compose aleatorio y retira también sus imágenes locales,
+  además de volúmenes/credenciales temporales, evitando acumular artefactos de aceptación.
+
+### Supuestos operativos y mejoras futuras de v1
+
+- RH valida parámetros/vigencias reales, historia salarial y fiscal, tarifas, empresa, firmantes y
+  datos históricos pendientes antes de pagar. No se completan con datos de ejemplo.
+- Mantener backups cifrados, restauración ensayada, espacio libre de Docker, TLS válido/renovable,
+  monitoreo y feriados de los próximos años. Ensayar también una copia del respaldo real al desplegar.
+- Futuro: Firefox/WebKit, pruebas de carga con volúmenes reales, paginación por cursor/búsqueda
+  especializada si los planes Oracle lo justifican, contador de login y estado CSRF compartidos al
+  escalar réplicas. Revisar tamaño de chunks sin ocultar el aviso de Vite.
+- Firma electrónica, antivirus de adjuntos, mensajería externa y presentación SAT/IGSS permanecen
+  fuera de alcance; requieren diseño y autorización propios.
+
+## Ronda 2 — cierre R2-10
+
+- La aceptación E2E de producción usa los Dockerfile originales de API y web. El esquema aleatorio
+  se prepara en un proceso que termina antes de arrancar el entrypoint compilado de la API.
+  Node de producción, migraciones, seeds, cookies Secure, TLS, MIME/caché y RBAC se prueban así
+  junto con la interfaz. Los fixtures permanecen fuera del build y los secretos pasan por entorno,
+  nunca por argumentos de Docker. La red de pruebas usa el Compose `nomina2` existente.
+- `verify:all` ejecuta Playwright en esa modalidad y las dos migraciones. El modo Vite sigue
+  disponible para desarrollo. Las respuestas de negocio proceden de Oracle. El ensayo de pérdida de chunk inyecta un fallo
+  de transporte, y el del asistente retiene la consulta real del contrato hasta liberar su respuesta;
+  no se sustituyen los datos de la API.
+- La copia reproducible v1 parte del corte Git V030 y agrega historia transaccional y duplicados.
+  Se comparan todas las PK/columnas previas, documentos y hashes. Solo se admiten las transformaciones
+  de R2: nombres recortados, duplicados archivados/inactivos, ambas direcciones renombradas y avance
+  de contadores exactamente igual a las nuevas reservas. Se exigen restricciones validadas y
+  reejecución de migraciones/seeds sin ninguna diferencia. No se modifica SQL histórico.
+- No se entregó un respaldo externo v1; reconstruir el corte Git con datos de regresión comprueba
+  la actualización reproducible, y no reemplaza ensayar el respaldo real antes del despliegue.
+  Los reportes de aceptación incluyen únicamente conteos, huellas y correcciones sintéticas.
+- Se revisan RBAC de agregaciones y selector de empleados, y propiedad/CSRF de notificaciones.
+  Los salarios del equipo solo salen de las rutas RH/ADMIN; el selector devuelve identidad laboral
+  mínima, sin DPI/NIT/salarios/cuenta. Incluso ADMIN solo puede borrar sus propias notificaciones.
+- Axe no resuelve ciertos textos sobre tramas. La sigla naranja tenía contraste 4.22:1; las siglas
+  ahora usan texto azul sobre una superficie blanca sólida dentro de la muestra, manteniendo los
+  colores y tramas originales alrededor. Se verifica numéricamente un mínimo de 4.5:1, además de
+  axe A/AA; los bordes de los segmentos mantienen contraste no textual y las etiquetas no dependen
+  del color. La ayuda describe la lectura de esa leyenda y las decisiones reales al cancelar.
+- La matriz de páginas y ventanas comprueba que no aparezcan oferta ni recorrido antes del clic,
+  y que no se persista una bandera de ayuda. Conserva la auditoría completa de pasos, foco, hints,
+  anchos proporcionales y accesibilidad. El arranque limpio comprueba también V035 y cero objetos
+  inválidos o migraciones pendientes. Los proyectos/esquemas/volúmenes exclusivos se retiran.
+
+- El cierre reprodujo una carrera en la edición de empleados: el paso laboral podía validarse
+  antes de resolver la regla del contrato. Siguiente y Guardar esperan esa regla, también durante
+  su cambio, y el envío implícito no abre revisión prematuramente. La espera muestra estado y
+  tooltip; un fallo ofrece Reintentar regla sin perder entradas. Playwright retiene la consulta
+  real, verifica el bloqueo y la libera para completar los pasos opcionales. Hints y ayuda actualizados.

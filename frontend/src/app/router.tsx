@@ -1,4 +1,20 @@
-import { lazy, Suspense } from 'react';
+import { SimularPagoPage } from '../features/nomina/pages/SimularPagoPage';
+import { EmpresaPage } from '../features/empresa/pages/EmpresaPage';
+import { Suspense } from 'react';
+import { lazyPagina as lazy } from './lazyPagina';
+import { RouteError } from './RouteError';
+const PendientesPage = lazy(() =>
+  import('../features/novedades/pages/PendientesPage').then((m) => ({ default: m.PendientesPage })),
+);
+const ParqueoPage = lazy(() =>
+  import('../features/novedades/pages/ParqueoPage').then((m) => ({ default: m.ParqueoPage })),
+);
+const TarifasParqueoPage = lazy(() =>
+  import('../features/novedades/pages/TarifasParqueoPage').then((m) => ({
+    default: m.TarifasParqueoPage,
+  })),
+);
+
 const Usuarios = lazy(() =>
   import('../features/usuarios/pages/UsuariosPage').then((m) => ({ default: m.UsuariosPage })),
 );
@@ -71,8 +87,9 @@ import { AppLayout } from '../components/layout/AppLayout';
 import { Entrada, RequireSession, SessionGate } from './guards';
 import { Outlet } from 'react-router-dom';
 export const rutas = [
-  { path: '/salud', element: <SaludPage /> },
+  { path: '/salud', element: <SaludPage />, errorElement: <RouteError /> },
   {
+    errorElement: <RouteError />,
     element: (
       <SessionGate>
         <Outlet />
@@ -120,6 +137,14 @@ export const rutas = [
                     { path: '/mis-gestiones/eventos', element: comunicacionPage },
                     { path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> },
                     { path: '/mis-gestiones/boletas', element: <NominaPage /> },
+                    {
+                      path: '/mis-gestiones/parqueo',
+                      element: (
+                        <Suspense fallback={<Skeleton lineas={6} />}>
+                          <ParqueoPage />
+                        </Suspense>
+                      ),
+                    },
                     { path: '/mis-gestiones/solicitudes', element: solicitudesPage },
                     {
                       path: '/mis-gestiones/datos',
@@ -143,6 +168,7 @@ export const rutas = [
             children: [
               { path: '/comunicacion/:tipo', element: comunicacionPage },
               { path: '/planilla', element: <NominaPage /> },
+              { path: '/nomina/simular', element: <SimularPagoPage /> },
               {
                 path: '/prestaciones',
                 element: (
@@ -153,6 +179,30 @@ export const rutas = [
               },
               { path: '/vacaciones', element: <VacacionesPage /> },
               { path: '/solicitudes', element: solicitudesPage },
+              {
+                path: '/novedades/pendientes',
+                element: (
+                  <Suspense fallback={<Skeleton lineas={6} />}>
+                    <PendientesPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: '/novedades/parqueo',
+                element: (
+                  <Suspense fallback={<Skeleton lineas={6} />}>
+                    <ParqueoPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: '/configuracion/parqueo',
+                element: (
+                  <Suspense fallback={<Skeleton lineas={6} />}>
+                    <TarifasParqueoPage />
+                  </Suspense>
+                ),
+              },
               { path: '/novedades', element: <NovedadesPage /> },
               { path: '/novedades/:tipo', element: <NovedadesPage /> },
               { path: '/novedades/:tipo/nuevo', element: <NovedadFormularioPage /> },
@@ -163,6 +213,7 @@ export const rutas = [
               { path: '/empleados/carga-masiva', element: <CargaMasivaPage /> },
               { path: '/empleados/:id', element: <EmpleadoDetallePage /> },
               { path: '/empleados/:id/editar', element: <EmpleadoFormularioPage /> },
+              { path: '/catalogos/empresa', element: <EmpresaPage /> },
               { path: '/catalogos', element: <CatalogosPage /> },
               { path: '/catalogos/:catalogo', element: <CatalogosPage /> },
             ],

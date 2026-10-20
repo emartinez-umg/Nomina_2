@@ -1,3 +1,8 @@
+import {
+  formatoNitValido,
+  mensajeNit,
+} from '../../../../../backend/src/shared/empleados/validadores';
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -39,13 +44,17 @@ const nombre = z
   .min(1, 'Escribe el nombre completo.')
   .max(100)
   .regex(/^[\p{L}\p{M} '-]+$/u, 'Usa letras, espacios, apóstrofo o guion.');
-const criticos = z.object({
-  nombres: nombre,
-  apellidos: nombre,
-  dpi: dpiSchema,
-  nit: nitSchema,
-  estadoCivil: z.enum(['SOLTERO', 'CASADO', 'UNIDO', 'DIVORCIADO', 'VIUDO']),
-});
+const criticos = (validarDigito = false) =>
+  z.object({
+    nombres: nombre,
+    apellidos: nombre,
+    dpi: dpiSchema,
+    nit: z
+      .string()
+      .refine(formatoNitValido, mensajeNit)
+      .pipe(validarDigito ? nitSchema : z.string()),
+    estadoCivil: z.enum(['SOLTERO', 'CASADO', 'UNIDO', 'DIVORCIADO', 'VIUDO']),
+  });
 const contacto = z.object({
   telefono: telefonoSchema,
   direccion: z.string().trim().min(1, 'Escribe tu dirección.').max(500),
@@ -101,6 +110,7 @@ export function MisDatosPage() {
               key={`criticos:${JSON.stringify(q.data.criticos)}`}
               inicial={q.data.criticos}
               tipo="criticos"
+              validarDigito={q.data.validarDigitoNit}
             />
           </>
         )
@@ -111,9 +121,11 @@ export function MisDatosPage() {
 function DatosForm({
   inicial,
   tipo,
+  validarDigito,
 }: {
   inicial: Record<string, string>;
   tipo: 'contacto' | 'criticos';
+  validarDigito?: boolean | undefined;
 }) {
   const cache = useQueryClient(),
     toast = useToast(),
@@ -129,7 +141,7 @@ function DatosForm({
             : v,
       ]),
     ),
-    resolver: zodResolver(tipo === 'contacto' ? contacto : criticos),
+    resolver: zodResolver(tipo === 'contacto' ? contacto : criticos(validarDigito)),
     mode: 'onBlur',
   });
   const draft = useFormDraft(`mis-datos-${tipo}`, undefined, {
@@ -143,7 +155,7 @@ function DatosForm({
         ? api.contacto(contacto.parse(f.getValues()))
         : api.crear({
             tipo: 'ACTUALIZACION_DATOS',
-            datos: criticos.parse(f.getValues()),
+            datos: criticos(validarDigito).parse(f.getValues()),
             confirmado: true,
           }),
     onSuccess: () => {
@@ -173,7 +185,7 @@ function DatosForm({
       </p>
       <form onSubmit={f.handleSubmit(() => setConfirmar(true))}>
         <FormDraftNotice draft={draft} />
-        <div className="form-grid">
+        <FormGrid>
           {Object.keys(inicial).map((key) => (
             <Controller
               key={key}
@@ -210,7 +222,10 @@ function DatosForm({
                   return (
                     <NitField
                       {...props}
-                      hint="NIT con dígito verificador según tu RTU, por ejemplo 1234567-9."
+                      validarDigito={validarDigito ?? false}
+                      hint={
+                        validarDigito ? `${mensajeNit} Módulo 11 activado por ADMIN.` : mensajeNit
+                      }
                     />
                   );
                 if (key === 'direccion')
@@ -252,7 +267,7 @@ function DatosForm({
               }}
             />
           ))}
-        </div>
+        </FormGrid>
         <FormErrorSummary
           mensajes={Object.values(f.formState.errors).map((e) => e?.message)}
           mensajeServidor={m.error?.message}

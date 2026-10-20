@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useSession } from './session';
 import { destinoRol } from '../features/auth/api/auth';
 import type { Rol } from '../features/auth/api/auth';
@@ -42,7 +42,11 @@ export function RequireSession({
   permitirCambio?: boolean;
 }) {
   const { usuario } = useSession();
-  if (!usuario) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!usuario)
+    return (
+      <Navigate to="/login" replace state={{ requiereSesion: true, desde: location.pathname }} />
+    );
   if (usuario.cambioObligatorio && !permitirCambio)
     return <Navigate to="/cambiar-contrasena" replace />;
   if (roles && !roles.includes(usuario.rol))

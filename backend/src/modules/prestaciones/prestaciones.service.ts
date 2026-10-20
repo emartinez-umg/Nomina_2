@@ -1,3 +1,11 @@
+import { historiaMensual } from './prestaciones.historia.js';
+import { membrete, firmante } from '../empresa/empresa.service.js';
+import {
+  guardarFirma,
+  obtenerFirma,
+  obtenerEmpresa,
+  guardarConstancia,
+} from '../empresa/empresa.repository.js';
 import { createHash } from 'node:crypto';
 import { Decimal } from 'decimal.js';
 import type { Connection } from 'oracledb';
@@ -98,7 +106,7 @@ async function obtener(c: Connection, id: number) {
   if (!e) throw new ErrorNoEncontrado();
   return e;
 }
-async function devengados(
+async function devengadosHistoricos(
   c: Connection,
   e: repo.Empleado,
   inicio: string,
@@ -189,7 +197,22 @@ async function devengados(
   }
   return { ingresos, fuentes, nominas };
 }
-async function anual(c: Connection, e: repo.Empleado, q: Seleccion, excluir = 0): Promise<Vista> {
+async function devengados(
+  c: Connection,
+  e: repo.Empleado,
+  inicio: string,
+  fin: string,
+): Promise<Historia> {
+  return historiaMensual(c, e, inicio, fin, (desde, hasta) =>
+    devengadosHistoricos(c, e, desde, hasta),
+  );
+}
+export async function anual(
+  c: Connection,
+  e: repo.Empleado,
+  q: Seleccion,
+  excluir = 0,
+): Promise<Vista> {
   const ps = await repo.parametros(c),
     periodo = ciclo(q.tipo, q.anio, ps),
     actual = await hoy(c);
@@ -211,7 +234,7 @@ async function anual(c: Connection, e: repo.Empleado, q: Seleccion, excluir = 0)
     h.ingresos,
     ps,
     salario,
-    await repo.exencionUsada(c, e.id, q.tipo, Number(actual.slice(0, 4)), excluir),
+    await repo.exencionUsada(c, e.id, q.tipo, q.anio, excluir),
   );
   const fuentes = { e, h, ps, componente, periodo };
   return {
@@ -295,12 +318,17 @@ export function crearPrestacionesService(db: BaseDatos) {
       throw new ErrorConflicto(
         'El egreso afectaría una nómina aprobada o cerrada. Devuélvela a revisión o reabre antes de liquidar.',
       );
-    const ps = await repo.parametros(c);
+    const ps = await repo.parametros(c),
+      dependenciasAnuales: number[] = [];
     for (const tipo of ['AGUINALDO', 'BONO_14'] as TipoAnual[]) {
       for (let anio = Number(e.ingreso.slice(0, 4)); anio <= Number(q.corte.slice(0, 4)); anio++) {
         const periodo = ciclo(tipo, anio, ps);
         if (periodo.fin < e.ingreso || periodo.fin >= q.corte) continue;
         const anteriores = await repo.conflictos(c, e.id, tipo, periodo.inicio, periodo.fin);
+        for (const previa of anteriores.filter((p) => p.estado === 'PAGADA')) {
+          const registro = await repo.registro(c, previa.id);
+          if (registro?.idNomina) dependenciasAnuales.push(registro.idNomina);
+        }
         if (!anteriores.some((p) => p.estado === 'PAGADA'))
           throw new ErrorConflicto(
             `Falta registrar el pago de ${tipo} del ciclo que termina ${periodo.fin}. Regulariza esa obligación antes de liquidar.`,
@@ -314,7 +342,7 @@ export function crearPrestacionesService(db: BaseDatos) {
       inicio = ventana > e.ingreso ? ventana : e.ingreso;
     const h = await devengados(c, e, inicio, q.corte),
       fuentes: unknown[] = [{ e, ps, h, causa: q.causa }],
-      nominas = [...h.nominas];
+      nominas = [...h.nominas, ...dependenciasAnuales];
     const componentes = [
       calcularIndemnizacion(
         e.ingreso,
@@ -329,6 +357,7 @@ export function crearPrestacionesService(db: BaseDatos) {
     fuentes.push(vacaciones);
     componentes.push({
       concepto: 'VACACIONES_PENDIENTES',
+      formula: `${vacaciones.dias} días × ${vacaciones.salario} / ${valor(ps, 'SALARIO_DIAS_MES', q.corte, 'DIAS')}`,
       inicio: e.ingreso,
       fin: q.corte,
       promedio: vacaciones.salario,
@@ -347,7 +376,11 @@ export function crearPrestacionesService(db: BaseDatos) {
       if (previas.some((p) => p.estado !== 'PAGADA'))
         throw new ErrorConflicto(`Resuelve ${tipo} pendiente antes de liquidar.`);
       const pagos = [];
-      for (const previa of previas) pagos.push((await repo.registro(c, previa.id))!);
+      for (const previa of previas) {
+        const registro = (await repo.registro(c, previa.id))!;
+        pagos.push(registro);
+        if (registro.idNomina) nominas.push(registro.idNomina);
+      }
       const hx = await devengados(c, e, desde, q.corte),
         salario = await repo.salario(c, e.id, q.corte);
       if (!salario) throw new ErrorConflicto('Falta salario vigente al egreso.');
@@ -398,7 +431,7 @@ export function crearPrestacionesService(db: BaseDatos) {
   ) => {
     const snapshot: Snapshot = {
       ...v,
-      versionMotor: '9.0.0',
+      versionMotor: 'v1-11',
       seleccion,
       empresa: await nomina.empresa(c),
     };
@@ -449,6 +482,37 @@ export function crearPrestacionesService(db: BaseDatos) {
       }),
     simular: (auth: Autenticacion, ip: string, raw: unknown) =>
       tx(auth, ip, (c, a) => simular(c, a, finiquitoSchema.parse(raw))),
+    previewFiniquito: (auth: Autenticacion, ip: string, raw: unknown) =>
+      tx(auth, ip, async (c, a) => {
+        const seleccion = finiquitoSchema.parse(raw),
+          v = await simular(c, a, seleccion);
+        const r: repo.Registro = {
+          id: 0,
+          idEmpleado: v.idEmpleado,
+          empleado: v.empleado,
+          tipo: 'INDEMNIZACION',
+          inicio: v.inicio,
+          fin: v.fin,
+          promedio: v.componentes[0]!.promedio,
+          total: v.total,
+          estado: 'SIMULACION',
+          hash: v.hash,
+          snapshot: null,
+          fechaPago: null,
+          referencia: null,
+          motivo: 'Simulación de liquidación, sin baja ni pago',
+        };
+        return archivo(
+          await prestacionPdf(
+            r,
+            { ...v, versionMotor: 'v1-11', seleccion, empresa: await nomina.empresa(c) },
+            await membrete(c),
+            null,
+          ),
+          'simulacion-finiquito.pdf',
+          'application/pdf',
+        );
+      }),
     liquidar: (auth: Autenticacion, ip: string, raw: unknown) =>
       tx(auth, ip, async (c, a) => {
         const d = liquidarSchema.parse(raw),
@@ -456,6 +520,8 @@ export function crearPrestacionesService(db: BaseDatos) {
         if (v.hash !== d.hash)
           throw new ErrorConflicto('Las fuentes cambiaron. Simula nuevamente antes de confirmar.');
         const id = await guardar(c, a, v, d.seleccion, d.motivo, 'INDEMNIZACION');
+        await membrete(c);
+        await guardarFirma(c, 'PRESTACIONES', id, await firmante(c, a.idUsuario));
         await repo.estado(c, id, 'APROBADA', a.idUsuario);
         const e = await obtener(c, v.idEmpleado),
           dias = v.componentes.find((l) => l.concepto === 'VACACIONES_PENDIENTES')!.tiempo;
@@ -575,6 +641,10 @@ export function crearPrestacionesService(db: BaseDatos) {
               'El pago debe ser no futuro, desde el corte y posterior al último cierre fiscal.',
             );
         }
+        if (accion === 'aprobar') {
+          await membrete(c);
+          await guardarFirma(c, 'PRESTACIONES', id, await firmante(c, a.idUsuario));
+        }
         await repo.estado(c, id, estado, a.idUsuario, d.fechaPago ?? null, d.referencia ?? null);
         await audit(
           c,
@@ -591,7 +661,14 @@ export function crearPrestacionesService(db: BaseDatos) {
       tx(auth, ip, async (c, a) => {
         const r = await repo.registro(c, id);
         if (!r?.snapshot) throw new ErrorNoEncontrado();
-        const contenido = await prestacionPdf(r, JSON.parse(r.snapshot) as Snapshot);
+        const firma = await obtenerFirma(c, 'PRESTACIONES', id);
+        if (['APROBADA', 'PAGADA'].includes(r.estado) && !firma)
+          throw new ErrorConflicto(
+            'La aprobación histórica carece de nombre y cargo. Completa la ficha del aprobador y solicita revisión de la prestación.',
+          );
+        const contenido =
+          (await repo.boletaPrestacionArchivada(c, id)) ??
+          (await prestacionPdf(r, JSON.parse(r.snapshot) as Snapshot, await membrete(c), firma));
         await audit(
           c,
           a,
@@ -660,12 +737,11 @@ export function crearPrestacionesService(db: BaseDatos) {
           throw new ErrorConflicto(
             'No hay ingresos pagados en el rango. Cierra las nóminas o registra los pagos antes de emitir la constancia.',
           );
-        const empresa = await nomina.empresa(c);
-        if (!empresa)
-          throw new ErrorConflicto(
-            'Completa los datos reales de empresa en Planilla antes de emitir constancias.',
-          );
-        const contenido = await constanciaPdf(e, q, filas, empresa.nombre, await hoy(c));
+        const empresa = await obtenerEmpresa(c);
+        await membrete(c);
+        const firma = await firmante(c, a.idUsuario);
+        const contenido = await constanciaPdf(e, q, filas, empresa!, await hoy(c), firma);
+        await guardarConstancia(c, e.id, firma, empresa!.version, contenido, hashDe(contenido));
         await registrarAuditoria(c, {
           actor: a,
           accion: 'GENERAR_CONSTANCIA_SALARIO',

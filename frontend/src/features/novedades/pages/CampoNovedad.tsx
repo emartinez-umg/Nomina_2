@@ -1,3 +1,4 @@
+import { MonthField } from '../../../components/forms/MonthField';
 import { useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { opciones } from '../api/novedades';
@@ -13,7 +14,24 @@ import {
   TextField,
 } from '../../../components/forms';
 import { Button } from '../../../components/ui/Button';
-export function ReferenciaNovedad({ referencia, ...props }: CampoProps & { referencia: string }) {
+import { SelectorEmpleado } from '../../../components/forms/SelectorEmpleado';
+export function ReferenciaNovedad({
+  referencia,
+  departamentoId,
+  soloActivos,
+  ...props
+}: CampoProps & {
+  referencia: string;
+  departamentoId?: string | undefined;
+  soloActivos?: boolean | undefined;
+}) {
+  return referencia === 'empleados' ? (
+    <SelectorEmpleado {...props} departamentoId={departamentoId} soloActivos={soloActivos} />
+  ) : (
+    <OpcionesNovedad {...props} referencia={referencia} />
+  );
+}
+function OpcionesNovedad({ referencia, ...props }: CampoProps & { referencia: string }) {
   const [buscar, setBuscar] = useState('');
   const q = useInfiniteQuery({
     queryKey: ['novedades', 'opciones', referencia, buscar, props.value],
@@ -24,39 +42,41 @@ export function ReferenciaNovedad({ referencia, ...props }: CampoProps & { refer
   });
   const lista = [...new Map((q.data?.pages.flat() ?? []).map((o) => [o.value, o])).values()];
   return (
-    <div>
-      <SelectField
-        {...props}
-        opciones={lista}
-        onBuscar={setBuscar}
-        error={props.error ?? q.error?.message}
-      />
-      {q.isPending && (
-        <p role="status" className="campo-hint">
-          Cargando opciones…
-        </p>
-      )}
-      {q.hasNextPage && (
-        <Button
-          icono="siguiente"
-          variante="texto"
-          cargando={q.isFetchingNextPage}
-          onClick={() => void q.fetchNextPage()}
-        >
-          Más opciones
-        </Button>
-      )}
-      {!props.required && props.value && (
-        <Button
-          icono="cancelar"
-          variante="texto"
-          disabled={props.disabled}
-          onClick={() => props.onValueChange('')}
-        >
-          Quitar selección
-        </Button>
-      )}
-    </div>
+    <SelectField
+      {...props}
+      opciones={lista}
+      onBuscar={setBuscar}
+      error={props.error ?? q.error?.message}
+      complemento={
+        <>
+          {q.isPending && (
+            <p role="status" className="campo-hint">
+              Cargando opciones…
+            </p>
+          )}
+          {q.hasNextPage && (
+            <Button
+              icono="siguiente"
+              variante="texto"
+              cargando={q.isFetchingNextPage}
+              onClick={() => void q.fetchNextPage()}
+            >
+              Más opciones
+            </Button>
+          )}
+          {!props.required && props.value && (
+            <Button
+              icono="cancelar"
+              variante="texto"
+              disabled={props.disabled}
+              onClick={() => props.onValueChange('')}
+            >
+              Quitar selección
+            </Button>
+          )}
+        </>
+      }
+    />
   );
 }
 export function CampoNovedad({
@@ -65,15 +85,37 @@ export function CampoNovedad({
   hoy,
   tipoN,
   inicio,
+  soloActivos,
+  departamentoId,
   ...props
 }: CampoProps & {
   campo: Campo;
+  soloActivos?: boolean;
+  departamentoId?: string | undefined;
   r?: Restricciones | undefined;
   hoy?: string | undefined;
   tipoN?: string;
   inicio?: string | undefined;
 }) {
-  if (campo.tipo === 'referencia') return <ReferenciaNovedad {...props} referencia={campo.ref!} />;
+  if (campo.tipo === 'mes')
+    return (
+      <MonthField
+        {...props}
+        max={hoy?.slice(0, 7)}
+        deshabilitar={(mes) =>
+          !!r?.cierres.some((x) => x.inicio.slice(0, 7) <= mes && x.fin.slice(0, 7) >= mes)
+        }
+      />
+    );
+  if (campo.tipo === 'referencia')
+    return (
+      <ReferenciaNovedad
+        {...props}
+        referencia={campo.ref!}
+        soloActivos={soloActivos}
+        departamentoId={departamentoId}
+      />
+    );
   if (campo.tipo === 'opcion')
     return (
       <SelectField
@@ -90,8 +132,8 @@ export function CampoNovedad({
       <NumberField
         {...props}
         decimales={campo.nombre.startsWith('horas') ? 2 : 0}
-        min={/Min$|Max$/.test(campo.nombre) ? '0' : campo.nombre.startsWith('horas') ? '0.01' : '1'}
-        max={campo.nombre.startsWith('horas') ? '24' : '600'}
+        min={/Min$|Max$/.test(campo.nombre) ? '0' : campo.nombre.startsWith('horas') ? '0.5' : '1'}
+        max={campo.nombre.startsWith('horas') ? '9999999999' : '600'}
       />
     );
   if (campo.tipo === 'fecha') {

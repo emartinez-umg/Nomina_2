@@ -1,5 +1,7 @@
+import type { Componente } from '../prestaciones/prestaciones.calculo.js';
 import { fechas, vigente } from './nomina.calculo.js';
-import PDFDocument from 'pdfkit';
+import { generarPdf, bloqueFirma } from '../../shared/pdf/documento.js';
+import type { IdentidadEmpresa, FirmaDocumento } from '../../shared/pdf/documento.js';
 import { zipSync, strToU8 } from 'fflate';
 import { Decimal } from 'decimal.js';
 import { dinero } from '../../shared/utils/dinero.js';
@@ -18,64 +20,66 @@ const q = (m: string) => {
   const [entero, centavos] = new Decimal(m).toFixed(2).split('.');
   return `Q ${entero!.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${centavos}`;
 };
-async function pdf(contenido: (doc: PDFKit.PDFDocument) => void, horizontal = false) {
-  const doc = new PDFDocument({
-      size: 'A4',
-      layout: horizontal ? 'landscape' : 'portrait',
-      margin: 42,
-      bufferPages: true,
-      info: { Title: 'Nómina', Author: 'nomina2' },
-    }),
-    partes: Buffer[] = [];
-  const terminado = new Promise<Buffer>((resolve, reject) => {
-    doc.on('data', (b: Buffer) => partes.push(b));
-    doc.on('end', () => resolve(Buffer.concat(partes)));
-    doc.on('error', reject);
-  });
-  contenido(doc);
-  const paginas = doc.bufferedPageRange();
-  for (let i = paginas.start; i < paginas.start + paginas.count; i++) {
-    doc.switchToPage(i);
-    doc
-      .font('Helvetica')
-      .fontSize(8)
-      .fillColor('#52606D')
-      .text(`Página ${i + 1} de ${paginas.count}`, 42, doc.page.height - 28, {
-        width: doc.page.width - 84,
-        align: 'right',
-        lineBreak: false,
-      });
-  }
-  doc.end();
-  return terminado;
-}
 function encabezado(doc: PDFKit.PDFDocument, titulo: string, empresa: string) {
   doc.fillColor('#213F60').font('Helvetica-Bold').fontSize(18).text(titulo);
   doc.moveDown(0.5).fillColor('#365D35').fontSize(11).text(empresa);
   doc.moveDown().fillColor('#25303B').font('Helvetica').fontSize(10);
 }
-export function boletasPdf(filas: Guardado[]) {
-  return pdf((doc) => {
+export function boletasPdf(
+  filas: Guardado[],
+  empresa: IdentidadEmpresa,
+  firmas: Map<number, FirmaDocumento> = new Map(),
+) {
+  return generarPdf('Boletas de pago', empresa, (doc) => {
     filas.forEach((fila, i) => {
       if (i) doc.addPage();
       const s = snapshot(fila),
         e = s.entrada.empleado,
         r = s.resultado;
       const cabecera = () => {
-        encabezado(doc, 'Boleta de pago', s.empresa?.nombre ?? 'Nómina');
+        encabezado(
+          doc,
+          (r as Resultado & { tipoPago?: string }).tipoPago === 'ANTICIPO'
+            ? 'Anticipo quincenal'
+            : ((
+                { BONO_14: 'Boleta de Bono 14', AGUINALDO: 'Boleta de Aguinaldo' } as Record<
+                  string,
+                  string
+                >
+              )[(r as Resultado & { tipoPago: string }).tipoPago] ?? 'Boleta de pago'),
+          empresa.razonSocial,
+        );
         doc.text(`${e.codigo} · ${e.nombres} ${e.apellidos}`);
         doc.text(`${e.departamento} · ${e.puesto}`);
         doc.text(`${visible(fila.inicio)} al ${visible(fila.fin)} · Versión ${fila.version}`);
-        doc.text(`Salario mensual: ${q(r.salario)} · Días pagados: ${r.dias}`);
+        const mensual = r as Resultado & { tipoPago?: string; mes?: string };
+        if (mensual.tipoPago)
+          doc.text(
+            `Mes: ${mensual.mes} · ${mensual.tipoPago === 'ANTICIPO' ? 'Anticipo del día 15' : mensual.tipoPago === 'PAGO' ? 'Pago del último día calendario' : 'Prestación anual'}`,
+          );
+        if (!['BONO_14', 'AGUINALDO'].includes(mensual.tipoPago ?? ''))
+          doc.text(
+            `Salario mensual: ${q(r.salario)}${mensual.tipoPago === 'ANTICIPO' ? '' : ` · ${mensual.tipoPago ? 'Días del mes a liquidar' : 'Días pagados'}: ${r.dias}`}`,
+          );
         doc.moveDown();
       };
       cabecera();
-      if (fila.estado !== 'CERRADO')
+      if (!['CERRADO', 'PAGADO'].includes(fila.estado))
         doc
           .fillColor('#8A4617')
-          .text('VISTA PREVIA · Periodo pendiente de cierre')
+          .text(
+            fila.estado === 'SIMULACION'
+              ? 'SIMULACIÓN · Sin validez de pago'
+              : 'VISTA PREVIA · Periodo pendiente de cierre',
+          )
           .fillColor('#25303B')
           .moveDown();
+      for (const c of (r as Resultado & { componentes?: Componente[] }).componentes ?? []) {
+        doc.text(`Periodo base: ${visible(c.inicio)} al ${visible(c.fin)} - ${c.dias} días`);
+        doc.text(`Promedio: ${q(c.promedio)} - ${c.meses} meses equivalentes`);
+        doc.text(`Exento ISR: ${q(c.exento)} - Gravado: ${q(c.gravado)}`);
+        doc.text('El excedente se incorpora al ISR del pago mensual.').moveDown();
+      }
       for (const naturaleza of ['INGRESO', 'DESCUENTO'] as const) {
         doc.x = 42;
         doc
@@ -105,6 +109,11 @@ export function boletasPdf(filas: Guardado[]) {
         .font('Helvetica-Bold')
         .text(`Total ingresos: ${q(r.ingresos)}`)
         .text(`Total descuentos: ${q(r.descuentos)}`)
+        .text(
+          (r as Resultado & { devengado?: string }).devengado
+            ? `Total devengado: ${q((r as Resultado & { devengado: string }).devengado)}`
+            : '',
+        )
         .fillColor('#365D35')
         .fontSize(15)
         .text(`Neto a recibir: ${q(r.neto)}`)
@@ -116,52 +125,69 @@ export function boletasPdf(filas: Guardado[]) {
         .text(
           `Identificador: ${fila.id} · ${fila.estado}. Generada desde el detalle y las vigencias conservadas del cálculo.`,
         );
+      const firma = firmas.get(fila.id);
+      if (firma) bloqueFirma(doc, firma);
     });
   });
 }
 export function planillaPdf(
   filas: FilaNomina[],
   totales: { ingresos: string; descuentos: string; neto: string; patronal: string },
+  empresa: IdentidadEmpresa,
+  firmas: FirmaDocumento[] = [],
 ) {
-  return pdf((doc) => {
-    const cabecera = () => {
-      encabezado(doc, 'Planilla consolidada', 'Nómina');
-      const y = doc.y;
-      ['Empleado / periodo', 'Ingresos', 'Descuentos', 'Neto', 'Patronal'].forEach((s, i) =>
-        doc.font('Helvetica-Bold').text(s, [42, 360, 460, 560, 660][i]!, y, {
-          width: i === 0 ? 305 : 90,
-          align: i === 0 ? 'left' : 'right',
-        }),
-      );
-      doc.y = y + 24;
-    };
-    cabecera();
-    for (const f of filas) {
-      if (doc.y > 500) {
-        doc.addPage();
-        cabecera();
+  return generarPdf(
+    'Planilla consolidada',
+    empresa,
+    (doc) => {
+      const cabecera = () => {
+        encabezado(doc, 'Planilla consolidada', empresa.razonSocial);
+        const y = doc.y;
+        ['Empleado / periodo', 'Ingresos', 'Descuentos', 'Neto', 'Patronal'].forEach((s, i) =>
+          doc.font('Helvetica-Bold').text(s, [42, 360, 460, 560, 660][i]!, y, {
+            width: i === 0 ? 305 : 90,
+            align: i === 0 ? 'left' : 'right',
+          }),
+        );
+        doc.y = y + 24;
+      };
+      cabecera();
+      for (const f of filas) {
+        if (doc.y > 500) {
+          doc.addPage();
+          cabecera();
+        }
+        const y = doc.y;
+        doc
+          .font('Helvetica')
+          .fontSize(9)
+          .text(`${f.empleado}\n${visible(f.inicio)} - ${visible(f.fin)} · ${f.estado}`, 42, y, {
+            width: 305,
+          });
+        [f.ingresos, f.descuentos, f.neto, f.patronal].forEach((v, i) =>
+          doc.text(q(v), [360, 460, 560, 660][i]!, y, { width: 90, align: 'right' }),
+        );
+        doc.y = y + 42;
       }
-      const y = doc.y;
+      if (doc.y > 500) doc.addPage();
+      doc.x = 42;
       doc
-        .font('Helvetica')
-        .fontSize(9)
-        .text(`${f.empleado}\n${visible(f.inicio)} - ${visible(f.fin)} · ${f.estado}`, 42, y, {
-          width: 305,
-        });
-      [f.ingresos, f.descuentos, f.neto, f.patronal].forEach((v, i) =>
-        doc.text(q(v), [360, 460, 560, 660][i]!, y, { width: 90, align: 'right' }),
-      );
-      doc.y = y + 42;
-    }
-    if (doc.y > 500) doc.addPage();
-    doc.x = 42;
-    doc
-      .moveDown()
-      .font('Helvetica-Bold')
-      .text(
-        `Totales · Ingresos ${q(totales.ingresos)} · Descuentos ${q(totales.descuentos)} · Neto ${q(totales.neto)} · Patronal ${q(totales.patronal)}`,
-      );
-  }, true);
+        .moveDown()
+        .font('Helvetica-Bold')
+        .text(
+          `Totales · Ingresos ${q(totales.ingresos)} · Descuentos ${q(totales.descuentos)} · Neto ${q(totales.neto)} · Patronal ${q(totales.patronal)}`,
+        );
+      const vistas = new Set<string>();
+      for (const firma of firmas) {
+        const clave = `${firma.idUsuario}:${firma.fecha}`;
+        if (!vistas.has(clave)) {
+          bloqueFirma(doc, firma);
+          vistas.add(clave);
+        }
+      }
+    },
+    true,
+  );
 }
 const xml = (s: unknown) =>
   String(s ?? '')
@@ -277,7 +303,11 @@ export function reporteIgss(
   f.tipos.forEach((t, i) => linea([i + 1, t.codigo, visible(inicio), visible(fin), 'O', '']));
   out.push('[Empleados]');
   const grupos = new Map<number, Guardado[]>();
-  for (const n of filas) grupos.set(n.idEmpleado, [...(grupos.get(n.idEmpleado) ?? []), n]);
+  for (const n of filas) {
+    const tipo = (snapshot(n).resultado as Resultado & { tipoPago?: string }).tipoPago;
+    if (tipo && tipo !== 'PAGO') continue;
+    grupos.set(n.idEmpleado, [...(grupos.get(n.idEmpleado) ?? []), n]);
+  }
   const extras: { etiqueta: string; linea: unknown[] }[] = [];
   for (const [id, ns] of grupos) {
     const s = snapshot(ns.at(-1)!),
@@ -308,7 +338,7 @@ export function reporteIgss(
       let totalHoras = new Decimal(0);
       for (const n of ns) {
         const entrada = snapshot(n).entrada;
-        for (const fecha of fechas(n.inicio, n.fin).filter(
+        for (const fecha of fechas(entrada.inicio, entrada.fin).filter(
           (d) => d >= e.ingreso && (!e.egreso || d <= e.egreso) && !entrada.feriados.includes(d),
         )) {
           const dia = new Date(`${fecha}T00:00:00Z`).getUTCDay() || 7;
@@ -335,6 +365,13 @@ export function reporteIgss(
           );
           totalHoras = totalHoras.plus(patron.horas);
         }
+        const mensual = entrada as Entrada & { novedades?: { tipo: string; cantidad: string }[] };
+        if (mensual.novedades)
+          totalHoras = totalHoras.plus(
+            mensual.novedades
+              .filter((v) => v.tipo === 'HORAS_EXTRA')
+              .reduce((s, v) => s.plus(v.cantidad), new Decimal(0)),
+          );
         totalHoras = totalHoras.plus(
           entrada.horas
             .filter((h) => h.estado === 'APROBADA')

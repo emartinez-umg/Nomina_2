@@ -7,9 +7,11 @@ export function NumberField({
   min,
   max,
   negativo = false,
+  maxLength = 18,
   ...props
 }: CampoProps & {
   decimales?: number;
+  maxLength?: number;
   min?: string;
   max?: string;
   negativo?: boolean;
@@ -17,8 +19,8 @@ export function NumberField({
   return (
     <InputField
       {...props}
-      ancho={props.ancho ?? 'corto'}
-      maxLength={18}
+      tipoDato="numero"
+      maxLength={maxLength}
       inputMode={decimales ? 'decimal' : 'numeric'}
       pattern={negativo ? '-?[0-9]+(\\.[0-9]+)?' : '[0-9]+(\\.[0-9]+)?'}
       sanitizar={(v) => limpiarNumero(v, decimales, negativo)}

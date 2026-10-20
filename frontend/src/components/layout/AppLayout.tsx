@@ -1,3 +1,4 @@
+import { nombreUsuario } from '../../lib/nombre';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
@@ -7,7 +8,7 @@ import { Button } from '../ui/Button';
 import { Notificaciones } from '../../features/vacaciones/pages/Notificaciones';
 import { useToast } from '../ui/Toast';
 import { iconos } from '../ui/icons';
-import { HelpButton, HelpOffer } from '../help/HelpProvider';
+import { HelpButton } from '../help/HelpProvider';
 import { nombreRol, opcionesNavegacion } from './navigation.config';
 import { guardarReciente, leerRecientes } from './navigation.history';
 import { NavigationMenu } from './NavigationMenu';
@@ -48,6 +49,7 @@ export function AppLayout() {
     };
   }, [buscar]);
   if (!usuario) return null;
+  const nombre = nombreUsuario(usuario);
   const recordar = (id: string) => {
     guardarReciente(usuario.idUsuario, id, opciones);
   };
@@ -100,23 +102,29 @@ export function AppLayout() {
               <button
                 type="button"
                 className="usuario-boton"
-                aria-label={`Mi cuenta: ${usuario.usuario} · ${nombreRol[usuario.rol]}`}
+                title={`Mi cuenta: ${nombre} · ${nombreRol[usuario.rol]}`}
+                aria-label={`Mi cuenta: ${nombre} · ${nombreRol[usuario.rol]}`}
                 aria-expanded={panel === 'usuario'}
                 aria-controls="panel-usuario"
                 onClick={() => setPanel((v) => (v === 'usuario' ? null : 'usuario'))}
               >
                 <span className="avatar" aria-hidden="true">
-                  {usuario.usuario.slice(0, 2).toUpperCase()}
+                  {nombre
+                    .split(' ')
+                    .map((p) => p[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase()}
                 </span>
                 <span className="usuario-texto">
-                  <strong>{usuario.usuario}</strong>
+                  <strong>{nombre}</strong>
                   <small>{nombreRol[usuario.rol]}</small>
                 </span>
                 <iconos.desplegar size={17} aria-hidden="true" />
               </button>
               {panel === 'usuario' && (
                 <section className="panel-flotante" id="panel-usuario" aria-label="Mi cuenta">
-                  <strong>{usuario.usuario}</strong>
+                  <strong>{nombre}</strong>
                   <p>{usuario.correo}</p>
                   <p>{nombreRol[usuario.rol]}</p>
                   <Button
@@ -133,7 +141,6 @@ export function AppLayout() {
           </div>
         </header>
         <main id="contenido-principal" tabIndex={-1} className="app-contenido">
-          <HelpOffer />
           <Outlet />
         </main>
       </div>

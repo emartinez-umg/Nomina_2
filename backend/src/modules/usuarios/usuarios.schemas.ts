@@ -52,3 +52,10 @@ export type UsuariosQuery = z.infer<typeof usuariosQuerySchema>;
 export const crearUsuarioSchema = nuevoUsuarioInternoSchema
   .extend({ rol: z.enum(['ADMIN', 'RH']), motivo: motivoSchema, confirmado: z.literal(true) })
   .strict();
+export const expedienteSchema = z
+  .object({
+    idEmpleado: z.number().int().positive(),
+    motivo: motivoSchema,
+    confirmado: z.literal(true),
+  })
+  .strict();

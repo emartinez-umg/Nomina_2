@@ -1,5 +1,6 @@
+import { limpiarDireccion } from '../../../../../backend/src/shared/empleados/validadores';
 import { useState } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { CampoProps } from '../../../components/forms/Field';
 import { InputField } from '../../../components/forms/Field';
 import {
@@ -15,7 +16,7 @@ import {
 } from '../../../components/forms';
 import { Button } from '../../../components/ui/Button';
 import type { CampoEmpleado as Def } from '../api/formulario';
-import { opciones } from '../api/empleados';
+import { opciones, parentescos } from '../api/empleados';
 import type { Reglas } from '../api/empleados';
 import { validarNacimiento, validarIngreso, fechaValida } from '../../../lib/validadores';
 export function RefField(props: CampoProps & { departamento?: string | undefined }) {
@@ -29,39 +30,67 @@ export function RefField(props: CampoProps & { departamento?: string | undefined
   });
   const todas = [...new Map((q.data?.pages.flat() ?? []).map((o) => [o.value, o])).values()];
   return (
-    <div>
-      <SelectField
-        {...props}
-        opciones={todas}
-        onBuscar={setBuscar}
-        error={props.error ?? q.error?.message}
-      />
-      {q.isPending && (
-        <p role="status" className="campo-hint">
-          Cargando opciones…
-        </p>
-      )}
-      {q.hasNextPage && (
-        <Button
-          icono="siguiente"
-          variante="texto"
-          cargando={q.isFetchingNextPage}
-          onClick={() => void q.fetchNextPage()}
-        >
-          Más opciones
-        </Button>
-      )}
-      {!props.required && props.value && (
-        <Button
-          icono="cancelar"
-          variante="texto"
-          disabled={props.disabled}
-          onClick={() => props.onValueChange('')}
-        >
-          Quitar selección
-        </Button>
-      )}
-    </div>
+    <SelectField
+      {...props}
+      opciones={todas}
+      onBuscar={setBuscar}
+      error={props.error ?? q.error?.message}
+      complemento={
+        <>
+          {q.isPending && (
+            <p role="status" className="campo-hint">
+              Cargando opciones…
+            </p>
+          )}
+          {q.hasNextPage && (
+            <Button
+              icono="siguiente"
+              variante="texto"
+              cargando={q.isFetchingNextPage}
+              onClick={() => void q.fetchNextPage()}
+            >
+              Más opciones
+            </Button>
+          )}
+          {!props.required && props.value && (
+            <Button
+              icono="cancelar"
+              variante="texto"
+              disabled={props.disabled}
+              onClick={() => props.onValueChange('')}
+            >
+              Quitar selección
+            </Button>
+          )}
+        </>
+      }
+    />
+  );
+}
+function ParentescoField({
+  parentescoAnterior,
+  ...props
+}: CampoProps & { parentescoAnterior?: string | undefined }) {
+  const q = useQuery({
+    queryKey: ['empleados', 'parentescos'],
+    queryFn: ({ signal }) => parentescos(signal),
+  });
+  const lista = [...(q.data ?? [])];
+  if (parentescoAnterior && !lista.some((p) => p.value === parentescoAnterior))
+    lista.unshift({ value: parentescoAnterior, label: `${parentescoAnterior} (actual)` });
+  return (
+    <SelectField
+      {...props}
+      opciones={lista}
+      disabled={props.disabled || q.isPending}
+      error={
+        props.error ??
+        q.error?.message ??
+        (q.data && props.value && !lista.some((p) => p.value === props.value)
+          ? 'Selecciona un parentesco del catálogo; revisa el dato anterior.'
+          : undefined)
+      }
+    />
   );
 }
 export function CampoEmpleado({
@@ -70,6 +99,7 @@ export function CampoEmpleado({
   nacimiento,
   ingreso,
   departamento,
+  parentescoAnterior,
   ...props
 }: CampoProps & {
   campo: Def;
@@ -77,7 +107,19 @@ export function CampoEmpleado({
   nacimiento?: string | undefined;
   ingreso?: string | undefined;
   departamento?: string | undefined;
+  parentescoAnterior?: string | undefined;
 }) {
+  if (campo.nombre === 'contactoParentesco')
+    return <ParentescoField {...props} parentescoAnterior={parentescoAnterior} />;
+  if (campo.nombre === 'direccion')
+    return (
+      <InputField
+        {...props}
+        maxLength={100}
+        sanitizar={limpiarDireccion}
+        pattern="[\p{L}\p{M}0-9 .,#\/°\-]+"
+      />
+    );
   if (campo.tipo === 'referencia') return <RefField {...props} departamento={departamento} />;
   if (campo.tipo === 'opcion')
     return (
@@ -86,7 +128,7 @@ export function CampoEmpleado({
           {...props}
           opciones={(campo.opciones ?? []).map((v) => ({
             value: v,
-            label: v === 'F' ? 'Femenino' : v === 'M' ? 'Masculino' : v === 'O' ? 'Otro' : v,
+            label: v === 'F' ? 'Femenino' : v === 'M' ? 'Masculino' : v,
           }))}
         />
         {!props.required && props.value && (
@@ -97,7 +139,8 @@ export function CampoEmpleado({
       </>
     );
   if (campo.tipo === 'dpi') return <DpiField {...props} />;
-  if (campo.tipo === 'nit') return <NitField {...props} />;
+  if (campo.tipo === 'nit')
+    return <NitField {...props} validarDigito={reglas?.validarDigitoNit ?? false} />;
   if (campo.tipo === 'telefono') return <PhoneField {...props} />;
   if (campo.tipo === 'correo') return <EmailField {...props} />;
   if (campo.tipo === 'dinero') return <MoneyField {...props} />;
@@ -119,7 +162,9 @@ export function CampoEmpleado({
                 !!validarIngreso(v, nacimiento, reglas.hoy, reglas.edadMinima),
             }
           : {})}
-        {...(campo.nombre === 'fechaFinContrato' && ingreso ? { min: ingreso } : {})}
+        {...(campo.nombre === 'fechaFinContrato' && ingreso
+          ? { deshabilitar: (v: string) => v <= ingreso }
+          : {})}
       />
     );
   if (campo.tipo === 'numero')
@@ -132,15 +177,7 @@ export function CampoEmpleado({
         pattern="[0-9]*"
       />
     );
-  if (campo.nombre === 'codigo')
-    return (
-      <InputField
-        {...props}
-        maxLength={40}
-        sanitizar={(v) => v.toUpperCase().replace(/[^A-Z0-9_-]/g, '')}
-        pattern="[A-Z0-9_-]+"
-      />
-    );
+  if (campo.nombre === 'codigo') return null;
   if (campo.nombre === 'cuentaBancaria')
     return (
       <InputField

@@ -1,15 +1,21 @@
+import {
+  validarNombreCatalogo,
+  recortarNombreCatalogo,
+} from '../../../../../backend/src/shared/catalogos/nombre';
+import {
+  validarCodigoPostal,
+  validarCodigoIso,
+} from '../../../../../backend/src/shared/catalogos/formatos';
+import type { LimitesHorario, BloqueHorario } from './catalogos';
+import {
+  analizarHorario,
+  normalizarBloques,
+} from '../../../../../backend/src/shared/horarios/modelo';
+import { bloqueSchema } from './catalogos';
 import { z } from 'zod';
 import Decimal from 'decimal.js';
 import { fechaValida, nitSchema, correoSchema, telefonoSchema } from '../../../lib/validadores';
-import type { Catalogo, Dia, Fila } from './catalogos';
-export const diasIniciales: Dia[] = Array.from({ length: 7 }, (_, i) => ({
-  diaSemana: i + 1,
-  laborable: false,
-  entrada: null,
-  salida: null,
-  cruzaMedianoche: false,
-  minutosDescanso: 0,
-}));
+import type { Catalogo, Fila } from './catalogos';
 export function valoresIniciales(cat: Catalogo, fila?: Fila): Record<string, string> {
   const d: Record<string, string> = {};
   for (const f of cat.campos)
@@ -23,7 +29,9 @@ export function valoresIniciales(cat: Catalogo, fila?: Fila): Record<string, str
             ? '1'
             : '0'
           : String(fila[f.nombre]);
-  if (cat.slug === 'horarios') d.dias = JSON.stringify(fila?.dias ?? diasIniciales);
+  if (fila?.claveInterna) d.claveInterna = String(fila.claveInterna);
+  if (fila?.codigoAnterior) d.codigoAnterior = String(fila.codigoAnterior);
+  if (cat.slug === 'horarios') d.bloques = JSON.stringify(fila?.bloques ?? []);
   if (cat.slug === 'feriados' && !fila) {
     d.ambito = 'NACIONAL';
     d.localidad = '*';
@@ -32,15 +40,42 @@ export function valoresIniciales(cat: Catalogo, fila?: Fila): Record<string, str
   }
   return d;
 }
-export function schemaFormulario(cat: Catalogo, cierre: string | null) {
+export function esPoliticaNit(cat: Catalogo, d: Record<string, unknown>) {
+  const clave =
+    d.claveInterna ??
+    String(d.nombre ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase()
+      .replace(/ +/g, '_');
+  return cat.slug === 'parametros-legales' && clave === 'VALIDAR_DIGITO_NIT';
+}
+export function schemaFormulario(
+  cat: Catalogo,
+  cierre: string | null,
+  limites?: LimitesHorario | null,
+  anteriores?: BloqueHorario[],
+) {
   return z.record(z.string()).superRefine((d, ctx) => {
+    const politicaNit = esPoliticaNit(cat, d);
     const error = (campo: string, mensaje: string) =>
       ctx.addIssue({ code: 'custom', path: [campo], message: mensaje });
     for (const f of cat.campos) {
+      if (f.tipo === 'codigo' || (cat.slug === 'horarios' && f.nombre === 'jornada')) continue;
       const v = d[f.nombre]?.trim() ?? '';
+      if (f.nombre === 'nombre') {
+        const mensaje = validarNombreCatalogo(d[f.nombre] ?? '', f.max);
+        if (mensaje) error(f.nombre, mensaje);
+        continue;
+      }
       if (!v) {
         if (f.requerido) error(f.nombre, 'Este campo es obligatorio. Ingresa el dato solicitado.');
         continue;
+      }
+      if (f.tipo === 'codigo-postal' || f.tipo === 'codigo-iso') {
+        const mensaje = f.tipo === 'codigo-postal' ? validarCodigoPostal(v) : validarCodigoIso(v);
+        if (mensaje) error(f.nombre, mensaje);
       }
       const formato = { nit: nitSchema, correo: correoSchema, telefono: telefonoSchema }[
         f.tipo as 'nit' | 'correo' | 'telefono'
@@ -49,8 +84,6 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
         error(f.nombre, 'Revisa el formato indicado en la ayuda del campo.');
       if (f.max && (f.tipo === 'telefono' ? v.replace(/\s/g, '').length : v.length) > f.max)
         error(f.nombre, `Usa hasta ${f.max} caracteres.`);
-      if (f.tipo === 'codigo' && !/^[A-Z][A-Z0-9_]*$/.test(v))
-        error(f.nombre, 'Usa mayúsculas, números y guion bajo; empieza con una letra.');
       if (f.tipo === 'fecha' && (!fechaValida(v) || v < '1900-01-01'))
         error(f.nombre, 'Ingresa una fecha válida en formato dd/mm/aaaa.');
       if (['dinero', 'decimal', 'entero', 'referencia'].includes(f.tipo)) {
@@ -76,12 +109,29 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
       if (f.tipo === 'opcion' && !f.opciones?.includes(v))
         error(f.nombre, 'Selecciona una opción de la lista.');
     }
+    if (politicaNit && (!['0', '1'].includes(d.valor ?? '') || d.unidad !== 'CANTIDAD'))
+      error(
+        'valor',
+        'Usa 0 para desactivar o 1 para activar la validación del dígito NIT (unidad CANTIDAD).',
+      );
     if (cat.slug === 'parametros-legales' && /^\d+(\.\d+)?$/.test(d.valor ?? '')) {
       const valor = new Decimal(d.valor!);
-      const max = d.codigo?.endsWith('_DIA') ? 31 : d.codigo?.endsWith('_MES') ? 12 : null;
+      const clave =
+        d.claveInterna ||
+        d.codigoAnterior ||
+        d.nombre
+          ?.toUpperCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^A-Z0-9 ]/g, '')
+          .trim()
+          .replace(/ +/g, '_');
+      const max = clave?.endsWith('_DIA') ? 31 : clave?.endsWith('_MES') ? 12 : null;
       if (max !== null && (!valor.isInteger() || valor.lt(1) || valor.gt(max)))
         error('valor', `Ingresa un entero entre 1 y ${max} para esta posición del calendario.`);
-      if (/^JORNADA_.*_HORAS$/.test(d.codigo ?? '') && (valor.lte(0) || valor.gt(24)))
+      if (/^JORNADA_.*_HORAS_SEMANA$/.test(clave ?? '') && (valor.lte(0) || valor.gt(168)))
+        error('valor', 'Las horas semanales deben superar 0 y no exceder 168.');
+      if (/^JORNADA_.*_HORAS$/.test(clave ?? '') && (valor.lte(0) || valor.gt(24)))
         error('valor', 'La duración de una jornada debe superar 0 y no exceder 24 horas.');
     }
     const comparables = (a: string, b: string) =>
@@ -98,7 +148,7 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
       error('salarioMaximo', 'Ingresa ambos límites; el máximo debe ser igual o mayor al mínimo.');
     if (d.vigenteHasta && d.vigenteDesde! > d.vigenteHasta)
       error('vigenteHasta', 'La fecha final debe ser igual o posterior a la inicial.');
-    if (cierre && d.vigenteDesde && d.vigenteDesde <= cierre)
+    if (cierre && d.vigenteDesde && d.vigenteDesde <= cierre && !politicaNit)
       error('vigenteDesde', 'La vigencia debe comenzar después del último periodo cerrado.');
     if (
       cat.slug === 'tramos-isr' &&
@@ -116,39 +166,47 @@ export function schemaFormulario(cat: Catalogo, cierre: string | null) {
         error('localidad', 'Para nacional usa *; para local ingresa la localidad.');
     }
     if (cat.slug === 'horarios') {
-      let dias: Dia[] = [];
+      let bloques;
       try {
-        dias = JSON.parse(d.dias ?? '[]') as Dia[];
+        bloques = z.array(bloqueSchema).parse(JSON.parse(d.bloques ?? '[]'));
       } catch {
-        error('dias', 'Revisa los días del horario.');
+        error('bloques', 'Revisa los bloques del horario.');
+        return;
       }
-      if (!dias.some((x) => x.laborable)) error('dias', 'Selecciona al menos un día laborable.');
-      for (const dia of dias.filter((x) => x.laborable)) {
-        const minutos = (h: string | null) =>
-          h && /^([01]\d|2[0-3]):[0-5]\d$/.test(h)
-            ? Number(h.slice(0, 2)) * 60 + Number(h.slice(3))
-            : NaN;
-        const duracion =
-          minutos(dia.salida) - minutos(dia.entrada) + (dia.cruzaMedianoche ? 1440 : 0);
-        if (!Number.isFinite(duracion) || duracion <= dia.minutosDescanso || duracion > 1440)
-          error(
-            'dias',
-            `Revisa entrada, salida, descanso y cruce de medianoche del día ${dia.diaSemana}.`,
-          );
-      }
+      const iguales =
+        anteriores &&
+        JSON.stringify(normalizarBloques(anteriores)) ===
+          JSON.stringify(normalizarBloques(bloques));
+      if (!iguales && limites === null)
+        error(
+          'bloques',
+          'Espera a que carguen los límites de jornadas; si faltan, completa Parámetros legales.',
+        );
+      for (const mensaje of analizarHorario(
+        bloques,
+        iguales ? undefined : (limites ?? undefined),
+        !iguales,
+      ).errores)
+        error('bloques', mensaje);
     }
   });
 }
 export function cuerpo(cat: Catalogo, d: Record<string, string>) {
   const body: Record<string, unknown> = {};
   for (const f of cat.campos) {
-    const original = d[f.nombre]?.trim() ?? '';
+    if (f.tipo === 'codigo') continue;
+    const original =
+      f.nombre === 'nombre'
+        ? recortarNombreCatalogo(d[f.nombre] ?? '')
+        : (d[f.nombre]?.trim() ?? '');
     const v =
       f.tipo === 'telefono'
         ? original.replace(/\s/g, '')
         : f.tipo === 'correo'
           ? original.toLowerCase()
-          : original;
+          : f.tipo === 'codigo-iso'
+            ? original.toUpperCase()
+            : original;
     body[f.nombre] = !v
       ? null
       : f.tipo === 'booleano'
@@ -159,6 +217,18 @@ export function cuerpo(cat: Catalogo, d: Record<string, string>) {
             ? v.replace(/,/g, '')
             : v;
   }
-  if (cat.slug === 'horarios') body.dias = JSON.parse(d.dias ?? '[]') as Dia[];
+  if (cat.slug === 'horarios') {
+    delete body.jornada;
+    body.bloques = JSON.parse(d.bloques ?? '[]');
+  }
   return body;
+}
+
+export function bloquesDesdeJson(valor: string): BloqueHorario[] {
+  try {
+    const resultado = z.array(bloqueSchema).safeParse(JSON.parse(valor));
+    return resultado.success ? resultado.data : [];
+  } catch {
+    return [];
+  }
 }

@@ -1,3 +1,6 @@
+import { nombrePersonaSql } from '../../shared/utils/nombre.js';
+import { esMensual, listarMensuales, anularMensual } from './mensuales.repository.js';
+import { jornadasEmpleado } from '../../shared/horarios/horarios.repository.js';
 import oracledb from 'oracledb';
 import type { Connection, BindParameters, BindParameter, Lob } from 'oracledb';
 import type { Datos, Tipo, Query } from './novedades.schemas.js';
@@ -14,9 +17,17 @@ export const tablas = {
   comisiones: ['COMISIONES', 'ID_COMISION'],
   'horas-extra': ['HORAS_EXTRA', 'ID_HORA_EXTRA'],
   ausencias: ['AUSENCIAS', 'ID_AUSENCIA'],
+  'consumo-tienda': ['NOVEDADES_MENSUALES', 'ID_NOVEDAD_MENSUAL'],
 } as const;
 export const esDescuento = (tipo: Tipo) => tipo === 'descuentos' || tipo === 'prestamos';
 export interface Fila {
+  mes?: string;
+  estadoAplicacion?: string;
+  idPago?: number | null;
+  autorizacion?: string;
+  valorUnitario?: string | null;
+  recargo?: string | null;
+  codigo: string | null;
   id: number;
   idEmpleado: number;
   empleado: string;
@@ -71,7 +82,7 @@ function config(tipo: Tipo) {
   const uso = desc
     ? 'EXISTS (SELECT 1 FROM DESCUENTOS_APLICACIONES A WHERE A.ID_DESCUENTO_EMPLEADO=T.ID_DESCUENTO_EMPLEADO) OR EXISTS (SELECT 1 FROM DESCUENTOS_CUOTAS C WHERE C.ID_DESCUENTO_EMPLEADO=T.ID_DESCUENTO_EMPLEADO AND C.MONTO_PAGADO>0)'
     : `EXISTS (SELECT 1 FROM NOMINA_DETALLE N WHERE N.${tipo === 'comisiones' ? 'ID_COMISION' : tipo === 'horas-extra' ? 'ID_HORA_EXTRA' : 'ID_AUSENCIA'}=T.${tablas[tipo][1]})`;
-  const bloqueada = `CASE WHEN EXISTS (SELECT 1 FROM PERIODOS_NOMINA C WHERE C.ESTADO='CERRADO' AND C.FECHA_INICIO<=${fin} AND C.FECHA_FIN>=${inicio}) OR ${uso} THEN 1 ELSE 0 END`;
+  const bloqueada = `CASE WHEN EXISTS (SELECT 1 FROM PERIODOS_NOMINA C WHERE C.ESTADO='CERRADO' AND (C.MOTOR='V0' OR C.QUINCENA=2) AND C.FECHA_INICIO<=${fin} AND C.FECHA_FIN>=${inicio}) OR ${uso}${tipo === 'ausencias' ? " OR EXISTS(SELECT 1 FROM NOVEDADES_MENSUALES M WHERE M.ID_AUSENCIA=T.ID_AUSENCIA AND M.ESTADO='APLICADA')" : ''} THEN 1 ELSE 0 END`;
   return {
     inicio,
     fin,
@@ -81,16 +92,18 @@ function config(tipo: Tipo) {
     from: `${tablas[tipo][0]} T JOIN EMPLEADOS E ON E.ID_EMPLEADO=T.ID_EMPLEADO ${desc ? `JOIN TIPOS_DESCUENTO D ON D.ID_TIPO_DESCUENTO=T.ID_TIPO_DESCUENTO ${tipo === 'prestamos' ? 'JOIN PRESTAMOS L ON L.ID_DESCUENTO_EMPLEADO=T.ID_DESCUENTO_EMPLEADO' : ''}` : tipo === 'ausencias' ? 'JOIN TIPOS_AUSENCIA D ON D.ID_TIPO_AUSENCIA=T.ID_TIPO_AUSENCIA' : 'JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=T.ID_PERIODO_NOMINA'}`,
     condicion:
       tipo === 'descuentos'
-        ? 'NOT EXISTS (SELECT 1 FROM PRESTAMOS L WHERE L.ID_DESCUENTO_EMPLEADO=T.ID_DESCUENTO_EMPLEADO)'
+        ? 'NOT EXISTS (SELECT 1 FROM PRESTAMOS L WHERE L.ID_DESCUENTO_EMPLEADO=T.ID_DESCUENTO_EMPLEADO) AND NOT EXISTS(SELECT 1 FROM PARQUEO_SUSCRIPCIONES S WHERE S.ID_DESCUENTO_ORIGEN=T.ID_DESCUENTO_EMPLEADO)'
         : '1=1',
   };
 }
 function select(tipo: Tipo) {
   const x = config(tipo),
     desc = esDescuento(tipo);
-  return `T.${tablas[tipo][1]} "id",T.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||E.NOMBRES||' '||E.APELLIDOS "empleado",T.ACTIVO "activo",${x.bloqueada} "bloqueada",TO_CHAR(${x.inicio},'YYYY-MM-DD') "fechaInicio",TO_CHAR(${x.fin},'YYYY-MM-DD') "fechaFin",${x.estado} "estado",${textoNumero(x.monto)} "monto",${desc ? textoNumero('T.SALDO') : 'NULL'} "saldo",T.${tipo === 'comisiones' ? 'DESCRIPCION' : 'MOTIVO'} "motivo"${desc ? `,T.ID_TIPO_DESCUENTO "idTipo",D.NOMBRE "tipoNombre",T.MODALIDAD "modalidad",T.NUMERO_CUOTAS "cuotas",${textoNumero('T.MONTO_QUINCENA')} "montoQuincena"` : ''}${tipo === 'prestamos' ? ',TO_CHAR(L.FECHA_DESEMBOLSO,\'YYYY-MM-DD\') "fechaDesembolso",L.REFERENCIA "referencia"' : ''}${tipo === 'comisiones' ? ',T.REFERENCIA "referencia",T.ID_PERIODO_NOMINA "idPeriodo"' : ''}${tipo === 'horas-extra' ? `,TO_CHAR(T.FECHA,'YYYY-MM-DD') "fecha",T.ID_PERIODO_NOMINA "idPeriodo",${textoNumero('T.HORAS')} "horas",T.JORNADA "jornada"` : ''}${tipo === 'ausencias' ? ',T.ID_TIPO_AUSENCIA "idTipo",D.NOMBRE "tipoNombre",D.EFECTO "efecto",T.DIAS "dias",T.SOPORTE_NOMBRE "soporteNombre",T.SOPORTE_TIPO "soporteTipo"' : ''}`;
+  return `${tipo === 'prestamos' ? 'L.CODIGO' : desc ? 'T.CODIGO' : 'NULL'} "codigo",T.${tablas[tipo][1]} "id",T.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "empleado",T.ACTIVO "activo",${x.bloqueada} "bloqueada",TO_CHAR(${x.inicio},'YYYY-MM-DD') "fechaInicio",TO_CHAR(${x.fin},'YYYY-MM-DD') "fechaFin",${x.estado} "estado",${textoNumero(x.monto)} "monto",${desc ? textoNumero('T.SALDO') : 'NULL'} "saldo",T.${tipo === 'comisiones' ? 'DESCRIPCION' : 'MOTIVO'} "motivo"${desc ? `,T.ID_TIPO_DESCUENTO "idTipo",D.NOMBRE "tipoNombre",T.MODALIDAD "modalidad",T.NUMERO_CUOTAS "cuotas",${textoNumero('T.MONTO_QUINCENA')} "montoQuincena"` : ''}${tipo === 'prestamos' ? ',TO_CHAR(L.FECHA_DESEMBOLSO,\'YYYY-MM-DD\') "fechaDesembolso",L.REFERENCIA "referencia"' : ''}${tipo === 'comisiones' ? ',T.REFERENCIA "referencia",T.ID_PERIODO_NOMINA "idPeriodo"' : ''}${tipo === 'horas-extra' ? `,TO_CHAR(T.FECHA,'YYYY-MM-DD') "fecha",T.ID_PERIODO_NOMINA "idPeriodo",${textoNumero('T.HORAS')} "horas",T.JORNADA "jornada"` : ''}${tipo === 'ausencias' ? ',T.ID_TIPO_AUSENCIA "idTipo",D.NOMBRE "tipoNombre",D.EFECTO "efecto",T.DIAS "dias",T.SOPORTE_NOMBRE "soporteNombre",T.SOPORTE_TIPO "soporteTipo"' : ''}`;
 }
 export async function listar(c: Connection, tipo: Tipo, q: Query) {
+  if (['comisiones', 'horas-extra', 'consumo-tienda'].includes(tipo))
+    return listarMensuales(c, tipo as Parameters<typeof listarMensuales>[1], q);
   const x = config(tipo),
     desc = esDescuento(tipo),
     condiciones = [x.condicion],
@@ -101,11 +114,18 @@ export async function listar(c: Connection, tipo: Tipo, q: Query) {
   };
   if (q.buscar)
     add(
-      `(INSTR(UPPER(E.CODIGO||' '||E.NOMBRES||' '||E.APELLIDOS||' '||T.${tipo === 'comisiones' ? 'DESCRIPCION' : 'MOTIVO'}),UPPER(:buscar))>0)`,
+      `(INSTR(UPPER(${tipo === 'prestamos' ? "L.CODIGO||' '||" : desc ? "T.CODIGO||' '||" : ''}E.CODIGO||' '||E.NOMBRES||' '||E.APELLIDOS||' '||T.${tipo === 'comisiones' ? 'DESCRIPCION' : 'MOTIVO'}),UPPER(:buscar))>0)`,
       'buscar',
       q.buscar,
     );
   if (q.idEmpleado) add('T.ID_EMPLEADO=:idEmpleado', 'idEmpleado', q.idEmpleado);
+  if (q.idDepartamento) add('E.ID_DEPARTAMENTO=:departamento', 'departamento', q.idDepartamento);
+  if (q.estadoAplicacion && tipo === 'ausencias')
+    add(
+      `CASE WHEN EXISTS(SELECT 1 FROM NOVEDADES_MENSUALES M WHERE M.ID_AUSENCIA=T.ID_AUSENCIA AND M.ESTADO='APLICADA') THEN 'APLICADA' ELSE 'PENDIENTE' END=:aplicacion`,
+      'aplicacion',
+      q.estadoAplicacion,
+    );
   if (q.idTipo && (desc || tipo === 'ausencias'))
     add(`T.${desc ? 'ID_TIPO_DESCUENTO' : 'ID_TIPO_AUSENCIA'}=:idTipo`, 'idTipo', q.idTipo);
   if (q.idPeriodo && !desc && tipo !== 'ausencias')
@@ -135,6 +155,7 @@ export async function listar(c: Connection, tipo: Tipo, q: Query) {
     opts,
   );
   const orden = {
+    codigo: tipo === 'prestamos' ? 'L.CODIGO' : desc ? 'T.CODIGO' : `T.${tablas[tipo][1]}`,
     id: `T.${tablas[tipo][1]}`,
     empleado: 'E.NOMBRES',
     fechaInicio: x.inicio,
@@ -156,6 +177,15 @@ export async function listar(c: Connection, tipo: Tipo, q: Query) {
   };
 }
 export async function detalle(c: Connection, tipo: Tipo, id: number) {
+  if (['comisiones', 'horas-extra', 'consumo-tienda'].includes(tipo))
+    return (
+      await listarMensuales(
+        c,
+        tipo as Parameters<typeof listarMensuales>[1],
+        { pagina: 1, limite: 1, ordenarPor: 'id', direccion: 'desc' },
+        id,
+      )
+    ).registros[0];
   const x = config(tipo);
   return (
     await c.execute<Fila>(
@@ -186,7 +216,7 @@ export async function cuotas(c: Connection, id: number) {
 export async function cerrados(c: Connection, inicio: string, fin: string) {
   return !!(
     await c.execute(
-      `SELECT 1 FROM PERIODOS_NOMINA WHERE ESTADO='CERRADO' AND FECHA_INICIO<=${fecha('fin')} AND FECHA_FIN>=${fecha('inicio')}`,
+      `SELECT 1 FROM PERIODOS_NOMINA WHERE ESTADO='CERRADO' AND (MOTOR='V0' OR QUINCENA=2) AND FECHA_INICIO<=${fecha('fin')} AND FECHA_FIN>=${fecha('inicio')}`,
       { inicio, fin },
     )
   ).rows?.length;
@@ -203,7 +233,7 @@ export async function empleado(c: Connection, id: number) {
 export async function tipoReferencia(c: Connection, tipo: Tipo, id: number) {
   return (
     await c.execute<{ codigo: string; efecto?: string }>(
-      `SELECT CODIGO "codigo"${tipo === 'ausencias' ? ',EFECTO "efecto"' : ''} FROM ${tipo === 'ausencias' ? 'TIPOS_AUSENCIA' : 'TIPOS_DESCUENTO'} WHERE ${tipo === 'ausencias' ? 'ID_TIPO_AUSENCIA' : 'ID_TIPO_DESCUENTO'}=:id AND ACTIVO=1`,
+      `SELECT NVL(CODIGO_ANTERIOR,CODIGO) "codigo"${tipo === 'ausencias' ? ',EFECTO "efecto"' : ''} FROM ${tipo === 'ausencias' ? 'TIPOS_AUSENCIA' : 'TIPOS_DESCUENTO'} WHERE ${tipo === 'ausencias' ? 'ID_TIPO_AUSENCIA' : 'ID_TIPO_DESCUENTO'}=:id AND ACTIVO=1`,
       { id },
       opts,
     )
@@ -244,12 +274,7 @@ export async function periodo(
     )
   ).rows![0]!.ID;
 }
-export async function parametrosHora(
-  c: Connection,
-  idEmpleado: number,
-  desde: string,
-  jornada: string,
-) {
+export async function parametrosHora(c: Connection, idEmpleado: number, desde: string) {
   const salario = (
     await c.execute<{ VALOR: string }>(
       `SELECT ${textoNumero('SALARIO_BASE')} VALOR FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:idEmpleado AND ACTIVO=1 AND VIGENTE_DESDE<=${fecha('desde')} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${fecha('desde')})`,
@@ -258,11 +283,11 @@ export async function parametrosHora(
     )
   ).rows?.[0]?.VALOR;
   const r = await c.execute<{ CODIGO: string; VALOR: string; UNIDAD: string }>(
-    `SELECT CODIGO,${textoNumero('VALOR')} VALOR,UNIDAD FROM PARAMETROS_LEGALES WHERE ACTIVO=1 AND CODIGO IN ('SALARIO_DIAS_MES','HORAS_EXTRA_RECARGO_PORCENTAJE',:jornada) AND VIGENTE_DESDE<=${fecha('desde')} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${fecha('desde')})`,
-    { desde, jornada: `JORNADA_${jornada}_HORAS` },
+    `SELECT CLAVE_INTERNA CODIGO,${textoNumero('VALOR')} VALOR,UNIDAD FROM PARAMETROS_LEGALES WHERE ACTIVO=1 AND CLAVE_INTERNA IN ('SALARIO_DIAS_MES','HORAS_EXTRA_RECARGO_PORCENTAJE') AND VIGENTE_DESDE<=${fecha('desde')} AND (VIGENTE_HASTA IS NULL OR VIGENTE_HASTA>=${fecha('desde')})`,
+    { desde },
     opts,
   );
-  return { salario, parametros: r.rows ?? [] };
+  return { salario, parametros: r.rows ?? [], jornadas: await jornadasEmpleado(c, idEmpleado) };
 }
 export async function guardar(
   c: Connection,
@@ -350,6 +375,12 @@ export async function adjunto(c: Connection, id: number) {
   return { nombre: r.nombre, tipo: r.tipo, base64: contenido.toString('base64') };
 }
 export async function anular(c: Connection, tipo: Tipo, id: number, actor: number) {
+  if (esMensual(tipo)) return anularMensual(c, id, actor);
+  if (tipo === 'ausencias')
+    await c.execute(
+      'UPDATE NOVEDADES_MENSUALES SET ACTIVO=0,MODIFICADO_POR=:actor WHERE ID_AUSENCIA=:id',
+      { actor, id },
+    );
   await c.execute(
     `UPDATE ${tablas[tipo][0]} SET ACTIVO=0${esDescuento(tipo) ? ",ESTADO='CANCELADO'" : ''},MODIFICADO_POR=:actor WHERE ${tablas[tipo][1]}=:id`,
     { id, actor },
@@ -367,35 +398,43 @@ export async function anular(c: Connection, tipo: Tipo, id: number, actor: numbe
 }
 export async function opciones(
   c: Connection,
-  ref: 'empleados' | 'descuentos' | 'prestamos' | 'ausencias' | 'periodos',
+  ref: 'empleados' | 'descuentos' | 'prestamos' | 'ausencias' | 'periodos' | 'departamentos',
   buscar: string,
   pagina: number,
   seleccionado?: number,
 ) {
   const def =
     ref === 'empleados'
-      ? ['EMPLEADOS', 'ID_EMPLEADO', "CODIGO||' · '||NOMBRES||' '||APELLIDOS", "ESTADO='ACTIVO'"]
-      : ref === 'periodos'
-        ? [
-            'PERIODOS_NOMINA',
-            'ID_PERIODO_NOMINA',
-            "TO_CHAR(FECHA_INICIO,'DD/MM/YYYY')||' – '||TO_CHAR(FECHA_FIN,'DD/MM/YYYY')||' · '||ESTADO",
-            '1=1',
-          ]
-        : [
-            ref === 'ausencias' ? 'TIPOS_AUSENCIA' : 'TIPOS_DESCUENTO',
-            ref === 'ausencias' ? 'ID_TIPO_AUSENCIA' : 'ID_TIPO_DESCUENTO',
-            ref === 'ausencias' ? "NOMBRE||' · '||EFECTO" : 'NOMBRE',
-            ref === 'prestamos'
-              ? "CODIGO IN ('PRESTAMO','ANTICIPO')"
-              : ref === 'descuentos'
-                ? "CODIGO NOT IN ('PRESTAMO','ANTICIPO')"
-                : '1=1',
-          ];
+      ? [
+          'EMPLEADOS',
+          'ID_EMPLEADO',
+          `CODIGO||' · '||${nombrePersonaSql('NOMBRES', 'APELLIDOS')}`,
+          "ESTADO='ACTIVO'",
+        ]
+      : ref === 'departamentos'
+        ? ['DEPARTAMENTOS', 'ID_DEPARTAMENTO', 'NOMBRE', '1=1']
+        : ref === 'periodos'
+          ? [
+              'PERIODOS_NOMINA',
+              'ID_PERIODO_NOMINA',
+              "TO_CHAR(FECHA_INICIO,'DD/MM/YYYY')||' – '||TO_CHAR(FECHA_FIN,'DD/MM/YYYY')||' · '||ESTADO",
+              '1=1',
+            ]
+          : [
+              ref === 'ausencias' ? 'TIPOS_AUSENCIA' : 'TIPOS_DESCUENTO',
+              ref === 'ausencias' ? 'ID_TIPO_AUSENCIA' : 'ID_TIPO_DESCUENTO',
+              ref === 'ausencias' ? "NOMBRE||' · '||EFECTO" : 'NOMBRE',
+              ref === 'prestamos'
+                ? "NVL(CODIGO_ANTERIOR,CODIGO) IN ('PRESTAMO','ANTICIPO')"
+                : ref === 'descuentos'
+                  ? "NVL(CODIGO_ANTERIOR,CODIGO) NOT IN ('PRESTAMO','ANTICIPO','PARQUEO','CONSUMO_TIENDA')"
+                  : '1=1',
+            ];
+  const busqueda = ref === 'empleados' ? "CODIGO||' '||NOMBRES||' '||APELLIDOS" : def[2];
   return (
     (
       await c.execute<{ value: string; label: string }>(
-        `SELECT TO_CHAR(${def[1]}) "value",${def[2]} "label" FROM ${def[0]} WHERE ((ACTIVO=1 AND ${def[3]}) OR ${def[1]}=:seleccionado) AND (:buscar IS NULL OR INSTR(UPPER(${def[2]}),UPPER(:buscar))>0) ORDER BY ${def[2]},${def[1]} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
+        `SELECT TO_CHAR(${def[1]}) "value",${def[2]} "label" FROM ${def[0]} WHERE ((ACTIVO=1 AND ${def[3]}) OR ${def[1]}=:seleccionado) AND (:buscar IS NULL OR INSTR(UPPER(${def[2]}),UPPER(:buscar))>0 OR INSTR(UPPER(${busqueda}),UPPER(:buscar))>0) ORDER BY ${def[2]},${def[1]} OFFSET :offset ROWS FETCH NEXT 100 ROWS ONLY`,
         { seleccionado: seleccionado ?? null, buscar: buscar || null, offset: (pagina - 1) * 100 },
         opts,
       )
@@ -410,23 +449,6 @@ export async function hoy(c: Connection) {
       opts,
     )
   ).rows![0]!.HOY;
-}
-export async function parqueoVigente(c: Connection, id: number, inicio: string) {
-  return (
-    await c.execute(
-      `SELECT D.ID_DESCUENTO_EMPLEADO FROM DESCUENTOS_EMPLEADO D JOIN TIPOS_DESCUENTO T ON T.ID_TIPO_DESCUENTO=D.ID_TIPO_DESCUENTO WHERE D.ID_EMPLEADO=:id AND T.CODIGO='PARQUEO' AND D.ACTIVO=1 AND D.ESTADO='VIGENTE' AND (D.FECHA_FIN IS NULL OR D.FECHA_FIN>=TO_DATE(:inicio,'YYYY-MM-DD'))`,
-      { id, inicio },
-    )
-  ).rows?.length;
-}
-export async function tipoParqueo(c: Connection) {
-  return (
-    await c.execute<{ ID: number }>(
-      "SELECT ID_TIPO_DESCUENTO ID FROM TIPOS_DESCUENTO WHERE CODIGO='PARQUEO' AND ACTIVO=1",
-      {},
-      { outFormat: oracledb.OUT_FORMAT_OBJECT },
-    )
-  ).rows?.[0]?.ID;
 }
 export async function restricciones(c: Connection, id: number, excluir: number) {
   const rangos =

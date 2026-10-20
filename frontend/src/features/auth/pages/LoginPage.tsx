@@ -2,7 +2,7 @@ import { FormErrorSummary } from '../../../components/forms/FormErrorSummary';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import type { z } from 'zod';
 import { AuthFrame } from './AuthFrame';
 import { TextField } from '../../../components/forms/TextField';
@@ -16,6 +16,7 @@ import { mapearErrores } from '../../../lib/http';
 type Datos = z.infer<typeof loginSchema>;
 export function LoginPage() {
   const sesion = useSession();
+  const location = useLocation();
   usePageHelp(ayudaLogin);
   const {
     control,
@@ -50,6 +51,12 @@ export function LoginPage() {
           Tu sesión expiró. Inicia sesión nuevamente para continuar.
         </p>
       )}
+      {!sesion.expirada &&
+        (location.state as { requiereSesion?: boolean } | null)?.requiereSesion && (
+          <p role="alert" className="alerta">
+            Inicia sesión para continuar.
+          </p>
+        )}
       <form
         noValidate
         onSubmit={handleSubmit((d) => {
@@ -75,7 +82,6 @@ export function LoginPage() {
                 onBlur={field.onBlur}
                 error={errors.usuario?.message}
                 required
-                ancho="ancho"
                 maxLength={80}
                 disabled={login.isPending}
               />
@@ -100,7 +106,6 @@ export function LoginPage() {
                 onBlur={field.onBlur}
                 error={errors.contrasena?.message}
                 required
-                ancho="ancho"
                 maxLength={128}
                 disabled={login.isPending}
               />

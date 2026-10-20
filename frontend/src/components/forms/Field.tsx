@@ -1,8 +1,10 @@
 import { useId, useState } from 'react';
-import type { HTMLAttributes, ReactNode, Ref } from 'react';
+import type { CSSProperties, HTMLAttributes, ReactNode, Ref } from 'react';
+import { calcularAnchoCampo } from './tamanoCampo';
+import type { TamanoProps } from './tamanoCampo';
 import { Tooltip } from '../ui/Tooltip';
 import { iconos } from '../ui/icons';
-export interface CampoProps {
+export interface CampoProps extends Pick<TamanoProps, 'tamano'> {
   name: string;
   label: string;
   hint: string;
@@ -14,34 +16,39 @@ export interface CampoProps {
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
-  ancho?: 'corto' | 'medio' | 'ancho';
 }
 export function Field({
   label,
   hint,
   required,
   error,
-  ancho = 'medio',
+  tamano,
+  tipo,
+  maxLength,
   id,
   children,
-}: {
+}: TamanoProps & {
   label: string;
   hint: string;
   required?: boolean | undefined;
   error?: string | undefined;
-  ancho?: CampoProps['ancho'] | undefined;
   id: string;
   children: ReactNode;
 }) {
   const Info = iconos.informacion;
+  const ancho = calcularAnchoCampo({ tipo, maxLength, tamano });
+  const orientacion =
+    maxLength && tipo !== 'select' && tipo !== 'zona' && !/caracteres|dígitos/i.test(hint)
+      ? `${hint} Máximo ${maxLength} caracteres.`
+      : hint;
   return (
-    <div className={`campo campo-${ancho}`} data-campo={label}>
+    <div className="campo" style={{ '--campo-ancho': ancho } as CSSProperties} data-campo={label}>
       <div className="campo-etiqueta">
         <label htmlFor={id}>
           {label}
           {required && <span aria-hidden="true"> *</span>}
         </label>
-        <Tooltip texto={hint}>
+        <Tooltip texto={orientacion}>
           <span role="img" tabIndex={0} aria-label={`Ayuda: ${label}`}>
             <Info size={16} aria-hidden="true" />
           </span>
@@ -49,7 +56,7 @@ export function Field({
       </div>
       {children}
       <p id={`${id}-hint`} className="campo-hint">
-        {hint}
+        {orientacion}
       </p>
       {error && (
         <p id={`${id}-error`} role="alert" className="campo-error">
@@ -60,6 +67,7 @@ export function Field({
   );
 }
 interface InputProps extends CampoProps {
+  tipoDato?: TamanoProps['tipo'];
   sanitizar: (v: string) => string;
   validar?: ((v: string) => string | undefined) | undefined;
   type?: string;
@@ -83,7 +91,8 @@ export function InputField({
   required,
   disabled,
   placeholder,
-  ancho,
+  tamano,
+  tipoDato = 'texto',
   sanitizar,
   validar,
   type = 'text',
@@ -105,7 +114,16 @@ export function InputField({
         : validar?.(value)
       : undefined);
   return (
-    <Field id={id} label={label} hint={hint} required={required} error={problema} ancho={ancho}>
+    <Field
+      id={id}
+      label={label}
+      hint={hint}
+      required={required}
+      error={problema}
+      tamano={tamano}
+      tipo={tipoDato}
+      maxLength={maxLength}
+    >
       <div className={`control-grupo ${problema ? 'control-error' : ''}`}>
         {prefijo && <span className="control-prefijo">{prefijo}</span>}
         <input

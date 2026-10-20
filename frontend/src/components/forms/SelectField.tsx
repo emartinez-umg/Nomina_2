@@ -1,4 +1,6 @@
 import { useId, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import type { TipoCampo } from './tamanoCampo';
 import { Field } from './Field';
 import type { CampoProps } from './Field';
 import { limpiarTexto } from '../../lib/validadores';
@@ -6,9 +8,17 @@ import { iconos } from '../ui/icons';
 export function SelectField({
   opciones,
   onBuscar,
+  maxLength,
+  tipoDato = 'select',
+  complemento,
+  filtrarEnServidor = false,
   ...props
 }: CampoProps & {
-  opciones: { value: string; label: string }[];
+  tipoDato?: TipoCampo;
+  maxLength?: number;
+  complemento?: ReactNode;
+  opciones: { value: string; label: string; disabled?: boolean; oculta?: boolean }[];
+  filtrarEnServidor?: boolean;
   onBuscar?: (buscar: string) => void;
 }) {
   const id = useId();
@@ -20,8 +30,11 @@ export function SelectField({
   const Flecha = iconos.desplegar;
   const normalizar = (v: string) => v.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const filtradas = useMemo(
-    () => opciones.filter((o) => normalizar(o.label).includes(normalizar(buscar))),
-    [opciones, buscar],
+    () =>
+      opciones.filter(
+        (o) => !o.oculta && (filtrarEnServidor || normalizar(o.label).includes(normalizar(buscar))),
+      ),
+    [opciones, buscar, filtrarEnServidor],
   );
   const seleccionada = opciones.find((o) => o.value === props.value);
   const problema =
@@ -30,6 +43,7 @@ export function SelectField({
   const elegir = (v: string) => {
     props.onValueChange(v);
     setBuscar('');
+    onBuscar?.('');
     setAbierto(false);
     setTocado(true);
     props.onBlur?.();
@@ -41,7 +55,9 @@ export function SelectField({
       hint={props.hint}
       required={props.required}
       error={problema}
-      ancho={props.ancho}
+      tipo={tipoDato}
+      tamano={props.tamano}
+      maxLength={maxLength ?? Math.max(20, ...opciones.map((o) => o.label.length))}
     >
       <div
         ref={ref}
@@ -50,6 +66,7 @@ export function SelectField({
           if (!e.currentTarget.contains(e.relatedTarget)) {
             setAbierto(false);
             setBuscar('');
+            onBuscar?.('');
             setTocado(true);
             props.onBlur?.();
           }
@@ -90,6 +107,7 @@ export function SelectField({
               if (e.key === 'Escape') {
                 setAbierto(false);
                 setBuscar('');
+                onBuscar?.('');
               }
               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
@@ -101,7 +119,7 @@ export function SelectField({
               if (e.key === 'Enter' && abierto) {
                 e.preventDefault();
                 const o = filtradas[indice];
-                if (o) elegir(o.value);
+                if (o && !o.disabled) elegir(o.value);
               }
             }}
           />
@@ -121,9 +139,12 @@ export function SelectField({
                 id={`${id}-opcion-${i}`}
                 role="option"
                 aria-selected={o.value === props.value}
+                aria-disabled={o.disabled || undefined}
                 className={i === indice ? 'opcion-activa' : ''}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => elegir(o.value)}
+                onClick={() => {
+                  if (!o.disabled) elegir(o.value);
+                }}
               >
                 {o.label}
               </li>
@@ -134,6 +155,7 @@ export function SelectField({
           </ul>
         )}
       </div>
+      {complemento}
     </Field>
   );
 }

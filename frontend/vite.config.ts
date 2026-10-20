@@ -11,6 +11,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     envDir: raiz,
     build: {
+      manifest: true,
+      emptyOutDir: true,
       rollupOptions: {
         output: {
           manualChunks: {

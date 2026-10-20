@@ -1,3 +1,4 @@
+import { confirmarSchema } from './solicitudes.schemas.js';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { autenticacionDe } from '../../shared/security/rbac.js';
@@ -36,6 +37,10 @@ export function crearSolicitudesController(s: ReturnType<typeof crearSolicitudes
       vacio(r);
       ok(res, await s.resolver(auth(r), ip(r), id(r), resolverSchema.parse(r.body)));
     },
+    reemitir: async (r: Request, res: Response) => {
+      vacio(r);
+      ok(res, await s.reemitir(auth(r), ip(r), id(r), confirmarSchema.parse(r.body)));
+    },
     entregar: async (r: Request, res: Response) => {
       vacio(r);
       ok(res, await s.entregar(auth(r), ip(r), id(r), entregarSchema.parse(r.body)));
@@ -69,6 +74,18 @@ export function crearSolicitudesController(s: ReturnType<typeof crearSolicitudes
       vacio(r);
       sinDatos.parse(r.body);
       ok(res, await s.leer(auth(r), ip(r), id(r)));
+    },
+    borrarNotificacion: async (r: Request, res: Response) => {
+      vacio(r);
+      sinDatos.parse(r.body ?? {});
+      ok(res, await s.borrarNotificaciones(auth(r), ip(r), id(r)));
+    },
+    borrarNotificaciones: async (r: Request, res: Response) => {
+      vacio(r);
+      z.object({ confirmado: z.literal(true) })
+        .strict()
+        .parse(r.body);
+      ok(res, await s.borrarNotificaciones(auth(r), ip(r)));
     },
     exportar: async (r: Request, res: Response) =>
       ok(res, await s.exportar(auth(r), ip(r), querySchema.parse(r.query))),

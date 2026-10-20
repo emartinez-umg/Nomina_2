@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -152,10 +153,10 @@ export function ComunicacionPage() {
           </Button>
         </div>
         {filtros && (
-          <div className="form-grid mt-4">
+          <FormGrid className="mt-4">
             <TextField
               name="buscar"
-              label="Buscar título"
+              label="Buscar título o código"
               hint="Busca parte del título."
               placeholder="Título de la publicación"
               value={q.buscar!}
@@ -246,7 +247,7 @@ export function ComunicacionPage() {
                 )}
               </>
             )}
-          </div>
+          </FormGrid>
         )}
         <div className="flex flex-wrap gap-2 mt-3">
           {Object.entries(q)
@@ -295,6 +296,7 @@ export function ComunicacionPage() {
           {...(consulta.error ? { error: consulta.error.message } : {})}
           onReintentar={() => void consulta.refetch()}
           columnas={[
+            { id: 'codigo', titulo: 'Código', ordenable: true, render: (f) => f.codigo },
             {
               id: 'titulo',
               titulo: 'Título',

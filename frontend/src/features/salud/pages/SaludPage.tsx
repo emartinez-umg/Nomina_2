@@ -1,7 +1,7 @@
 import { iconos } from '../../../components/ui/icons';
 import { useSalud } from '../hooks/useSalud';
 import { ayudaSalud } from '../help/pasos';
-import { HelpButton, HelpOffer, usePageHelp } from '../../../components/help/HelpProvider';
+import { HelpButton, usePageHelp } from '../../../components/help/HelpProvider';
 
 const { salud: Actividad, baseDatos: BaseDatos, actualizar: Actualizar } = iconos;
 const { correcto: Correcto, error: ErrorIcono } = iconos;
@@ -11,9 +11,9 @@ export function SaludPage() {
   usePageHelp(ayudaSalud);
   return (
     <div className="min-h-screen">
-      <header className="border-b border-borde bg-superficie">
+      <header className="barra-publica border-b border-borde bg-marca text-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-5">
-          <span className="flex items-center gap-3 text-xl font-bold text-marca">
+          <span className="flex items-center gap-3 text-xl font-bold text-white">
             <Actividad aria-hidden="true" /> nomina2
           </span>
           <HelpButton />
@@ -96,7 +96,6 @@ export function SaludPage() {
           </div>
         </section>
       </main>
-      <HelpOffer />
     </div>
   );
 }

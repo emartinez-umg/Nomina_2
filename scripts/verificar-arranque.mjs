@@ -1,14 +1,24 @@
+/* global document, localStorage, fetch */
+import process from 'node:process';
+import console from 'node:console';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { chromium } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 const proyecto = `nomina2-aceptacion-${randomBytes(4).toString('hex')}`;
 const carpeta = await mkdtemp(join(tmpdir(), 'nomina2-aceptacion-'));
 const archivo = join(carpeta, '.env');
+const versionEsperada = Math.max(
+  ...(await readdir('db/migrations')).flatMap((n) => {
+    const m = /^V(\d+)__.*\.sql$/.exec(n);
+    return m ? [Number(m[1])] : [];
+  }),
+);
 const puerto = () =>
   new Promise((resolve, reject) => {
     const s = createServer();
@@ -57,6 +67,27 @@ async function compose(args) {
     );
   });
 }
+async function auditarAcceso(page) {
+  assert.equal(await page.getByText('Conoce esta página', { exact: true }).count(), 0);
+  assert.equal(await page.locator('.driver-popover').count(), 0);
+  const ayuda = page.getByRole('button', { name: 'Ayuda de esta página', exact: true });
+  await ayuda.click();
+  const recorrido = page.locator('.driver-popover');
+  for (let paso = 0; paso < 50; paso++) {
+    assert.ok((await recorrido.locator('.driver-popover-description').innerText()).length > 80);
+    const siguiente = recorrido.getByRole('button', { name: 'Siguiente', exact: true });
+    if (!(await siguiente.isVisible())) break;
+    await siguiente.click();
+  }
+  assert.ok(await recorrido.getByRole('button', { name: 'Terminar', exact: true }).isVisible());
+  await recorrido.getByRole('button', { name: 'Cerrar recorrido', exact: true }).click();
+  assert.ok(await ayuda.evaluate((b) => b === document.activeElement));
+  const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  assert.deepEqual(
+    a11y.violations.map((v) => v.id),
+    [],
+  );
+}
 let navegador;
 try {
   assert.match(proyecto, /^nomina2-aceptacion-[a-f0-9]{8}$/);
@@ -71,18 +102,18 @@ try {
   const errores = [];
   page.on('pageerror', (e) => errores.push(e.message));
   await page.goto(`https://127.0.0.1:${WEB_HTTPS_PORT}/login`);
+  await auditarAcceso(page);
   await page.getByLabel('Usuario', { exact: true }).fill('admin.instalacion');
   await page.getByLabel('Contraseña', { exact: true }).fill(contrasena);
-  if (await page.getByRole('button', { name: 'Ahora no', exact: true }).isVisible())
-    await page.getByRole('button', { name: 'Ahora no', exact: true }).click();
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
   await page.waitForURL('**/cambiar-contrasena');
+  await auditarAcceso(page);
   await page.getByLabel('Contraseña actual', { exact: true }).fill(contrasena);
   const nueva = `Aa!${randomBytes(16).toString('hex')}`;
   await page.getByLabel('Nueva contraseña', { exact: true }).fill(nueva);
   await page.getByLabel('Confirmar nueva contraseña', { exact: true }).fill(nueva);
-  if (await page.getByRole('button', { name: 'Ahora no', exact: true }).isVisible())
-    await page.getByRole('button', { name: 'Ahora no', exact: true }).click();
+  const almacenamiento = await page.evaluate(() => JSON.stringify({ ...localStorage }));
+  assert.ok(!almacenamiento.includes(contrasena) && !almacenamiento.includes(nueva));
   await page.getByRole('button', { name: 'Guardar contraseña', exact: true }).click();
   await page.waitForURL('**/admin');
   const cookies = await contexto.cookies();
@@ -95,6 +126,32 @@ try {
   assert.deepEqual(errores, []);
   await page.goto(`https://127.0.0.1:${WEB_HTTPS_PORT}/admin/usuarios`);
   await page.getByRole('heading', { name: 'Usuarios y roles' }).waitFor();
+  const tablero = await contexto.request.get(
+    `https://127.0.0.1:${WEB_HTTPS_PORT}/api/tableros/admin`,
+  );
+  assert.equal(tablero.status(), 200);
+  const sistema = (await tablero.json()).data.sistema;
+  assert.equal(sistema.version, versionEsperada);
+  assert.equal(sistema.migracionesPendientes, 0);
+  assert.equal(sistema.objetosInvalidos, 0);
+  await mkdir('tmp', { recursive: true });
+  await writeFile(
+    'tmp/aceptacion-limpia.json',
+    JSON.stringify(
+      {
+        version: sistema.version,
+        migracionesPendientes: 0,
+        objetosInvalidos: 0,
+        oracleThin: true,
+        loginYCambioObligatorio: true,
+        sesionSecure: true,
+        ayudaSoloManual: true,
+        axeSinInfracciones: true,
+      },
+      null,
+      2,
+    ),
+  );
   console.log(
     '✓ Instalación vacía: migraciones/seeds, nginx TLS, login, cambio obligatorio, sesión Secure y administración funcionan.',
   );
@@ -104,6 +161,6 @@ try {
 } finally {
   await navegador?.close();
   // Solo retira el proyecto de aceptación generado en esta ejecución.
-  await compose(['down', '--volumes', '--remove-orphans']);
+  await compose(['down', '--volumes', '--remove-orphans', '--rmi', 'local']);
   await rm(carpeta, { recursive: true, force: true });
 }

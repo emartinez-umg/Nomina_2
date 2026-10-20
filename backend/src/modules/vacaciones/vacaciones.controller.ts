@@ -7,6 +7,7 @@ import { sinDatos } from '../auth/auth.schemas.js';
 import { idSchema } from '../auditoria/auditoria.schemas.js';
 import {
   cargaSchema,
+  cancelarSchema,
   fechaSchema,
   querySchema,
   rangoSchema,
@@ -20,6 +21,14 @@ export function crearVacacionesController(s: ReturnType<typeof crearVacacionesSe
   const responder = (res: Response, d: unknown, status = 200) =>
     res.status(status).json(respuestaOk(d));
   return {
+    detalle: async (req: Request, res: Response) => {
+      sinDatos.parse(req.query);
+      responder(res, await s.detalle(auth(req), ip(req), id(req)));
+    },
+    cancelar: async (req: Request, res: Response) => {
+      sinDatos.parse(req.query);
+      responder(res, await s.cancelar(auth(req), ip(req), id(req), cancelarSchema.parse(req.body)));
+    },
     saldo: async (req: Request, res: Response) => {
       sinDatos.parse(req.query);
       responder(res, await s.saldo(auth(req), ip(req), req.params.id ? id(req) : undefined));

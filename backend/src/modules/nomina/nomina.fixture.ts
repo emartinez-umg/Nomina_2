@@ -6,8 +6,14 @@ export function entradaPrueba(salario = '3000'): Entrada {
     new URL('../../../../db/seeds/S002__parametros_legales.sql', import.meta.url),
     'utf8',
   );
+  const adicional = readFileSync(
+    new URL('../../../../db/seeds/S007__prestaciones_automaticas.sql', import.meta.url),
+    'utf8',
+  );
   const parametros: Parametro[] = [
-    ...sql.matchAll(/SELECT '([^']+)' CODIGO, '[^']+' NOMBRE, ([\d.]+) VALOR, '([^']+)' UNIDAD/g),
+    ...(sql + adicional).matchAll(
+      /SELECT '([^']+)' CODIGO, '[^']+' NOMBRE, ([\d.]+) VALOR, '([^']+)' UNIDAD/g,
+    ),
   ].map((m, i) => ({
     id: i + 1,
     codigo: m[1]!,
@@ -89,6 +95,7 @@ export function entradaPrueba(salario = '3000'): Entrada {
       },
     ],
     horarios: [{ desde: '2026-01-01', hasta: null, dias: [1, 2, 3, 4, 5] }],
+    jornadas: [1, 2, 3, 4, 5].map((dia) => ({ desde: '2026-01-01', hasta: null, dia, horas: '8' })),
     feriados: [],
     ausencias: [],
     comisiones: [],

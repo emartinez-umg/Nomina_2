@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -21,7 +22,7 @@ const filtros: Def[] = [
     nombre: 'nombre',
     label: 'Nombre o apellidos',
     tipo: 'texto',
-    hint: 'Busca una parte del nombre completo.',
+    hint: 'Busca una parte del nombre completo o del código.',
     max: 200,
   },
   ...todosCampos
@@ -150,11 +151,11 @@ export function EmpleadosPage() {
           </div>
           <details>
             <summary className="cursor-pointer text-primario">Filtros avanzados</summary>
-            <div className="form-grid my-4">
+            <FormGrid className="my-4">
               {filtros
                 .filter((f) => f.nombre !== 'nombre')
                 .map((f) => (
-                  <div className="col-span-12 md:col-span-4" key={f.nombre}>
+                  <div className="contents" key={f.nombre}>
                     {['dpi', 'nit'].includes(f.nombre) ? (
                       <TextField
                         name={f.nombre}
@@ -186,7 +187,7 @@ export function EmpleadosPage() {
                     )}
                   </div>
                 ))}
-            </div>
+            </FormGrid>
           </details>
           <div className="my-4 flex flex-wrap gap-2">
             <Button type="submit" icono="filtrar">
@@ -232,7 +233,16 @@ export function EmpleadosPage() {
                 id: 'nombre',
                 titulo: 'Empleado',
                 ordenable: true,
-                render: (r) => <strong>{r.nombre}</strong>,
+                render: (r) => (
+                  <div>
+                    <strong>{r.nombre}</strong>
+                    {r.perfilIncompleto && (
+                      <p className="text-sm text-secundario">
+                        <strong>Perfil incompleto</strong> · Falta: {r.faltantes.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                ),
               },
               { id: 'dpi', titulo: 'DPI', render: (r) => r.dpi },
               { id: 'nit', titulo: 'NIT', render: (r) => r.nit },

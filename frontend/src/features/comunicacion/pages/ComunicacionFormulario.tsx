@@ -1,3 +1,5 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
+import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -34,29 +36,31 @@ export function GrupoField({
     getNextPageParam: (p, _all, n) => (p.length === 100 ? n + 1 : undefined),
   });
   return (
-    <div>
-      <SelectField
-        {...props}
-        opciones={q.data?.pages.flat() ?? []}
-        onBuscar={setBuscar}
-        onValueChange={(v) => {
-          props.onValueChange(v);
-          onSeleccion?.(q.data?.pages.flat().find((o) => o.value === v)?.label ?? v);
-        }}
-        error={props.error ?? q.error?.message}
-      />
-      {q.isPending && <p role="status">Cargando grupos…</p>}
-      {q.hasNextPage && (
-        <Button
-          icono="siguiente"
-          variante="texto"
-          cargando={q.isFetchingNextPage}
-          onClick={() => void q.fetchNextPage()}
-        >
-          Más grupos
-        </Button>
-      )}
-    </div>
+    <SelectField
+      {...props}
+      opciones={q.data?.pages.flat() ?? []}
+      onBuscar={setBuscar}
+      onValueChange={(v) => {
+        props.onValueChange(v);
+        onSeleccion?.(q.data?.pages.flat().find((o) => o.value === v)?.label ?? v);
+      }}
+      error={props.error ?? q.error?.message}
+      complemento={
+        <>
+          {q.isPending && <p role="status">Cargando grupos…</p>}
+          {q.hasNextPage && (
+            <Button
+              icono="siguiente"
+              variante="texto"
+              cargando={q.isFetchingNextPage}
+              onClick={() => void q.fetchNextPage()}
+            >
+              Más grupos
+            </Button>
+          )}
+        </>
+      }
+    />
   );
 }
 export function FechaHoraField({
@@ -83,6 +87,7 @@ export function FechaHoraField({
         placeholder="hh:mm"
         value={hora}
         onValueChange={(v) => onValueChange(`${fecha}T${v}`)}
+        tipoDato="hora"
         maxLength={5}
         inputMode="numeric"
         pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
@@ -240,7 +245,6 @@ function Editor({
           <TextField
             {...props}
             maxLength={name === 'titulo' ? 200 : 250}
-            ancho={name === 'lugar' ? 'ancho' : 'medio'}
             placeholder={
               name === 'titulo' ? 'Título de la publicación' : 'Sala, dirección o enlace'
             }
@@ -256,8 +260,9 @@ function Editor({
       data-tour="comunicacion-formulario"
     >
       <FormDraftNotice draft={draft} />
+      <CampoCodigo entidad={tipo} codigo={inicial?.codigo} />
       <fieldset disabled={m.isPending}>
-        <div className="form-grid my-6">
+        <FormGrid className="my-6">
           {campo('titulo', 'Título', 'Nombre breve que se mostrará en el tablero y en la campana.')}
           {campo(
             'contenido',
@@ -280,7 +285,7 @@ function Editor({
           )}
           {tipo === 'eventos' &&
             campo('lugar', 'Lugar', 'Indica ubicación o enlace de la reunión.')}
-        </div>
+        </FormGrid>
         <section data-tour="destinatarios" className="mb-6">
           <h3>Destinatarios</h3>
           <label className="flex gap-2 my-3">
@@ -300,7 +305,7 @@ function Editor({
           </p>
           {!todos && (
             <>
-              <div className="form-grid my-4">
+              <FormGrid className="my-4">
                 <SelectField
                   name="grupo"
                   label="Agrupar por"
@@ -332,7 +337,7 @@ function Editor({
                   value={seleccion}
                   onValueChange={setSeleccion}
                 />
-              </div>
+              </FormGrid>
               <Button
                 icono="crear"
                 variante="secundario"
@@ -390,7 +395,13 @@ function Editor({
         mensajeServidor={m.error?.message}
       />
       <div className="flex gap-3 justify-end">
-        <Button icono="cancelar" variante="secundario" disabled={m.isPending} onClick={onCerrar}>
+        <Button
+          icono="cancelar"
+          variante="secundario"
+          disabled={m.isPending}
+          onClick={onCerrar}
+          cancelarFormulario
+        >
           Cancelar
         </Button>
         <Button icono="guardar" type="submit" cargando={m.isPending}>

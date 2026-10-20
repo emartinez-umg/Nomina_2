@@ -16,6 +16,7 @@ import type { z } from 'zod';
 import type { rhSchema } from '../api/tableros';
 import { fechaHora } from '../../comunicacion/api/comunicacion';
 import { moneda } from '../../../lib/validadores';
+import { useReducedMotion } from 'framer-motion';
 type Rh = z.infer<typeof rhSchema>;
 export function RhGraficas({
   departamentos,
@@ -24,6 +25,7 @@ export function RhGraficas({
   departamentos: Rh['departamentos'];
   evolucion: Rh['evolucion'];
 }) {
+  const reducir = useReducedMotion();
   // Solo la escala del gráfico usa Number; los importes de API y etiquetas conservan decimales.
   const datos = evolucion.map((p) => ({
     ...p,
@@ -45,6 +47,7 @@ export function RhGraficas({
                   <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Bar
+                    isAnimationActive={!reducir}
                     dataKey="cantidad"
                     name="Empleados activos"
                     fill={tokens.colores.primario}
@@ -84,6 +87,7 @@ export function RhGraficas({
                   <Tooltip formatter={(v) => moneda(String(v ?? 0))} />
                   <Legend />
                   <Line
+                    isAnimationActive={!reducir}
                     type="monotone"
                     dataKey="brutoGrafica"
                     name="Bruto"
@@ -92,6 +96,7 @@ export function RhGraficas({
                     connectNulls={false}
                   />
                   <Line
+                    isAnimationActive={!reducir}
                     type="monotone"
                     dataKey="netoGrafica"
                     name="Neto"

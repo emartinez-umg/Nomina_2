@@ -103,7 +103,6 @@ export function CambioContrasenaPage() {
                   tipo="contrasena"
                   maxLength={128}
                   required
-                  ancho="ancho"
                   disabled={cambio.isPending || logout.isPending}
                 />
               )}

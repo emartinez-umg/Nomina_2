@@ -1,3 +1,4 @@
+import { FormGrid } from '../../../components/forms/FormGrid';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
@@ -33,7 +34,7 @@ export function Plantillas({ onCerrar }: { onCerrar: () => void }) {
         </>
       ) : (
         <>
-          <div className="form-grid my-5">
+          <FormGrid className="my-5">
             <SelectField
               name="plantilla"
               label="Tipo de documento"
@@ -42,7 +43,7 @@ export function Plantillas({ onCerrar }: { onCerrar: () => void }) {
               opciones={(q.data?.registros ?? []).map((p) => ({ value: p.tipo, label: p.nombre }))}
               onValueChange={setTipo}
             />
-          </div>
+          </FormGrid>
           {p && <Editor key={`${p.id}:${p.version}`} p={p} variables={q.data!.variables} />}
         </>
       )}
@@ -122,7 +123,7 @@ function Editor({ p, variables }: { p: api.Plantilla; variables: string[] }) {
           >{`{{${v}}}`}</Button>
         ))}
       </div>
-      <div className="form-grid">
+      <FormGrid>
         <Controller
           control={f.control}
           name="contenido"
@@ -154,7 +155,7 @@ function Editor({ p, variables }: { p: api.Plantilla; variables: string[] }) {
             />
           )}
         />
-      </div>
+      </FormGrid>
       <FormErrorSummary
         mensajes={Object.values(f.formState.errors).map((e) => e.message)}
         mensajeServidor={m.error?.message}
