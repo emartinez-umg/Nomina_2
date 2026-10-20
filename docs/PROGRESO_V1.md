@@ -2606,3 +2606,111 @@ Estado: completada el 20/10/2026 en `v1.1`. Se detiene antes de implementar el c
 4. Esperar confirmación antes de fase 3: cargador thin, preflight, entorno, transacción, idempotencia,
    dry-run y reset seguro. Fase 4: exportación SQL/remota y documentación operativa. Fase 5: verificación
    sobre Oracle y app, doble carga, rollback/reset, login y simulación. No ejecutadas todavía.
+
+## Datos demo — FASE 3: cargador y carga local
+
+Estado: completada el 20/10/2026 en `v1.1`. El usuario indicó que aún no veía los registros;
+se completó el cargador y se ejecutó la carga básica local. Las fases 4 y 5 no se adelantan.
+
+### Resultado y alcance
+
+- `npm run seed:demo` disponible mediante scripts/seed-demo.js, entrada JavaScript que reutiliza
+  los módulos TypeScript strict de backend/src/shared/db/demo. Sin dependencias nuevas, cambios
+  de migraciones ni modificaciones de la lógica de negocio o la interfaz.
+- Carga local confirmada: **32 empleados demo añadidos y 3 anteriores conservados, 35 en total**.
+  Conteos finales: 8 departamentos, 34 puestos, 13 centros, 8 horarios y 5 bancos; las diferencias
+  respecto al conjunto corresponden a registros previos. 37 usuarios en total, sin crear otro ADMIN.
+- Los 32 demo tienen salario, banco/cuenta/tipo, horario, contacto y usuario; todos los expedientes
+  se muestran completos desde el mismo repositorio que usa el CRUD. Sin jefaturas, por la decisión
+  del usuario. La cuenta inicial o datos de los empleados anteriores no se alteraron.
+- Se creó la referencia ficticia SALARIO_MINIMO_MENSUAL Q4,000, ausente antes de la carga, con
+  fundamento y motivo demo del JSON. Se reutilizaron Recursos Humanos y Banco Industrial;
+  se insertaron los otros cuatro bancos. Los códigos/contadores fueron asignados por N2_CODIGOS.
+- Extras desactivados en la carga operativa inicial. Permanecen disponibles con --with-extras;
+  sus escrituras se probaron exclusivamente en esquemas desechables.
+
+### Implementación y decisiones
+
+- CLI con DB_USER/DB_PASSWORD/DB_CONNECT_STRING, validación Zod de la contraseña y conexión thin.
+  Default de conexión localhost:1521/XEPDB1; errores claros y sin SQL, stack, contraseña o hash.
+  `.env.example` documenta SEED_DEFAULT_PASSWORD sin valor. En el `.env` privado local se generó
+  una contraseña aleatoria conforme a la política existente, con comillas y permisos 0600;
+  no se imprimió ni se incorporó a Git. No se cambió DB_PASSWORD ni ninguna clave ADMIN.
+- Reutiliza entradaSchema, crearEmpleadoSchema, fechas/NIT/zona, límites/analizador de horarios,
+  generarNombreUsuario, hashearContrasena, repositorios de catálogos/empleados/usuarios y auditoría.
+  Las FK se resuelven por nombre normalizado, código INE y claves semánticas, nunca por IDs fijos.
+  SQL y binds quedan en los repositorios; el CLI y los servicios controlan la transacción.
+- Preflight exige migraciones/checksums V000–V035, columnas y tablas necesarias, objetos válidos,
+  constraints habilitadas/validadas, catálogo INE 22/340 y ADMIN activo. Rechaza registros inactivos
+  o colisiones incompatibles; no adopta un empleado ajeno aunque tenga correo @demo-nomina.test.
+- Una conexión y un commit al terminar el DML; fallo revierte también usuarios, vigencias,
+  auditoría y reservas de códigos. Bloqueos de los catálogos existentes serializan los escritores.
+  Se conservan contraseñas/cambio obligatorio y cambios posteriores de registros ya cargados.
+- --dry-run usa SET TRANSACTION READ ONLY: valida/previsualiza sin INSERT ni reservas, con IDs
+  transitorios exclusivamente en memoria. Incluye previsión de las seis nuevas vigencias salariales
+  cuando se inspecciona --with-extras sobre el conjunto básico. No simula con INSERT+rollback.
+- --apply-schema solo instala DDL/seeds oficiales si USER_TABLES está vacío. Exige el esquema
+  previamente creado y ADMIN_* por entorno; no crea usuarios Oracle ni concede privilegios.
+  La etapa de migraciones confirma por separado y no puede revertirse con el DML del demo.
+  Se rechaza la combinación con --dry-run o --reset-demo. No hace DDL sobre una base con tablas.
+- Propiedad de filas mediante eventos SEED_DEMO_CREAR/ACTUALIZAR/BORRAR en BITACORA_AUDITORIA:
+  conjunto, clave, tabla, ID local y SHA-256 del contenido, sin exponer datos sensibles. No basta
+  el dominio del correo ni una relación con un padre demo para apropiarse de una fila posterior.
+- --reset-demo es una operación exclusiva de borrado; no recarga automáticamente. Antes de
+  borrar verifica huellas, bloquea las filas y recorre todas las FK, incluyendo las compuestas;
+  cancela completo ante una edición o dependencia ajena. Ordena hijos antes de padres sin
+  deshabilitar constraints. Conserva ADMIN, catálogos reutilizados, bitácora, reservas/contadores.
+- Los extras reutilizan amortizar, guardarMensual, desglosarAusencia, aprobarParqueo y repositorios
+  de tarifas/solicitudes/historial/notificaciones. No hay descuentos de parqueo manuales.
+  Las suscripciones comienzan en el mes real de aprobación; mesInicio anterior del JSON es solo
+  referencia y se informa en el resumen. Tarifas operativas e historia modificada se conservan.
+- El reset no elimina usuarios ya usados si sus sesiones/auditoría u otras referencias deben
+  conservarse. Tampoco adopta cuotas, avisos o movimientos nuevos ajenos al cargar otra vez.
+  No puede garantizar correlativos sin huecos tras fallos porque Oracle no revierte identidades;
+  nunca se fuerzan PK, se rebajan contadores o se reutilizan códigos reservados.
+- README y database/seed/CARGA.md explican entorno, banderas, seguridad y límites. DATASET.md
+  actualizado para distinguir el JSON de la carga ya ejecutada. `test:seed-demo` integra una suite
+  Oracle nueva en el runner existente de esquemas temporales, sin crear el verificador de fase 5.
+
+### Validación y comprobación operativa
+
+- Node 20.20.2: **765 pruebas existentes y nuevas aprobadas** (424 backend, 334 frontend y siete
+  del exportador). Cinco pruebas unitarias nuevas cubren datos, referencias, mapeo y combinaciones
+  de banderas. Lint, TypeScript strict, build backend, formato y revisión de secretos aprobados.
+- **Siete pruebas Oracle aprobadas** en un esquema N2SEC exclusivo: CLI --apply-schema desde vacío,
+  32 usuarios con argon2id verificable y cambio obligatorio; CRUD con filtros y simulación de 32
+  registros sin pagar; dry-run y doble carga sin cambios de credenciales/contadores; rollback
+  deliberado en el segundo empleado; extras repetibles; reset con huellas, referencias ajenas,
+  claves compuestas y registros testigo; bloqueo de un expediente editado. El mensaje de fallo
+  deliberado de regresión es esperado y se verifica su rollback; no corresponde a la carga local.
+- Regresión adicional: aviso externo añadido a una solicitud demo, seguido de --with-extras.
+  No se registra como propio y bloquea el reset hasta retirarlo en el esquema de pruebas.
+  Los esquemas temporales se eliminan en finally por el runner existente. No se ejecutó el reset
+  contra la instalación operativa ni se modificaron las tablas/columnas de NOMINA2.
+- Previo a la escritura local se ejecutó --dry-run. Tras la carga, segunda ejecución local con
+  **cero nuevas inserciones**: mismos conteos, hash de credenciales/bandera inicial, contadores
+  y datos de los tres empleados anteriores. No se hicieron pagos ni se cerró/reabrió un periodo.
+- Lectura operativa usando los repositorios de la aplicación: listado total 35, 32 demo con
+  perfil completo, vacaciones calculables para los 32 y cuentas RH ana.hernandez/patricia.ramirez.
+  La simulación de PAGO de octubre devuelve 35 registros sin pagar. El ANTICIPO de ese mes conserva
+  un cálculo v0 previo que la regla actual impide simular: se preservó y se verificó el pago del
+  mes disponible, sin cambiar ese estado. No es un error causado por los datos demo.
+- Informes ignorados por Git en tmp: seed-demo-carga-local.json, seed-demo-segunda-carga.json,
+  seed-demo-comprobacion-app.json y registros de lint/tipos/pruebas. Sin credenciales en consola.
+  La validación no inicia sesión de los usuarios operativos demo ni les quita el cambio obligatorio.
+
+### Cómo usar y pendientes
+
+1. Recargar Personal → Empleados en la aplicación: hay 35 registros, incluidos los 32 nuevos.
+   Probar los filtros por departamento/puesto y abrir una ficha con salario, banco y horario.
+2. Node 20 y entorno configurado: npm run seed:demo -- --dry-run; npm run seed:demo. La clave
+   temporal está en SEED_DEFAULT_PASSWORD del `.env` privado; cada nuevo usuario la cambia al entrar.
+3. Extras opcionales: npm run seed:demo -- --with-extras --dry-run; luego --with-extras si se desea.
+   Reset solo con --reset-demo; inspeccionarlo primero con --reset-demo --dry-run. No usarlo sobre
+   registros que ya tienen historia operativa que se deba conservar.
+4. npm run test:seed-demo prueba en un esquema aleatorio y lo elimina. npm run lint, npm run
+   typecheck, npm test y npm run build -w backend validan código. Nunca usar el esquema operativo
+   para provocar el fallo deliberado ni probar el reset.
+5. Esperar confirmación antes de fase 4: exportador SQL y seed-remote.js. Fase 5: verificador
+   independiente de aceptación. Sigue pendiente la ERS original para certificar la numeración
+   RF; no bloquea la carga del conjunto aprobado. Sin pendientes de implementación de fase 3.

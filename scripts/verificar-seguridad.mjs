@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
+import console from 'node:console';
 
 // Solo administra un esquema desechable. No lee ni altera las credenciales de aplicación.
 const usuario = `N2SEC_${randomBytes(6).toString('hex').toUpperCase()}`;
@@ -33,33 +34,35 @@ try {
     'run',
     '--config',
     'vitest.oracle.config.ts',
-    process.argv.includes('--tableros')
-      ? 'src/modules/tableros/tableros.oracle.ts'
-      : process.argv.includes('--catalogos')
-        ? 'src/modules/catalogos/catalogos.oracle.ts'
-        : process.argv.includes('--pagos')
-          ? 'src/modules/nomina/pago.oracle.ts'
-          : process.argv.includes('--novedades')
-            ? 'src/modules/novedades/novedades.oracle.ts'
-            : process.argv.includes('--vacaciones')
-              ? 'src/modules/vacaciones/vacaciones.oracle.ts'
-              : process.argv.includes('--empleados')
-                ? 'src/modules/empleados/empleados.oracle.ts'
-                : process.argv.includes('--horarios')
-                  ? 'src/modules/catalogos/horarios.oracle.ts'
-                  : process.argv.includes('--empresa')
-                    ? 'src/modules/empresa/empresa.oracle.ts'
-                    : process.argv.includes('--ubicaciones')
-                      ? 'src/modules/ubicaciones/ubicaciones.oracle.ts'
-                      : process.argv.includes('--codigos')
-                        ? 'src/modules/codigos/codigos.oracle.ts'
-                        : process.argv.includes('--comunicacion')
-                          ? 'src/modules/comunicacion/comunicacion.oracle.ts'
-                          : process.argv.includes('--solicitudes')
-                            ? 'src/modules/solicitudes/solicitudes.oracle.ts'
-                            : process.argv.includes('--prestaciones')
-                              ? 'src/modules/prestaciones/prestaciones.oracle.ts'
-                              : 'src/modules/auth/seguridad.oracle.ts',
+    process.argv.includes('--seed-demo')
+      ? 'src/shared/db/demo/demo.oracle.ts'
+      : process.argv.includes('--tableros')
+        ? 'src/modules/tableros/tableros.oracle.ts'
+        : process.argv.includes('--catalogos')
+          ? 'src/modules/catalogos/catalogos.oracle.ts'
+          : process.argv.includes('--pagos')
+            ? 'src/modules/nomina/pago.oracle.ts'
+            : process.argv.includes('--novedades')
+              ? 'src/modules/novedades/novedades.oracle.ts'
+              : process.argv.includes('--vacaciones')
+                ? 'src/modules/vacaciones/vacaciones.oracle.ts'
+                : process.argv.includes('--empleados')
+                  ? 'src/modules/empleados/empleados.oracle.ts'
+                  : process.argv.includes('--horarios')
+                    ? 'src/modules/catalogos/horarios.oracle.ts'
+                    : process.argv.includes('--empresa')
+                      ? 'src/modules/empresa/empresa.oracle.ts'
+                      : process.argv.includes('--ubicaciones')
+                        ? 'src/modules/ubicaciones/ubicaciones.oracle.ts'
+                        : process.argv.includes('--codigos')
+                          ? 'src/modules/codigos/codigos.oracle.ts'
+                          : process.argv.includes('--comunicacion')
+                            ? 'src/modules/comunicacion/comunicacion.oracle.ts'
+                            : process.argv.includes('--solicitudes')
+                              ? 'src/modules/solicitudes/solicitudes.oracle.ts'
+                              : process.argv.includes('--prestaciones')
+                                ? 'src/modules/prestaciones/prestaciones.oracle.ts'
+                                : 'src/modules/auth/seguridad.oracle.ts',
   ];
   const entornoPrueba = {
     ...process.env,

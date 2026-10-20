@@ -1,7 +1,8 @@
 # Dataset demo de nomina2 — fase 2
 
 Conjunto `nomina2-demo-v1`, versión 1. Fecha de referencia **20/10/2026**, zona `America/Guatemala`.
-En esta fase solo se preparan datos: **todavía no hay comando de carga ni cambios en Oracle**.
+La fase 2 preparó estos datos; el cargador de fase 3 ya está disponible y el conjunto básico
+se cargó en Oracle local. Ver [instrucciones de carga](CARGA.md).
 Los datos personales, teléfonos, cuentas, direcciones y cantidades de demostración son ficticios.
 
 ## Fuente única
@@ -147,7 +148,8 @@ ningún identificador de validación está guardado en JSON ni corresponde a una
 
 La validación se hizo con referencia fija al 20/10/2026. La futura carga deberá revalidar
 también contra la fecha y configuración del destino; un contrato puede vencer con el tiempo.
-No se escriben datos en Oracle en esta fase. Faltan el cargador de la fase 3, la exportación de
-la fase 4 y la verificación de base de datos de la fase 5, cada una sujeta a confirmación.
+La fuente JSON no realiza escrituras por sí sola. El cargador de fase 3 está implementado y
+la instalación local tiene 32 demo y los 3 empleados anteriores. Quedan la exportación de fase 4
+y el verificador independiente de fase 5, sujetos a confirmación.
 La ERS original sigue sin estar disponible para certificar la numeración RF campo por campo;
 esto no impide revisar los datos y las reglas existentes del proyecto.

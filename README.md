@@ -202,6 +202,12 @@ Seeds aditivos: no sobrescriben cuentas, parámetros editados ni plantillas exis
 
 ## Documentación
 
+- Datos demo: [dataset y alcance](database/seed/DATASET.md) y [cargador local](database/seed/CARGA.md).
+  Con Node 20 y `.env` configurado, `npm run seed:demo -- --dry-run` valida sin escribir;
+  `npm run seed:demo` carga el conjunto. La contraseña temporal se toma de
+  `SEED_DEFAULT_PASSWORD`; no se imprime. Las banderas de extras, reset e instalación vacía
+  y las pruebas Oracle desechables están explicadas en la guía de carga.
+
 - [Cierre, matriz de auditoría y comprobaciones](docs/CIERRE.md).
 - [Progreso](docs/PROGRESO.md), [decisiones y mejoras futuras](docs/DECISIONES.md), [modelo Oracle](docs/ERD.md).
 - [Seguridad](docs/SEGURIDAD.md), [frontend](docs/FRONTEND.md), [catálogos](docs/CATALOGOS.md).
