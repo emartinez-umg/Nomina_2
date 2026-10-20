@@ -2384,3 +2384,26 @@ El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
 4. Instalación vacía: `npm run verify:clean`; informes locales en tmp y playwright-report.
 5. Revisar Ayuda manual, asistentes, decisiones de borrador, catálogos inválidos/duplicados/en uso,
    notificaciones propias, cascada y alternancias del dashboard en escritorio y móvil.
+
+## Despliegue operativo posterior al cierre de Ronda 2
+
+Estado: completado el 20/10/2026, por solicitud explícita de reiniciar y cargar los ajustes.
+
+- API y web reconstruidas y recreadas; Oracle y los volúmenes de datos/TLS conservados. La API
+  aplicó V035 sobre V034 y los tres servicios quedaron saludables. No se modificaron credenciales.
+- Antes de actualizar se detuvieron API/web y se exportó el esquema operativo con Data Pump y
+  SCN consistente. La restauración en un esquema exclusivo conservó exactamente **77 tablas y
+  916 filas**, todas sus columnas/bytes y cero objetos inválidos. El esquema de ensayo se retiró.
+- Copia privada con permisos restrictivos en tmp/respaldos; el puntero local
+  tmp/respaldo-reinicio-actual.json indica su carpeta. Dump, hashes y reportes están ignorados por
+  Git. Imágenes anteriores conservadas como nomina2-respaldo-api/web:r2-10-v034-20261020.
+- Tras aplicar V035 se compararon las **72 tablas operativas sin transformaciones previstas** con
+  las huellas anteriores: idénticas. Se separaron VERSION_ESQUEMA, SESIONES, TIPOS_AUSENCIA y las
+  dos tablas de reservas/contadores por sus cambios esperados. Categorías completas, cero objetos
+  inválidos y cero migraciones pendientes. Informe privado en despliegue-verificado.json del respaldo.
+- verify:infra aprobado: API/Oracle, nginx, rutas SPA/assets y visor/worker PDF. Aplicación recargada
+  y visible en https://localhost:8443/login, sin avisos de ayuda automáticos. Permanece abierta para
+  que el usuario pruebe con sus credenciales habituales.
+- Resueltos el despliegue operativo V035 y el ensayo del respaldo real que figuraban pendientes
+  en R2-8/R2-9/R2-10. Las verificaciones nuevas fueron de despliegue/conservación; no hubo cambios
+  de código de aplicación ni migraciones adicionales.

@@ -130,9 +130,12 @@ en la aplicación operativa.
 
 ## Aplicación al entorno operativo
 
-V035 está validada en esquemas desechables. La revisión automática requiere autorización explícita
-para aplicarla al Oracle operativo. Tras autorizar, se prepara un respaldo del esquema y se verifica
-su restauración en un esquema temporal; después se actualiza solo nomina2-api, conservando web,
-Oracle y sus volúmenes. Se comparan versión, objetos válidos y los conteos operativos guardados.
-Ante fallo, se conserva la imagen anterior y el respaldo probado; una corrección de esquema usa
-una migración nueva o la restauración del respaldo, sin editar migraciones aplicadas.
+V035 quedó aplicada al entorno operativo el 20/10/2026, tras la solicitud explícita de reiniciar
+el sistema con los ajustes nuevos. Se verificó una exportación Data Pump y su restauración exacta
+(77 tablas, 916 filas), y después se reconstruyeron/recrearon API y web conservando Oracle y sus
+volúmenes. Las 72 tablas sin transformaciones esperadas permanecen idénticas al respaldo; cero
+objetos inválidos y migraciones pendientes. Detalle en PROGRESO_V1.md, «Despliegue operativo».
+
+Para futuras actualizaciones, preparar el respaldo del esquema y verificar su restauración antes
+de aplicar migraciones; conservar las imágenes anteriores y comparar versión, objetos y datos.
+Ante fallo, usar una migración nueva o restaurar el respaldo probado; no editar migraciones aplicadas.
