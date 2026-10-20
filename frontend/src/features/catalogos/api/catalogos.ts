@@ -15,6 +15,8 @@ export const campoSchema = z.object({
     'telefono',
     'nombre',
     'codigo',
+    'codigo-postal',
+    'codigo-iso',
     'area',
     'dinero',
     'decimal',

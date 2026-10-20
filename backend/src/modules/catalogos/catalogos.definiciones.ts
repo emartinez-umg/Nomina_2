@@ -1,4 +1,5 @@
 import { hintNombreCatalogo } from '../../shared/catalogos/nombre.js';
+import { hintCodigoPostal, hintCodigoIso } from '../../shared/catalogos/formatos.js';
 import type { BloqueHorario } from '../../shared/horarios/modelo.js';
 export type TipoCampo =
   | 'nit'
@@ -7,6 +8,8 @@ export type TipoCampo =
   | 'nombre'
   | 'texto'
   | 'codigo'
+  | 'codigo-postal'
+  | 'codigo-iso'
   | 'area'
   | 'dinero'
   | 'decimal'
@@ -104,6 +107,46 @@ const dinero = (nombre: string, columna: string, etiqueta: string, requerido = t
     { requerido, decimales: 2 },
   );
 export const catalogos: Catalogo[] = [
+  {
+    slug: 'motivos-baja',
+    singular: 'motivo de baja',
+    titulo: 'Motivos de baja',
+    tabla: 'MOTIVOS_BAJA',
+    pk: 'ID_MOTIVO_BAJA',
+    campos: [codigo(), nombre(50), descripcion],
+  },
+  {
+    slug: 'zonas',
+    singular: 'zona',
+    titulo: 'Zonas',
+    tabla: 'ZONAS',
+    pk: 'ID_ZONA',
+    campos: [
+      codigo(),
+      nombre(30),
+      campo('codigoPostal', 'CODIGO_POSTAL', 'Código postal', 'codigo-postal', hintCodigoPostal, {
+        requerido: true,
+        max: 5,
+      }),
+      descripcion,
+    ],
+  },
+  {
+    slug: 'paises',
+    singular: 'país',
+    titulo: 'Países',
+    tabla: 'PAISES',
+    pk: 'ID_PAIS',
+    campos: [
+      codigo(),
+      nombre(100),
+      campo('codigoIso', 'CODIGO_ISO', 'Código ISO', 'codigo-iso', hintCodigoIso, {
+        requerido: true,
+        max: 2,
+      }),
+      descripcion,
+    ],
+  },
   {
     slug: 'empresa',
     titulo: 'Datos de empresa',

@@ -502,8 +502,8 @@ test('R2-4: nombres, duplicados inactivos, reactivación y bloqueo por uso con A
   await expect(
     row.getByRole('button', { name: `Eliminar registro ${fila.id}`, exact: true }),
   ).toBeDisabled();
-  await row.getByRole('button', { name: `Desactivar registro ${fila.id}`, exact: true }).click();
-  modal = page.getByRole('dialog', { name: 'Desactivar registro', exact: true });
+  await row.getByRole('button', { name: `Inactivar registro ${fila.id}`, exact: true }).click();
+  modal = page.getByRole('dialog', { name: 'Inactivar registro', exact: true });
   await expect(modal.getByText(/Advertencia: lo usan 1 registro/)).toBeVisible();
   await modal.getByRole('button', { name: 'Ayuda de esta ventana' }).click();
   await expect(page.locator('.driver-popover-title')).toHaveText('Revisa antes de confirmar');

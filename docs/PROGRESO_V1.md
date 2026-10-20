@@ -1753,3 +1753,112 @@ El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
    nombres inválidos y equivalentes; inactivar y usar Reactivar; comprobar En uso, tooltip,
    confirmación, historial, ayuda y selectores nuevos/existentes.
 5. Consultar CATALOGOS_NOMBRES_CORREGIDOS para revisar cada nombre corregido al migrar.
+
+### FASE R2-5 — Casos específicos de catálogos y regresión de QA
+
+Estado: completada el 19/10/2026. Rama `v1.1`; alcance B4.
+El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
+
+#### Reproducción y causas raíz
+
+- R2-4 ya centralizó nombres, duplicados, uso y acciones. El inventario real no tenía tablas ni
+  metadatos de zonas, países o motivos de baja; las nuevas pruebas fallaron antes del arreglo
+  por su ausencia. No había campos postales/ISO a los que aplicar formatos ni esas pantallas.
+- La lista de catálogos de frontend era una fixture estática. Ahora una prueba contrasta esa lista
+  íntegra con los metadatos del servidor; los E2E contrastan también la respuesta real de la API.
+  Agregar un catálogo sin recorrerlo o actualizar su fixture hace fallar la regresión.
+
+#### Hecho y decisiones
+
+- V033 crea MOTIVOS_BAJA, ZONAS y PAISES sin datos inventados: identity ALWAYS, auditoría/FK con
+  índices, estado, código interno automático permanente, nombre normalizado UNIQUE y campos propios.
+  Usa el generador transaccional existente y añade sus entidades a la vista previa. V000–V032 intactas.
+- Los tres usan routes/controller/service/repository, formulario, tabla, confirmaciones e historial
+  comunes. Disponibles para RH/ADMIN en Organización, buscador y selector de catálogos. Motivos de
+  baja tiene las cinco acciones. Etiqueta uniforme Inactivar/Activar; se conservan los nombres
+  técnicos de las acciones de auditoría. Las expectativas anteriores se ajustan solo a esa etiqueta.
+- `shared/catalogos/formatos.ts` comparte validadores y saneamiento. Código postal: texto con cinco
+  dígitos, teclado numérico, bloqueo al escribir/pegar y ceros iniciales preservados. ISO: dos letras
+  ASCII A–Z, mayúsculas automáticas y UNIQUE entre países. API valida al crear/editar; Oracle agrega
+  CHECK y UNIQUE. Errores de ISO repetido se mapean a su campo. Búsqueda/filtros/CSV incluyen ambos.
+- Se reutilizan recorte de nombres/textos, detección de duplicados sin acentos/mayúsculas/espacios
+  y bloqueo de eliminación por referencias. No se duplican validadores ni formularios por entidad.
+  Ayuda declarativa y hints actualizados, con explicaciones específicas de postal/ISO y descarte.
+- Fixture de QA compartida, excluida del build de API; matrices backend y frontend recorren todos
+  los catálogos con nombre. Playwright recorre los 19 CRUD editables: acciones con ícono, rechazo
+  de nombres en alta/edición y descarte antes del debounce, con recarga y ausencia en localStorage.
+- Actualizados CATALOGOS, ERD, README y manifiesto de índices. No cambia el cálculo de nómina.
+
+#### Supuestos y alcance
+
+- Los tres catálogos solicitados se incorporan como catálogos independientes vacíos porque no
+  existían en esta copia. No se infieren países, códigos postales ni vínculos desde direcciones
+  o motivos de egreso históricos. La zona domiciliaria 1–25 y MOTIVO_EGRESO conservan sus datos.
+- Límites nuevos de nombre: zonas 30, motivos de baja 50 y países 100 caracteres; permiten verificar
+  las tres escalas B3 con formularios reales. El ISO valida formato alfa-2, no un padrón externo.
+- Empresa tiene su editor específico; tramos ISR no tiene nombre. Roles y geografía INE son de
+  consulta. Los casos de nombres se aplican a los 18 catálogos editables que tienen ese campo.
+  Tipos de día/ingreso continúan representados mediante horarios/conceptos, conforme a R2-4.
+- Sin implementación de B5–B7 ni cambios en fichas o formularios de empleado.
+
+#### Tabla de aceptación automatizada
+
+| Caso QA                                           | Backend / Oracle                                  | Navegador real                                                   |
+| ------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------- |
+| Cuatro nombres de símbolos y dos numéricos        | Rechazo al crear y editar en los 18 catálogos     | Bloqueo/saneamiento, error de campo y ningún envío               |
+| Nombre con solo espacios                          | Vacío requerido en todos los catálogos con nombre | Vacío y guardado bloqueado                                       |
+| Ingeniería / ingenieria / INGENIERÍA con espacios | 409 DUPLICADO y campos.nombre                     | Matriz por catálogo contra API real                              |
+| Gerente con espacios                              | Alta devuelve Gerente                             | Verifica valor persistido por catálogo                           |
+| Edición con caracteres especiales                 | 400 y conservación del registro                   | Error y ningún PATCH                                             |
+| Postal nohio y formatos de longitud incorrecta    | Rechazo en POST/PATCH y CHECK Oracle              | Teclado, letras bloqueadas, cinco dígitos y error                |
+| ISO *** y formatos distintos de dos letras        | Rechazo en POST/PATCH, CHECK y UNIQUE             | Símbolos bloqueados, mayúsculas y error                          |
+| Eliminar registro usado por un empleado           | Siete catálogos: borrado lógico/físico bloqueado  | Cuatro vínculos: mensaje de API y papelera deshabilitada         |
+| Acciones uniformes                                | Componente único e historial existente            | Lista completa, íconos; unitarias verifican callbacks y estados  |
+| Anchos de campos 30 / 50 / 100                    | Metadatos contrastados con la fixture             | Tres anchos crecientes en escritorio, móvil sin desbordamiento   |
+| Descartar borrador a medias                       | Reutiliza la corrección B1                        | 19 formularios, antes del debounce, recarga y localStorage vacío |
+
+#### Validación y pendientes
+
+- 685 pruebas aprobadas: 374 backend, 304 frontend y siete del exportador. Once casos Oracle de
+  catálogos aprobados, incluida toda la matriz y referencias de empleado. Migraciones desde cero
+  V000–V033, restricciones, identities, FKs/índices y semillas repetibles verificadas.
+- Primera ejecución E2E: 17 casos aprobados; se corrigen los filtros de año/paginación del ensayo
+  y un selector ambiguo entre error del campo y resumen. La repetición completa pasó 20/20 con
+  nginx/TLS, API/Oracle reales, ayuda y axe A/AA. No se relajaron validaciones de la aplicación.
+- ISO se valida antes de convertir a mayúsculas: ß y la i sin punto no pueden convertirse en
+  códigos aparentemente válidos. La regresión nueva falló antes del arreglo; backend/frontend
+  y API Oracle comprueban ahora esos casos además de los símbolos pedidos por QA.
+- El build encontró imports de pruebas fuera del contexto Docker; la fixture compartida se movió
+  a shared/catalogos, sin dependencias del servidor, y se comprobó el inventario desde backend.
+  Los imports E2E usan extensión ESM explícita. Build de producción aprobado.
+- Capturas de escritorio/móvil inspeccionadas en tmp/pdfs/r2-5-*.png; artefactos ignorados por Git.
+  Los entornos exclusivos de pruebas retiran sus esquemas, contenedores e imágenes al terminar.
+- Expectativas antiguas de integración ajustadas sin relajar producción: el inventario de seguridad
+  ya no fija 17 catálogos; duplicar horarios envía solo campos de escritura, sin usos/metadatos.
+  Un cargo vacío ahora se rechaza en Oracle por la regla R2-4 antes del servicio de firma. La
+  fixture de vacaciones fija la fecha del ajuste migrado al corte del ensayo (15/10/2026), evitando
+  depender del día real de ejecución. Se conservan las expectativas de saldos, firmas y rollback.
+- Entrega final: **36/36 E2E** aprobados (1.3 min), con los 20 casos QA nuevos y las 16 regresiones
+  de Ronda 2, sobre nginx/TLS y los hints definitivos. Axe A/AA, teclado, ayuda, formatos, anchos,
+  descarte, login, assets, barra, avisos, reactivación e historial sin fallos.
+- Diez suites Oracle/Supertest: **151 casos aprobados** (catálogos 11, seguridad 79, códigos 9,
+  horarios 6, ubicaciones 6, empresa 6, empleados 2, vacaciones 2, novedades 14 y comunicación 16).
+  Todas se ejecutaron en secuencia y sus esquemas desechables se retiraron.
+- Lint, TypeScript strict, builds, Prettier, auditoría de secretos y diff --check aprobados.
+  Se conserva el aviso previo de tamaño de chunk Vite. Sin dependencias nuevas.
+- API/web locales reconstruidas y saludables en https://localhost:8443. V033 aplicada, cero objetos
+  inválidos; verify:infra aprobado para Oracle/API/nginx, SPA/assets y visor/worker PDF. Once tablas
+  operativas con conteos idénticos antes/después: tres empleados, cinco usuarios, tres salarios y
+  tres asignaciones; dos solicitudes, dos descuentos, un préstamo y un documento; cero pagos/nóminas.
+  Oracle, volumen y credenciales conservados. Nuevos catálogos vacíos, sin fixtures en la aplicación.
+- Sin pendientes técnicos de R2-5. RH carga datos reales en los catálogos nuevos; B5–B7 continúan
+  reservadas para sus fases. AGENTS.md previo del usuario permanece fuera del commit.
+
+#### Cómo probar
+
+1. Node 20: `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. Oracle saludable: `npm run verify:catalogos`; `npm run db:verify`; `npm run verify:security`;
+   `npm run verify:codigos`. Las suites Oracle se ejecutan en secuencia, en esquemas desechables.
+3. `npm run test:e2e -- --production catalogos-qa.spec.ts`; regresión: `npm run test:e2e -- --production ronda2.spec.ts`.
+4. `docker compose up --build -d nomina2-api nomina2-web`; abrir Organización → Motivos de baja,
+   Zonas o Países como RH/ADMIN. Revisar acciones, formatos, nombres, anchos, ayuda y descarte.

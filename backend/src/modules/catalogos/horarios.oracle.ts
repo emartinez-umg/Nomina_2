@@ -67,7 +67,7 @@ describe('FASE V1-6: migración y horarios en Oracle', () => {
     await sql(
       "INSERT INTO HORARIO_DIAS(ID_HORARIO,DIA_SEMANA,LABORABLE,MINUTO_ENTRADA,MINUTO_SALIDA,CRUZA_MEDIANOCHE,MINUTOS_DESCANSO) SELECT ID_HORARIO,6,1,1320,270,1,15 FROM HORARIOS WHERE CODIGO_ANTERIOR='HISTORICO'",
     );
-    expect(await ejecutarMigraciones(db, logger)).toBe(9);
+    expect(await ejecutarMigraciones(db, logger)).toBe(10);
     await ejecutarSeeds(db, logger, seed);
     const config = {
       NODE_ENV: 'test' as const,
@@ -270,12 +270,8 @@ describe('FASE V1-6: migración y horarios en Oracle', () => {
       .send({ ...cuerpo('Cambio asignado'), bloques: [bloque] })
       .expect(409);
     const copia = await crear({
-      ...r.body.data,
-      nombre: 'Duplicado',
-      id: undefined,
-      activo: undefined,
-      enUso: undefined,
-      codigoAnterior: undefined,
+      ...cuerpo('Duplicado'),
+      bloques: r.body.data.bloques,
     }).expect(201);
     expect(copia.body.data.codigo).not.toBe(r.body.data.codigo);
   });

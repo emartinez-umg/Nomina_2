@@ -212,8 +212,16 @@ export function crearCatalogosService(db: BaseDatos) {
       }
       if (n === 1)
         conflicto(
-          cat.slug === 'empresa' ? 'nit' : cat.slug === 'tramos-isr' ? 'vigenteDesde' : 'codigo',
-          'Ya existe un registro con esa clave o fecha. Revisa los datos.',
+          cat.slug === 'empresa'
+            ? 'nit'
+            : cat.slug === 'paises'
+              ? 'codigoIso'
+              : cat.slug === 'tramos-isr'
+                ? 'vigenteDesde'
+                : 'codigo',
+          cat.slug === 'paises'
+            ? 'Ya existe un país con ese código ISO. Revisa el código o edita el país existente.'
+            : 'Ya existe un registro con esa clave o fecha. Revisa los datos.',
         );
       if (n === 2292)
         throw new ErrorConflicto(

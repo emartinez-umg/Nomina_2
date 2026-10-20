@@ -1,5 +1,8 @@
 import { z } from 'zod';
 export const entidades = [
+  'motivos-baja',
+  'zonas',
+  'paises',
   'departamentos',
   'puestos',
   'jefaturas',

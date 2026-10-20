@@ -1,4 +1,5 @@
 import { recortarNombreCatalogo, validarNombreCatalogo } from '../../shared/catalogos/nombre.js';
+import { validarCodigoPostal, validarCodigoIso } from '../../shared/catalogos/formatos.js';
 import { analizarHorario } from '../../shared/horarios/modelo.js';
 import { z } from 'zod';
 import { nitValido } from '../empleados/empleados.schemas.js';
@@ -85,6 +86,17 @@ function schemaCampo(f: CampoCatalogo): z.ZodTypeAny {
       });
   let s: z.ZodTypeAny;
   switch (f.tipo) {
+    case 'codigo-postal':
+    case 'codigo-iso':
+      s = z
+        .string()
+        .trim()
+        .superRefine((v, ctx) => {
+          const mensaje = f.tipo === 'codigo-iso' ? validarCodigoIso(v) : validarCodigoPostal(v);
+          if (mensaje) ctx.addIssue({ code: 'custom', message: mensaje });
+        })
+        .transform((v) => (f.tipo === 'codigo-iso' ? v.toUpperCase() : v));
+      break;
     case 'nit':
       s = z
         .string()

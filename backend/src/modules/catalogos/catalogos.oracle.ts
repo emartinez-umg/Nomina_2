@@ -18,13 +18,14 @@ import { crearAuthService } from '../auth/auth.service.js';
 import { crearCatalogosService } from './catalogos.service.js';
 import { catalogos } from './catalogos.definiciones.js';
 import { normalizarNombreCatalogo } from '../../shared/catalogos/nombre.js';
+import { datosCatalogoQa, nombresInvalidosQa } from '../../shared/catalogos/qa.fixture.js';
 let db: BaseDatos, agent: ReturnType<typeof request.agent>, csrf: string;
 const logger = crearLogger('silent'),
   seed = validarEntornoSeeds(process.env);
 const sql = (query: string, binds: Record<string, string | number> = {}) =>
   enTransaccion(db, (c) => c.execute(query, binds));
-const scalar = (query: string) =>
-  db.conConexion(async (c) => (await c.execute<unknown[]>(query)).rows![0]![0]);
+const scalar = (query: string, binds: Record<string, string | number> = {}) =>
+  db.conConexion(async (c) => (await c.execute<unknown[]>(query, binds)).rows![0]![0]);
 const crear = (slug: string, body: object) =>
   agent.post(`/api/catalogos/${slug}`).set('X-CSRF-Token', csrf).send(body);
 const datos = (slug: string, nombre: string) => ({
@@ -79,7 +80,7 @@ describe('R2-4: catálogos, migración y API Oracle', () => {
     await expect(
       sql("UPDATE PARENTESCOS SET NOMBRE='Padre' WHERE FECHA_CREACION=DATE '2000-01-01'"),
     ).rejects.toMatchObject({ errorNum: 1 });
-    expect(await ejecutarMigraciones(db, logger)).toBe(2);
+    expect(await ejecutarMigraciones(db, logger)).toBe(3);
     await ejecutarSeeds(db, logger, seed);
     const config = {
       NODE_ENV: 'test' as const,
@@ -373,4 +374,167 @@ describe('R2-4: catálogos, migración y API Oracle', () => {
       .expect(200);
     await crear('puestos', { ...puesto, nombre: 'Puesto nuevo' }).expect(409);
   });
+  it('R2-5: toda la tabla QA crea y edita con las mismas reglas en cada catálogo', async () => {
+    const departamento = (
+      await crear('departamentos', datos('departamentos', 'Base para matriz QA')).expect(201)
+    ).body.data.id;
+    const [departamentoGt, municipioGt] = await db.conConexion(
+      async (c) =>
+        (
+          await c.execute<number[]>(
+            "SELECT ID_DEPARTAMENTO_GT,ID_MUNICIPIO_GT FROM MUNICIPIOS_GT WHERE CODIGO_INE='0101'",
+          )
+        ).rows![0]!,
+    );
+    for (const cat of catalogos.filter(
+      (c) => c.slug !== 'empresa' && c.campos.some((f) => f.nombre === 'nombre'),
+    )) {
+      const body = datosCatalogoQa(cat, '  Gerente  ', {
+        departamento,
+        departamentoGt: departamentoGt!,
+        municipioGt: municipioGt!,
+      });
+      const alta = await crear(cat.slug, body).expect(201);
+      const id = alta.body.data.id;
+      expect(alta.body.data.nombre, cat.slug).toBe('Gerente');
+      for (const nombre of nombresInvalidosQa) {
+        for (const metodo of ['post', 'patch'] as const) {
+          const r = await agent[metodo](
+            `/api/catalogos/${cat.slug}${metodo === 'patch' ? `/${id}` : ''}`,
+          )
+            .set('X-CSRF-Token', csrf)
+            .send({ ...body, nombre })
+            .expect(400);
+          expect(r.body.error.campos.nombre, `${cat.slug}: ${metodo} ${nombre}`).toBeDefined();
+        }
+      }
+      // Departamento Ingeniería ya existe por la prueba de migración; usa ese registro.
+      if (cat.slug !== 'departamentos')
+        await agent
+          .patch(`/api/catalogos/${cat.slug}/${id}`)
+          .set('X-CSRF-Token', csrf)
+          .send({ ...body, nombre: 'Ingeniería' })
+          .expect(200);
+      for (const nombre of ['Ingeniería', 'ingenieria', ' INGENIERÍA ']) {
+        const r = await crear(cat.slug, { ...body, nombre }).expect(409);
+        expect(r.body.error).toMatchObject({
+          codigo: 'DUPLICADO',
+          campos: { nombre: expect.any(Array) },
+        });
+      }
+      const detalle = await agent.get(`/api/catalogos/${cat.slug}/${id}`).expect(200);
+      expect(detalle.body.data.nombre).toBe(
+        cat.slug === 'departamentos' ? 'Gerente' : 'Ingeniería',
+      );
+    }
+  });
+  it('R2-5: formatos externos al crear/editar, consultas, UNIQUE y defensas Oracle', async () => {
+    for (const [slug, campo, valido, invalidos] of [
+      ['zonas', 'codigoPostal', '01002', ['nohio', '1234', '123456', '01a01']],
+      ['paises', 'codigoIso', 'us', ['***', 'G', 'GTM', '12', 'ÑT', 'ß', 'ıT']],
+    ] as const) {
+      const body = { ...baseDatosFormato(slug), [campo]: valido };
+      const alta = await crear(slug, body).expect(201);
+      const id = alta.body.data.id;
+      expect(alta.body.data[campo]).toBe(valido.toUpperCase());
+      for (const valor of invalidos) {
+        for (const metodo of ['post', 'patch'] as const) {
+          const r = await agent[metodo](
+            `/api/catalogos/${slug}${metodo === 'patch' ? `/${id}` : ''}`,
+          )
+            .set('X-CSRF-Token', csrf)
+            .send({ ...body, [campo]: valor })
+            .expect(400);
+          expect(r.body.error.campos[campo]).toBeDefined();
+        }
+      }
+      const listado = await agent
+        .get(`/api/catalogos/${slug}`)
+        .query({ [campo]: valido })
+        .expect(200);
+      expect(listado.body.data.registros.some((r: { id: number }) => r.id === id)).toBe(true);
+      await expect(
+        sql(
+          slug === 'zonas'
+            ? "UPDATE ZONAS SET CODIGO_POSTAL='nohio' WHERE ID_ZONA=:id"
+            : "UPDATE PAISES SET CODIGO_ISO='**' WHERE ID_PAIS=:id",
+          { id },
+        ),
+      ).rejects.toMatchObject({ errorNum: 2290 });
+      if (slug === 'paises') {
+        const r = await crear(slug, {
+          ...body,
+          nombre: 'País con ISO repetido',
+          codigoIso: 'US',
+        }).expect(409);
+        expect(r.body.error.campos.codigoIso).toBeDefined();
+      }
+    }
+  });
+  it('R2-5: bloquea borrados lógicos y físicos de todos los catálogos vinculados a un empleado', async () => {
+    const departamento = Number(
+      await scalar("SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NOMBRE='Base para matriz QA'"),
+    );
+    const ids = {
+      departamento,
+      puesto: Number(
+        await scalar('SELECT MIN(ID_PUESTO) FROM PUESTOS WHERE ID_DEPARTAMENTO=:departamento', {
+          departamento,
+        }),
+      ),
+      jefatura: Number(
+        await scalar('SELECT MIN(ID_JEFATURA) FROM JEFATURAS WHERE ID_DEPARTAMENTO=:departamento', {
+          departamento,
+        }),
+      ),
+      contrato: Number(await scalar('SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO')),
+      centro: Number(await scalar('SELECT MIN(ID_CENTRO_TRABAJO) FROM CENTROS_TRABAJO')),
+      banco: Number(await scalar('SELECT MIN(ID_BANCO) FROM BANCOS')),
+      horario: Number(await scalar('SELECT MIN(ID_HORARIO) FROM HORARIOS')),
+    };
+    await sql(
+      `INSERT INTO EMPLEADOS(NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_DEPARTAMENTO,ID_PUESTO,ID_JEFATURA,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,ID_BANCO,CUENTA_BANCARIA,TIPO_CUENTA,FECHA_INGRESO) VALUES('Persona','QA','9876543210987','1234567-9',DATE '1990-01-01','F','SOLTERO','Referencia QA','55551234','qa@example.test',:departamento,:puesto,:jefatura,:contrato,:centro,:banco,'12345678','AHORRO',DATE '2026-01-01')`,
+      {
+        departamento,
+        puesto: ids.puesto,
+        jefatura: ids.jefatura,
+        contrato: ids.contrato,
+        centro: ids.centro,
+        banco: ids.banco,
+      },
+    );
+    await sql(
+      "INSERT INTO EMPLEADO_HORARIO(ID_EMPLEADO,ID_HORARIO,VIGENTE_DESDE,MOTIVO) SELECT ID_EMPLEADO,:horario,DATE '2026-01-01','Asignación QA' FROM EMPLEADOS WHERE CORREO='qa@example.test'",
+      { horario: ids.horario },
+    );
+    for (const [slug, id] of [
+      ['departamentos', departamento],
+      ['puestos', ids.puesto],
+      ['jefaturas', ids.jefatura],
+      ['tipos-contrato', ids.contrato],
+      ['centros-trabajo', ids.centro],
+      ['bancos', ids.banco],
+      ['horarios', ids.horario],
+    ] as const) {
+      const antes = await agent.get(`/api/catalogos/${slug}/${id}`).expect(200);
+      expect(antes.body.data).toMatchObject({ enUso: true, usos: expect.any(Number) });
+      for (const fisica of [false, true]) {
+        const r = await agent
+          .delete(`/api/catalogos/${slug}/${id}`)
+          .set('X-CSRF-Token', csrf)
+          .send({ motivo: 'Prueba con empleado vinculado', confirmado: true, fisica })
+          .expect(409);
+        expect(r.body.error).toMatchObject({
+          codigo: 'REGISTRO_EN_USO',
+          mensaje: expect.stringMatching(/No se puede eliminar:.*Puedes inactivarlo/),
+        });
+      }
+      expect((await agent.get(`/api/catalogos/${slug}/${id}`).expect(200)).body.data).toEqual(
+        antes.body.data,
+      );
+    }
+  });
 });
+function baseDatosFormato(slug: string) {
+  return { nombre: `Formato externo ${slug}`, descripcion: null };
+}

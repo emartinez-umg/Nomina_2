@@ -1,5 +1,11 @@
 import { InputField } from '../../../components/forms/Field';
 import {
+  validarCodigoPostal,
+  validarCodigoIso,
+  sanearCodigoPostal,
+  sanearCodigoIso,
+} from '../../../../../backend/src/shared/catalogos/formatos';
+import {
   hintNombreCatalogo,
   validarNombreCatalogo,
   recortarNombreCatalogo,
@@ -101,6 +107,19 @@ export function CampoEditor({
       />
     );
   switch (campo.tipo) {
+    case 'codigo-postal':
+    case 'codigo-iso':
+      return (
+        <InputField
+          {...props}
+          maxLength={campo.max!}
+          tipoDato="codigo"
+          inputMode={campo.tipo === 'codigo-postal' ? 'numeric' : 'text'}
+          pattern={campo.tipo === 'codigo-postal' ? '[0-9]{5}' : '[A-Z]{2}'}
+          sanitizar={campo.tipo === 'codigo-postal' ? sanearCodigoPostal : sanearCodigoIso}
+          validar={campo.tipo === 'codigo-postal' ? validarCodigoPostal : validarCodigoIso}
+        />
+      );
     case 'nit':
       return <NitField {...props} />;
     case 'correo':

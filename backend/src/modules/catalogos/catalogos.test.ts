@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { obtenerCatalogo } from './catalogos.definiciones.js';
+import { catalogos, obtenerCatalogo } from './catalogos.definiciones.js';
+import { datosCatalogoQa, nombresInvalidosQa } from '../../shared/catalogos/qa.fixture.js';
 import { entradaSchema, querySchema, diaSchema } from './catalogos.schemas.js';
 const schema = (slug: string) => entradaSchema(obtenerCatalogo(slug)!);
 const base = { codigo: 'PRUEBA', nombre: 'Registro de prueba', descripcion: null };
@@ -15,6 +17,49 @@ const legal = {
   confirmado: true,
 };
 describe('Validación de catálogos', () => {
+  it('R2-5: el inventario frontend probado coincide con las definiciones reales', () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL(
+          '../../../../frontend/src/features/catalogos/catalogos.fixture.json',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    );
+    expect(fixture).toEqual(catalogos);
+  });
+  for (const cat of catalogos.filter(
+    (c) => c.slug !== 'empresa' && c.campos.some((f) => f.nombre === 'nombre'),
+  )) {
+    it(`R2-5: matriz de nombres y recorte con entrada completa en ${cat.slug}`, () => {
+      const datos = datosCatalogoQa(cat, '  Gerente  ', {
+        departamento: 1,
+        departamentoGt: 1,
+        municipioGt: 1,
+      });
+      expect(entradaSchema(cat).parse(datos).nombre).toBe('Gerente');
+      for (const nombre of nombresInvalidosQa) {
+        const r = entradaSchema(cat).safeParse({ ...datos, nombre });
+        expect(r.success, nombre).toBe(false);
+        if (!r.success) expect(r.error.flatten().fieldErrors.nombre).toBeDefined();
+      }
+    });
+  }
+  it('R2-5: zonas, países y motivos de baja participan en el CRUD común', () => {
+    for (const slug of ['zonas', 'paises', 'motivos-baja'])
+      expect(obtenerCatalogo(slug), slug).toBeDefined();
+  });
+  it('R2-5: postal conserva ceros y exige cinco dígitos; ISO exige dos letras mayúsculas', () => {
+    const zona = { ...base, codigoPostal: '01001' };
+    const pais = { ...base, codigoIso: 'gt' };
+    expect(schema('zonas').parse(zona).codigoPostal).toBe('01001');
+    expect(schema('paises').parse(pais).codigoIso).toBe('GT');
+    for (const codigoPostal of ['nohio', '1234', '123456', '01a01', '*****'])
+      expect(schema('zonas').safeParse({ ...zona, codigoPostal }).success).toBe(false);
+    for (const codigoIso of ['***', 'G', 'GTM', '12', 'G1', 'ÑT', 'G@', 'ß', 'ıT'])
+      expect(schema('paises').safeParse({ ...pais, codigoIso }).success).toBe(false);
+  });
   it('R2-4: rechaza nombres inválidos y normaliza espacios también al editar', () => {
     for (const nombre of ['   ', 'A', '123456', '/*%$#&/@#^', 'Ventas!', 'Área <script>'])
       expect(schema('departamentos').safeParse({ ...base, nombre }).success, nombre).toBe(false);

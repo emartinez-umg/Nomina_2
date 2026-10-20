@@ -137,7 +137,18 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
   };
   if (q.buscar) {
     const textos = cat.campos.filter((f) =>
-      ['texto', 'codigo', 'area', 'opcion', 'nit', 'correo', 'telefono', 'nombre'].includes(f.tipo),
+      [
+        'texto',
+        'codigo',
+        'codigo-postal',
+        'codigo-iso',
+        'area',
+        'opcion',
+        'nit',
+        'correo',
+        'telefono',
+        'nombre',
+      ].includes(f.tipo),
     );
     if (textos.length)
       agregar(
@@ -154,7 +165,19 @@ export async function listar(c: Connection, cat: Catalogo, q: QueryCatalogo) {
       if (v === undefined) continue;
       if (sufijo)
         agregar(`T.${f.columna} ${sufijo === 'Min' ? '>=' : '<='} ${expresion(f, key)}`, key, v);
-      else if (['texto', 'codigo', 'area', 'nit', 'correo', 'telefono', 'nombre'].includes(f.tipo))
+      else if (
+        [
+          'texto',
+          'codigo',
+          'codigo-postal',
+          'codigo-iso',
+          'area',
+          'nit',
+          'correo',
+          'telefono',
+          'nombre',
+        ].includes(f.tipo)
+      )
         agregar(
           `INSTR(UPPER(${f.tipo === 'codigo' ? "T.CODIGO||' '||T.CODIGO_ANTERIOR" : `T.${f.columna}`}),UPPER(:${key}))>0`,
           key,

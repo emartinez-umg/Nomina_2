@@ -87,6 +87,9 @@ const compartidos: GrupoNavegacion[] = [
       catalogo('feriados', 'Feriados', 'Define los descansos del calendario laboral.', ['asuetos']),
       catalogo('tipos-contrato', 'Tipos de contrato', 'Configura las modalidades de contratación.'),
       catalogo('parentescos', 'Parentescos', 'Administra vínculos de contactos de emergencia.'),
+      catalogo('motivos-baja', 'Motivos de baja', 'Administra los motivos de salida del personal.'),
+      catalogo('zonas', 'Zonas', 'Administra zonas y sus códigos postales.'),
+      catalogo('paises', 'Países', 'Administra países y sus códigos ISO de dos letras.'),
       catalogo('conceptos', 'Conceptos de nómina', 'Configura conceptos y banderas por vigencia.'),
       catalogo('tipos-solicitud', 'Tipos de solicitud', 'Administra nombres y flujo de trámites.'),
       catalogo(

@@ -2,7 +2,7 @@ import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 import type { Catalogo } from '../api/catalogos';
 export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyuda {
   return {
-    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}-r2-4`,
+    id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}-r2-5`,
     pasos: formulario
       ? [
           {
@@ -18,7 +18,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             descripcion:
               f.tipo === 'codigo'
                 ? 'El código se genera a partir del nombre: iniciales sin conectores o primeras letras. Ante coincidencias usa consonantes y luego un número. La vista previa no reserva el código; al guardar se asigna sin duplicados y será permanente aunque renombres el registro.'
-                : `${f.hint} ${f.requerido ? 'Es obligatorio.' : 'Puede dejarse vacío.'} ${f.tipo === 'referencia' ? 'Escribe para buscar registros reales; puedes cargar más opciones. Un registro inactivo no se acepta para nuevas asignaciones.' : 'Respeta el formato y la longitud indicados. Revisa el resultado al pegar; al salir del campo verás cómo corregir un dato inválido. Guardar vuelve a comprobar duplicados y referencias en el servidor.'}`,
+                : `${f.hint} ${f.requerido ? 'Es obligatorio.' : 'Puede dejarse vacío.'} ${f.tipo === 'codigo-postal' ? 'El teclado es numérico y bloquea letras y símbolos, también al pegar. Se guarda como texto para conservar ceros iniciales. Si faltan dígitos se muestra el error; no se completa automáticamente.' : f.tipo === 'codigo-iso' ? 'Solo admite letras A–Z; cada letra se convierte a mayúscula. Es un dato externo distinto del código automático del registro. Comprueba que corresponde al país: el formato no consulta un padrón ISO.' : f.tipo === 'referencia' ? 'Escribe para buscar registros reales; puedes cargar más opciones. Un registro inactivo no se acepta para nuevas asignaciones.' : 'Respeta el formato y la longitud indicados. Revisa el resultado al pegar; al salir del campo verás cómo corregir un dato inválido. Guardar vuelve a comprobar duplicados y referencias en el servidor.'}`,
           })),
           ...(cat.slug === 'centros-trabajo'
             ? [
@@ -55,7 +55,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             titulo: 'Revisar y guardar',
             descripcion: cat.legal
               ? 'Primero se valida el formulario. Después aparece ADVERTENCIA con anterior y nuevo, vigencias y motivo obligatorio. Confirmar escribe los cambios y la auditoría en una sola transacción. Si ocurre un error se conserva el formulario.'
-              : 'Guardar valida nuevamente en el servidor y registra la auditoría. Si hay duplicados o referencias inválidas, corrige el campo indicado; no vuelvas a enviar mientras se guarda.',
+              : 'Guardar recorta espacios de los textos, valida nuevamente en el servidor y registra la auditoría. Si hay duplicados o referencias inválidas, corrige el campo indicado; no vuelvas a enviar mientras se guarda. Cancelar permite conservar o descartar el borrador; Descartar y salir lo elimina definitivamente, incluso antes del autoguardado.',
           },
         ]
       : [
@@ -81,7 +81,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             elemento: 'catalogo-tabla',
             titulo: 'Orden, páginas y acciones',
             descripcion:
-              'Los encabezados ordenan todas las filas desde el servidor. Anterior y Siguiente cambian de página. Ver muestra el detalle, Editar revalida las mismas reglas de creación y Desactivar conserva el historial. La columna En uso cuenta registros que lo referencian, incluso históricos; la papelera se bloquea y su tooltip explica el motivo. Puedes inactivarlo tras revisar la advertencia: desaparece de nuevas selecciones y permanece en las existentes. Historial muestra las acciones y motivos de este registro. En horarios, Duplicar copia los bloques a un alta con código nuevo; revisa nombre y distribución antes de guardar. Eliminar se bloquea cuando existen referencias; en ese caso usa Desactivar.',
+              'Los encabezados ordenan todas las filas desde el servidor. Anterior y Siguiente cambian de página. Ver muestra el detalle, Editar revalida las mismas reglas de creación y Inactivar conserva el historial. La columna En uso cuenta registros que lo referencian, incluso históricos; la papelera se bloquea y su tooltip explica el motivo. Puedes inactivarlo tras revisar la advertencia: desaparece de nuevas selecciones y permanece en las existentes. Historial muestra las acciones y motivos de este registro. En horarios, Duplicar copia los bloques a un alta con código nuevo; revisa nombre y distribución antes de guardar. Eliminar se bloquea cuando existen referencias; en ese caso usa Inactivar.',
           },
           {
             elemento: 'catalogo-exportar',
@@ -110,7 +110,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             elemento: 'catalogo-tabla',
             titulo: 'Auditoría y permisos RH',
             descripcion:
-              'Puedes administrar estos catálogos y los parámetros legales con motivo. Eliminar realiza una baja lógica; Desactivar conserva las referencias existentes e impide nuevas asignaciones. La bitácora global corresponde a ADMIN.',
+              'Puedes administrar estos catálogos y los parámetros legales con motivo. Eliminar realiza una baja lógica; Inactivar conserva las referencias existentes e impide nuevas asignaciones. La bitácora global corresponde a ADMIN.',
             roles: ['RH'],
           },
           ...(cat.legal
@@ -146,8 +146,8 @@ export function ayudaAccionCatalogo(tipo: 'estado' | 'eliminar'): DefinicionAyud
         titulo: 'Revisa el registro y su uso',
         descripcion:
           tipo === 'eliminar'
-            ? 'Eliminar se bloquea si empleados u otras tablas usan este registro, incluidos históricos. La baja lógica conserva la fila; solo ADMIN puede elegir eliminación física irreversible. Si tiene uso, cancela y utiliza Desactivar.'
-            : 'Activar recupera el registro existente, con su mismo código. Desactivar lo retira de nuevas selecciones y conserva asignaciones existentes. Si está en uso, revisa el conteo antes de confirmar. Reactivar desde un aviso de duplicado conserva los datos del registro existente; no aplica los datos escritos en el alta.',
+            ? 'Eliminar se bloquea si empleados u otras tablas usan este registro, incluidos históricos. La baja lógica conserva la fila; solo ADMIN puede elegir eliminación física irreversible. Si tiene uso, cancela y utiliza Inactivar.'
+            : 'Activar recupera el registro existente, con su mismo código. Inactivar lo retira de nuevas selecciones y conserva asignaciones existentes. Si está en uso, revisa el conteo antes de confirmar. Reactivar desde un aviso de duplicado conserva los datos del registro existente; no aplica los datos escritos en el alta.',
       },
       {
         elemento: 'catalogo-accion-motivo',

@@ -4,6 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import catalogos from './catalogos.fixture.json';
+import {
+  datosCatalogoQa,
+  nombresInvalidosQa,
+} from '../../../../backend/src/shared/catalogos/qa.fixture';
 import { catalogoSchema, csv, filaSchema } from './api/catalogos';
 import { cuerpo, schemaFormulario, valoresIniciales } from './api/validacion';
 import { listarTodos } from './pages/CatalogosPage';
@@ -500,7 +504,7 @@ describe('R2-4: acciones compartidas', () => {
           historial={vi.fn()}
         />,
       );
-      for (const accion of ['Ver', 'Editar', 'Desactivar', 'Historial del'])
+      for (const accion of ['Ver', 'Editar', 'Inactivar', 'Historial del'])
         expect(
           within(r.container).getByRole('button', { name: `${accion} registro 42` }),
         ).toBeEnabled();
@@ -510,4 +514,126 @@ describe('R2-4: acciones compartidas', () => {
       r.unmount();
     }
   });
+});
+
+describe('R2-5: regresiones de todos los catálogos', () => {
+  it('valida las letras ISO antes de convertir a mayúsculas, sin aceptar expansiones Unicode', () => {
+    const c = cat('paises');
+    for (const codigoIso of ['ß', 'ıT', '***']) {
+      const r = schemaFormulario(c, null).safeParse({
+        ...valoresIniciales(c),
+        nombre: 'País válido',
+        codigoIso,
+      });
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error.flatten().fieldErrors.codigoIso).toBeDefined();
+    }
+  });
+  for (const definicion of catalogos.filter(
+    (c) => c.slug !== 'empresa' && c.campos.some((f) => f.nombre === 'nombre'),
+  )) {
+    it(`recorta y rechaza la matriz completa en ${definicion.slug}`, () => {
+      const c = cat(definicion.slug);
+      const datos = datosCatalogoQa(definicion, '  Gerente  ', {
+        departamento: 1,
+        departamentoGt: 1,
+        municipioGt: 1,
+      });
+      const formulario = Object.fromEntries(
+        Object.entries(datos).map(([k, v]) => [
+          k,
+          k === 'bloques'
+            ? JSON.stringify(v)
+            : v === null
+              ? ''
+              : typeof v === 'boolean'
+                ? v
+                  ? '1'
+                  : '0'
+                : String(v),
+        ]),
+      );
+      expect(schemaFormulario(c, null).safeParse(formulario).success).toBe(true);
+      expect(cuerpo(c, formulario).nombre).toBe('Gerente');
+      for (const nombre of nombresInvalidosQa) {
+        const r = schemaFormulario(c, null).safeParse({ ...formulario, nombre });
+        expect(r.success, nombre).toBe(false);
+        if (!r.success) expect(r.error.flatten().fieldErrors.nombre).toBeDefined();
+      }
+    });
+  }
+  it('todas las acciones usan icono y ejecutan su callback, también en motivos de baja e inactivos', async () => {
+    for (const definicion of catalogos) {
+      for (const activo of [true, false]) {
+        const abrir = vi.fn(),
+          estado = vi.fn(),
+          historial = vi.fn(),
+          eliminar = vi.fn();
+        const r = render(
+          <CatalogoAcciones
+            cat={cat(definicion.slug)}
+            fila={filaSchema.parse({ id: 42, activo, enUso: false, usos: 0 })}
+            ocupado={false}
+            puedeEditar
+            abrir={abrir}
+            estado={estado}
+            historial={historial}
+            eliminar={eliminar}
+          />,
+        );
+        for (const accion of [
+          'Ver',
+          'Editar',
+          activo ? 'Inactivar' : 'Activar',
+          'Historial del',
+          'Eliminar',
+        ]) {
+          const boton = within(r.container).getByRole('button', { name: `${accion} registro 42` });
+          expect(boton.querySelector('svg')).not.toBeNull();
+          await userEvent.click(boton);
+        }
+        expect(abrir.mock.calls).toEqual([[false], [true]]);
+        expect(estado).toHaveBeenCalledOnce();
+        expect(historial).toHaveBeenCalledOnce();
+        expect(eliminar).toHaveBeenCalledOnce();
+        r.unmount();
+      }
+    }
+  });
+  for (const [slug, etiqueta, entrada, esperado, modo, longitud, pattern] of [
+    ['zonas', 'Código postal', 'no0hi1o001', '01001', 'numeric', '5', '[0-9]{5}'],
+    ['paises', 'Código ISO', '*g1@t', 'GT', 'text', '2', '[A-Z]{2}'],
+  ]) {
+    it(`${slug}: bloquea escritura y pegado inválidos y valida antes de enviar`, async () => {
+      const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, data: { codigo: 'QA', definitivo: false } })),
+      );
+      render(
+        <QueryClientProvider client={cliente}>
+          <ToastProvider>
+            <HelpProvider>
+              <CatalogoFormulario cat={cat(slug!)} cierre={null} onCerrar={vi.fn()} />
+            </HelpProvider>
+          </ToastProvider>
+        </QueryClientProvider>,
+      );
+      const campo = screen.getByRole('textbox', { name: etiqueta! });
+      expect(campo).toHaveAttribute('inputmode', modo);
+      expect(campo).toHaveAttribute('maxlength', longitud);
+      expect(campo).toHaveAttribute('pattern', pattern);
+      await userEvent.type(campo, entrada!);
+      expect(campo).toHaveValue(esperado);
+      await userEvent.clear(campo);
+      fireEvent.paste(campo, { clipboardData: { getData: () => entrada! } });
+      expect(campo).toHaveValue(esperado);
+      await userEvent.clear(campo);
+      await userEvent.type(campo, '0g');
+      await userEvent.tab();
+      expect(campo).toHaveAttribute('aria-invalid', 'true');
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+      expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+      cliente.clear();
+    });
+  }
 });

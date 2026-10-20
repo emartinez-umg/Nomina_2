@@ -51,7 +51,7 @@ export function CatalogoAcciones({
         icono={fila.activo ? 'rechazar' : 'aprobar'}
         variante="texto"
         soloIcono
-        aria-label={`${fila.activo ? 'Desactivar' : 'Activar'} registro ${fila.id}`}
+        aria-label={`${fila.activo ? 'Inactivar' : 'Activar'} registro ${fila.id}`}
         disabled={ocupado}
         onClick={estado}
       />

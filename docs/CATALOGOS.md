@@ -17,6 +17,9 @@ Las pantallas consultan Oracle; no contienen datos de ejemplo.
 | `tipos-ausencia`     | Efecto con goce, sin goce o subsidio IGSS.                                         |
 | `tipos-descuento`    | Catálogo existente, incluyendo parqueo y consumo en tienda.                        |
 | `tipos-contrato`     | Indica si exige fecha de fin.                                                      |
+| `motivos-baja`       | Código automático, nombre de hasta 50 caracteres, descripción y estado.            |
+| `zonas`              | Nombre de hasta 30 caracteres y código postal de exactamente cinco dígitos.        |
+| `paises`             | Nombre de hasta 100 caracteres e ISO alfa-2 en mayúsculas, único.                  |
 | `parametros-legales` | Valores, unidades, fundamento e historial de vigencias.                            |
 | `tramos-isr`         | Límites de renta, tasa, cuota fija e historial de vigencias.                       |
 
@@ -205,9 +208,9 @@ son únicos por departamento (existen homónimos oficiales). Roles/geografía si
 
 Además de los catálogos anteriores se integran en el mismo CRUD los existentes `parentescos`,
 `conceptos`, `tipos-solicitud` y `tipos-deduccion-isr`. Se conservan los códigos semánticos antiguos;
-las nuevas altas obtienen códigos automáticos. No existen tablas de países, zonas, motivos de baja,
-tipos de día ni tipos de ingreso en este esquema; no se inventan catálogos ni datos para ellos.
-La zona del domicilio continúa siendo el selector numérico existente y los ingresos son conceptos.
+las nuevas altas obtienen códigos automáticos. R2-5 añade países, zonas y motivos de baja mediante
+V033. No hay catálogos independientes de tipos de día o ingreso: los horarios y conceptos ya
+representan esas funciones. La zona del domicilio continúa siendo el selector numérico existente.
 
 La migración conserva PK/FK/códigos y el nombre más antiguo (FECHA_CREACION, luego PK). Renombra
 los restantes con un sufijo libre `(duplicado N)`, los inactiva y conserva los nombres originales
@@ -225,7 +228,7 @@ La tabla y CSV muestran En uso, la papelera tiene tooltip, e inactivar con refer
 de confirmar. Inactivar/activar también se permite en versiones utilizadas, con motivo y confirmación legal; conserva los valores/documentos cerrados. Activar revalida que no se traslapen versiones. Editar valores o eliminar versiones cerradas mantiene sus protecciones. Referencias inactivas
 se mantienen al editar su registro original, sin permitir nuevas asignaciones.
 
-`CatalogoAcciones` unifica Ver/Editar/Desactivar–Activar/Historial/Eliminar. El historial usa
+`CatalogoAcciones` unifica Ver/Editar/Inactivar–Activar/Historial/Eliminar. El historial usa
 `GET /:catalogo/:id/historial`, limitado a los últimos 100 cambios de esa entidad/ID; está disponible
 para RH/ADMIN sin ampliar el acceso a la bitácora global ni publicar IP u otros registros.
 
@@ -238,3 +241,26 @@ búsqueda y la protección normalizada. El runner la anticipa exclusivamente al 
 de V031 antes de su DDL, para poder recortar al registro más antiguo aunque otro tenga ya ese
 nombre exacto. Ambas versiones solo se completan tras terminar. Si V031 ya está aplicada, V032
 se ejecuta normalmente sin modificar su archivo ni checksum; otros fallos requieren revisión.
+
+## R2-5 — Casos específicos y matriz de QA
+
+V033 crea MOTIVOS_BAJA, ZONAS y PAISES vacíos, con auditoría, estado, códigos automáticos
+permanentes, nombres normalizados únicos e índices. No transforma las direcciones ni los motivos
+de egreso históricos, ni asigna países o códigos postales por inferencia. RH completa estos catálogos
+con datos reales. No se cambia el formulario de empleado ni el cálculo de nómina.
+
+`shared/catalogos/formatos.ts` comparte validadores y saneamiento entre API y formulario genérico:
+código postal como texto de cinco dígitos, conservando ceros; código ISO de dos letras ASCII,
+convertidas a mayúsculas. Son referencias externas distintas del código interno automático.
+El formato ISO no certifica pertenencia al padrón internacional. El teclado postal es numérico;
+escritura/pegado bloquean caracteres ajenos al formato, y Oracle añade CHECK para ambos formatos.
+El ISO es único incluso entre registros inactivos. Los errores se muestran junto al campo.
+
+La matriz de QA está en `shared/catalogos/qa.fixture.ts`, excluida del build de API. Las pruebas
+recorren las definiciones reales, comparan la fixture de frontend y cubren nombres inválidos,
+recorte, duplicados, edición, acciones con íconos, formato postal/ISO, referencias de empleados,
+anchos 30/50/100 y descarte de borradores antes del debounce. Empresa tiene su pantalla propia
+y tramos ISR no tiene nombre; no se les aplican casos de nombres de catálogos.
+
+Ejecutar `npm run verify:catalogos` y
+`npm run test:e2e -- --production catalogos-qa.spec.ts` con Oracle saludable.

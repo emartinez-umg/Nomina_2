@@ -62,7 +62,7 @@ function Accion({
   return (
     <Modal
       abierto
-      titulo={`${cat.legal ? 'ADVERTENCIA · ' : ''}${tipo === 'eliminar' ? 'Eliminar registro' : fila.activo ? 'Desactivar registro' : 'Activar registro'}`}
+      titulo={`${cat.legal ? 'ADVERTENCIA · ' : ''}${tipo === 'eliminar' ? 'Eliminar registro' : fila.activo ? 'Inactivar registro' : 'Activar registro'}`}
       onCerrar={() => {
         if (!accion.isPending) onCerrar();
       }}

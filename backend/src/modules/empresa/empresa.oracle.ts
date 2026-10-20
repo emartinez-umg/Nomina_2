@@ -77,7 +77,7 @@ describe('FASE V1-5: empresa privada y firma en Oracle', () => {
     await sql(
       "UPDATE PLANTILLAS_DOCUMENTO SET CONTENIDO='Texto histórico {{representante}}' WHERE CODIGO='CONSTANCIA_LABORAL'",
     );
-    expect(await ejecutarMigraciones(db, logger)).toBe(10);
+    expect(await ejecutarMigraciones(db, logger)).toBe(11);
     await ejecutarSeeds(db, logger, seed);
     const config = {
       NODE_ENV: 'test' as const,
@@ -239,8 +239,9 @@ describe('FASE V1-5: empresa privada y firma en Oracle', () => {
     await sql("UPDATE EMPLEADOS SET NOMBRES=' ' WHERE ID_USUARIO=" + rhId);
     await expect(db.conConexion((c) => firmante(c, rhId))).rejects.toThrow('nombre completo');
     await sql("UPDATE EMPLEADOS SET NOMBRES='Ana' WHERE ID_USUARIO=" + rhId);
-    await sql("UPDATE PUESTOS SET NOMBRE=' '");
-    await expect(db.conConexion((c) => firmante(c, rhId))).rejects.toThrow('cargo');
+    // R2-4 impide persistir un cargo vacío antes de llegar al servicio de firma.
+    await expect(sql("UPDATE PUESTOS SET NOMBRE=' '")).rejects.toMatchObject({ errorNum: 1407 });
+    expect((await db.conConexion((c) => firmante(c, rhId))).cargo).toBe('Jefa de RRHH');
     await sql("UPDATE PUESTOS SET NOMBRE='Otro puesto'");
     expect((await db.conConexion((c) => obtenerFirma(c, 'PRUEBA', 1)))?.cargo).toBe('Jefa de RRHH');
     await sql('UPDATE PUESTOS SET ACTIVO=0');

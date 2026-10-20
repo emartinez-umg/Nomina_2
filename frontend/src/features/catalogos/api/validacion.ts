@@ -2,6 +2,10 @@ import {
   validarNombreCatalogo,
   recortarNombreCatalogo,
 } from '../../../../../backend/src/shared/catalogos/nombre';
+import {
+  validarCodigoPostal,
+  validarCodigoIso,
+} from '../../../../../backend/src/shared/catalogos/formatos';
 import type { LimitesHorario, BloqueHorario } from './catalogos';
 import {
   analizarHorario,
@@ -56,6 +60,10 @@ export function schemaFormulario(
       if (!v) {
         if (f.requerido) error(f.nombre, 'Este campo es obligatorio. Ingresa el dato solicitado.');
         continue;
+      }
+      if (f.tipo === 'codigo-postal' || f.tipo === 'codigo-iso') {
+        const mensaje = f.tipo === 'codigo-postal' ? validarCodigoPostal(v) : validarCodigoIso(v);
+        if (mensaje) error(f.nombre, mensaje);
       }
       const formato = { nit: nitSchema, correo: correoSchema, telefono: telefonoSchema }[
         f.tipo as 'nit' | 'correo' | 'telefono'
@@ -179,7 +187,9 @@ export function cuerpo(cat: Catalogo, d: Record<string, string>) {
         ? original.replace(/\s/g, '')
         : f.tipo === 'correo'
           ? original.toLowerCase()
-          : original;
+          : f.tipo === 'codigo-iso'
+            ? original.toUpperCase()
+            : original;
     body[f.nombre] = !v
       ? null
       : f.tipo === 'booleano'

@@ -18,7 +18,7 @@ docker compose up --build
 ```
 
 También: `docker compose up --build -d --wait --wait-timeout 900`. La primera preparación tarda
-varios minutos. La API espera Oracle saludable, aplica V000–V032 y seeds y luego inicia nginx.
+varios minutos. La API espera Oracle saludable, aplica V000–V033 y seeds y luego inicia nginx.
 No necesitas SQL manual, Instant Client ni instalar Node en el host para utilizar el sistema.
 
 - **Aplicación:** [https://localhost:8443/login](https://localhost:8443/login).
@@ -309,7 +309,7 @@ Pruebas: `npm run verify:pagos`, `npm run verify:prestaciones` y
 
 La rama `v1` incluye A2–A12. Antes de actualizar una instalación, respalda Oracle y conserva su
 volumen y `.env`. Ejecuta `docker compose up --build -d --wait --wait-timeout 900`: la API aplica
-V021–V032 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
+V021–V033 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
 ni elimines el volumen. Un fallo de migración detiene el arranque para revisión.
 
 `npm run verify:migration` exige Git con la etiqueta `v0.0`, Node 20, `npm ci` y Oracle saludable.
@@ -346,3 +346,8 @@ de identidades versionadas/geografía oficial. Pruebas: `npm run verify:catalogo
 `npm run test:e2e -- --production ronda2.spec.ts --grep R2-4`.
 
 V032 prepara las restricciones exactas antiguas antes de V031 al migrar desde v0/v1; sobre V031 ya aplicada retira solamente esas restricciones redundantes. El runner conserva y verifica el checksum original de V031.
+
+R2-5 añade los catálogos **Motivos de baja**, **Zonas** y **Países** con el CRUD común.
+Código postal: cinco dígitos conservando ceros; ISO: dos letras en mayúsculas. V033 no modifica
+los datos de empleados ni carga valores de ejemplo. La matriz de QA recorre cada catálogo:
+`npm run test:e2e -- --production catalogos-qa.spec.ts`; backend: `npm run verify:catalogos`.

@@ -1,5 +1,128 @@
 [
   {
+    "slug": "motivos-baja",
+    "singular": "motivo de baja",
+    "titulo": "Motivos de baja",
+    "tabla": "MOTIVOS_BAJA",
+    "pk": "ID_MOTIVO_BAJA",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
+        "requerido": true,
+        "max": 50
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "zonas",
+    "singular": "zona",
+    "titulo": "Zonas",
+    "tabla": "ZONAS",
+    "pk": "ID_ZONA",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
+        "requerido": true,
+        "max": 30
+      },
+      {
+        "nombre": "codigoPostal",
+        "columna": "CODIGO_POSTAL",
+        "etiqueta": "Código postal",
+        "tipo": "codigo-postal",
+        "hint": "Código postal guatemalteco de 5 dígitos. Ejemplo: 01001. Conserva el cero inicial.",
+        "requerido": true,
+        "max": 5
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
+    "slug": "paises",
+    "singular": "país",
+    "titulo": "Países",
+    "tabla": "PAISES",
+    "pk": "ID_PAIS",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 40
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
+        "requerido": true,
+        "max": 100
+      },
+      {
+        "nombre": "codigoIso",
+        "columna": "CODIGO_ISO",
+        "etiqueta": "Código ISO",
+        "tipo": "codigo-iso",
+        "hint": "Dos letras de A a Z (ISO 3166-1 alfa-2). Ejemplo: GT. Se convierten a mayúsculas.",
+        "requerido": true,
+        "max": 2
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      }
+    ]
+  },
+  {
     "slug": "empresa",
     "titulo": "Datos de empresa",
     "tabla": "CONFIGURACION_EMPRESA",
@@ -71,7 +194,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -106,7 +229,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -167,7 +290,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -202,7 +325,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -264,7 +387,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -316,7 +439,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -360,7 +483,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -446,7 +569,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -490,7 +613,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -525,7 +648,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -559,7 +682,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 60
       }
@@ -586,7 +709,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -637,7 +760,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -681,7 +804,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 120
       },
@@ -757,7 +880,7 @@
         "columna": "NOMBRE",
         "etiqueta": "Nombre",
         "tipo": "texto",
-        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
         "requerido": true,
         "max": 150
       },

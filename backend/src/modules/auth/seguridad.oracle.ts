@@ -35,6 +35,7 @@ import type { ActorAuditoria, Rol } from './auth.types.js';
 import { crearEmpleadosService } from '../empleados/empleados.service.js';
 import { columnasCsv, escribirCsv } from '../empleados/empleados.csv.js';
 import { crearCatalogosService } from '../catalogos/catalogos.service.js';
+import { catalogos } from '../catalogos/catalogos.definiciones.js';
 import { crearNovedadesService, registrarCobroCuota } from '../novedades/novedades.service.js';
 
 const logger = crearLogger('silent');
@@ -574,7 +575,7 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       await empleado.agent.get('/api/catalogos').expect(403);
       const rh = await entrarCuenta('RH');
       const r = await rh.agent.get('/api/catalogos').expect(200);
-      expect(r.body.data).toHaveLength(17);
+      expect(r.body.data).toHaveLength(catalogos.length);
       expect(r.text).not.toContain('columna');
       await rh.agent.post('/api/catalogos/departamentos').send(base).expect(403);
       await rh.agent.get('/api/catalogos/departamentos').query({ sql: 'SELECT' }).expect(400);

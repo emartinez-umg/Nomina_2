@@ -1900,3 +1900,40 @@ TABLA/ID_REGISTRO identifican el registro corregido; no son una FK polimórfica.
 la corrección aun si después ADMIN elimina físicamente un registro sin uso.
 
 V032 retira los UNIQUE exactos redundantes de nombres y conserva índices de nombre y la FK de municipio a departamento. Los UNIQUE normalizados de V031 siguen vigentes; el runner prepara V032 antes de V031 en instalaciones nuevas sin modificar su checksum aplicado.
+
+## R2-5 — Catálogos específicos de QA
+
+V033 agrega tres catálogos independientes vacíos, sin modificar las referencias históricas.
+Cada uno incluye código interno permanente, nombre/normalizado con UNIQUE, descripción,
+estado y las cinco columnas de auditoría habituales. CREADO_POR/MODIFICADO_POR referencian
+USUARIOS y tienen índices; CONFIG_CODIGOS y los triggers usan el generador transaccional existente.
+
+```mermaid
+erDiagram
+    USUARIOS ||--o{ MOTIVOS_BAJA : audita
+    USUARIOS ||--o{ ZONAS : audita
+    USUARIOS ||--o{ PAISES : audita
+    MOTIVOS_BAJA {
+        NUMBER ID_MOTIVO_BAJA PK
+        VARCHAR2 CODIGO UK
+        VARCHAR2 NOMBRE_NORMALIZADO UK
+        VARCHAR2 NOMBRE "50 caracteres"
+    }
+    ZONAS {
+        NUMBER ID_ZONA PK
+        VARCHAR2 CODIGO UK
+        VARCHAR2 NOMBRE_NORMALIZADO UK
+        VARCHAR2 NOMBRE "30 caracteres"
+        VARCHAR2 CODIGO_POSTAL "CHECK cinco digitos"
+    }
+    PAISES {
+        NUMBER ID_PAIS PK
+        VARCHAR2 CODIGO UK
+        VARCHAR2 NOMBRE_NORMALIZADO UK
+        VARCHAR2 NOMBRE "100 caracteres"
+        VARCHAR2 CODIGO_ISO UK "CHECK dos letras A-Z"
+    }
+```
+
+La zona domiciliaria 1–25 y MOTIVO_EGRESO de empleados conservan su significado y sus datos.
+No se infieren vínculos con estos nuevos catálogos ni se siembran países o códigos postales.

@@ -1,6 +1,6 @@
 // Regla única para la API y los formularios; sin dependencias del servidor.
 export const hintNombreCatalogo =
-  "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '.";
+  "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.";
 export const recortarNombreCatalogo = (valor: string) =>
   valor.normalize('NFC').replace(/\s+/gu, ' ').trim();
 export const normalizarNombreCatalogo = (valor: string) =>
