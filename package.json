@@ -15,7 +15,7 @@
     "dev": "concurrently -k -n api,web \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces && tsc --project tsconfig.e2e.json",
-    "lint": "npm run lint --workspaces && eslint --config eslint.base.mjs e2e playwright.config.ts scripts/exportar-bd*.mjs scripts/verificar-e2e.mjs scripts/servir-*-e2e.mjs scripts/verificar-migracion-v0.mjs scripts/verificar-arranque.mjs scripts/seed-demo.js scripts/verificar-seguridad.mjs",
+    "lint": "npm run lint --workspaces && eslint --config eslint.base.mjs e2e playwright.config.ts scripts/exportar-bd*.mjs scripts/verificar-e2e.mjs scripts/servir-*-e2e.mjs scripts/verificar-migracion-v0.mjs scripts/verificar-arranque.mjs scripts/seed-*.js scripts/verificar-seguridad.mjs",
     "test": "npm run test --workspaces && npm run test:export",
     "verify:infra": "node --env-file=.env scripts/verificar-infra.mjs",
     "format": "prettier --write .",
@@ -48,7 +48,10 @@
     "verify:tableros": "node --env-file=.env scripts/verificar-seguridad.mjs --tableros",
     "verify:migration:v1": "node --import tsx --env-file=.env scripts/verificar-migracion-v0.mjs --from-v1",
     "seed:demo": "node scripts/seed-demo.js",
-    "test:seed-demo": "node --env-file=.env scripts/verificar-seguridad.mjs --seed-demo"
+    "test:seed-demo": "node --env-file=.env scripts/verificar-seguridad.mjs --seed-demo",
+    "seed:remote": "node scripts/seed-remote.js",
+    "seed:export-sql": "node scripts/seed-export-sql.js",
+    "test:seed-export": "node --env-file=.env scripts/verificar-seguridad.mjs --seed-export"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

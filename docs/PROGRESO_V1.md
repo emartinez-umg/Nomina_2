@@ -2714,3 +2714,84 @@ se completó el cargador y se ejecutó la carga básica local. Las fases 4 y 5 n
 5. Esperar confirmación antes de fase 4: exportador SQL y seed-remote.js. Fase 5: verificador
    independiente de aceptación. Sigue pendiente la ERS original para certificar la numeración
    RF; no bloquea la carga del conjunto aprobado. Sin pendientes de implementación de fase 3.
+
+## Datos demo — FASE 4: SQL autónomo y carga remota
+
+Estado: completada el 20/10/2026 en `v1.1`, tras la confirmación «continua». La fase 5 permanece
+pendiente de confirmación. No se cambió el esquema, la lógica de negocio, la interfaz ni la carga
+operativa de 35 empleados que quedó en la fase 3.
+
+### Hecho y decisiones
+
+- `npm run seed:remote` mediante scripts/seed-remote.js. Reutiliza ejecutarCli y el mismo servicio
+  transaccional thin del cargador local, con las cuatro banderas existentes. DEST_DB_USER,
+  DEST_DB_PASSWORD y DEST_DB_CONNECT_STRING son obligatorias antes de conectar; nunca recurre
+  a DB_* ni al host local cuando falta una variable remota. `.env.example` incluye las tres vacías.
+- `npm run seed:export-sql` genera database/seed/seed_demo.sql sin conexión Oracle. Acepta
+  --with-extras; utiliza exclusivamente los JSON aprobados, los validadores, baseNombreUsuario,
+  hashearContrasena y amortizar existentes. Las edades y límites de jornada se consultan en la
+  base destino al ejecutar el SQL; no se duplican parámetros legales en el exportador sin conexión.
+- El SQL contiene un único bloque PL/SQL, sin objetos permanentes auxiliares ni cambios al esquema.
+  INSERT dinámico con lista de tablas/PK permitidas, columnas contrastadas con el diccionario y
+  valores enlazados por DBMS_SQL. Resuelve nombres normalizados, ubicaciones INE, tipos y roles
+  en el destino; los triggers existentes asignan códigos y contadores. No copia identidades.
+- Preflight de migraciones/checksums, objetos válidos, constraints habilitadas/validadas, INE 22/340
+  y ADMIN activo. Conserva catálogos compatibles y configuración real; rechaza empleados ajenos,
+  referencias incompatibles, mínimo insuficiente, periodos cerrados y ausencias solapadas.
+  Una transacción DML y un commit final; el manejador revierte completo ante un fallo.
+- Idempotencia y propiedad interoperables entre SQL y Node: reconstruye eventos de bitácora y
+  registra huellas SHA-256 del JSON de cada fila. Se comprobaron contra huella() de Node; el reset
+  existente reconoce las filas SQL sin cambiar su algoritmo ni modificar la bitácora inmutable.
+  No se reescriben credenciales, banderas, datos editados ni códigos al repetir la carga.
+- Supuesto aplicado: exportación privada con hashes Argon2id individuales generados desde
+  SEED_DEFAULT_PASSWORD. Oracle no incorpora el hasher de la app; el archivo autónomo lleva esos
+  hashes y ninguna contraseña en texto plano ni credencial de conexión. Se excluye de Git,
+  se escribe con permisos 0600 y reemplazo mediante archivo temporal. Su fuente versionada
+  es exportar.ts + exportar.runtime.sql y los JSON. No forzar la incorporación del SQL privado.
+- El archivo no incluye comandos exclusivos de SQLPlus. Se codifican ampersands con CHR(38),
+  se evitan líneas vacías internas y se limitan literales/líneas para SQLPlus. README documenta
+  DBMS Output, manejo de errores en el cliente y ejecución del bloque completo en DBeaver.
+- Extras SQL: historial salarial, parqueo por solicitud aprobada/suscripción, préstamos/cuotas,
+  ausencias y novedades mensuales. No se crean descuentos manuales de parqueo. Se conserva
+  el comienzo en el mes real de aprobación, como en Node. Las ausencias del JSON aprobado están
+  dentro de un mes; el exportador rechaza otro rango hasta desglosarlo explícitamente.
+- database/seed/README.md explica entorno, base local, otra instancia, otro esquema, instalación
+  vacía, SQL autónomo, privacidad, extras y reset. README raíz enlaza la guía. La exportación básica
+  privada quedó generada en la ruta solicitada; no se ejecutó contra la base operativa.
+
+### Pruebas y comprobaciones
+
+- Node 20.20.2: **768 pruebas del monorepo aprobadas** (427 backend, 334 frontend y siete del
+  exportador anterior). Tres pruebas nuevas: escape compatible con SQLPlus, generación privada
+  sin DDL/contraseña y con 32 hashes distintos verificables, y rechazo de contraseña inválida.
+- **Seis pruebas Oracle nuevas aprobadas** con SQLPlus real: destino incompleto sin fallback;
+  instalación y carga en otro esquema con IDs/códigos ya desplazados; 32 cuentas autenticables;
+  igualdad de valores de empleados, ubicación, puesto, banco, contacto y horario frente a Node;
+  doble carga SQL/Node sin cambiar conteos, credenciales o contadores; ampliación de extras;
+  reset remoto de filas SQL y rollback ante fallo deliberado; carga SQL sobre datos Node y
+  comparación de salarios, cuotas, comisiones, ausencias y suscripciones tras recargar desde cero.
+- La suite final se ejecutó también con NLS_NUMERIC_CHARACTERS=',.' y pasó. Compara huellas de
+  dominio sin imprimir DPI, cuentas ni hashes de contraseña. Prueba la instalación --apply-schema
+  usando DEST_DB_* con DB_* deliberadamente apuntando a un destino inválido.
+- **Siete regresiones Oracle del cargador local aprobadas** tras refactorizar su entrada: todas
+  las banderas, transacción, idempotencia, referencias ajenas y huellas. El mensaje de fallo
+  deliberado es esperado; se comprueba que no queden filas ni reservas de esa transacción.
+- Ambos runners crearon esquemas aleatorios N2SEC_* y los eliminaron en finally. No se probaron
+  borrados ni fallos sobre NOMINA2. No hay cambios en migraciones ni JSON del conjunto aprobado.
+- Lint, TypeScript strict, build backend, formato de archivos editados y diff --check aprobados.
+  SQL privado ignorado por Git, modo 0600 y sin valores de SEED_DEFAULT_PASSWORD, DB_PASSWORD,
+  ADMIN_PASSWORD o DEST_DB_PASSWORD en texto plano. Registros de comprobación ignorados en tmp.
+- La ejecución del SQL desde la interfaz de DBeaver no fue automatizada; se validó el bloque
+  con Oracle 21c XE y SQLPlus. No se recibió una conexión a otra instancia externa y no se escribió
+  en ninguna. La carga remota se probó en otro esquema de la instancia Docker local.
+
+### Cómo usar y pendientes
+
+1. Node 20 y .env privado configurado: npm run seed:export-sql. Trasladar el SQL privado y ejecutar
+   como bloque completo en una conexión al esquema de aplicación instalado; ver la guía.
+2. Configurar las tres DEST_DB_*: npm run seed:remote -- --dry-run; npm run seed:remote.
+   Las banderas --with-extras, --reset-demo y --apply-schema conservan sus reglas de fase 3.
+3. Reproducir con npm run test:seed-export y npm run test:seed-demo; ambos usan esquemas desechables.
+4. Esperar confirmación antes de fase 5: scripts/verify-seed.js y verificación independiente de
+   aceptación. No se implementó ese script en esta fase. La ERS original sigue pendiente para
+   certificar la correspondencia exacta de los RF; no bloquea los datos y cargadores aprobados.

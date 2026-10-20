@@ -238,7 +238,11 @@ export async function cargarDataset() {
 export function exigir(condicion: unknown, mensaje: string): asserts condicion {
   if (!condicion) throw new Error(mensaje);
 }
-export function validarDataset(d: Dataset, reglas: ReglasEmpleado, limites: LimitesHorario) {
+export function validarDataset(
+  d: Dataset,
+  reglas: ReglasEmpleado | Pick<ReglasEmpleado, 'hoy'>,
+  limites?: LimitesHorario,
+) {
   const colecciones = [d.departamentos, d.puestos, d.centros, d.horarios, d.bancos, d.empleados];
   for (const filas of colecciones)
     exigir(
@@ -277,10 +281,12 @@ export function validarDataset(d: Dataset, reglas: ReglasEmpleado, limites: Limi
     );
   for (const e of d.empleados) {
     datosEmpleado(e, ids);
-    exigir(
-      !Object.keys(erroresFechas(e, reglas)).length,
-      `Fechas inválidas en ${e.clave}; revisa la fecha de referencia y la edad configurada.`,
-    );
+    // La exportación sin conexión difiere edades y límites al bloque SQL, que consulta el destino.
+    if ('edadMinima' in reglas)
+      exigir(
+        !Object.keys(erroresFechas(e, reglas)).length,
+        `Fechas inválidas en ${e.clave}; revisa la fecha de referencia y la edad configurada.`,
+      );
     exigir(
       nitValido(e.nit) && zonaValida(e.municipioGt, e.zona),
       `NIT o zona inválidos en ${e.clave}.`,

@@ -207,6 +207,8 @@ Seeds aditivos: no sobrescriben cuentas, parámetros editados ni plantillas exis
   `npm run seed:demo` carga el conjunto. La contraseña temporal se toma de
   `SEED_DEFAULT_PASSWORD`; no se imprime. Las banderas de extras, reset e instalación vacía
   y las pruebas Oracle desechables están explicadas en la guía de carga.
+  [Carga remota y exportación SQL](database/seed/README.md): `npm run seed:remote` usa
+  `DEST_DB_*`; `npm run seed:export-sql` genera el archivo privado para otra base o esquema.
 
 - [Cierre, matriz de auditoría y comprobaciones](docs/CIERRE.md).
 - [Progreso](docs/PROGRESO.md), [decisiones y mejoras futuras](docs/DECISIONES.md), [modelo Oracle](docs/ERD.md).

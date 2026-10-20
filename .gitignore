@@ -10,3 +10,6 @@ tmp/
 playwright-report/
 test-results/
 *.tsbuildinfo
+# Exportación privada: contiene hashes Argon2 generados por entorno.
+database/seed/seed_demo.sql
+database/seed/seed_demo.*.sql
