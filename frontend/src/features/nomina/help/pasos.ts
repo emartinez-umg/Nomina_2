@@ -84,7 +84,7 @@ export const ayudaNomina: DefinicionAyuda = {
       elemento: 'nomina-filtros',
       titulo: 'Busca por periodo y empleado',
       descripcion:
-        'Combina año, mes, búsqueda, empleado, departamento y alertas. Quita chips o limpia los filtros. Ordenar columnas y cambiar de página consulta el servidor; no limita la exportación a la página visible.',
+        'Combina año, mes, búsqueda, empleado, departamento y alertas. Desde una barra de remuneraciones del dashboard se abre el historial con mes y empleado o departamento del snapshot aplicados. Quita chips o limpia los filtros para ampliar la consulta. Ordenar columnas y cambiar de página consulta el servidor; no limita la exportación a la página visible.',
     },
     {
       elemento: 'nomina-tabla',

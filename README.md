@@ -366,9 +366,12 @@ K final y guion opcionales, conservando unicidad; ADMIN puede activar módulo 11
 legales → Validar dígito NIT (`VALIDAR_DIGITO_NIT`, 0 desactivado, 1 activado, unidad CANTIDAD).
 La validación fiscal de la empresa conserva sus reglas. Aplica con `docker compose up --build`.
 
-### Datos de dashboard RRHH (R2-8)
+### Dashboard RRHH (R2-8 y R2-9)
 
 Cuatro agregaciones exclusivas de RH/ADMIN en `/api/tableros/rh`: remuneraciones, inasistencias,
 vacaciones y celebraciones. V035 clasifica los tipos de ausencia y añade índices; no cambia importes
 históricos. Contratos, fuentes y filtros en [DASHBOARD_RH.md](docs/DASHBOARD_RH.md).
 Ejecutar `npm run verify:tableros` con Node 20 y Oracle saludable para integración y planes.
+La primera vista de `/rh` muestra cuatro recuadros animados y filtrables, con accesos a los
+detalles, antes de los indicadores y alertas. Respeta movimiento reducido y se apila en móvil.
+E2E con datos de ejemplo en Oracle desechable: `npm run test:e2e -- --production dashboard-rh.spec.ts`.

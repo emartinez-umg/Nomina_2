@@ -54,7 +54,7 @@ export const ayudaVacaciones: DefinicionAyuda = {
       elemento: 'vacaciones-filtros',
       titulo: 'Busca solicitudes',
       descripcion:
-        'Combina empleado, estado y fechas. Desde/Hasta incluyen solicitudes que intersectan el rango. Los chips permiten quitar filtros; la exportación descarga toda la consulta y la paginación se procesa en el servidor.',
+        'Combina empleado, estado y fechas. Desde/Hasta incluyen solicitudes que intersectan el rango. Desde Vacaciones del dashboard se aplican el empleado y las fechas, mostrando todos sus estados para conservar solicitudes aprobadas o tomadas. Los chips permiten quitar filtros; la exportación descarga toda la consulta y la paginación se procesa en el servidor.',
     },
     {
       elemento: 'vacaciones-bandeja',

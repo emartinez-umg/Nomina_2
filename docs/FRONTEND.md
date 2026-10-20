@@ -376,3 +376,22 @@ sus propios controles; no son una selección departamento → empleado.
 
 El paso declarativo `components/help/selectorEmpleado.ts` se comparte entre los recorridos
 de las páginas afectadas y los hints se componen en el propio selector.
+
+## Primera vista de RRHH (R2-9)
+
+`features/inicio/components/TableroRh.tsx` consume los cuatro endpoints R2-8 con consultas
+independientes y presenta remuneraciones, inasistencias, vacaciones y celebraciones antes
+del resumen anterior. Las barras son listas enlazadas con montos exactos accesibles; Framer
+Motion anima entrada, escala, conteos y pestañas y respeta movimiento reducido. Las gráficas
+secundarias conservan Recharts y también respetan esa preferencia. Paleta, tipografía y tarjetas
+proceden del mockup; las categorías estadísticas tienen tokens fijos, siglas y tramas.
+
+`lib/filtrosEnlace.ts` admite únicamente filtros conocidos con formato válido desde la URL.
+Planilla abre su historial por mes/empleado/departamento, Ausencias recibe estado/rango y
+empleado/departamento actuales y Vacaciones recibe empleado/rango con todos los estados.
+Los filtros de los listados de novedades agregan departamento y reutilizan la cascada común.
+Las altas de novedades que solo tienen empleado conservan la búsqueda global anterior.
+La API revalida todos los valores y permisos. No se escriben borradores de estos filtros.
+
+Detalles de cortes, paginación, estados, actualización, enlaces y pruebas en
+[DASHBOARD_RH.md](DASHBOARD_RH.md). Las fixtures E2E son exclusivas de Oracle desechable.

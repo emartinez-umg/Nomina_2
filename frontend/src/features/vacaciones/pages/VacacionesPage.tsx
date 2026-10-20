@@ -4,6 +4,7 @@ import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { filtrosEnlace } from '../../../lib/filtrosEnlace';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -365,6 +366,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
     direccion: 'desc',
     estado: empleado ? '' : 'EN_PROCESO',
     idEmpleado: empleado ? '' : (params.get('empleado') ?? ''),
+    ...(!empleado ? filtrosEnlace(params, ['estado', 'desde', 'hasta']) : {}),
   });
   const [filtros, setFiltros] = useState(false),
     [resolucion, setResolucion] = useState<{ fila: Fila; estado: AccionVacaciones }>();

@@ -15,6 +15,13 @@ export const tokens = {
     informacion: '#e6eef3',
   },
   tipografia: ['Trebuchet MS', 'Arial', 'sans-serif'],
+  // B7: categorías fijas, acompañadas de etiquetas y tramas para distinguirlas.
+  estadisticas: {
+    igss: '#28763d',
+    conGoce: '#e3bc3b',
+    sinGoce: '#d77722',
+    sinJustificacion: '#bd3434',
+  },
   radios: { tarjeta: '0.75rem', control: '0.625rem', boton: '999px' },
   sombras: { tarjeta: '0 8px 20px rgb(0 0 0 / 12%)', barra: '0 3px 6px rgb(0 0 0 / 10%)' },
   espaciado: { seccion: '2rem', campo: '1rem', cabecera: '4.5rem' },

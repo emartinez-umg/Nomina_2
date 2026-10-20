@@ -5,6 +5,7 @@ import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { Decimal } from 'decimal.js';
 import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { filtrosEnlace } from '../../../lib/filtrosEnlace';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../../app/session';
 import { usePageHelp } from '../../../components/help/HelpProvider';
@@ -102,7 +103,7 @@ export function NominaPage() {
   usePageHelp(ayudaNomina, usuario?.rol);
   const [params, setParams] = useSearchParams(),
     id = Number(params.get('periodo')) || undefined;
-  const [historial, setHistorial] = useState(false),
+  const [historial, setHistorial] = useState(params.get('historial') === '1'),
     [fiscal, setFiscal] = useState(false),
     [formato, setFormato] = useState(false);
   return (
@@ -302,6 +303,7 @@ function Planilla({
   id: number | undefined;
   admin: boolean;
 }) {
+  const [params] = useSearchParams();
   const bloqueoFirma = useBloqueoFirma();
   const cache = useQueryClient(),
     toast = useToast();
@@ -310,6 +312,7 @@ function Planilla({
       limite: '10',
       ordenarPor: 'inicio',
       direccion: 'desc',
+      ...(!propio ? filtrosEnlace(params, ['anio', 'mes', 'idEmpleado', 'idDepartamento']) : {}),
     }),
     [filtros, setFiltros] = useState(false),
     [accion, setAccion] = useState(''),

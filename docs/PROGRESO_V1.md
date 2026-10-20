@@ -2172,3 +2172,104 @@ El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
    con los filtros documentados en DASHBOARD_RH.md; EMPLEADO debe recibir 403 en las cuatro.
 5. Revisar tmp/dashboard-rh-planes.json tras verify:tableros. Sus tiempos describen ese ensayo local,
    no un SLA para cualquier volumen. La implementación visual y sus recorridos siguen reservados.
+
+### FASE R2-9 — Primera vista del dashboard de RRHH
+
+Estado: completada y validada el 20/10/2026. Rama `v1.1`, alcance B7 de interfaz.
+El cambio previo del usuario en AGENTS.md permanece fuera del commit.
+
+#### Reproducción y causa raíz
+
+- `/rh` comenzaba con indicadores y usaba únicamente el endpoint antiguo. No consumía las
+  agregaciones R2-8 ni ofrecía sus alternancias. La prueba nueva de primera vista falla al
+  ejecutarla con InicioPage de HEAD anterior y pasa con la implementación. El archivo se
+  restaura inmediatamente tras ese ensayo; registro en tmp de la prueba anterior y posterior.
+- Ausencias y Planilla no leían los filtros del enlace al montar; Vacaciones imponía pendientes.
+  Se conectan esos filtros para que las barras y las personas abran resultados útiles reales,
+  conservando validación y autorización en la API.
+- La matriz E2E completa detecta contraste transitorio insuficiente durante el fade de entrada.
+  Se elimina la animación de opacidad de tarjetas/paneles y se anima solo su posición: el texto
+  mantiene siempre su contraste. Se agrega una regresión de componente para ambas transiciones;
+  no se añaden esperas ni se omiten reglas de axe para esconder el problema.
+
+#### Hecho y decisiones
+
+- Saludo «Hola, Nombre Apellido», fecha local y cuatro recuadros antes de los indicadores,
+  accesos, evolución, distribución y alertas existentes, incluidas las de perfiles sin salario.
+  ADMIN conserva su dashboard administrativo; EMPLEADO su portal. Sin cambios de negocio.
+- Top cinco con empleado/departamento, las cuatro métricas y mes/año. Posición, monto GTQ
+  exacto y barras horizontales relativas al máximo; se consumen pagos confirmados conforme
+  al contrato R2-8. Cada fila abre el historial de Planilla por mes y persona/departamento.
+- Inasistencias por empleado/departamento y mes/trimestre/año actuales, barras apiladas,
+  desglose de cuatro cantidades con cursor o foco y Escape. IGSS verde, con goce amarillo,
+  sin goce naranja y sin justificar rojo; leyenda global con días, siglas y tramas. Cada fila
+  abre ausencias aprobadas del rango y empleado/departamento actual, con filtros aplicados.
+- Vacaciones En curso/Próximas a 30/60/90 días, línea de tiempo, fechas/días laborales, contador
+  de personas ausentes hoy y paginación de cinco por lista. Cambiar pestaña/plazo vuelve a la
+  primera página. El contador conserva los criterios laborales y feriados de la API.
+  Cada persona abre sus solicitudes con rango y todos los estados, incluidas aprobadas/tomadas.
+- Cumpleaños/aniversarios de hoy y 30 días siguientes, marca «¡Hoy!» y animación sutil acotada.
+  Solo aniversarios muestra años. Enlaces a ficha, listas desplazables sin truncar y pestañas
+  con flechas/Inicio/Fin, selección y panel etiquetados. No se publica edad ni nacimiento.
+- Consultas Zod/TanStack Query independientes, claves por filtro, AbortSignal, actualización
+  cada minuto en pestaña activa y botón común Actualizar. Skeletons, vacíos con acceso útil,
+  fallo aislado/reintento y último corte con «Actualizado hace X» actualizado por reloj local.
+  Una actualización fallida conserva el resultado anterior con una explicación explícita.
+- Framer Motion para entrada escalonada, crecimiento de barras, conteos y cambio de pestañas;
+  movimiento reducido desactiva también las animaciones de las gráficas anteriores Recharts.
+  Las cadenas monetarias exactas permanecen accesibles; Number solo interpola/escala lo visual.
+  Se agrega framer-motion (tres paquetes transitivos/directos en total); auditoría npm: cero vulnerabilidades.
+- Tarjetas, sombra, tipografía y azul/verde derivados de la página 6 del mockup y tokens existentes;
+  colores estadísticos fijos en tokens. Cuadrícula 2×2 y una columna a 800 px o menos. Iconos
+  centralizados; hints y tours de dashboard, novedades, Planilla y Vacaciones actualizados.
+- Filtros entrantes con lista blanca y formatos válidos; chips/exportación/orden siguen usando
+  la consulta real. Novedades muestra departamento actual y reutiliza la cascada de empleados.
+  Se ajusta la expectativa del saludo en la prueba de login RH por el cambio B7 solicitado;
+  sus aserciones de sesión, redirección y permisos se conservan.
+- La regresión R2-2 comprueba ahora «Hola» en el h1 RH, conservando Bienvenido para los otros
+  roles. El manifiesto de Vite incluye el CSS de la página: la prueba de nginx valida text/css
+  para ese recurso y JavaScript para los chunks, manteniendo 200, caché inmutable y 404 reales.
+
+#### Supuestos y alcance
+
+- Inasistencias usa el periodo que contiene hoy, con sus límites visibles; remuneraciones
+  permite elegir mes/año. Las preferencias son filtros de consulta y no borradores de formularios.
+- No se modifican backend, migraciones V000–V035, cálculos, snapshots ni datos operativos.
+  Las fixtures de ejemplo viven exclusivamente en un esquema N2E2E validado y desechable.
+  Los errores iniciales de fixture (NIT sin guion y agregado SQL con subconsulta) se corrigen
+  en la prueba, sin relajar CHECK ni modificar reglas de la aplicación.
+- Continúa pendiente el despliegue operativo de V035 documentado en R2-8 y de las imágenes
+  API/web nuevas. Esta fase comprueba el despliegue completo en nginx/TLS y Oracle temporales;
+  no aplica migraciones ni reemplaza servicios del entorno operativo.
+
+#### Validación y pendientes
+
+- Node 20.20.2: **760 pruebas aprobadas**: 419 backend, 334 frontend (once nuevas del dashboard)
+  más siete del exportador. Las nuevas cubren primera vista/alertas, cuatro cargas, alternancias,
+  periodos/mes, enlaces, paginación, teclado, privacidad de cumpleaños, movimiento reducido,
+  vacíos, error/reintento, antigüedad y lista blanca. La regresión falla con InicioPage anterior.
+- Los dos E2E nuevos pasan con API/Oracle reales y nginx/TLS: datos de remuneración de ejemplo,
+  cuatro categorías, vacaciones y celebraciones; filtros realmente aplicados en los destinos,
+  ayuda, escritorio/móvil, movimiento reducido y axe WCAG A/AA. Capturas inspeccionadas en
+  tmp/pdfs/r2-9-dashboard-{escritorio,movil}.png. Datos y esquema temporales eliminados al terminar.
+- Lint, TypeScript strict, build y exportador aprobados. Aviso previo de chunk Vite >500 kB
+  permanece. Al ejecutar compilaciones y todas las suites en paralelo, un caso previo de acciones
+  de catálogos supera sus 5 s; se repite su archivo aislado: 36/36 aprobados, sin cambiar tiempos
+  ni aserciones. Las otras 333 pruebas frontend ya habían aprobado en ese ensayo.
+  Confirmación final con dos workers: 419/419 backend, 334/334 frontend y 7/7 exportador aprobados.
+- **69/69 E2E aprobados (6.2 min)** con nginx/TLS y API/Oracle reales. Incluye la matriz completa
+  de páginas por rol, ayudas, hints, teclado, móvil y axe A/AA; los dos casos del dashboard,
+  cálculos/pagos/cierres, documentos, códigos, borradores, catálogos y novedades. La matriz que
+  detectó el contraste transitorio pasa sin omitir reglas ni esperar artificialmente a la animación.
+  Datos, esquema, contenedor e imagen exclusivos de pruebas retirados al terminar.
+- Lint, TypeScript strict, build, Prettier, secretos y diff --check aprobados. Sin pendientes de
+  implementación de R2-9; se conserva únicamente el despliegue operativo pendiente descrito arriba.
+
+#### Cómo probar
+
+1. Node 20: `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. `npm run test:e2e -- --production dashboard-rh.spec.ts`; regresión: `npm run test:e2e -- --production`.
+3. Con API actualizada a V035 y web nueva, entrar como RH en `/rh`: saludo y cuatro recuadros
+   primero; alternar empleado/departamento, métricas, mes, periodos, vacaciones y celebraciones.
+4. Seguir cada barra/persona y revisar chips/resultados filtrados. Probar Ayuda, teclado,
+   reintento sin conexión, viewport 390 px y preferencia de movimiento reducido del dispositivo.

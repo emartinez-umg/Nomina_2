@@ -1,6 +1,6 @@
 import { nombreUsuario } from '../../../lib/nombre';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { useSession } from '../../../app/session';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -19,6 +19,8 @@ import type { Fila } from '../../comunicacion/api/comunicacion';
 import { lazy, Suspense } from 'react';
 const RhGraficas = lazy(() => import('./RhGraficas').then((m) => ({ default: m.RhGraficas })));
 import { moneda } from '../../../lib/validadores';
+import { hoyGuatemala, fechaVisible } from '../../../lib/validadores';
+import { TableroRh } from '../components/TableroRh';
 export function Indicador({
   titulo,
   valor,
@@ -138,6 +140,8 @@ const gestiones: { titulo: string; icono: NombreIcono; ruta: string }[] = [
   { titulo: 'Actualizar mis datos', icono: 'usuario', ruta: '/mis-gestiones/datos' },
 ];
 export function InicioPage() {
+  const cache = useQueryClient();
+  const estadisticasConsultando = useIsFetching({ queryKey: ['tablero-rh'] });
   const { usuario } = useSession(),
     nav = useNavigate();
   usePageHelp(ayudaInicio, usuario?.rol);
@@ -156,17 +160,36 @@ export function InicioPage() {
   return (
     <>
       <div className="flex justify-between gap-3 items-start">
-        <h1>{titulo}</h1>
+        <div>
+          {usuario?.rol === 'RH' ? (
+            <>
+              <h1 className="rh-saludo">Hola, {nombreUsuario(usuario)}</h1>
+              <p className="rh-fecha">
+                {new Intl.DateTimeFormat('es-GT', {
+                  weekday: 'long',
+                  timeZone: 'America/Guatemala',
+                }).format(new Date(`${hoyGuatemala()}T12:00:00-06:00`))}
+                , {fechaVisible(hoyGuatemala())}
+              </p>
+            </>
+          ) : (
+            <h1>{titulo}</h1>
+          )}
+        </div>
         <Button
           icono="actualizar"
           variante="secundario"
-          cargando={q.isFetching}
-          onClick={() => void q.refetch()}
+          cargando={q.isFetching || (usuario?.rol === 'RH' && estadisticasConsultando > 0)}
+          onClick={() => {
+            void q.refetch();
+            void cache.invalidateQueries({ queryKey: ['tablero-rh'] });
+          }}
         >
           Actualizar
         </Button>
       </div>
       <Breadcrumbs items={[{ titulo: 'Nómina' }, { titulo }]} />
+      {usuario?.rol === 'RH' && <TableroRh />}
       {q.isPending ? (
         <Skeleton lineas={8} />
       ) : q.error ? (
@@ -185,13 +208,15 @@ export function InicioPage() {
           const d = q.data;
           return (
             <>
-              <div className="banda-informativa">
-                <iconos.informacion aria-hidden="true" />
-                <span>
-                  Bienvenido, {usuario ? nombreUsuario(usuario) : ''} · Datos al{' '}
-                  {fechaHora(d.ahora)} (Guatemala)
-                </span>
-              </div>
+              {d.rol !== 'RH' && (
+                <div className="banda-informativa">
+                  <iconos.informacion aria-hidden="true" />
+                  <span>
+                    Bienvenido, {usuario ? nombreUsuario(usuario) : ''} · Datos al{' '}
+                    {fechaHora(d.ahora)} (Guatemala)
+                  </span>
+                </div>
+              )}
               {d.rol === 'RH' ? (
                 <>
                   <section
@@ -276,7 +301,7 @@ export function InicioPage() {
                   <Suspense fallback={<Skeleton lineas={6} />}>
                     <RhGraficas departamentos={d.departamentos} evolucion={d.evolucion} />
                   </Suspense>
-                  <div className="tablero-dos">
+                  <div className="my-6">
                     <Card data-tour="alertas">
                       <h2>Alertas operativas</h2>
                       {!d.periodo && (
@@ -312,25 +337,6 @@ export function InicioPage() {
                         Hasta 50 alertas: periodos abiertos, contratos por vencer o vencidos y
                         empleados sin salario.
                       </p>
-                    </Card>
-                    <Card data-tour="celebraciones">
-                      <h2>Cumpleaños y aniversarios</h2>
-                      <p className="campo-hint">Próximos 30 días · hasta 50 celebraciones</p>
-                      {d.celebraciones.length ? (
-                        d.celebraciones.map((c) => (
-                          <article className="comunicacion-resumen" key={`${c.tipo}:${c.id}`}>
-                            <strong>{c.nombre}</strong>
-                            <p>
-                              {c.tipo === 'CUMPLEANOS'
-                                ? 'Cumpleaños'
-                                : `Aniversario · ${c.anios} ${c.anios === 1 ? 'año' : 'años'}`}{' '}
-                              · {fechaHora(c.fecha)}
-                            </p>
-                          </article>
-                        ))
-                      ) : (
-                        <p className="my-4 text-secundario">Sin celebraciones próximas.</p>
-                      )}
                     </Card>
                   </div>
                 </>

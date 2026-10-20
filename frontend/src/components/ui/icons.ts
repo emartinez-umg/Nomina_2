@@ -43,6 +43,10 @@ import {
   Clock,
   CircleCheck,
   LoaderCircle,
+  Building2,
+  CalendarX2,
+  Cake,
+  Award,
 } from 'lucide-react';
 export const iconos = {
   copiar: Copy,
@@ -90,5 +94,9 @@ export const iconos = {
   tiempo: Clock,
   completado: CircleCheck,
   cargando: LoaderCircle,
+  organizacion: Building2,
+  ausencias: CalendarX2,
+  celebracion: Cake,
+  aniversario: Award,
 } as const;
 export type NombreIcono = keyof typeof iconos;

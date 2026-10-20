@@ -82,8 +82,51 @@ La suite ejecuta EXPLAIN PLAN y las cuatro consultas, genera `tmp/dashboard-rh-p
 con DBMS_XPLAN, coste/predicados y tiempo local. El archivo no contiene datos personales y está
 ignorado por Git. Los tiempos son evidencia de ese ensayo, no una garantía para otro volumen/host.
 Regresión: `npm test`, `npm run verify:comunicacion`, `npm run verify:catalogos`, `npm run db:verify`.
-La interfaz y sus recorridos de dashboard pertenecen a la fase siguiente; esta entrega solo
-actualiza backend, esquema, documentación y fixtures/pruebas de contrato.
+
+## Interfaz de RRHH — R2-9
+
+`/rh` saluda con el nombre mostrado de la sesión y la fecha de Guatemala. Su primera sección
+es una cuadrícula de cuatro tarjetas blancas con los tokens de la página 6 del mockup;
+en móvil se apilan. Los indicadores, accesos, gráficas anteriores y alertas de perfiles
+incompletos continúan debajo. ADMIN conserva su tablero administrativo y EMPLEADO su portal.
+
+- Remuneraciones: agrupación, cuatro métricas y selector de mes/año; posición, importe GTQ
+  exacto y barra relativa al mayor. La pantalla no proyecta importes donde no hay pagos.
+- Inasistencias: empleado/departamento y mes/trimestre/año actual. Cada categoría conserva
+  color fijo y texto; las tramas y siglas distinguen también las categorías sin depender
+  del color. Hover/foco muestra las cuatro cantidades; Escape cierra el detalle. La leyenda
+  suma todos los registros y la lista muestra el top cinco.
+- Vacaciones: En curso y Próximas (30/60/90 días), fechas completas, días laborales, contador
+  de personas ausentes hoy y páginas de cinco registros. Cada pestaña/plazo vuelve a página 1.
+- Celebraciones: hoy y 30 días siguientes, pestañas accesibles por flechas/Inicio/Fin, enlaces
+  a expedientes, marca textual «¡Hoy!» y años únicamente en aniversarios. Lista desplazable
+  sin truncar las celebraciones recibidas.
+
+Las cuatro consultas se cancelan mediante AbortSignal y se cachean por filtro. Son independientes
+del tablero anterior y entre sí, con skeleton, vacío orientativo, error/reintento y antigüedad
+del corte. Actualizar vuelve a consultar los cinco endpoints; las estadísticas se refrescan
+cada minuto mientras la pestaña está activa. Un fallo de actualización conserva el último
+resultado con un aviso explícito. Los filtros son consultas, no borradores de formularios.
+
+Framer Motion anima entrada escalonada, escala de barras, conteos y transición de pestañas.
+`useReducedMotion` desactiva esas animaciones y las gráficas secundarias cuando el dispositivo
+pide movimiento reducido. Los importes accesibles conservan las cadenas exactas de la API;
+Number se usa únicamente para escalas/interpolación visual, sin recalcular dinero.
+La ayuda declarativa de `/rh` explica primero los cuatro recuadros y se abre solo desde Ayuda.
+
+Los enlaces de remuneraciones abren `/planilla?historial=1&anio=…&mes=…&idEmpleado=…`
+o `idDepartamento`, usando el departamento histórico. Inasistencias abre
+`/novedades/ausencias?idEmpleado=…&desde=…&hasta=…&estado=APROBADA` o `idDepartamento`
+actual. Vacaciones abre su bandeja con `empleado`, `desde`, `hasta` y todos los estados.
+Los listados leen únicamente filtros conocidos con formato válido y los aplican al montar;
+la API sigue validando entrada, sesión, rol y propiedad. Los chips permiten revisar/retirar
+los filtros y las exportaciones conservan la misma consulta.
+
+Componentes: `npm run test -w frontend -- src/features/inicio/dashboard.test.tsx`.
+E2E: `npm run test:e2e -- --production dashboard-rh.spec.ts`, con nginx/TLS y API/Oracle reales.
+Las fixtures SQL verifican primero el nombre del esquema N2E2E desechable; se eliminan al
+terminar la suite y el runner elimina el esquema completo. No se instalan datos de ejemplo
+en la aplicación operativa.
 
 ## Aplicación al entorno operativo
 

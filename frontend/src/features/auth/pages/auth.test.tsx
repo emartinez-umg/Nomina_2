@@ -58,7 +58,7 @@ describe('autenticación y guards', () => {
   });
   it.each([
     ['ADMIN', '/admin', 'Administración'],
-    ['RH', '/rh', 'Recursos Humanos'],
+    ['RH', '/rh', 'Hola, Ana Perez'],
     ['EMPLEADO', '/mis-gestiones', 'Mis gestiones'],
   ] as const)('login redirige %s', async (rol, ruta, titulo) => {
     vi.stubGlobal(

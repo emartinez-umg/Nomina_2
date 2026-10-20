@@ -86,10 +86,12 @@ export function CampoNovedad({
   tipoN,
   inicio,
   soloActivos,
+  departamentoId,
   ...props
 }: CampoProps & {
   campo: Campo;
   soloActivos?: boolean;
+  departamentoId?: string | undefined;
   r?: Restricciones | undefined;
   hoy?: string | undefined;
   tipoN?: string;
@@ -106,7 +108,14 @@ export function CampoNovedad({
       />
     );
   if (campo.tipo === 'referencia')
-    return <ReferenciaNovedad {...props} referencia={campo.ref!} soloActivos={soloActivos} />;
+    return (
+      <ReferenciaNovedad
+        {...props}
+        referencia={campo.ref!}
+        soloActivos={soloActivos}
+        departamentoId={departamentoId}
+      />
+    );
   if (campo.tipo === 'opcion')
     return (
       <SelectField

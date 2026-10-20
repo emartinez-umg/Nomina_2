@@ -1,6 +1,7 @@
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { filtrosEnlace } from '../../../lib/filtrosEnlace';
 import { useQuery } from '@tanstack/react-query';
 import { tipos, titulos, listar, exportar } from '../api/novedades';
 import type { Tipo, Fila } from '../api/novedades';
@@ -51,6 +52,13 @@ export function NovedadesPage() {
 function filtros(tipo: Tipo): Campo[] {
   const desc = ['descuentos', 'prestamos'].includes(tipo);
   const f: Campo[] = [
+    {
+      nombre: 'idDepartamento',
+      label: 'Departamento',
+      tipo: 'referencia',
+      ref: 'departamentos',
+      hint: 'Filtra por el departamento actual del expediente; limita las opciones de empleado.',
+    },
     {
       nombre: 'idEmpleado',
       label: 'Empleado',
@@ -129,13 +137,21 @@ function filtros(tipo: Tipo): Campo[] {
   return f;
 }
 function Listado({ tipo }: { tipo: Tipo }) {
+  const [params] = useSearchParams();
+  const iniciales = filtrosEnlace(params, [
+    'idEmpleado',
+    'idDepartamento',
+    'desde',
+    'hasta',
+    'estado',
+  ]);
   const nav = useNavigate(),
     toast = useToast();
   const { usuario } = useSession();
   const ayuda = useMemo(() => ayudaNovedades(tipo, 'listado'), [tipo]);
   usePageHelp(ayuda, usuario?.rol);
-  const [borrador, setBorrador] = useState<Record<string, string>>({}),
-    [q, setQ] = useState<Record<string, string>>({}),
+  const [borrador, setBorrador] = useState<Record<string, string>>(iniciales),
+    [q, setQ] = useState<Record<string, string>>(iniciales),
     [pagina, setPagina] = useState(1),
     [orden, setOrden] = useState<{ campo: string; direccion: 'asc' | 'desc' }>({
       campo: 'id',
@@ -225,6 +241,7 @@ function Listado({ tipo }: { tipo: Tipo }) {
                 <div key={f.nombre} className="contents">
                   <CampoNovedad
                     campo={f}
+                    departamentoId={f.ref === 'empleados' ? borrador.idDepartamento : undefined}
                     soloActivos={false}
                     name={f.nombre}
                     label={f.label}

@@ -40,7 +40,7 @@ export function ayudaNovedades(
         elemento: 'novedades-filtros',
         titulo: 'Buscar y combinar filtros',
         descripcion:
-          'Busca por empleado o motivo y combina empleado, tipo, fechas y estado con los rangos de montos, saldos, cuotas u horas disponibles. Las fechas buscan registros que intersectan el rango. Aplica, elimina un chip o limpia para ampliar resultados. CSV descarga toda la consulta.',
+          'Busca por empleado o motivo y combina departamento actual, empleado, tipo, fechas y estado con los rangos de montos, saldos, cuotas u horas disponibles. El departamento limita las opciones de empleado. Las fechas buscan registros que intersectan el rango. Al llegar desde Inasistencias del dashboard, empleado o departamento, fechas y estado Aprobada ya están aplicados y aparecen como chips. Aplica, elimina un chip o limpia para ampliar resultados. CSV descarga toda la consulta.',
       },
       {
         elemento: 'novedades-tabla',

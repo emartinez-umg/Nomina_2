@@ -204,7 +204,9 @@ test.describe('R2-1: nginx y módulos del build de producción Docker', () => {
     for (const entrada of Object.values(manifest)) {
       const r = await request.get(`/${entrada.file}`);
       expect(r.status(), entrada.file).toBe(200);
-      expect(r.headers()['content-type']).toMatch(/javascript/);
+      expect(r.headers()['content-type']).toMatch(
+        /\.css$/.test(entrada.file) ? /text\/css/ : /javascript/,
+      );
       expect(r.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
     }
   });
@@ -292,7 +294,9 @@ test.describe('R2-2: estructura visual compartida', () => {
       const nombre = rol === 'EMPLEADO' ? 'Persona E2E' : 'ZZ Pruebas';
       const barra = page.locator('header.barra-superior');
       await expect(barra).toHaveCSS('background-color', 'rgb(29, 57, 94)');
-      await expect(page.locator('.banda-informativa')).toContainText(`Bienvenido, ${nombre}`);
+      if (rol === 'RH')
+        await expect(page.getByRole('heading', { name: `Hola, ${nombre}` })).toBeVisible();
+      else await expect(page.locator('.banda-informativa')).toContainText(`Bienvenido, ${nombre}`);
       const cuenta = page.getByRole('button', { name: new RegExp(`^Mi cuenta: ${nombre}`) });
       await cuenta.click();
       await expect(page.getByRole('region', { name: 'Mi cuenta' })).toContainText(nombre);
