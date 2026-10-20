@@ -1147,6 +1147,137 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         "INSERT INTO PARAMETROS_LEGALES (CODIGO,NOMBRE,VALOR,UNIDAD,VIGENTE_DESDE,FUNDAMENTO,MOTIVO) VALUES ('SALARIO_MINIMO_MENSUAL','Mínimo de prueba',6000,'QUETZALES',DATE '2026-01-01','Solo esquema de prueba','Prueba de advertencia')",
       );
     });
+    it('R2-7: selector paginado respeta departamento, búsqueda, estado, selección y RBAC', async () => {
+      const { agent, csrf } = await entrarCuenta('RH');
+      const crearCatalogo = async (slug: string, body: object) =>
+        (
+          await agent
+            .post(`/api/catalogos/${slug}`)
+            .set('X-CSRF-Token', csrf)
+            .send(body)
+            .expect(201)
+        ).body.data.id as number;
+      const depA = await crearCatalogo('departamentos', { nombre: 'Cascada Ingeniería' });
+      const depB = await crearCatalogo('departamentos', { nombre: 'Cascada Ventas' });
+      const puesto = async (idDepartamento: number) =>
+        crearCatalogo('puestos', {
+          nombre: `Analista cascada ${idDepartamento}`,
+          idDepartamento,
+          salarioMinimo: null,
+          salarioMaximo: null,
+        });
+      const crear = async (dep: number, idPuesto: number, nombres: string) => {
+        const r = await agent
+          .post('/api/empleados')
+          .set('X-CSRF-Token', csrf)
+          .send({
+            ...datos(),
+            nombres,
+            idDepartamento: dep,
+            idPuesto,
+            idJefatura: null,
+          })
+          .expect(201);
+        return r.body.data.empleado;
+      };
+      const puestoA = await puesto(depA),
+        puestoB = await puesto(depB);
+      const ana = await crear(depA, puestoA, 'Ana María');
+      const eva = await crear(depA, puestoA, 'Eva');
+      const luis = await crear(depB, puestoB, 'Luis');
+      await ejecutar("UPDATE EMPLEADOS SET ESTADO='SUSPENDIDO' WHERE ID_EMPLEADO=:id", {
+        id: eva.id,
+      });
+      const get = (q: object = {}) => agent.get('/api/empleados/selector').query(q);
+      const activos = (await get({ departamentoId: depA }).expect(200)).body.data;
+      expect(activos.registros.map((e: { value: string }) => e.value)).toEqual([String(ana.id)]);
+      expect(activos.registros[0]).toMatchObject({
+        codigo: ana.codigo,
+        nombre: 'Ana Prueba',
+        idDepartamento: depA,
+        departamento: 'Cascada Ingeniería',
+      });
+      expect(Object.keys(activos.registros[0]).sort()).toEqual([
+        'codigo',
+        'departamento',
+        'estado',
+        'idDepartamento',
+        'nombre',
+        'value',
+      ]);
+      const historicos = (
+        await get({
+          departamentoId: depA,
+          soloActivos: 'false',
+          limite: 1,
+          seleccionado: eva.id,
+        }).expect(200)
+      ).body.data;
+      expect(historicos).toMatchObject({
+        total: 2,
+        pagina: 1,
+        limite: 1,
+        seleccionado: { value: String(eva.id), estado: 'SUSPENDIDO' },
+      });
+      expect(historicos.registros).toHaveLength(1);
+      const pagina2 = (
+        await get({ departamentoId: depA, soloActivos: 'false', limite: 1, pagina: 2 }).expect(200)
+      ).body.data;
+      expect(pagina2.registros[0].value).not.toBe(historicos.registros[0].value);
+      expect(
+        (await get({ departamentoId: depA, buscar: 'maria' }).expect(200)).body.data.registros[0]
+          .value,
+      ).toBe(String(ana.id));
+      expect(
+        (await get({ buscar: luis.codigo }).expect(200)).body.data.registros[0].idDepartamento,
+      ).toBe(depB);
+      const ajeno = (
+        await get({ departamentoId: depA, seleccionado: luis.id, buscar: luis.codigo }).expect(200)
+      ).body.data;
+      expect(ajeno).toMatchObject({ total: 0, registros: [], seleccionado: null });
+      expect(
+        (await get({ departamentoId: depA, seleccionado: eva.id }).expect(200)).body.data
+          .seleccionado,
+      ).toBeNull();
+      const referenciaActual = (
+        await get({
+          departamentoId: depA,
+          seleccionado: eva.id,
+          incluirSeleccionInactiva: 'true',
+        }).expect(200)
+      ).body.data;
+      expect(referenciaActual.seleccionado.value).toBe(String(eva.id));
+      expect(referenciaActual.registros.map((e: { value: string }) => e.value)).toEqual([
+        String(ana.id),
+      ]);
+      expect(
+        (
+          await get({
+            departamentoId: depB,
+            seleccionado: eva.id,
+            incluirSeleccionInactiva: 'true',
+          }).expect(200)
+        ).body.data.seleccionado,
+      ).toBeNull();
+      for (const q of [
+        { departamentoId: 0 },
+        { departamentoId: '1 OR 1=1' },
+        { pagina: 0 },
+        { limite: 101 },
+        { soloActivos: '0' },
+        { buscar: 'a'.repeat(151) },
+        { rol: 'ADMIN' },
+      ])
+        await get(q).expect(400);
+      await request(app).get('/api/empleados/selector').expect(401);
+      await (await entrarCuenta('EMPLEADO')).agent.get('/api/empleados/selector').expect(403);
+      await (await entrarCuenta('RH', true)).agent.get('/api/empleados/selector').expect(403);
+      const adminLogin = await entrarAdmin();
+      await adminLogin.agent
+        .get('/api/empleados/selector')
+        .query({ departamentoId: depB })
+        .expect(200);
+    });
     it('V1-7: alta automática, K, reglas de contrato, ubicación y catálogo de parentescos', async () => {
       const { agent, csrf } = await entrarCuenta('RH');
       const parentescos = (await agent.get('/api/empleados/parentescos').expect(200)).body.data;

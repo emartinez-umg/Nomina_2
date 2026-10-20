@@ -1,7 +1,9 @@
+import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaVacaciones: DefinicionAyuda = {
   id: 'vacaciones-v1-8',
   pasos: [
+    pasoSelectorEmpleado,
     {
       elemento: 'vacaciones-cancelar',
       titulo: 'Cancelar y recuperar días',

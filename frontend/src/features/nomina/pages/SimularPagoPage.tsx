@@ -41,6 +41,7 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
     ),
     [objetivo, setObjetivo] = useState<api.ObjetivoPago['objetivo']>('TODOS'),
     [id, setId] = useState(''),
+    [departamentoId, setDepartamentoId] = useState(''),
     [r, setR] = useState<api.Simulacion>(),
     [confirmado, setConfirmado] = useState(false),
     [dialogo, setDialogo] = useState(false),
@@ -181,6 +182,7 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
                 invalidar();
                 setObjetivo(v as typeof objetivo);
                 setId('');
+                setDepartamentoId('');
               }}
               opciones={[
                 { value: 'TODOS', label: 'Todos' },
@@ -190,21 +192,39 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
               required
             />
             {objetivo !== 'TODOS' && (
-              <div className="contents">
-                <ReferenciaNovedad
-                  referencia={objetivo === 'EMPLEADO' ? 'empleados' : 'departamentos'}
-                  name="objetivoId"
-                  label={objetivo === 'EMPLEADO' ? 'Empleado' : 'Departamento'}
-                  hint="Selecciona un registro real del catálogo. Cambiarlo requiere simular de nuevo."
-                  value={id}
-                  onValueChange={(v) => {
-                    if (!ocupado) {
-                      invalidar();
-                      setId(v);
-                    }
-                  }}
-                />
-              </div>
+              <ReferenciaNovedad
+                referencia="departamentos"
+                name="departamentoObjetivo"
+                label="Departamento"
+                hint={
+                  objetivo === 'EMPLEADO'
+                    ? 'Opcional: limita la búsqueda de empleados a este departamento.'
+                    : 'Selecciona el departamento que se calculará.'
+                }
+                value={objetivo === 'DEPARTAMENTO' ? id : departamentoId}
+                disabled={ocupado}
+                onValueChange={(v) => {
+                  invalidar();
+                  if (objetivo === 'DEPARTAMENTO') setId(v);
+                  else setDepartamentoId(v);
+                }}
+              />
+            )}
+            {objetivo === 'EMPLEADO' && (
+              <ReferenciaNovedad
+                referencia="empleados"
+                departamentoId={departamentoId}
+                soloActivos={false}
+                name="objetivoId"
+                label="Empleado"
+                hint="Selecciona el empleado del pago; cambiarlo requiere simular de nuevo."
+                value={id}
+                disabled={ocupado}
+                onValueChange={(v) => {
+                  invalidar();
+                  setId(v);
+                }}
+              />
             )}
           </FormGrid>
           <p className="campo-hint">

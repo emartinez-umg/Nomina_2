@@ -345,6 +345,8 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 <CampoEditor
                   key={f.nombre}
                   campo={f}
+                  departamentoId={borrador.idDepartamento}
+                  soloActivos={false}
                   name={f.nombre}
                   label={f.etiqueta}
                   hint={`Filtro: ${f.hint}`}

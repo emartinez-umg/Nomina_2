@@ -11,12 +11,14 @@ export function SelectField({
   maxLength,
   tipoDato = 'select',
   complemento,
+  filtrarEnServidor = false,
   ...props
 }: CampoProps & {
   tipoDato?: TipoCampo;
   maxLength?: number;
   complemento?: ReactNode;
-  opciones: { value: string; label: string; disabled?: boolean }[];
+  opciones: { value: string; label: string; disabled?: boolean; oculta?: boolean }[];
+  filtrarEnServidor?: boolean;
   onBuscar?: (buscar: string) => void;
 }) {
   const id = useId();
@@ -28,8 +30,11 @@ export function SelectField({
   const Flecha = iconos.desplegar;
   const normalizar = (v: string) => v.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const filtradas = useMemo(
-    () => opciones.filter((o) => normalizar(o.label).includes(normalizar(buscar))),
-    [opciones, buscar],
+    () =>
+      opciones.filter(
+        (o) => !o.oculta && (filtrarEnServidor || normalizar(o.label).includes(normalizar(buscar))),
+      ),
+    [opciones, buscar, filtrarEnServidor],
   );
   const seleccionada = opciones.find((o) => o.value === props.value);
   const problema =
@@ -38,6 +43,7 @@ export function SelectField({
   const elegir = (v: string) => {
     props.onValueChange(v);
     setBuscar('');
+    onBuscar?.('');
     setAbierto(false);
     setTocado(true);
     props.onBlur?.();
@@ -60,6 +66,7 @@ export function SelectField({
           if (!e.currentTarget.contains(e.relatedTarget)) {
             setAbierto(false);
             setBuscar('');
+            onBuscar?.('');
             setTocado(true);
             props.onBlur?.();
           }
@@ -100,6 +107,7 @@ export function SelectField({
               if (e.key === 'Escape') {
                 setAbierto(false);
                 setBuscar('');
+                onBuscar?.('');
               }
               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();

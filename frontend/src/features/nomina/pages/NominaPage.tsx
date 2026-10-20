@@ -522,6 +522,8 @@ function Planilla({
                   <div className="contents">
                     <ReferenciaNovedad
                       referencia="empleados"
+                      departamentoId={q.idDepartamento}
+                      soloActivos={false}
                       name="idEmpleado"
                       label="Empleado"
                       hint="Selecciona un expediente real."
@@ -533,7 +535,7 @@ function Planilla({
                     <RefField
                       name="idDepartamento"
                       label="Departamento"
-                      hint="Departamento conservado al calcular."
+                      hint="Filtra el departamento del cálculo; el selector muestra empleados de ese departamento actual."
                       value={q.idDepartamento ?? ''}
                       onValueChange={(v) => cambiar('idDepartamento', v)}
                     />

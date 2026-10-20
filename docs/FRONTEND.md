@@ -342,3 +342,37 @@ Dirección permite 100 caracteres con acentos/ñ, números, espacios y `. , # - 
 5–12 dígitos, K final y guion opcionales. VALIDAR_DIGITO_NIT permite a ADMIN activar módulo 11.
 La ficha y el listado enumeran faltantes; sin salario vigente se excluye de la simulación con
 alerta y se enlaza la ficha desde el dashboard. La ayuda se inicia manualmente en cada paso.
+
+## Selector de empleados en cascada (R2-7)
+
+`components/forms/SelectorEmpleado.tsx` centraliza la selección. Recibe los `CampoProps`
+compartidos, `departamentoId` opcional y `soloActivos` (por defecto true). Consulta
+`GET /api/empleados/selector`: búsqueda por código/nombres/apellidos sin distinguir acentos,
+páginas de 50 registros y metadatos de departamento. La respuesta incluye una resolución
+independiente de `seleccionado`; no depende de que aparezca en la primera página o coincida
+con la búsqueda. Cambiar de departamento limpia solo selecciones ajenas; quitar el filtro
+conserva la selección válida. La clave de TanStack Query y AbortSignal separan las consultas.
+
+Sin departamento, las opciones muestran código, nombre y departamento. Hay carga, vacío
+contextual, reintento y carga de páginas adicionales. `SelectField.filtrarEnServidor` evita
+ocultar resultados encontrados por un segundo nombre que no aparece en la etiqueta abreviada.
+Cerrar, seleccionar o salir con Escape reinicia también la búsqueda remota.
+
+Las altas de novedades y responsables ofrecen activos. Los filtros de historia, constancias,
+consulta de saldos y simulaciones históricas incluyen suspendidos/egresados. Al editar una
+jefatura, `seleccionActual` conserva una referencia inactiva anterior, sin ofrecer otros
+inactivos como nuevas asignaciones. Esta excepción tampoco permite cruzar departamentos.
+La API solo admite RH/ADMIN con sesión y cambio obligatorio completado; no publica salarios,
+DPI, NIT ni datos de contacto.
+
+`ReferenciaNovedad` delega sus referencias de empleados al componente común. Prestaciones,
+Simular pago, Planilla y Jefaturas pasan el departamento del mismo formulario/filtro.
+El resto de selectores (novedades, vacaciones, solicitudes, fiscal/IGSS y vinculación de
+usuarios) utiliza la misma búsqueda global cuando no existe un selector de departamento.
+Parqueo consulta suscripciones con búsqueda textual; Pendientes tiene departamento y
+búsqueda textual. Ninguna de estas dos vistas tenía un selector de empleado independiente.
+Los destinatarios geográficos y los empleados asociados a un registro de detalle conservan
+sus propios controles; no son una selección departamento → empleado.
+
+El paso declarativo `components/help/selectorEmpleado.ts` se comparte entre los recorridos
+de las páginas afectadas y los hints se componen en el propio selector.

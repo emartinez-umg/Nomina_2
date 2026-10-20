@@ -1969,3 +1969,95 @@ Se conserva el cambio previo del usuario en AGENTS.md fuera del commit.
    alerta; editar para completar opcionales. Comenzar un grupo a medias debe impedir guardarlo.
 5. Descargar la plantilla CSV nueva (direccion). Como ADMIN, Parámetros legales → Validar dígito
    NIT: probar 0/1 con motivo y confirmación. RH solo puede consultar ese parámetro.
+
+### FASE R2-7 — Selección departamento → empleado
+
+Estado: completada el 19/10/2026. Rama `v1.1`; alcance B6.
+El cambio previo del usuario en AGENTS.md se conserva fuera del commit.
+
+#### Reproducción y causa raíz
+
+- Los selectores de empleados consultaban opciones generales de Novedades/Catálogos sin
+  recibir el departamento. Prestaciones y Planilla permitían combinar filtros incompatibles.
+  Simular pago alternaba empleado/departamento en el mismo campo, sin una cascada individual.
+- El E2E nuevo ejecutado con el SimuladorPago anterior a esta fase falla al buscar el selector
+  Departamento con objetivo Un empleado. El archivo actual se restaura automáticamente y
+  el esquema exclusivo de ese ensayo se elimina. Las pruebas del componente cubren también
+  el caso anterior de selección ajena que permanecía al cambiar departamento.
+
+#### Hecho y decisiones
+
+- Un único SelectorEmpleado con búsqueda remota, debounce, paginación, código/nombre,
+  departamento visible sin filtro y estados claros de carga, vacío, error y reintento.
+  Cambiar departamento limpia solo una selección ajena; elegir el mismo o quitarlo conserva
+  la persona. También valida selecciones procedentes de borradores/enlaces. Las consultas
+  anteriores se cancelan; la clave contiene departamento, búsqueda y selección, y cada página
+  se consulta con su propio parámetro.
+- GET /api/empleados/selector mantiene routes/controller/service/repository, Zod estricto,
+  SQL con binds, filtro por departamento/estado y páginas acotadas. Exclusivo de RH/ADMIN
+  autenticados que completaron el cambio de contraseña. Respuesta mínima sin salarios ni
+  identificadores fiscales. Resolver seleccionado por separado evita perderlo por paginación
+  o búsqueda y evita que un OR omita el departamento. Incluso una selección histórica conserva
+  ese límite. No se necesitan migraciones ni cambios de las fórmulas o reglas de pago.
+- Prestaciones: cascada en Bono 14/Aguinaldo mediante su simulador compartido, finiquito,
+  constancias e historial. Simular pago agrega departamento opcional al objetivo individual;
+  cambiarlo invalida la revisión anterior. Planilla conecta sus filtros. Jefaturas conecta
+  responsable/departamento tanto en alta/edición como en filtros, caso adicional del inventario.
+- Novedades (comisiones, horas extra, ausencias, descuentos, préstamos y consumo), vacaciones,
+  solicitudes, fiscal/IGSS y vinculación de usuarios delegan al selector común. Donde no existe
+  selector de departamento, siguen buscando todos con su departamento visible. Las altas
+  ofrecen activos; historia/constancias/simulaciones permiten consultar suspendidos/egresados.
+  Jefaturas conserva la referencia inactiva anterior en edición sin ofrecer otras inactivas
+  como nuevas asignaciones. Se preservan los borradores y sus valores de formulario.
+- SelectField admite filtrado remoto: no descarta una coincidencia por segundo nombre/apellido
+  que no está en la etiqueta abreviada B2. Restablece la búsqueda remota al elegir/cerrar/Escape.
+  Hints comunes y paso declarativo compartido incorporados a todas las ayudas afectadas.
+  Contrato e inventario documentados en FRONTEND.md.
+
+#### Supuestos y alcance
+
+- Departamento significa el departamento laboral actual del expediente. Los filtros históricos
+  de planilla conservan además sus criterios de snapshot; sus hints explican esta diferencia.
+- Parqueo tiene búsqueda textual de suscripciones y Pendientes departamento/búsqueda textual;
+  no contienen otro selector de empleado. Los trámites de parqueo identifican al empleado
+  desde la solicitud autenticada. Se revisaron ambos flujos sin introducir filtros de negocio
+  ni selección de empleados ajenos en el portal. No se adelanta B7.
+
+#### Validación y pendientes
+
+- Node 20.20.2: 741 pruebas aprobadas (411 backend, 323 frontend y siete del exportador).
+  Siete casos del selector cubren filtrado/limpieza, conservación al quitar departamento,
+  borradores incompatibles, búsqueda/paginación, históricos y fallo/reintento. Lint, TypeScript
+  strict, builds, Prettier, secretos y diff --check aprobados; aviso previo de chunk Vite vigente.
+- Oracle/Supertest: 82 casos aprobados, incluida la prueba nueva con dos departamentos, búsqueda
+  por segundo nombre sin acentos, paginación sin repetidos, estados, selección fuera de página,
+  selección ajena/inactiva, referencia histórica, contrato mínimo sin datos fiscales y permisos
+  anónimo/EMPLEADO/RH temporal/RH/ADMIN. El esquema exclusivo se elimina al terminar.
+- Caso nuevo E2E aprobado con nginx/TLS y API/Oracle reales: Bono 14, Aguinaldo, finiquito,
+  constancias, historial, simulación, Planilla y Jefaturas; búsqueda/global, cambio/limpieza,
+  vacío, ayuda, móvil y axe A/AA. Captura móvil inspeccionada en tmp/pdfs/r2-7-cascada-movil.png.
+- El ensayo corrige su navegación a Historial antes de abrir Filtros y la captura de una respuesta
+  cancelada al limpiar al empleado. Sus departamentos usan CC/CV para conservar las reservas
+  VC/VNT/VC2 de la regresión anterior. La prueba de novedades consulta el selector nuevo y busca
+  por código; verifica la etiqueta con departamento. Se conservan sus aserciones financieras.
+- API/web locales reconstruidas y saludables en https://localhost:8443; verify:infra aprobado
+  para Oracle/API/nginx, SPA/assets y visor/worker PDF. Once conteos operativos idénticos antes
+  y después (tres empleados, cinco usuarios, dos solicitudes y cero pagos/nóminas, entre otros).
+  Oracle, volumen y credenciales conservados; migraciones V000–V034 intactas.
+- Regresión final completa: **67/67 E2E aprobados (6.1 min)** con nginx/TLS, API y Oracle reales.
+  Incluye la matriz de páginas/roles, ayudas, hints, teclado, móvil y axe A/AA; novedades/parqueo,
+  cálculos/pagos/cierres, documentos, borradores, credenciales y las fases anteriores. Las pruebas
+  mantienen sus validaciones de códigos, importes, permisos y propiedad. Esquemas, contenedores e
+  imágenes exclusivos retirados al terminar. Sin fixtures en la aplicación local.
+- Sin pendientes técnicos de R2-7. B7 permanece reservada. El cambio previo de AGENTS.md queda
+  fuera del commit de esta fase.
+
+#### Cómo probar
+
+1. Node 20: `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm run format:check`.
+2. Oracle saludable: `npm run verify:security` comprueba endpoint, filtros, selección y permisos.
+3. `npm run test:e2e -- --production cascada-empleados.spec.ts`; regresión completa: `npm run test:e2e -- --production`.
+4. RH/ADMIN → Prestaciones → Bono 14/Aguinaldo → Un empleado: elegir departamento, buscar por
+   código/nombre, seleccionar y cambiar a otro departamento. Repetir en Finiquito, Constancias,
+   historial, Simular pago, filtros de Planilla y responsable de Jefaturas. Quitar departamento
+   debe mostrar todas las opciones con su departamento; uno vacío debe explicar cómo continuar.

@@ -6,6 +6,7 @@ import {
   nitValido,
   dinero,
   querySchema,
+  selectorEmpleadosSchema,
 } from './empleados.schemas.js';
 import { leerCsv, plantillaCsv, columnasCsv, escribirCsv } from './empleados.csv.js';
 const fixture = {
@@ -256,4 +257,26 @@ describe('R2-6: datos opcionales y Dirección', () => {
   );
   it('normaliza guion y K para conservar unicidad', () =>
     expect(crearEmpleadoSchema.parse({ ...minimo, nit: '10003k' }).nit).toBe('10003-K'));
+});
+
+describe('R2-7: consultas del selector', () => {
+  it('usa activos por defecto y permite filtros históricos explícitos', () => {
+    expect(selectorEmpleadosSchema.parse({})).toMatchObject({
+      soloActivos: true,
+      limite: 50,
+      pagina: 1,
+    });
+    expect(
+      selectorEmpleadosSchema.parse({ departamentoId: '7', soloActivos: 'false' }),
+    ).toMatchObject({ departamentoId: 7, soloActivos: false });
+  });
+  it.each([
+    { departamentoId: '1 OR 1=1' },
+    { pagina: '0' },
+    { limite: '101' },
+    { soloActivos: 'yes' },
+    { usuarioId: '1' },
+  ])('rechaza filtros no autorizados %j', (q) => {
+    expect(selectorEmpleadosSchema.safeParse(q).success).toBe(false);
+  });
 });

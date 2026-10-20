@@ -14,7 +14,24 @@ import {
   TextField,
 } from '../../../components/forms';
 import { Button } from '../../../components/ui/Button';
-export function ReferenciaNovedad({ referencia, ...props }: CampoProps & { referencia: string }) {
+import { SelectorEmpleado } from '../../../components/forms/SelectorEmpleado';
+export function ReferenciaNovedad({
+  referencia,
+  departamentoId,
+  soloActivos,
+  ...props
+}: CampoProps & {
+  referencia: string;
+  departamentoId?: string | undefined;
+  soloActivos?: boolean | undefined;
+}) {
+  return referencia === 'empleados' ? (
+    <SelectorEmpleado {...props} departamentoId={departamentoId} soloActivos={soloActivos} />
+  ) : (
+    <OpcionesNovedad {...props} referencia={referencia} />
+  );
+}
+function OpcionesNovedad({ referencia, ...props }: CampoProps & { referencia: string }) {
   const [buscar, setBuscar] = useState('');
   const q = useInfiniteQuery({
     queryKey: ['novedades', 'opciones', referencia, buscar, props.value],
@@ -68,9 +85,11 @@ export function CampoNovedad({
   hoy,
   tipoN,
   inicio,
+  soloActivos,
   ...props
 }: CampoProps & {
   campo: Campo;
+  soloActivos?: boolean;
   r?: Restricciones | undefined;
   hoy?: string | undefined;
   tipoN?: string;
@@ -86,7 +105,8 @@ export function CampoNovedad({
         }
       />
     );
-  if (campo.tipo === 'referencia') return <ReferenciaNovedad {...props} referencia={campo.ref!} />;
+  if (campo.tipo === 'referencia')
+    return <ReferenciaNovedad {...props} referencia={campo.ref!} soloActivos={soloActivos} />;
   if (campo.tipo === 'opcion')
     return (
       <SelectField

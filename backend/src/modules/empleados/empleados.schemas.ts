@@ -186,6 +186,24 @@ export const bajaSchema = z
   .object({ fechaEgreso: fecha, motivo: texto(500).min(5), confirmado: z.literal(true) })
   .strict();
 const qid = z.coerce.number().int().positive().optional();
+export const selectorEmpleadosSchema = z
+  .object({
+    departamentoId: qid,
+    buscar: z.string().trim().max(150).default(''),
+    pagina: z.coerce.number().int().min(1).max(1000000).default(1),
+    limite: z.coerce.number().int().min(1).max(100).default(50),
+    soloActivos: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
+    seleccionado: qid,
+    incluirSeleccionInactiva: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+  })
+  .strict();
+export type QuerySelectorEmpleados = z.infer<typeof selectorEmpleadosSchema>;
 export const querySchema = z
   .object({
     pagina: z.coerce.number().int().min(1).max(1000000).default(1),

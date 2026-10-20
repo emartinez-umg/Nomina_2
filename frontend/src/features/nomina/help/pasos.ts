@@ -1,7 +1,9 @@
+import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaNomina: DefinicionAyuda = {
   id: 'nomina-v1-11',
   pasos: [
+    pasoSelectorEmpleado,
     {
       elemento: 'nomina-revertir',
       titulo: 'Reversión antes del cierre',

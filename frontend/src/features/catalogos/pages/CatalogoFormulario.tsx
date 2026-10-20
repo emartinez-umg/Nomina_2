@@ -200,6 +200,7 @@ export function CatalogoFormulario({
                       render={({ field }) => (
                         <CampoEditor
                           campo={f}
+                          departamentoId={form.watch('idDepartamento')}
                           actual={actual}
                           name={field.name}
                           label={f.etiqueta}

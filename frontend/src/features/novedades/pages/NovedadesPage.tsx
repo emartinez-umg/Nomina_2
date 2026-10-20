@@ -225,6 +225,7 @@ function Listado({ tipo }: { tipo: Tipo }) {
                 <div key={f.nombre} className="contents">
                   <CampoNovedad
                     campo={f}
+                    soloActivos={false}
                     name={f.nombre}
                     label={f.label}
                     hint={f.hint}

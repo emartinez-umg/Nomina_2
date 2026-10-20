@@ -9,6 +9,7 @@ export function crearEmpleadosRouter(s: ReturnType<typeof crearEmpleadosService>
   r.get('/parentescos', c.parentescos);
   r.post('/:id/restablecer-contrasena', c.restablecer);
   r.get('/reglas', c.reglas);
+  r.get('/selector', c.selector);
   r.get('/opciones/:referencia', c.opciones);
   r.get('/exportar', c.exportar);
   r.get('/cargas/plantilla', c.plantilla);

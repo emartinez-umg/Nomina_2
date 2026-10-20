@@ -158,6 +158,7 @@ export function Fiscal() {
               <div className="contents">
                 <ReferenciaNovedad
                   referencia="empleados"
+                  soloActivos={false}
                   label="Empleado"
                   hint="Expediente al que pertenecen los comprobantes."
                   name={field.name}

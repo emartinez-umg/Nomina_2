@@ -27,6 +27,7 @@ import {
   SelectField,
 } from '../../../components/forms';
 import type { CampoProps } from '../../../components/forms/Field';
+import { SelectorEmpleado } from '../../../components/forms/SelectorEmpleado';
 import { Button } from '../../../components/ui/Button';
 export function Referencia({
   campo,
@@ -92,8 +93,16 @@ export function CampoEditor({
   campo,
   actual,
   minFecha,
+  departamentoId,
+  soloActivos,
   ...props
-}: CampoProps & { campo: Campo; actual?: Fila | undefined; minFecha?: string | undefined }) {
+}: CampoProps & {
+  campo: Campo;
+  actual?: Fila | undefined;
+  minFecha?: string | undefined;
+  departamentoId?: string | undefined;
+  soloActivos?: boolean;
+}) {
   if (campo.nombre === 'nombre')
     return (
       <InputField
@@ -129,6 +138,17 @@ export function CampoEditor({
     case 'nombre':
       return <TextField {...props} tipo="nombre" maxLength={campo.max ?? 200} />;
     case 'referencia':
+      if (campo.referencia === 'empleados')
+        return (
+          <SelectorEmpleado
+            {...props}
+            departamentoId={departamentoId}
+            soloActivos={soloActivos ?? true}
+            seleccionActual={
+              actual?.[campo.nombre] == null ? undefined : String(actual[campo.nombre])
+            }
+          />
+        );
       return <Referencia {...props} campo={campo} actual={actual} />;
     case 'fecha':
       return <DateField {...props} {...(minFecha ? { min: minFecha } : {})} />;

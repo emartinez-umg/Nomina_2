@@ -375,6 +375,8 @@ export function crearEmpleadosService(db: BaseDatos) {
       seleccionado?: number,
       departamento?: number,
     ) => db.conConexion((c) => repo.opciones(c, key, buscar, pagina, seleccionado, departamento)),
+    selector: (q: Parameters<typeof repo.selector>[1]) =>
+      db.conConexion((c) => repo.selector(c, q)),
     listar: (q: QueryEmpleados) => db.conConexion((c) => repo.listar(c, q)),
     exportar: (q: QueryEmpleados) =>
       db.conConexion(async (c) => {

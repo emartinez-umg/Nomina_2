@@ -1,7 +1,9 @@
+import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaPrestaciones: DefinicionAyuda = {
   id: 'prestaciones-v1-12',
   pasos: [
+    pasoSelectorEmpleado,
     {
       elemento: 'prestaciones-secciones',
       titulo: 'Elegir la gestión de prestaciones',

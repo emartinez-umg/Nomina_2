@@ -221,6 +221,7 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
   const motivo = form.watch('motivo');
   const setMotivo = (v: string) => form.setValue('motivo', v, { shouldDirty: true });
   const idSeleccionado = form.watch('idEmpleado');
+  const departamentoId = form.watch('idDepartamento');
   const expediente = useQuery({
     queryKey: ['empleados', 'detalle', idSeleccionado],
     queryFn: ({ signal }) => detalleEmpleado(Number(idSeleccionado), signal),
@@ -272,7 +273,12 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
         if (tipo === 'empleado')
           return (
             <div className="contents">
-              <ReferenciaNovedad {...props} referencia="empleados" />
+              <ReferenciaNovedad
+                {...props}
+                referencia="empleados"
+                departamentoId={departamentoId}
+                soloActivos={modo !== 'constancia'}
+              />
             </div>
           );
         if (tipo === 'departamento')
@@ -425,13 +431,13 @@ function Calculo({ modo, empleadoInicial }: { modo: string; empleadoInicial: str
                 'numero',
                 { min: '1901', max: '2199', maxLength: 4, required: true },
               )}
-              {campos(
-                'idDepartamento',
-                'Departamento',
-                'Opcional: limita el lote a un departamento.',
-                'departamento',
-              )}
             </>
+          )}
+          {campos(
+            'idDepartamento',
+            'Departamento',
+            'Opcional: limita los empleados disponibles al departamento elegido.',
+            'departamento',
           )}
           {campos(
             'idEmpleado',
@@ -655,6 +661,8 @@ function Historial({
             <div className="contents">
               <ReferenciaNovedad
                 referencia="empleados"
+                departamentoId={q.idDepartamento}
+                soloActivos={false}
                 name="idEmpleado"
                 label="Empleado"
                 hint="Filtra por empleado."

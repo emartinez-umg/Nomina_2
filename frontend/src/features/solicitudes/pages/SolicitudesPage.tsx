@@ -202,6 +202,7 @@ export function SolicitudesPage() {
             {!empleado && (
               <ReferenciaNovedad
                 referencia="empleados"
+                soloActivos={false}
                 name="idEmpleado"
                 label="Empleado"
                 hint="Busca y selecciona un expediente real."

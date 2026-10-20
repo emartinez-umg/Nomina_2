@@ -172,6 +172,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
                   render={({ field }) => (
                     <CampoNovedad
                       campo={f}
+                      soloActivos={!actual}
                       name={field.name}
                       label={f.label}
                       hint={f.hint}

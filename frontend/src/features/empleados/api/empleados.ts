@@ -1,5 +1,25 @@
 import { z } from 'zod';
 import { solicitar } from '../../../lib/http';
+const opcionEmpleadoSchema = z.object({
+  value: z.string(),
+  codigo: z.string(),
+  nombre: z.string(),
+  idDepartamento: z.number(),
+  departamento: z.string(),
+  estado: z.string(),
+});
+export const seleccionarEmpleados = (q: Record<string, string>, signal?: AbortSignal) =>
+  solicitar(
+    `/empleados/selector?${new URLSearchParams(q)}`,
+    z.object({
+      registros: z.array(opcionEmpleadoSchema),
+      seleccionado: opcionEmpleadoSchema.nullable(),
+      total: z.number(),
+      pagina: z.number(),
+      limite: z.number(),
+    }),
+    { signal },
+  );
 export const empleadoSchema = z
   .object({
     id: z.number(),

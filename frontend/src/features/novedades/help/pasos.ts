@@ -1,3 +1,4 @@
+import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 import type { Tipo } from '../api/novedades';
 import { titulos } from '../api/novedades';
@@ -22,6 +23,7 @@ export function ayudaNovedades(
   return {
     id: `novedades-${tipo}-${pagina}-v1-10`,
     pasos: [
+      pasoSelectorEmpleado,
       {
         elemento: 'codigo-automatico',
         titulo: 'Código asignado por el sistema',

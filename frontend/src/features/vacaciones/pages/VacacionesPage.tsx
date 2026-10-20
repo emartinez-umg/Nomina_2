@@ -421,6 +421,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
                 <div className="contents">
                   <ReferenciaNovedad
                     referencia="empleados"
+                    soloActivos={false}
                     name="idEmpleado"
                     label="Empleado"
                     hint="Busca un expediente para filtrar sus solicitudes."
@@ -844,6 +845,7 @@ function GestionSaldo() {
           <div className="contents">
             <ReferenciaNovedad
               referencia="empleados"
+              soloActivos={false}
               name="empleadoSaldo"
               label="Empleado"
               hint="Selecciona un expediente real para consultar su saldo y kardex."

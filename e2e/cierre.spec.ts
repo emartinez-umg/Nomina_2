@@ -1447,11 +1447,21 @@ test('FASE V1-9: novedades mensuales, tarifas y ciclo de parqueo con ayuda y mó
     await expect(page.getByRole('dialog', { name: 'Confirmar tarifa mensual' })).not.toBeVisible();
   }
   await revisarUi(page);
-  const empleadoLabel = (
-    await (await page.request.get('/api/novedades/opciones/empleados?buscar=Persona')).json()
-  ).data[0].label as string;
+  const empleadosSelector = (
+    await (await page.request.get('/api/empleados/selector?buscar=Persona')).json()
+  ).data.registros as { codigo: string; nombre: string; departamento: string }[];
+  const empleadoOpcion = empleadosSelector.find((e) => e.nombre === 'Persona E2E')!;
+  const elegirPersona = async () => {
+    await page.getByRole('combobox', { name: 'Empleado', exact: true }).fill(empleadoOpcion.codigo);
+    await page
+      .getByRole('option', {
+        name: `${empleadoOpcion.codigo} · ${empleadoOpcion.nombre} · ${empleadoOpcion.departamento}`,
+        exact: true,
+      })
+      .click();
+  };
   await page.goto('/novedades/horas-extra/nuevo');
-  await elegir(page, 'Empleado', empleadoLabel);
+  await elegirPersona();
   await page.getByLabel('Horas registradas', { exact: true }).fill('2.5');
   await page
     .getByLabel('Motivo o descripción', { exact: true })
@@ -1464,7 +1474,7 @@ test('FASE V1-9: novedades mensuales, tarifas y ciclo de parqueo con ayuda y mó
   await revisarUi(page);
   for (const tipo of ['comisiones', 'consumo-tienda']) {
     await page.goto(`/novedades/${tipo}/nuevo`);
-    await elegir(page, 'Empleado', empleadoLabel);
+    await elegirPersona();
     await page
       .getByLabel(tipo === 'comisiones' ? 'Comisión' : 'Consumo en tienda', { exact: true })
       .fill('123.45');

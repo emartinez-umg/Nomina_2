@@ -1,7 +1,9 @@
+import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaSolicitudes: DefinicionAyuda = {
   id: 'solicitudes-v1-9',
   pasos: [
+    pasoSelectorEmpleado,
     {
       elemento: 'empresa-aviso',
       titulo: 'Membrete y firma de aprobación',

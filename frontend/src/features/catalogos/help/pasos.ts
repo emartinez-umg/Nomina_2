@@ -1,3 +1,4 @@
+import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 import type { Catalogo } from '../api/catalogos';
 export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyuda {
@@ -5,6 +6,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
     id: `catalogos-${cat.slug}-${formulario ? 'formulario' : 'listado'}-r2-5`,
     pasos: formulario
       ? [
+          pasoSelectorEmpleado,
           {
             elemento: 'catalogo-formulario',
             titulo: `Registrar ${cat.titulo.toLowerCase()}`,
@@ -59,6 +61,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
           },
         ]
       : [
+          pasoSelectorEmpleado,
           {
             elemento: 'catalogo-menu',
             titulo: 'Catálogos y parametrización',

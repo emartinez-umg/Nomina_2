@@ -1,7 +1,9 @@
+import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaUsuarios: DefinicionAyuda = {
   id: 'usuarios-v1-5',
   pasos: [
+    pasoSelectorEmpleado,
     {
       elemento: 'usuarios-vincular',
       titulo: 'Vincula la ficha de quien firma',

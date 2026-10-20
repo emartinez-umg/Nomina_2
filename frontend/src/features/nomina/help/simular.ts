@@ -1,7 +1,9 @@
+import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaSimular: DefinicionAyuda = {
   id: 'simular-pago-v1-11',
   pasos: [
+    pasoSelectorEmpleado,
     {
       elemento: 'pago-objetivo',
       titulo: 'Elige qué pago revisar',

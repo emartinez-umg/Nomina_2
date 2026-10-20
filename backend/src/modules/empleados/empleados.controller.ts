@@ -10,6 +10,7 @@ import {
   crearEmpleadoSchema,
   editarEmpleadoSchema,
   querySchema,
+  selectorEmpleadosSchema,
   salarioSchema,
   bajaSchema,
   cargaSchema,
@@ -74,6 +75,8 @@ export function crearEmpleadosController(s: ReturnType<typeof crearEmpleadosServ
     },
     listar: async (req: Request, res: Response) =>
       responder(res, await s.listar(querySchema.parse(req.query))),
+    selector: async (req: Request, res: Response) =>
+      responder(res, await s.selector(selectorEmpleadosSchema.parse(req.query))),
     exportar: async (req: Request, res: Response) =>
       responder(res, await s.exportar(querySchema.parse(req.query))),
     detalle: async (req: Request, res: Response) => {

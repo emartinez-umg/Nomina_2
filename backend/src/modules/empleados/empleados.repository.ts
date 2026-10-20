@@ -5,9 +5,61 @@ import type {
   DatosEmpleado,
   EditarEmpleado,
   QueryEmpleados,
+  QuerySelectorEmpleados,
   ReglasEmpleado,
 } from './empleados.schemas.js';
 const opts = { outFormat: oracledb.OUT_FORMAT_OBJECT };
+export async function selector(c: Connection, q: QuerySelectorEmpleados) {
+  const nombre = nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS');
+  const from = `FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO
+    WHERE (:departamentoId IS NULL OR E.ID_DEPARTAMENTO=:departamentoId)
+      AND (:soloActivos=0 OR (E.ACTIVO=1 AND E.ESTADO='ACTIVO'))`;
+  const busqueda = `(:buscar IS NULL OR INSTR(
+    TRANSLATE(UPPER(E.CODIGO||' '||E.NOMBRES||' '||E.APELLIDOS||' '||${nombre}),'ÁÉÍÓÚÜÑ','AEIOUUN'),
+    TRANSLATE(UPPER(:buscar),'ÁÉÍÓÚÜÑ','AEIOUUN'))>0)`;
+  const columnas = `TO_CHAR(E.ID_EMPLEADO) "value",E.CODIGO "codigo",${nombre} "nombre",
+    E.ID_DEPARTAMENTO "idDepartamento",D.NOMBRE "departamento",E.ESTADO "estado"`;
+  type Opcion = {
+    value: string;
+    codigo: string;
+    nombre: string;
+    idDepartamento: number;
+    departamento: string;
+    estado: string;
+  };
+  const binds = { departamentoId: q.departamentoId ?? null, soloActivos: q.soloActivos ? 1 : 0 };
+  const total = (
+    await c.execute<{ total: number }>(
+      `SELECT COUNT(*) "total" ${from} AND ${busqueda}`,
+      { ...binds, buscar: q.buscar || null },
+      opts,
+    )
+  ).rows![0]!.total;
+  const registros =
+    (
+      await c.execute<Opcion>(
+        `SELECT ${columnas} ${from} AND ${busqueda} ORDER BY ${nombre},E.ID_EMPLEADO
+      OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+        { ...binds, buscar: q.buscar || null, offset: (q.pagina - 1) * q.limite, limite: q.limite },
+        opts,
+      )
+    ).rows ?? [];
+  // Resolver la selección por separado evita perderla por búsqueda/paginación o saltarse la cascada.
+  const seleccionado = q.seleccionado
+    ? ((
+        await c.execute<Opcion>(
+          `SELECT ${columnas} ${from} AND E.ID_EMPLEADO=:seleccionado`,
+          {
+            ...binds,
+            soloActivos: q.incluirSeleccionInactiva ? 0 : binds.soloActivos,
+            seleccionado: q.seleccionado,
+          },
+          opts,
+        )
+      ).rows?.[0] ?? null)
+    : null;
+  return { registros, seleccionado, total, pagina: q.pagina, limite: q.limite };
+}
 export const sqlDinero = (key: string) =>
   `TO_NUMBER(:${key},'9999999999D99','NLS_NUMERIC_CHARACTERS=''.,''')`;
 const hoy = "TRUNC(CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE))";
