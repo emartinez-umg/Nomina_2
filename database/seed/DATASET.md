@@ -117,6 +117,14 @@ versionados. La reejecución no restablecerá credenciales ni la bandera de usua
 
 ## Extras preparados, sin cargar
 
+La verificación de fase 5 añadió 31 aperturas fiscales **ficticias**, con corte 30/09/2026,
+en los mismos JSON de empleados. Se usan únicamente con `--with-extras`, para completar la
+historia que el Pago mensual exige desde enero/ingreso. Los importes se derivaron con el motor
+existente y parámetros locales, sin escribir Oracle, considerando las vigencias salariales
+del conjunto y excluyendo novedades pendientes. Los motivos identifican expresamente que no
+son certificaciones reales. El alta de octubre no requiere apertura previa. No se alteran
+aperturas existentes ajenas ni empleados anteriores. El Anticipo funciona con el conjunto básico.
+
 `empleados.json` incluye `extras` solo donde corresponde. La carga deberá ignorar toda esa
 sección salvo que se solicite `--with-extras`; las tarifas de parqueo demo también dependen
 de esa bandera. El mínimo salarial demo es parte de la carga básica.

@@ -336,6 +336,22 @@ function agregarExtras(
     const x = e.extras,
       ek = clave('EMPLEADOS', e.clave);
     if (!x) continue;
+    if (x.aperturaFiscal) {
+      const a = x.aperturaFiscal,
+        k = `${e.clave}:apertura:${a.anio}`;
+      sql.push(
+        `IF NOT propia('ISR_APERTURAS',${q(k)}) THEN exigir(cantidad('SELECT COUNT(*) FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE N.ID_EMPLEADO='||${id('EMPLEADOS', e.clave)}||${q(` AND EXTRACT(YEAR FROM P.FECHA_INICIO)=${a.anio} AND P.ESTADO IN ('APROBADO','CERRADO')`)})=0,'No se puede agregar apertura fiscal después de aprobar o cerrar nómina.'); END IF;`,
+      );
+      agregar('ISR_APERTURAS', k, {
+        ID_EMPLEADO: ref(ek),
+        ANIO: a.anio,
+        FECHA_CORTE: fecha(a.fecha),
+        RENTA: a.monto,
+        IGSS: a.igss,
+        ISR: a.isr,
+        MOTIVO: a.motivo,
+      });
+    }
     if (x.historialSalarial) {
       sql.push(
         `IF cantidad('SELECT COUNT(*) FROM HISTORIAL_SALARIAL WHERE ACTIVO=1 AND ID_EMPLEADO='||${id('EMPLEADOS', e.clave)})=1 THEN`,

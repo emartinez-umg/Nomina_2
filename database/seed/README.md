@@ -131,11 +131,20 @@ acepta `--with-extras`. No genera un SQL que borre datos ni un DDL.
 ## Extras y reset seguro
 
 Extras: tres historiales salariales, tres parqueos (carro/moto), un préstamo, un anticipo,
-una incapacidad, una ausencia sin goce y cuatro comisiones de Ventas. Las tarifas y el mínimo
+una incapacidad, una ausencia sin goce, cuatro comisiones de Ventas y 31 aperturas fiscales
+ficticias con corte al 30/09/2026. Las tarifas y el mínimo
 existentes se conservan. Se rechazan periodos cerrados, ausencias solapadas o fechas ya inaplicables.
 El parqueo empieza en el mes real de aprobación conforme a la app; el mes del JSON es una referencia.
 Las fechas del dataset corresponden al 20/10/2026; si vencen contratos o fechas de préstamos,
 actualizar primero la fuente JSON y volver a validar.
+
+El **Anticipo** se puede simular con la carga básica. Para simular el **Pago mensual de octubre**,
+la app exige continuidad fiscal desde enero o desde el ingreso. Las aperturas de `--with-extras`
+completan ese escenario exclusivamente para los demo; sus motivos indican `FICTICIA` y no son
+certificaciones reales. Los acumulados se derivaron con el motor existente, la historia salarial
+del JSON y los parámetros locales al 20/10/2026, sin novedades pendientes. El alta de octubre no
+necesita apertura anterior. Una apertura ajena existente se conserva y bloquea esa ampliación.
+No se confirman pagos ni se crean aperturas para los empleados anteriores de la instalación.
 
 ```sh
 npm run seed:remote -- --reset-demo --dry-run
@@ -147,11 +156,50 @@ en orden inverso de dependencias. Ante una edición, sesión, movimiento o refer
 completo. No basta el dominio del correo para borrar. Conserva catálogos reutilizados, ADMIN,
 bitácora y reservas de códigos. Los correlativos pueden tener huecos: no se rebajan contadores.
 
+## Verificar el conjunto cargado
+
+```sh
+npm run verify:seed
+npm run verify:seed -- --check-idempotency
+# Otro esquema o instancia configurado con DEST_DB_*:
+npm run verify:seed -- --remote --check-idempotency
+# Exigir también los extras, si fueron cargados:
+npm run verify:seed -- --with-extras --check-idempotency
+```
+
+La revisión normal usa una transacción de **solo lectura**. El reporte JSON distingue los registros
+del conjunto y el total de la instalación: por ejemplo, 32 demo encontrados entre 35 empleados.
+Comprueba catálogos, perfiles, ubicación, referencias, vigencias, mínimo configurado, códigos,
+contadores, usuarios, unicidad y saldo/calendario de vacaciones. Informa las fallas por clave lógica
+(`persona-001`), sin imprimir DPI, NIT, cuentas, correos, contraseñas o hashes.
+
+Se respeta la decisión aprobada de **no crear jefaturas**: comprueba que estén vacías y marca los
+ciclos de jefe inmediato como `NO_APLICA`. No exige la jerarquía de la solicitud inicial.
+
+`--check-idempotency` invoca dos veces el cargador real con una barrera que solo admite SELECT y
+los bloqueos existentes. Un intento de INSERT, UPDATE, DELETE, MERGE o DDL se rechaza **antes** de
+enviarlo a Oracle. Compara conteos, datos, credenciales, reservas y contadores antes y después;
+termina con rollback y nunca confirma escrituras. Si la integridad falla, no repite la carga ni
+intenta repararla. Esta opción exige `SEED_DEFAULT_PASSWORD` válido, como el propio cargador.
+
+Sin esa bandera, `IDEMPOTENCIA` queda explícitamente `NO_EJECUTADA`. La clave temporal se verifica
+con Argon2 si está definida en el entorno, únicamente para usuarios que aún deben cambiarla;
+las cuentas que ya la cambiaron se conservan. Sin la variable se informa esa comprobación como
+`NO_EJECUTADA`. El código de salida es 1 si hay errores de integridad/conexión/configuración,
+y 0 si las comprobaciones solicitadas pasan.
+
+Para guardar JSON sin las cabeceras de npm:
+
+```sh
+npm run --silent verify:seed -- --check-idempotency > tmp/verificacion-demo.json
+```
+
 ## Pruebas y alcance
 
 ```sh
 npm run test:seed-demo
 npm run test:seed-export
+npm run test:seed-verify
 npm run lint
 npm run typecheck
 npm test
@@ -160,5 +208,8 @@ npm test
 Las suites Oracle crean y eliminan un esquema aleatorio `N2SEC_*` mediante el contenedor local.
 No ejecutan reset ni fallos deliberados sobre la base operativa. La suite de exportación ejecuta
 el archivo con SQLPlus real y comprueba interoperabilidad SQL/Node, contraseñas, idempotencia y rollback.
-La ejecución desde la interfaz de DBeaver no está automatizada. El verificador independiente de
-aceptación corresponde a la fase 5.
+La suite de verificación prueba la API real con Oracle: inicio de sesión y cambio obligatorio,
+permisos de RH/empleado, listado y filtros, dashboard, vacaciones y simulación sin confirmar pagos.
+También comprueba que fechas, salarios u horarios inválidos se reporten sin corregirlos.
+Las contraseñas de esas pruebas se generan en memoria y solo afectan al esquema desechable.
+La ejecución desde la interfaz de DBeaver no está automatizada.

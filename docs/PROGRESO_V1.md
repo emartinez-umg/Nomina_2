@@ -2795,3 +2795,102 @@ operativa de 35 empleados que quedó en la fase 3.
 4. Esperar confirmación antes de fase 5: scripts/verify-seed.js y verificación independiente de
    aceptación. No se implementó ese script en esta fase. La ERS original sigue pendiente para
    certificar la correspondencia exacta de los RF; no bloquea los datos y cargadores aprobados.
+
+## Datos demo — FASE 5: verificación y aceptación por API
+
+Estado: completada el 20/10/2026 en `v1.1`, tras la confirmación «continua». Cierra las cinco
+fases solicitadas. No hay cambios de esquema, migraciones, lógica de negocio ni pantallas.
+
+### Hecho y decisiones
+
+- scripts/verify-seed.js y `npm run verify:seed`, con módulos TypeScript strict independientes
+  para consultas, reporte y CLI. Conexión thin con DB__; --remote exige las tres DEST_DB__
+  y nunca recurre a la conexión local. Reporte JSON en español y salida 1 ante errores.
+- Revisión normal en una transacción de solo lectura: cobertura por claves naturales, catálogos
+  activos, 30 puestos cubiertos, expedientes completos, perfiles/usuarios vinculados, unicidad
+  global de DPI/NIT/IGSS/usuario/correo, DPI de 13 dígitos, ubicaciones y zonas oficiales,
+  referencias coherentes, vigencia única de salario/horario, contratos y fechas válidos, mínimo
+  configurado, límites de jornada, códigos reservados y contadores suficientes por departamento.
+  Reutiliza esquemas, validadores y cálculos de vacaciones existentes, sin escribir desde ellos.
+- Distingue encontrados del conjunto y total de instalación: los datos anteriores no provocan
+  falsos errores de conteo. Comprueba los hashes Argon2id contra SEED_DEFAULT_PASSWORD cuando
+  la cuenta conserva cambio obligatorio; admite cuentas que ya cambiaron su contraseña sin
+  restablecerlas. Los errores solo muestran categorías y claves persona-xxx, nunca identificadores
+  fiscales, cuentas, correos, contraseñas, hashes ni cuerpos de respuestas de autenticación.
+- Se respeta la corrección del usuario: **sin jefaturas**. Se comprueba ID_JEFATURA vacío y los
+  ciclos de jefe inmediato se marcan NO_APLICA. No se inventó una columna de jefe inmediato ni
+  se reintrodujo la jerarquía de la petición inicial.
+- --check-idempotency invoca dos veces cargarDemo con la conexión real y una barrera que permite
+  SELECT/bloqueos y rechaza DML, DDL, PL/SQL y confirmaciones antes de llegar a Oracle. Compara
+  conteos, filas, credenciales, reservas y contadores en cada pasada; termina con rollback.
+  Si la integridad falla, no invoca el cargador ni repara registros. Sin bandera, la prueba queda
+  explícitamente NO_EJECUTADA; sin clave de entorno también se informa el cotejo temporal omitido.
+- --with-extras exige también los extras por empleado, incluidas aperturas fiscales con año,
+  fecha de corte y propiedad del seed correctos. README raíz, CARGA.md, DATASET.md y la guía
+  principal explican los comandos, estados, alcance y escenarios de nómina.
+
+### Hallazgo y corrección de datos fiscales
+
+- La prueba nueva exigió resultados calculados para los 32, además de recibir sus filas. Detectó
+  la dependencia existente de continuidad fiscal del Pago mensual. Precisión sobre fase 3:
+  «PAGO devuelve 35 registros» acreditaba el listado; no aseguraba un resultado calculado para
+  todos. El Anticipo básico sí calcula los 32. No se relajó la validación del motor.
+- Para completar el escenario opcional se añadieron **31 aperturas fiscales FICTICIAS**, con
+  corte 30/09/2026, a extras.aperturaFiscal de los JSON existentes. El alta de octubre no requiere
+  apertura anterior. Renta/IGSS/ISR se derivaron mediante calcularPago, las vigencias salariales
+  del JSON y parámetros/conceptos/tramos locales en una transacción de solo lectura; se excluyeron
+  novedades pendientes. No se hardcodearon tasas en el cargador ni se certificaron importes reales.
+- Carga únicamente con --with-extras: tabla ISR_APERTURAS ya existente, fiscalSchema y repositorio
+  guardarFiscal actuales; propiedad auditada y misma transacción/reset/idempotencia que los demás
+  demo. Toda apertura lleva motivo «APERTURA FISCAL FICTICIA» y fecha/base de estimación. Rechaza
+  aperturas ajenas, registros posteriores a aprobación/cierre y fechas incoherentes, sin reemplazos.
+  SQL autónomo y cargador remoto leen exactamente los mismos importes JSON y preservan esa política.
+- Se comprobó por comparación estructural que los 32 expedientes originales no cambiaron al
+  excluir únicamente el nuevo campo opcional. No se añadieron empleados/roles ni se modificaron
+  salarios, bancos, ubicaciones, contratos o el resto de los datos aprobados.
+- La instalación operativa conserva la carga básica: **35 empleados (32 demo y 3 anteriores)**.
+  No se cargaron allí aperturas ficticias, extras, sesiones de prueba ni cambios de contraseña.
+  Para el Pago mensual completo de los demo se puede elegir conscientemente --with-extras;
+  el Anticipo de octubre operativo conserva un periodo v0 previo que el sistema bloquea, tal como
+  se documentó en fase 3. No se cambió ese periodo ni se confirmaron/revirtieron pagos.
+
+### Validación
+
+- **772 pruebas de monorepo aprobadas**: 431 backend, 334 frontend y siete del exportador anterior.
+  Cuatro pruebas nuevas cubren banderas, delegación de lecturas a la conexión real, rechazo de
+  escrituras/transacciones y acumulación de errores del reporte con claves lógicas.
+- **Seis pruebas Oracle/API nuevas aprobadas**: diagnóstico de solo lectura sin secretos;
+  conteos con datos ajenos; doble invocación protegida y destino remoto sin fallback; detección
+  de edad, salario y horario incorrectos sin repararlos; extras incompletos y apertura ajena
+  rechazada con rollback completo; Anticipo básico de 32; RH/empleado con login CSRF real,
+  cambio obligatorio y permisos; listado/filtros, dashboard y cumpleaños/aniversarios, vacaciones
+  y Pago mensual con 32 resultados no negativos. No se efectuó ningún pago. Tras cambiar dos
+  claves de prueba, el verificador conserva ambas y su idempotencia sigue pasando.
+- Reejecutadas **siete regresiones Oracle del seed** y **seis del exportador SQLPlus/remoto** con
+  las aperturas nuevas: en total, **19 pruebas Oracle aprobadas**. El exportador compara también
+  renta/IGSS/ISR/corte entre SQL y Node, sobre identidades desplazadas y con separador decimal NLS
+  distinto. Se mantienen reset protegido, rollback deliberado y cuentas autenticables.
+- Todos los esquemas N2SEC_* se eliminaron en finally. Los errores deliberados de pruebas son
+  esperados y no corresponden a la instalación operativa. Solo hubo lecturas sobre NOMINA2.
+- Verificación local final con --check-idempotency: integridad OK, cero DML en dos invocaciones,
+  mismos datos/credenciales/contadores y 32 cuentas aún temporales. Totales locales conservados:
+  ocho departamentos, 34 puestos, 13 centros, ocho horarios, cinco bancos, 35 empleados y 37 usuarios.
+  El conjunto encontrado es 5/30/10/7/5/32, respectivamente; no se confunde con los totales.
+- Lint, TypeScript strict, build backend, formato, revisión de secretos y diff --check aprobados.
+  Informes y generador ad hoc de acumulados quedan en tmp, ignorados por Git. El SQL privado se
+  regeneró desde la fuente actual; mantiene permisos 0600, exclusión de Git y ausencia de claves
+  de entorno en texto plano. No se imprimieron credenciales.
+
+### Cómo usar y límites de la comprobación
+
+1. npm run verify:seed -- --check-idempotency. Para JSON sin cabeceras npm: npm run --silent
+   verify:seed -- --check-idempotency > tmp/verificacion-demo.json.
+2. Para otra conexión: npm run verify:seed -- --remote --check-idempotency, con DEST_DB_*.
+3. En un entorno de demostración donde se deseen también aperturas ficticias y novedades:
+   npm run seed:demo -- --with-extras --dry-run; npm run seed:demo -- --with-extras;
+   npm run verify:seed -- --with-extras --check-idempotency. Remoto usa seed:remote.
+4. npm run test:seed-verify, test:seed-demo y test:seed-export reproducen las suites en esquemas
+   desechables. La aceptación nueva ejercita API y Oracle reales; no automatizó el navegador ni
+   DBeaver, ni confirmó boletas/pagos en producción. Frontend conserva sus pruebas existentes.
+5. La ERS original sigue sin estar disponible para certificar la numeración RF; se documenta
+   ese límite sin inventar correspondencias. No quedan fases de implementación solicitadas.

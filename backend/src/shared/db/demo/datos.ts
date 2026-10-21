@@ -18,6 +18,8 @@ import { catalogos } from '../../../modules/catalogos/catalogos.definiciones.js'
 import { analizarHorario } from '../../horarios/modelo.js';
 import type { LimitesHorario } from '../../horarios/modelo.js';
 import { zonaValida } from '../../../modules/ubicaciones/ubicaciones.schemas.js';
+import { fiscalSchema } from '../../../modules/nomina/nomina.schemas.js';
+import { quincena } from '../../../modules/novedades/novedades.reglas.js';
 
 const texto = z.string().trim().min(1);
 const catalogo = z.object({ clave: texto, nombre: texto, descripcion: texto.optional() });
@@ -80,6 +82,7 @@ const empleado = z
     estado: z.literal('ACTIVO'),
     extras: z
       .object({
+        aperturaFiscal: fiscalSchema.omit({ idEmpleado: true, confirmado: true }).optional(),
         historialSalarial: z.array(historial).min(2).optional(),
         parqueo: z
           .object({
@@ -324,6 +327,17 @@ export function validarDataset(
       e.correo.endsWith('@demo-nomina.test'),
       `El correo de ${e.clave} no pertenece al conjunto demo.`,
     );
+    if (e.extras?.aperturaFiscal) {
+      const a = e.extras.aperturaFiscal;
+      exigir(
+        a.fecha >= e.fechaIngreso &&
+          a.fecha <= reglas.hoy &&
+          Number(a.fecha.slice(0, 4)) === a.anio &&
+          quincena(a.fecha).fin === a.fecha &&
+          a.motivo.includes('FICTICIA'),
+        `Apertura fiscal demo inválida en ${e.clave}.`,
+      );
+    }
     if (e.extras?.historialSalarial) {
       const historia = e.extras.historialSalarial;
       exigir(

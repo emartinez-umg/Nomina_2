@@ -38,6 +38,14 @@
         "placa": "P-DEMO001",
         "mesInicio": "2026-09",
         "motivo": "Suscripción de parqueo para demostración."
+      },
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "200250.00",
+        "igss": "9563.40",
+        "isr": "7734.33",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
       }
     }
   },
@@ -73,7 +81,17 @@
     "contactoParentesco": "Padre",
     "contactoTelefono": "56010002",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "131850.00",
+        "igss": "6259.68",
+        "isr": "4479.52",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-003",
@@ -107,7 +125,17 @@
     "contactoParentesco": "Hermano/a",
     "contactoTelefono": "56010003",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "99450.00",
+        "igss": "4694.76",
+        "isr": "2937.78",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-004",
@@ -159,7 +187,15 @@
           "vigenteDesde": "2026-07-01",
           "motivo": "Actualización salarial del expediente demo."
         }
-      ]
+      ],
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "139500.00",
+        "igss": "6629.19",
+        "isr": "4897.08",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
     }
   },
   {
@@ -194,7 +230,17 @@
     "contactoParentesco": "Hijo/a",
     "contactoTelefono": "56010005",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "44216.67",
+        "igss": "2051.14",
+        "isr": "471.59",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-006",
@@ -228,7 +274,17 @@
     "contactoParentesco": "Abuelo/a",
     "contactoTelefono": "56010006",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "110250.00",
+        "igss": "5216.40",
+        "isr": "3451.68",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-007",
@@ -296,7 +352,17 @@
     "contactoParentesco": "Primo/a",
     "contactoTelefono": "56010008",
     "rol": "RH",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "164250.00",
+        "igss": "7824.60",
+        "isr": "6021.27",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-009",
@@ -337,6 +403,14 @@
         "placa": "P-DEMO009",
         "mesInicio": "2026-10",
         "motivo": "Suscripción de parqueo para demostración."
+      },
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "86850.00",
+        "igss": "4086.18",
+        "isr": "2338.20",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
       }
     }
   },
@@ -372,7 +446,17 @@
     "contactoParentesco": "Suegro/a",
     "contactoTelefono": "56010010",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "69750.00",
+        "igss": "3260.25",
+        "isr": "1524.50",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-011",
@@ -406,7 +490,17 @@
     "contactoParentesco": "Pareja/conviviente",
     "contactoTelefono": "56010011",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "89550.00",
+        "igss": "4216.59",
+        "isr": "2466.67",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-012",
@@ -440,7 +534,17 @@
     "contactoParentesco": "Otro",
     "contactoTelefono": "56010012",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "52650.00",
+        "igss": "2434.32",
+        "isr": "710.79",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-013",
@@ -474,7 +578,17 @@
     "contactoParentesco": "Madre",
     "contactoTelefono": "56010013",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "45450.00",
+        "igss": "2086.56",
+        "isr": "368.19",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-014",
@@ -508,7 +622,17 @@
     "contactoParentesco": "Padre",
     "contactoTelefono": "56010014",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "218250.00",
+        "igss": "10432.80",
+        "isr": "8590.86",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-015",
@@ -560,7 +684,15 @@
           "vigenteDesde": "2026-08-01",
           "motivo": "Actualización salarial del expediente demo."
         }
-      ]
+      ],
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "120550.00",
+        "igss": "5713.90",
+        "isr": "3995.93",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
     }
   },
   {
@@ -595,7 +727,17 @@
     "contactoParentesco": "Esposo/a",
     "contactoTelefono": "56010016",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "96750.00",
+        "igss": "4564.35",
+        "isr": "2809.28",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-017",
@@ -629,7 +771,17 @@
     "contactoParentesco": "Hijo/a",
     "contactoTelefono": "56010017",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "67050.00",
+        "igss": "3129.84",
+        "isr": "1396.00",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-018",
@@ -663,7 +815,17 @@
     "contactoParentesco": "Abuelo/a",
     "contactoTelefono": "56010018",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "65250.00",
+        "igss": "3042.90",
+        "isr": "1310.36",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-019",
@@ -697,7 +859,17 @@
     "contactoParentesco": "Tío/a",
     "contactoTelefono": "56010019",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "49950.00",
+        "igss": "2303.91",
+        "isr": "582.30",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-020",
@@ -731,7 +903,17 @@
     "contactoParentesco": "Primo/a",
     "contactoTelefono": "56010020",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "254250.00",
+        "igss": "12171.60",
+        "isr": "10303.92",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-021",
@@ -765,7 +947,17 @@
     "contactoParentesco": "Cuñado/a",
     "contactoTelefono": "56010021",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "85950.00",
+        "igss": "4042.71",
+        "isr": "2295.36",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-022",
@@ -809,7 +1001,15 @@
           "estado": "APROBADA",
           "motivo": "Incapacidad ficticia del conjunto demo."
         }
-      ]
+      ],
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "78750.00",
+        "igss": "3694.95",
+        "isr": "1952.75",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
     }
   },
   {
@@ -854,6 +1054,14 @@
         "fechaDesembolso": "2026-10-20",
         "referencia": "DEMO-PRESTAMO-023",
         "motivo": "Préstamo del conjunto demo para probar cuotas mensuales."
+      },
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "51750.00",
+        "igss": "2390.85",
+        "isr": "667.97",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
       }
     }
   },
@@ -896,6 +1104,14 @@
         "placa": "M-DEMO024",
         "mesInicio": "2026-09",
         "motivo": "Suscripción de parqueo para demostración."
+      },
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "48150.00",
+        "igss": "2216.97",
+        "isr": "496.65",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
       }
     }
   },
@@ -941,6 +1157,14 @@
         "fechaDesembolso": "2026-10-20",
         "referencia": "DEMO-ANTICIPO-025",
         "motivo": "Anticipo del conjunto demo para probar el descuento mensual."
+      },
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "40050.00",
+        "igss": "1825.74",
+        "isr": "111.22",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
       }
     }
   },
@@ -986,7 +1210,15 @@
           "estado": "APROBADA",
           "motivo": "Permiso sin goce ficticio del conjunto demo."
         }
-      ]
+      ],
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "41400.00",
+        "igss": "1890.99",
+        "isr": "175.46",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
     }
   },
   {
@@ -1021,7 +1253,17 @@
     "contactoParentesco": "Hermano/a",
     "contactoTelefono": "56010027",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "182250.00",
+        "igss": "8694.00",
+        "isr": "6877.80",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-028",
@@ -1064,7 +1306,15 @@
           "referencia": "DEMO-COMISION-028-202609",
           "motivo": "Comisiones por ventas de septiembre del conjunto demo."
         }
-      ]
+      ],
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "94050.00",
+        "igss": "4433.94",
+        "isr": "2680.81",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
     }
   },
   {
@@ -1125,7 +1375,15 @@
           "referencia": "DEMO-COMISION-029-202609",
           "motivo": "Comisiones por ventas de septiembre del conjunto demo."
         }
-      ]
+      ],
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "79050.00",
+        "igss": "3709.44",
+        "isr": "1995.57",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
     }
   },
   {
@@ -1169,7 +1427,15 @@
           "referencia": "DEMO-COMISION-030-202609",
           "motivo": "Comisiones por ventas de septiembre del conjunto demo."
         }
-      ]
+      ],
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "60750.00",
+        "igss": "2825.55",
+        "isr": "1096.22",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
     }
   },
   {
@@ -1204,7 +1470,17 @@
     "contactoParentesco": "Tío/a",
     "contactoTelefono": "56010031",
     "rol": "EMPLEADO",
-    "estado": "ACTIVO"
+    "estado": "ACTIVO",
+    "extras": {
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "53550.00",
+        "igss": "2477.79",
+        "isr": "753.61",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
+    }
   },
   {
     "clave": "persona-032",
@@ -1247,7 +1523,15 @@
           "referencia": "DEMO-COMISION-032-202609",
           "motivo": "Comisiones por ventas de septiembre del conjunto demo."
         }
-      ]
+      ],
+      "aperturaFiscal": {
+        "anio": 2026,
+        "fecha": "2026-09-30",
+        "monto": "47250.00",
+        "igss": "2173.50",
+        "isr": "453.83",
+        "motivo": "APERTURA FISCAL FICTICIA para demo: salarios enero-septiembre calculados con el motor y parámetros locales al 20/10/2026; excluye novedades pendientes. No es certificación real."
+      }
     }
   }
 ]

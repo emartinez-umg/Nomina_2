@@ -51,7 +51,9 @@ npm run seed:demo -- --with-extras --dry-run
 npm run seed:demo -- --with-extras
 ```
 
-Añade los historiales salariales, parqueos, préstamo/anticipo, ausencias y comisiones del JSON.
+Añade los historiales salariales, parqueos, préstamo/anticipo, ausencias, comisiones y aperturas
+fiscales ficticias del JSON. Estas últimas permiten simular el Pago mensual de octubre con
+continuidad fiscal; el Anticipo funciona sin ellas. Ver detalles en [la guía](README.md).
 La carga inicial de la instalación local **no incluyó extras**. Estos modos se probaron en
 un esquema desechable, con una segunda ejecución que no cambia conteos ni credenciales.
 

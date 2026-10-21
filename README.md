@@ -209,6 +209,8 @@ Seeds aditivos: no sobrescriben cuentas, parámetros editados ni plantillas exis
   y las pruebas Oracle desechables están explicadas en la guía de carga.
   [Carga remota y exportación SQL](database/seed/README.md): `npm run seed:remote` usa
   `DEST_DB_*`; `npm run seed:export-sql` genera el archivo privado para otra base o esquema.
+  `npm run verify:seed -- --check-idempotency` verifica integridad y dos invocaciones del
+  cargador con barrera de escrituras; `--remote` verifica el destino configurado en `DEST_DB_*`.
 
 - [Cierre, matriz de auditoría y comprobaciones](docs/CIERRE.md).
 - [Progreso](docs/PROGRESO.md), [decisiones y mejoras futuras](docs/DECISIONES.md), [modelo Oracle](docs/ERD.md).

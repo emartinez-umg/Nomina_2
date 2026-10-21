@@ -15,6 +15,8 @@ import * as parqueo from '../../../modules/novedades/parqueo.repository.js';
 import { aprobarParqueo } from '../../../modules/novedades/parqueo.service.js';
 import { tarifaSchema, placaSchema } from '../../../modules/novedades/parqueo.schemas.js';
 import * as solicitudes from '../../../modules/solicitudes/solicitudes.repository.js';
+import * as nomina from '../../../modules/nomina/nomina.repository.js';
+import { fiscalSchema } from '../../../modules/nomina/nomina.schemas.js';
 
 export async function cargarExtras(carga: CargaDemo) {
   const { c, dataset, actor, opciones } = carga;
@@ -53,6 +55,26 @@ export async function cargarExtras(carga: CargaDemo) {
     const id = carga.empleados.get(e.clave)!;
     const extras = e.extras;
     if (!extras) continue;
+    if (extras.aperturaFiscal) {
+      const p = extras.aperturaFiscal,
+        clave = `${e.clave}:apertura:${p.anio}`;
+      const existentes = await nomina.fiscal(c, id, p.anio);
+      exigir(
+        !existentes.aperturas.length ||
+          [...carga.propias.values()].some((r) => r.tabla === 'ISR_APERTURAS' && r.clave === clave),
+        'Existe una apertura fiscal ajena al seed; no se reemplazará.',
+      );
+      const datos = fiscalSchema.parse({ ...p, idEmpleado: id, confirmado: true });
+      exigir(
+        datos.fecha >= e.fechaIngreso &&
+          datos.fecha <= carga.hoy &&
+          Number(datos.fecha.slice(0, 4)) === datos.anio,
+        'La apertura demo debe pertenecer al año indicado y a la relación laboral.',
+      );
+      await carga.crear('ISR_APERTURAS', clave, () =>
+        nomina.guardarFiscal(c, 'apertura', datos, actor.idUsuario),
+      );
+    }
     if (
       extras.historialSalarial &&
       !(opciones.dryRun && carga.nuevas.has(repo.llave('EMPLEADOS', id)))
