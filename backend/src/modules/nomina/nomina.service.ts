@@ -4,7 +4,8 @@ import { zipSync } from 'fflate';
 import { completarHistoria } from './nomina.historia.js';
 export { completarHistoria } from './nomina.historia.js';
 import { crearPagosService, accionPeriodoMensual } from './pago.service.js';
-import { boletaArchivada } from './pago.repository.js';
+import { pdfBoleta } from './boleta.service.js';
+import { datosBoletas } from './boleta.repository.js';
 import { membrete, firmante } from '../empresa/empresa.service.js';
 import { guardarFirma, firmaBoleta } from '../empresa/empresa.repository.js';
 import type { FirmaDocumento } from '../../shared/pdf/documento.js';
@@ -266,14 +267,7 @@ export function crearNominaService(db: BaseDatos) {
     boleta: (auth: Autenticacion, id: number) =>
       lectura(async (c) => {
         const n = await detalle(c, auth, id);
-        const archivada = await boletaArchivada(c, id);
-        if (archivada)
-          return exportar.archivo(archivada, `boleta-${id}-v${n.version}.pdf`, 'application/pdf');
-        return exportar.archivo(
-          await exportar.boletasPdf([n], await membrete(c), await firmas(c, [n])),
-          `boleta-${id}-v${n.version}.pdf`,
-          'application/pdf',
-        );
+        return exportar.archivo(await pdfBoleta(c, n), exportar.nombreBoleta(n), 'application/pdf');
       }),
     exportar: (auth: Autenticacion, q: Query, formato: 'excel' | 'pdf' | 'boletas', id?: number) =>
       lectura(async (c) => {
@@ -338,15 +332,22 @@ export function crearNominaService(db: BaseDatos) {
           const archivos: Record<string, Uint8Array> = {};
           for (const n of ns)
             archivos[
-              `departamento-${exportar.snapshot(n).entrada.empleado.idDepartamento}/boleta-${n.id}.pdf`
-            ] =
-              (await boletaArchivada(c, n.id)) ??
-              (await exportar.boletasPdf([n], await membrete(c), await firmas(c, [n])));
-          return exportar.archivo(Buffer.from(zipSync(archivos)), 'boletas.zip', 'application/zip');
+              `departamento-${exportar.snapshot(n).entrada.empleado.idDepartamento}/${exportar.nombreBoleta(n, true)}`
+            ] = await pdfBoleta(c, n, true);
+          return exportar.archivo(
+            Buffer.from(zipSync(archivos)),
+            exportar.nombreLoteBoletas(ns, 'zip'),
+            'application/zip',
+          );
         }
         return exportar.archivo(
-          await exportar.boletasPdf(ns, await membrete(c), await firmas(c, ns)),
-          'boletas.pdf',
+          await exportar.boletasPdf(
+            ns,
+            await membrete(c),
+            await firmas(c, ns),
+            await datosBoletas(c, ns),
+          ),
+          exportar.nombreLoteBoletas(ns, 'pdf'),
           'application/pdf',
         );
       }),

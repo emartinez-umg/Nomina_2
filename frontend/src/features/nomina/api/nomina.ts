@@ -149,10 +149,11 @@ export const detalle = (id: number, signal?: AbortSignal) =>
   solicitar(`/nomina/boletas/${id}`, detalleSchema, { signal });
 const archivo = z.object({ nombre: z.string(), tipo: z.string(), base64: z.string() });
 export const boleta = (id: number) =>
-  solicitar(`/nomina/boletas/${id}/pdf`, archivo, { timeoutMs: 120000 });
+  solicitar(`/nomina/boletas/${id}/pdf`, archivo, { timeoutMs: 120000, archivo: true });
 export const exportar = (q: Record<string, string>, formato: string, id?: number) =>
   solicitar(`/nomina/${id ? `periodos/${id}/` : ''}exportar/${formato}?${query(q)}`, archivo, {
     timeoutMs: 120000,
+    archivo: true,
   });
 export const igss = (anio: string, mes: string) =>
   solicitar(`/nomina/igss/exportar?${query({ anio, mes })}`, archivo, { timeoutMs: 120000 });
@@ -256,7 +257,12 @@ export type Simulacion = z.infer<typeof simulacion>;
 export const simular = (body: ObjetivoPago) =>
   solicitar('/nomina/simular', simulacion, { method: 'POST', body, timeoutMs: 120000 });
 export const previewPago = (body: ObjetivoPago, id: number) =>
-  solicitar(`/nomina/simular/${id}/pdf`, archivo, { method: 'POST', body, timeoutMs: 120000 });
+  solicitar(`/nomina/simular/${id}/pdf`, archivo, {
+    method: 'POST',
+    body,
+    timeoutMs: 120000,
+    archivo: true,
+  });
 export const pagar = (body: ObjetivoPago, hash: string) =>
   solicitar(
     '/nomina/pagar',
@@ -280,4 +286,5 @@ export const revertirPago = (id: number, motivo: string) =>
 export const zipPagos = (mes: string, idDepartamento = '', idEmpleado = '') =>
   solicitar(`/nomina/pagos/zip?${query({ mes, idDepartamento, idEmpleado })}`, archivo, {
     timeoutMs: 120000,
+    archivo: true,
   });

@@ -2969,3 +2969,91 @@ Análisis de Sistemas y que todos los datos son simulados.
    Las pruebas Oracle pagan/cierra únicamente sus fixtures desechables; no la nómina operativa.
 5. Sin pendientes de implementación de esta solicitud. La autorización/rechazo de la novedad
    pendiente y la confirmación de pagos quedan en el flujo normal de RRHH.
+
+## Ronda 2 — Diseño y nombres de boletas de pago según referencia
+
+Estado: implementado el 22/10/2026 en `v1.1`.
+
+### Hecho y decisiones
+
+- Referencia inspeccionada completa: dos copias en la primera hoja carta y una segunda hoja
+  vacía. El diseño nuevo de anticipo/pago regular usa una sola hoja carta por empleado,
+  márgenes de 42.52 pt (1.5 cm), Helvetica/Helvetica-Bold de 8.5 pt, encabezado gris,
+  datos en columnas fijas, ingresos y descuentos paralelos, totales, líquido en dos cajas,
+  firma del empleado y leyenda. Logo opcional conservado sin cubrir la fila del NIT.
+- Solo conceptos positivos del snapshot; dinero con Decimal y Q#,###.##. No se modificaron
+  motores, tasas, cálculos, novedades, estados, aprobaciones, cuotas ni migraciones.
+  Se conserva la identificación de simulaciones y acumulados fiscales académicos.
+- Se miden nombres/conceptos y firmas multilínea antes de dibujar las dos copias idénticas.
+  La fuente se adapta hasta 7 pt para casos densos; si aun así resulta imposible incluir
+  todo legiblemente, devuelve un conflicto claro en vez de truncar conceptos o añadir hojas.
+- Nombre único compartido por portal, RRHH, simulación y exportaciones: prefijo Anticipo
+  cuando corresponde, Planilla General y fechas DD-MM-AAAA. En ZIP se agrega el código
+  del empleado; se conservan las carpetas por departamento. El ZIP exterior y el PDF masivo
+  indican el intervalo de sus registros. Título PDF igual al nombre sin extensión,
+  incluyendo el código en cada entrada ZIP mediante metadatos incrementales sin cambiar páginas.
+- HTTP ofrece los mismos bytes mediante negociación Accept, con Content-Disposition
+  (filename ASCII y filename* UTF-8), saneamiento y private/no-store. Se conserva el contrato
+  JSON para clientes anteriores. El cliente React solicita binarios y usa el nombre del header;
+  vista previa y descarga comparten origen. Actualizados hints y recorridos de Planilla/Simular.
+- Los archivos nuevos se archivan con versión de diseño. Los regulares anteriores se
+  presentan desde su snapshot con el diseño nuevo, sin reemplazar PDF, SHA ni cálculo
+  originales y sin escribir en la descarga. Los archivos nuevos conservan la identidad
+  empresarial que tenían al pagarse, incluso si Configuración cambia posteriormente.
+- Las constancias, certificados, credenciales, reportes consolidados y documentos de prestaciones
+  conservan su membrete/logo y firma RH compartidos. Las boletas de prestaciones anuales
+  mantienen su desglose específico; sus nombres y metadatos también se coordinan en ZIP.
+
+### Supuestos
+
+- No existe código de empresa en Configuración: el identificador impreso usa
+  `<ID_NOMINA con mínimo 2 dígitos>-<NIT sin separadores>-<código empleado>-<fecha pago AAAAMMDD>-<A/P>`.
+  La PK hace único el comprobante y el sufijo diferencia anticipo/pago. Se lee FECHA_PAGO;
+  para simulaciones o históricos sin esa fecha se usa el fin del periodo mostrado.
+- El pago mensual v1 liquida el mes completo conservado en entrada.inicio/fin, aunque su
+  contenedor técnico sea la segunda quincena; el anticipo muestra 1–15. Los históricos v0
+  conservan las fechas reales de su quincena, sin extenderlas a un mes ficticio.
+- Días trabajados es un dato de impresión: días calendario dentro de la relación laboral
+  del intervalo mostrado menos ausencias sin goce aprobadas. En v0 se consideran horario y
+  feriados de su snapshot. En v1 se usa la cantidad mensual registrada; ese libro no conserva
+  fechas diarias de ausencia y no permite distribuirlas con precisión dentro de una quincena.
+  Este dato visible no sustituye ni modifica el prorrateo salarial guardado.
+- Código del puesto y nombre del centro, ausentes en los snapshots v0, se completan desde
+  los catálogos reales con binds, usando puesto y centro conservados. Si el puesto histórico
+  ya no está identificable se indica «No registrado»; no se inventa un código.
+
+### Validación
+
+- Regresión ejecutada contra HEAD anterior en una copia temporal: falla por A4 en lugar de
+  carta. La misma comprobación y ocho pruebas de boleta pasan con el cambio.
+- Suite completa: **804 pruebas aprobadas** (458 backend, 339 frontend y siete del exportador).
+  Diez nuevas backend cubren copias, hojas, logo/textos largos, conceptos cero, simulación,
+  fechas/nombres, días, identificador, títulos ZIP y Content-Disposition/bytes. Dos nuevas
+  frontend verifican descarga UTF-8 y conservación del manejo de expiración de sesión.
+- **18 pruebas Oracle/API de pagos aprobadas**, incluida nueva regresión de archivo anterior
+  sin escrituras y comprobaciones de nombres, ZIP, propiedad y equivalencia binario/JSON/RH/empleado.
+  **82 pruebas Oracle de seguridad e históricos aprobadas**. Solo esquemas N2SEC desechables,
+  eliminados al finalizar. Ningún pago ni modificación en la nómina de la instalación local.
+- PDF de pago mensual Oracle, anticipo sin descuentos y muestra con nombres/conceptos largos
+  y logo renderizados e inspeccionados. Ajustado espacio de firma para nombres de varias líneas.
+  pypdf strict confirma una hoja y dos copias por empleado, dos hojas para dos empleados,
+  título individual correcto y título ZIP con código, sin advertencias de referencias cruzadas.
+- API y web locales reconstruidas con Docker Compose. Comprobación adicional de solo lectura
+  dentro del contenedor **Node 20.20.2**, sobre un cálculo existente: nombre «Anticipo - Planilla
+  General del 01-10-2026 al 15-10-2026.pdf», carta y una sola página confirmados. No se recalculó
+  ni registró ningún pago. La suite de host se ejecutó con Node 24 y el build/runtime Docker con 20.
+- Lint, TypeScript strict y build backend/frontend aprobados. Se conserva el aviso previo de
+  tamaño del chunk de Vite. Artefactos y registros de prueba en tmp, excluidos de Git.
+
+### Cómo probar y pendientes
+
+1. Recargar la aplicación. Abrir Planilla → detalle → Vista previa PDF y Descargar PDF, o
+   Mis gestiones → Boletas. No hace falta recalcular ni volver a pagar para cambiar el diseño.
+2. Comprobar dos copias en una hoja carta, las fechas del nombre, los importes del detalle,
+   firma, NIT, centro y puesto. El anticipo lleva su prefijo y muestra descuentos Q0.00 si no hay.
+3. Descargar Boletas masivas/ZIP por departamento: nombres con periodo y código, sin duplicados;
+   las boletas históricas v0 en PDF masivo tienen una hoja por empleado.
+4. Reproducir con npm test, npm run lint, npm run typecheck, npm run build,
+   npm run verify:pagos y npm run verify:security. Las suites Oracle usan esquemas desechables.
+5. Sin migraciones ni cambios de cálculo pendientes. El código específico de empresa no se
+   agregó al modelo; se usa su NIT conforme al supuesto anterior.

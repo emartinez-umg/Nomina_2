@@ -44,7 +44,7 @@ export const ayudaSimular: DefinicionAyuda = {
       elemento: 'pago-descargas',
       titulo: 'Boletas, cierre y reversión',
       descripcion:
-        'La vista previa lleva SIMULACIÓN. Tras pagar, las boletas archivadas se descargan individualmente desde Planilla o juntas en ZIP con carpetas por departamento. Ya están disponibles en el portal. Revisa, aprueba y cierra el periodo desde Planilla. Solo ADMIN puede revertir con motivo antes del cierre; primero debe revertir los pagos posteriores dependientes. La reversión devuelve cuotas y novedades, conserva el PDF histórico y retira la boleta del portal.',
+        'La vista previa lleva SIMULACIÓN en ambas copias. Las boletas regulares tienen dos copias idénticas en una hoja carta y se nombran con las fechas reales del periodo; el anticipo agrega Anticipo al inicio del nombre. En el ZIP cada archivo añade el código del empleado. Tras pagar, las boletas archivadas se descargan individualmente desde Planilla o juntas en ZIP con carpetas por departamento. Ya están disponibles en el portal. Revisa, aprueba y cierra el periodo desde Planilla. Solo ADMIN puede revertir con motivo antes del cierre; primero debe revertir los pagos posteriores dependientes. La reversión devuelve cuotas y novedades, conserva el PDF histórico y retira la boleta del portal.',
     },
   ],
 };

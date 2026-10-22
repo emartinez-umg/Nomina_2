@@ -54,6 +54,7 @@ async function recuperarCsrf(notificarSesion = true) {
   await recuperando;
 }
 interface Opciones {
+  archivo?: boolean;
   timeoutMs?: number;
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -80,14 +81,37 @@ export async function solicitar<T>(
       cache: 'no-store',
       signal: controller.signal,
       headers: {
-        Accept: 'application/json',
+        Accept: opciones.archivo
+          ? 'application/pdf, application/zip, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json;q=0.5'
+          : 'application/json',
         ...(method !== 'GET'
           ? { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf ?? '' }
           : {}),
       },
       ...(opciones.body !== undefined ? { body: JSON.stringify(opciones.body) } : {}),
     });
-    const cuerpo: unknown = await response.json();
+    let cuerpo: unknown;
+    if (
+      opciones.archivo &&
+      response.ok &&
+      !response.headers.get('Content-Type')?.includes('application/json')
+    ) {
+      const disposicion = response.headers.get('Content-Disposition') ?? '';
+      const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposicion)?.[1];
+      const nombre = utf8 ? decodeURIComponent(utf8) : /filename="([^"]+)"/i.exec(disposicion)?.[1];
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      let binario = '';
+      for (let i = 0; i < bytes.length; i += 32768)
+        binario += String.fromCharCode(...bytes.subarray(i, i + 32768));
+      cuerpo = {
+        ok: true,
+        data: {
+          nombre: nombre ?? 'descarga.pdf',
+          tipo: response.headers.get('Content-Type')?.split(';')[0],
+          base64: btoa(binario),
+        },
+      };
+    } else cuerpo = await response.json();
     if (controller.signal.aborted) throw new DOMException('Solicitud cancelada', 'AbortError');
     if (!response.ok) {
       const parseado = errorSchema.safeParse(cuerpo);

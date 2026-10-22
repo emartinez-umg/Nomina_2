@@ -927,6 +927,10 @@ function DetalleBoleta({
                   {a}
                 </p>
               ))}
+              <p className="campo-hint">
+                Las boletas de anticipo y pago incluyen dos copias en una hoja carta. La vista
+                previa y la descarga usan el mismo PDF; su nombre indica el periodo liquidado.
+              </p>
               <div className="flex flex-wrap gap-3">
                 <Button icono="ver" onClick={preview}>
                   Vista previa PDF

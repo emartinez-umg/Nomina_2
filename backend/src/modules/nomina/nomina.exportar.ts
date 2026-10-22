@@ -9,6 +9,9 @@ import { ErrorConflicto } from '../../shared/errors/errors.js';
 import type { Entrada, Resultado } from './nomina.types.js';
 import type { FilaNomina, Guardado } from './nomina.repository.js';
 import type { FormatoIgss } from './nomina.schemas.js';
+import { generarBoletasPdf, esPrestacion } from './boleta.pdf.js';
+import type { DatosBoleta } from './boleta.pdf.js';
+export { nombreBoleta, tituloBoleta, nombreLoteBoletas } from './boleta.pdf.js';
 export interface Snapshot {
   entrada: Entrada;
   resultado: Resultado;
@@ -29,7 +32,9 @@ export function boletasPdf(
   filas: Guardado[],
   empresa: IdentidadEmpresa,
   firmas: Map<number, FirmaDocumento> = new Map(),
+  datos: Map<number, DatosBoleta> = new Map(),
 ) {
+  if (filas.every((n) => !esPrestacion(n))) return generarBoletasPdf(filas, empresa, datos);
   return generarPdf('Boletas de pago', empresa, (doc) => {
     filas.forEach((fila, i) => {
       if (i) doc.addPage();

@@ -1,7 +1,7 @@
 import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaNomina: DefinicionAyuda = {
-  id: 'nomina-acumulados-automaticos',
+  id: 'nomina-boletas-carta',
   pasos: [
     pasoSelectorEmpleado,
     {
@@ -22,7 +22,7 @@ export const ayudaNomina: DefinicionAyuda = {
       elemento: 'nomina-detalle',
       titulo: 'Comprobar los conceptos de la boleta',
       descripcion:
-        'Verifica empleado, intervalo, versión y estado. Compara ingresos, deducciones y neto; cada línea explica base, cantidad, tasa y banderas de IGSS/ISR. Descargar PDF conserva la boleta archivada del pago v1; en históricos v0 se usa la versión cerrada. Si un importe pagado no corresponde, ADMIN revierte antes del cierre y RRHH vuelve a simular.',
+        'Verifica empleado, intervalo, versión y estado. Compara ingresos, deducciones y neto; cada línea explica base, cantidad, tasa y banderas de IGSS/ISR. Vista previa y Descargar PDF usan el mismo documento: dos copias idénticas por hoja carta, ingresos a la izquierda, descuentos a la derecha y líquido al pie. El nombre indica Anticipo cuando corresponde y las fechas del periodo liquidado. Los importes provienen del cálculo guardado, sin recalcularlo. Si un importe pagado no corresponde, ADMIN revierte antes del cierre y RRHH vuelve a simular.',
     },
     {
       elemento: 'nomina-confirmar',
@@ -90,13 +90,13 @@ export const ayudaNomina: DefinicionAyuda = {
       elemento: 'nomina-tabla',
       titulo: 'Detalle y boletas',
       descripcion:
-        'Abre el detalle para comprobar cada concepto, su base, cantidad, tasa y efecto en IGSS/ISR. Las boletas conservan la versión histórica del cálculo. El empleado consulta sus boletas pagadas desde la confirmación, además de los periodos históricos cerrados. Los PDF v1 archivados conservan membrete, firma y cálculo originales. Una reversión retira la boleta del portal y conserva su historial.',
+        'Abre el detalle para comprobar cada concepto, su base, cantidad, tasa y efecto en IGSS/ISR. Las boletas conservan la versión histórica del cálculo. El empleado consulta sus boletas pagadas desde la confirmación, además de los periodos históricos cerrados. Las boletas regulares muestran dos copias en una hoja carta y espacio de firma para el empleado. Las boletas anteriores se presentan con el diseño nuevo sin reemplazar el archivo original ni cambiar sus importes. Las prestaciones mantienen su membrete y firma de RRHH. Una reversión retira la boleta del portal y conserva su historial.',
     },
     {
       elemento: 'nomina-exportar',
       titulo: 'Excel, PDF e IGSS',
       descripcion:
-        'Excel y PDF descargan todos los resultados de tus filtros; Boletas descarga un ZIP con PDFs archivados en v1; los históricos v0 conservan su PDF masivo. IGSS toma el devengado del pago mensual cerrado, sin sumar otra vez el anticipo; los históricos v0 consolidan ambas quincenas cerradas y se exige configurar los códigos patronales, centros, tipos y nombres registrados. La descarga no presenta la declaración al IGSS.',
+        'Excel y PDF descargan todos los resultados de tus filtros; Boletas descarga un ZIP en v1 con el periodo y código del empleado en cada nombre para evitar duplicados; los históricos v0 conservan un PDF masivo con una hoja por empleado y dos copias por hoja. IGSS toma el devengado del pago mensual cerrado, sin sumar otra vez el anticipo; los históricos v0 consolidan ambas quincenas cerradas y se exige configurar los códigos patronales, centros, tipos y nombres registrados. La descarga no presenta la declaración al IGSS.',
       roles: ['ADMIN', 'RH'],
     },
     {

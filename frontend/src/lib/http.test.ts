@@ -9,6 +9,49 @@ const response = (status: number, cuerpo: unknown) => ({
 });
 beforeEach(() => guardarCsrf());
 describe('cliente HTTP', () => {
+  it('descarga binaria conserva bytes y toma el nombre UTF-8 de Content-Disposition', async () => {
+    const bytes = Uint8Array.from([37, 80, 68, 70, 45, 0, 255]);
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition':
+          "attachment; filename=nomina.pdf; filename*=UTF-8''Anticipo%20-%20Jos%C3%A9.pdf",
+      }),
+      arrayBuffer: async () => bytes.buffer,
+    });
+    vi.stubGlobal('fetch', fetch);
+    const r = await solicitar(
+      '/nomina/boletas/1/pdf',
+      z.object({ nombre: z.string(), tipo: z.string(), base64: z.string() }),
+      { archivo: true },
+    );
+    expect(r.nombre).toBe('Anticipo - José.pdf');
+    expect(r.tipo).toBe('application/pdf');
+    expect(Uint8Array.from(atob(r.base64), (c) => c.charCodeAt(0))).toEqual(bytes);
+    expect(fetch.mock.calls[0]?.[1].headers.Accept).toContain('application/pdf');
+  });
+  it('una descarga rechazada sigue notificando la expiración y conserva el error en español', async () => {
+    const evento = vi.fn();
+    window.addEventListener('nomina2:sesion-expirada', evento);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        response(401, {
+          error: { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para continuar.' },
+        }),
+      ),
+    );
+    try {
+      await expect(
+        solicitar('/nomina/boletas/1/pdf', z.object({}), { archivo: true }),
+      ).rejects.toMatchObject({ estado: 401, message: 'Inicia sesión para continuar.' });
+      expect(evento).toHaveBeenCalledOnce();
+    } finally {
+      window.removeEventListener('nomina2:sesion-expirada', evento);
+    }
+  });
   it('un 401 tardío de otra generación no invalida la sesión nueva', async () => {
     const evento = vi.fn();
     window.addEventListener('nomina2:sesion-expirada', evento);

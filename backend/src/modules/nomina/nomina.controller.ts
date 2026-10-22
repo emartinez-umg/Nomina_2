@@ -7,6 +7,7 @@ import { idSchema } from '../auditoria/auditoria.schemas.js';
 import { sinDatos } from '../auth/auth.schemas.js';
 import { crearSchema, querySchema } from './nomina.schemas.js';
 import type { crearNominaService } from './nomina.service.js';
+import { responderArchivo } from '../../shared/utils/archivo.js';
 export function crearNominaController(s: ReturnType<typeof crearNominaService>) {
   const id = (r: Request) => z.object({ id: idSchema }).strict().parse(r.params).id;
   const auth = (r: Request) => autenticacionDe(r),
@@ -23,7 +24,7 @@ export function crearNominaController(s: ReturnType<typeof crearNominaService>) 
     },
     previewPago: async (r: Request, res: Response) => {
       sinDatos.parse(r.query);
-      ok(res, await s.previewPago(r.body, id(r)));
+      responderArchivo(r, res, await s.previewPago(r.body, id(r)));
     },
     revertirPago: async (r: Request, res: Response) => {
       sinDatos.parse(r.query);
@@ -38,7 +39,7 @@ export function crearNominaController(s: ReturnType<typeof crearNominaService>) 
         })
         .strict()
         .parse(r.query);
-      ok(res, await s.zipPagos(q));
+      responderArchivo(r, res, await s.zipPagos(q));
     },
     periodos: async (r: Request, res: Response) =>
       ok(res, await s.periodos(querySchema.parse(r.query))),
@@ -62,10 +63,11 @@ export function crearNominaController(s: ReturnType<typeof crearNominaService>) 
     },
     boleta: async (r: Request, res: Response) => {
       sinDatos.parse(r.query);
-      ok(res, await s.boleta(auth(r), id(r)));
+      responderArchivo(r, res, await s.boleta(auth(r), id(r)));
     },
     exportar: (formato: 'excel' | 'pdf' | 'boletas') => async (r: Request, res: Response) =>
-      ok(
+      responderArchivo(
+        r,
         res,
         await s.exportar(
           auth(r),

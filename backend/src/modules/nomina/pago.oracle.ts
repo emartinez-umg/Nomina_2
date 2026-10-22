@@ -5,6 +5,9 @@ import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import type { BindParameters } from 'oracledb';
+import oracledb from 'oracledb';
+import { generarPdf } from '../../shared/pdf/documento.js';
+import { empresaPrueba } from '../../shared/pdf/documento.fixture.js';
 import { unzipSync } from 'fflate';
 import { crearApp } from '../../app.js';
 import { crearBaseDatos } from '../../shared/db/pool.js';
@@ -279,6 +282,16 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
     await post(rh, '/pagar', { ...objetivo('ANTICIPO'), hash: r.hash, confirmado: true }, 400);
     const preview = await post(rh, `/simular/${empleado}/pdf`, objetivo('ANTICIPO'));
     expect(Buffer.from(preview.body.data.base64, 'base64').subarray(0, 4).toString()).toBe('%PDF');
+    expect(preview.body.data.nombre).toBe(
+      'Anticipo - Planilla General del 01-01-2026 al 15-01-2026.pdf',
+    );
+    expect(Buffer.from(preview.body.data.base64, 'base64').toString('latin1')).toContain(
+      '/Count 1',
+    );
+    await writeFile(
+      '../tmp/pdfs/anticipo-dos-copias.pdf',
+      Buffer.from(preview.body.data.base64, 'base64'),
+    );
   });
   it('invalida la simulación si cambia una novedad', async () => {
     const r = await simular(objetivo('ANTICIPO'));
@@ -350,9 +363,39 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
       .get('/api/nomina/pagos/zip')
       .query({ mes: '2026-01', idDepartamento: dep })
       .expect(200);
-    expect(Object.keys(unzipSync(Buffer.from(z.body.data.base64, 'base64')))).toHaveLength(2);
+    const entradas = unzipSync(Buffer.from(z.body.data.base64, 'base64'));
+    expect(Object.keys(entradas)).toHaveLength(2);
+    expect(
+      Object.keys(entradas).some((n) =>
+        /Anticipo - Planilla General del 01-01-2026 al 15-01-2026 - EMP_/.test(n),
+      ),
+    ).toBe(true);
+    expect(
+      Object.keys(entradas).some((n) =>
+        /Planilla General del 01-01-2026 al 31-01-2026 - EMP_/.test(n),
+      ),
+    ).toBe(true);
+    for (const [nombre, bytes] of Object.entries(entradas)) {
+      const titulo = nombre.split('/').at(-1)!.slice(0, -4);
+      expect(Buffer.from(bytes).toString('latin1')).toContain(
+        `/Title <feff${Buffer.from(titulo, 'utf16le').swap16().toString('hex')}>`,
+      );
+      await writeFile(`../tmp/pdfs/${nombre.split('/').at(-1)}`, bytes);
+    }
+    expect(z.body.data.nombre).toBe('Planilla General del 01-01-2026 al 31-01-2026.zip');
     await propio.agent.get('/api/nomina/pagos/zip').query({ mes: '2026-01' }).expect(403);
     const pdf = await propio.agent.get(`/api/nomina/boletas/${pagoId}/pdf`).expect(200);
+    expect(pdf.body.data.nombre).toBe('Planilla General del 01-01-2026 al 31-01-2026.pdf');
+    const rhPdf = await rh.agent.get(`/api/nomina/boletas/${pagoId}/pdf`).expect(200);
+    expect(rhPdf.body.data).toEqual(pdf.body.data);
+    const binario = await propio.agent
+      .get(`/api/nomina/boletas/${pagoId}/pdf`)
+      .set('Accept', 'application/pdf')
+      .expect(200);
+    expect(binario.body).toEqual(Buffer.from(pdf.body.data.base64, 'base64'));
+    expect(binario.headers['content-disposition']).toContain(
+      "filename*=UTF-8''Planilla%20General%20del%2001-01-2026%20al%2031-01-2026.pdf",
+    );
     await ejecutar("UPDATE CONFIGURACION_EMPRESA SET RAZON_SOCIAL='Empresa con nuevo nombre'");
     const otra = await propio.agent.get(`/api/nomina/boletas/${pagoId}/pdf`).expect(200);
     expect(otra.body.data.base64).toBe(pdf.body.data.base64);
@@ -378,6 +421,45 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
         'OTRO_DESCUENTO',
       ]),
     );
+  });
+  it('presenta boletas archivadas anteriores con el diseño nuevo sin modificar PDF ni cálculo guardados', async () => {
+    const anterior = await generarPdf('Boleta anterior', empresaPrueba, (doc) =>
+      doc.text('Presentación anterior'),
+    );
+    const original = await propio.agent.get(`/api/nomina/boletas/${pagoId}/pdf`).expect(200);
+    const antes = (await rh.agent.get(`/api/nomina/boletas/${pagoId}`).expect(200)).body.data;
+    try {
+      await ejecutar('UPDATE BOLETAS_PAGO SET CONTENIDO_PDF=:pdf WHERE ID_NOMINA_EMPLEADO=:id', {
+        id: pagoId,
+        pdf: { val: anterior, type: oracledb.BLOB },
+      });
+      const nuevo = await propio.agent.get(`/api/nomina/boletas/${pagoId}/pdf`).expect(200);
+      const pdf = Buffer.from(nuevo.body.data.base64, 'base64');
+      expect(pdf.toString('latin1')).toContain('nomina2:boleta:v2');
+      expect(pdf.toString('latin1')).toContain('/Count 1');
+      const guardado = await db.conConexion(
+        async (c) =>
+          (
+            await c.execute<{ pdf: Buffer }>(
+              'SELECT CONTENIDO_PDF "pdf" FROM BOLETAS_PAGO WHERE ID_NOMINA_EMPLEADO=:id',
+              { id: pagoId },
+              {
+                outFormat: oracledb.OUT_FORMAT_OBJECT,
+                fetchInfo: { pdf: { type: oracledb.BUFFER } },
+              },
+            )
+          ).rows![0]!.pdf,
+      );
+      expect(guardado).toEqual(anterior);
+      expect((await rh.agent.get(`/api/nomina/boletas/${pagoId}`).expect(200)).body.data).toEqual(
+        antes,
+      );
+    } finally {
+      await ejecutar('UPDATE BOLETAS_PAGO SET CONTENIDO_PDF=:pdf WHERE ID_NOMINA_EMPLEADO=:id', {
+        id: pagoId,
+        pdf: { val: Buffer.from(original.body.data.base64, 'base64'), type: oracledb.BLOB },
+      });
+    }
   });
   it('reversión ADMIN con motivo, dependencias y restitución exacta; versión histórica conservada', async () => {
     await post(

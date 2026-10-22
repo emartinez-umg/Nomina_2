@@ -448,8 +448,9 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
             </Button>
           </div>
           <p className="campo-hint">
-            ZIP del mes y objetivo seleccionados, organizado en carpetas por departamento. Revisión,
-            aprobación y cierre disponibles en Planilla.
+            ZIP del mes y objetivo seleccionados, organizado en carpetas por departamento. Cada PDF
+            lleva el periodo y el código del empleado en su nombre; las boletas regulares incluyen
+            dos copias en una hoja carta. Revisión, aprobación y cierre disponibles en Planilla.
           </p>
         </section>
       </Card>

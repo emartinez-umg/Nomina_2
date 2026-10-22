@@ -40,6 +40,8 @@ import { simularSchema, pagarSchema, revertirPagoSchema } from './pago.schemas.j
 import * as repo from './nomina.repository.js';
 import * as pago from './pago.repository.js';
 import * as exportar from './nomina.exportar.js';
+import { pdfBoleta } from './boleta.service.js';
+import { datosBoletas } from './boleta.repository.js';
 const hashDe = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
 interface FilaSimulacion {
   idEmpleado: number;
@@ -268,10 +270,11 @@ export function crearPagosService(db: BaseDatos) {
           estado: 'SIMULACION',
           version: 0,
           snapshot: JSON.stringify({ entrada: e, resultado: f.resultado }),
+          fechaPago: r.fechaPago,
         };
         return exportar.archivo(
-          await exportar.boletasPdf([n], await membrete(c)),
-          'simulacion.pdf',
+          await exportar.boletasPdf([n], await membrete(c), new Map(), await datosBoletas(c, [n])),
+          exportar.nombreBoleta(n),
           'application/pdf',
         );
       }),
@@ -364,8 +367,14 @@ export function crearPagosService(db: BaseDatos) {
             estado: 'PAGADO',
             version,
             snapshot: JSON.stringify({ entrada: e, resultado }),
+            fechaPago: r.fechaPago,
           };
-          const pdf = await exportar.boletasPdf([n], empresa, new Map([[id, firma]]));
+          const pdf = await exportar.boletasPdf(
+            [n],
+            empresa,
+            new Map([[id, firma]]),
+            await datosBoletas(c, [n]),
+          );
           await pago.archivarBoleta(
             c,
             id,
@@ -466,6 +475,7 @@ export function crearPagosService(db: BaseDatos) {
             'Selecciona un departamento para descargar un máximo de 10,000 boletas.',
           );
         const archivos: Record<string, Uint8Array> = {};
+        const boletas: repo.Guardado[] = [];
         for (let pagina = 1; (pagina - 1) * 100 < r.total; pagina++) {
           const lote =
             pagina === 1
@@ -481,18 +491,20 @@ export function crearPagosService(db: BaseDatos) {
                   ...(q.idEmpleado ? { idEmpleado: q.idEmpleado } : {}),
                 });
           for (const f of lote.registros) {
-            const pdf = await pago.boletaArchivada(c, f.id);
-            if (pdf)
+            const n = (await repo.resultado(c, f.id))!;
+            if (n.pagado) {
+              boletas.push(n);
               archivos[
-                `departamento-${exportar.snapshot((await repo.resultado(c, f.id))!).entrada.empleado.idDepartamento}/boleta-${f.id}.pdf`
-              ] = pdf;
+                `departamento-${exportar.snapshot(n).entrada.empleado.idDepartamento}/${exportar.nombreBoleta(n, true)}`
+              ] = await pdfBoleta(c, n, true);
+            }
           }
         }
         if (!Object.keys(archivos).length)
           throw new ErrorConflicto('No hay boletas pagadas para este mes y departamento.');
         return exportar.archivo(
           Buffer.from(zipSync(archivos)),
-          `boletas-${q.mes}.zip`,
+          exportar.nombreLoteBoletas(boletas, 'zip'),
           'application/zip',
         );
       }),
