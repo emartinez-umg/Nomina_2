@@ -758,4 +758,107 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
       ),
     ).toBe(1);
   });
+  it('acumulados automáticos: simula sin escrituras, archiva la estimación y conserva sus importes', async () => {
+    const u = await enTransaccion(db, (c) =>
+      crearUsuarioInterno(c, actor, {
+        nombre: 'Automatico',
+        apellido: 'Fiscal',
+        correo: 'auto.fiscal@example.test',
+        rol: 'EMPLEADO',
+      }),
+    );
+    await ejecutar(
+      "INSERT INTO EMPLEADOS(ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) SELECT :usuario,'Automatico','Fiscal','9876543210888','9876543-8',DATE '1990-01-01','F','SOLTERO','Guatemala','55551234','auto.fiscal@example.test',ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,DATE '2026-01-01' FROM EMPLEADOS WHERE ID_EMPLEADO=:id",
+      { usuario: u.idUsuario, id: empleado },
+    );
+    const id = Number(
+      await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE ID_USUARIO=:u', { u: u.idUsuario }),
+    );
+    await ejecutar(
+      "INSERT INTO HISTORIAL_SALARIAL(ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES(:id,10000,DATE '2026-01-01','Salario inicial de simulación')",
+      { id },
+    );
+    await ejecutar(
+      "INSERT INTO EMPLEADO_HORARIO(ID_EMPLEADO,ID_HORARIO,VIGENTE_DESDE,MOTIVO) SELECT :id,MIN(ID_HORARIO),DATE '2026-01-01','Horario inicial de simulación' FROM HORARIOS",
+      { id },
+    );
+    const d: ObjetivoPago = {
+      mes: '2026-09',
+      tipoPago: 'PAGO',
+      objetivo: 'EMPLEADO',
+      idEmpleado: id,
+    };
+    const contar = () =>
+      escalar('SELECT COUNT(*) FROM NOMINA_EMPLEADO WHERE ID_EMPLEADO=:id', { id });
+    const r = await simular(d);
+    expect(r.registros[0].resultado.estimacionFiscal).toMatchObject({
+      renta: '82000.00',
+      igss: '3864.00',
+      isr: '2306.80',
+    });
+    expect(r.registros[0].resultado.neto).toBe('9478.65');
+    expect(Number(await contar())).toBe(0);
+    expect(
+      Number(await escalar('SELECT COUNT(*) FROM ISR_APERTURAS WHERE ID_EMPLEADO=:id', { id })),
+    ).toBe(0);
+    const actual = await simular(d);
+    expect(actual.hash).toBe(r.hash);
+    await ejecutar('UPDATE HISTORIAL_SALARIAL SET SALARIO_BASE=11000 WHERE ID_EMPLEADO=:id', {
+      id,
+    });
+    await pagar(d, r.hash, 409);
+    expect(Number(await contar())).toBe(0);
+    await ejecutar('UPDATE HISTORIAL_SALARIAL SET SALARIO_BASE=10000 WHERE ID_EMPLEADO=:id', {
+      id,
+    });
+    const listo = await simular(d),
+      p = await pagar(d, listo.hash),
+      n = p.body.data.pagados[0];
+    const detalle = await rh.agent.get(`/api/nomina/boletas/${n}`).expect(200);
+    expect(detalle.body.data.resultado.estimacionFiscal).toEqual(
+      listo.registros[0].resultado.estimacionFiscal,
+    );
+    const periodo = await rh.agent.get(`/api/nomina/periodos/${p.body.data.idPeriodo}`).expect(200);
+    expect(
+      periodo.body.data.estimaciones.some(
+        (e: { estimacion: { renta: string } }) => e.estimacion.renta === '82000.00',
+      ),
+    ).toBe(true);
+    const pdf = await rh.agent.get(`/api/nomina/boletas/${n}/pdf`).expect(200);
+    await writeFile(
+      '../tmp/pdfs/acumulados-automaticos.pdf',
+      Buffer.from(pdf.body.data.base64, 'base64'),
+    );
+    await pagar(d, listo.hash, 409);
+    const siguiente = await simular({ ...d, mes: '2026-10' });
+    expect(siguiente.registros[0].resultado.isr.retenido).toBe('2595.15');
+    expect(siguiente.registros[0].resultado.estimacionFiscal).toEqual(
+      listo.registros[0].resultado.estimacionFiscal,
+    );
+    expect(Number(await contar())).toBe(1);
+    expect(
+      Number(await escalar('SELECT COUNT(*) FROM ISR_APERTURAS WHERE ID_EMPLEADO=:id', { id })),
+    ).toBe(0);
+    // Aísla una quincena v0 en este esquema desechable: reproduce la pantalla reportada.
+    await ejecutar(
+      "UPDATE EMPLEADOS SET ACTIVO=0 WHERE ID_EMPLEADO<>:id AND FECHA_INGRESO<=DATE '2026-10-15'",
+      { id },
+    );
+    await ejecutar("UPDATE PERIODOS_NOMINA SET ACTIVO=0 WHERE ESTADO<>'CERRADO'");
+    const creado = await post(rh, '/periodos', { fecha: '2026-10-01' }, 201);
+    const historico = creado.body.data.id;
+    await ejecutar("UPDATE PERIODOS_NOMINA SET MOTOR='V0' WHERE ID_PERIODO_NOMINA=:id", {
+      id: historico,
+    });
+    const calculado = await post(rh, `/periodos/${historico}/calcular`, {
+      version: 0,
+      confirmado: true,
+    });
+    expect(calculado.body.data.alertas).toEqual([]);
+    const vista = await rh.agent.get(`/api/nomina/periodos/${historico}`).expect(200);
+    expect(vista.body.data.empleados).toBe(1);
+    expect(vista.body.data.estimaciones).toHaveLength(1);
+    for (const accion of ['revisar', 'aprobar', 'cerrar'])
+      await post(rh, `/periodos/${historico}/${accion}`, { version: 1, confirmado: true });
+  });
 });

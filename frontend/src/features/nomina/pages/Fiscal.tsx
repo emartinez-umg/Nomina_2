@@ -119,8 +119,10 @@ export function Fiscal() {
     <section data-tour="nomina-fiscal">
       <FormDraftNotice draft={draft} />
       <p className="campo-hint my-4">
-        Registra únicamente importes acreditados. La apertura certifica pagos anteriores al sistema
-        y se permite una sola vez por empleado/año, antes de aprobar su primera nómina.
+        La planilla estima automáticamente los acumulados faltantes a partir del salario y el
+        incentivo para el proyecto académico. Usa este formulario si necesitas sustituir esa
+        estimación con importes acreditados. La apertura certifica pagos anteriores al sistema y se
+        permite una sola vez por empleado/año, antes de aprobar su primera nómina.
       </p>
       <FormGrid>
         <SelectField

@@ -125,6 +125,23 @@ export function boletasPdf(
         .text(
           `Identificador: ${fila.id} · ${fila.estado}. Generada desde el detalle y las vigencias conservadas del cálculo.`,
         );
+      if (r.estimacionFiscal) {
+        if (doc.y > 625) {
+          doc.addPage();
+          cabecera();
+        }
+        const fiscal = r.estimacionFiscal;
+        doc
+          .moveDown()
+          .fillColor('#52606D')
+          .font('Helvetica')
+          .fontSize(9)
+          .text('Acumulados anteriores estimados automáticamente para la simulación académica.')
+          .text(
+            `Salario e incentivo: renta ${q(fiscal.renta)} · IGSS ${q(fiscal.igss)} · ISR teórico ${q(fiscal.isr)}.`,
+          )
+          .text('No representan pagos históricos ni constancias de retención.');
+      }
       const firma = firmas.get(fila.id);
       if (firma) bloqueFirma(doc, firma);
     });

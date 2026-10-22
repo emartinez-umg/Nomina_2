@@ -4,7 +4,33 @@ RH/ADMIN usa Nómina → Simular pago (`/nomina/simular`): elige mes actual o an
 un departamento o todos. Bono 14 y Aguinaldo permanecen deshabilitados hasta V1-11.
 Simular abre una transacción de solo lectura: no crea periodos, resultados, documentos ni cargos.
 La tabla muestra devengado/neto, totales de habilitados y alertas individuales. Vista previa PDF
-incluye «SIMULACIÓN». Completar salario, horario, historia fiscal o tarifa habilita una nueva simulación.
+incluye «SIMULACIÓN». Completar salario, horario o tarifa habilita una nueva simulación.
+
+## Acumulados automáticos para el proyecto académico
+
+Calcular/Recalcular en Planilla y Simular pago completan los intervalos fiscales faltantes desde
+el 1 de enero o el ingreso, lo que ocurra después. Se utilizan las vigencias salariales y los
+parámetros/conceptos/tramos de Oracle mediante los motores existentes; no se multiplica el salario
+actual por todos los meses ni se codifican tasas nuevas. Meses completos v1 usan el motor mensual;
+la planilla v0 y los huecos parciales usan el quincenal. Se prorratea el alta y se redondea con Decimal.
+
+La reconstrucción incluye salario e incentivo, IGSS e ISR teórico. No presume comisiones, horas,
+ausencias, deducciones acreditadas ni cuotas de periodos sin pago registrado. Las novedades del
+pago actual, incluidas retroactivas, siguen su cálculo habitual. Aperturas y pagos existentes tienen
+prioridad, sin duplicación; las vigencias faltantes o ambiguas siguen generando un bloqueo claro.
+
+La interfaz muestra «Acumulados fiscales automáticos», con desglose por empleado y por intervalo
+en el detalle de boleta. Es informativo: RRHH revisa los importes y continúa con el flujo habitual,
+sin registrar aperturas individuales. No se crean pagos anteriores ni filas de ISR_APERTURAS.
+El snapshot y el PDF identifican la estimación académica. Al pagar/cerrar se conserva, y los meses
+siguientes reutilizan esos importes para que un cambio posterior de fuentes no reescriba la historia.
+Simular no escribe; el hash de fuentes sigue invalidando una confirmación desactualizada.
+
+Supuesto aprobado el 22/10/2026: el usuario confirmó que todos los datos son simulados y el sistema
+se usa para un curso de Análisis de Sistemas. La reconstrucción es una estimación, no acredita
+retenciones practicadas fuera del sistema. Para una implementación real se debe validar la apertura
+con registros/constancias y revisar esta política. Referencia: [orientación oficial de SAT sobre
+retenciones del trabajo](https://portal.sat.gob.gt/portal/descarga/1817/orientacion-legal-y-derechos-de-contribuyentes/11575/obligaciones-tributarias-de-los-patronos-como-agentes-de-retencion-del-impuesto-sobre-la-renta-generado-por-rentas-del-trabajo-en-relacion-de-dependencia.pdf).
 
 La lista de verificación cuenta empleados con HE, comisiones, consumos, ausencias, retroactivas y
 alertas. Marcar «Confirmo que las novedades del mes están completas» habilita la confirmación final.
@@ -75,7 +101,7 @@ las ya aplicadas permanecen protegidas. IGSS del mes cerrado toma la base del Pa
 V029 agrega MOTOR sin alterar snapshots ni SQL anteriores: los periodos existentes quedan V0,
 salvo abiertos sin resultados, que pasan a V1; nuevos periodos operativos usan V1. Un periodo con
 resultados v0 conserva su motor y no puede mezclarse con pagos v1: terminarlo y comenzar en un mes
-completo siguiente, con continuidad fiscal certificada cuando corresponda.
+completo siguiente, con los acumulados automáticos académicos o una apertura acreditada.
 
 Descuentos/préstamos conservan MONTO_QUINCENA como nombre interno de compatibilidad y como monto
 ahora **mensual**: no se duplica ni divide. Se conservan número de cuotas, capital, saldo, pagos y

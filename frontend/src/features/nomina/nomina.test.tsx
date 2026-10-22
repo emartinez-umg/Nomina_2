@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { AccionesPeriodo, BoletaMovil } from './pages/NominaPage';
 import type { Periodo } from './api/nomina';
 import { alertasDe, query } from './api/nomina';
+import { AcumuladosAutomaticos } from './pages/AcumuladosAutomaticos';
 const p: Periodo = {
   id: 1,
   inicio: '2026-01-01',
@@ -13,6 +14,34 @@ const p: Periodo = {
   alertas: [],
 };
 describe('Planilla: prevención de errores en el flujo', () => {
+  it('una estimación informativa no bloquea la revisión de la planilla', () => {
+    render(
+      <AccionesPeriodo
+        p={{
+          ...p,
+          estimaciones: [
+            {
+              empleado: 'EMP_PRU_0001',
+              estimacion: {
+                renta: '29250.00',
+                igss: '1304.10',
+                isr: '0.00',
+                periodos: [],
+              },
+            },
+          ],
+        }}
+        admin={false}
+        ocupado={false}
+        onAccion={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Marcar revisada' })).toBeEnabled();
+  });
+  it('sin huecos fiscales no presenta avisos de estimación', () => {
+    const { container } = render(<AcumuladosAutomaticos estimaciones={[]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
   it('calculado permite revisar y recalcular, pero impide saltar a aprobación/cierre', () => {
     const fn = vi.fn();
     render(<AccionesPeriodo p={p} admin={false} ocupado={false} onAccion={fn} />);

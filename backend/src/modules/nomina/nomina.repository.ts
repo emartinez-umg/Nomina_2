@@ -13,6 +13,7 @@ import type {
   Descuento,
   Resultado,
   Periodo,
+  PeriodoFiscalEstimado,
 } from './nomina.types.js';
 import type { Query } from './nomina.schemas.js';
 import { ErrorConflicto } from '../../shared/errors/errors.js';
@@ -168,8 +169,19 @@ export async function fuentes(
       `SELECT TO_CHAR(CASE WHEN P.MOTOR='V1' THEN TRUNC(P.FECHA_INICIO,'MM') ELSE P.FECHA_INICIO END,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",${str("SUM(CASE WHEN D.AFECTA_ISR=1 AND D.NATURALEZA='INGRESO' THEN D.MONTO WHEN C.CODIGO='AUSENCIA_SIN_GOCE' AND D.AFECTA_ISR=1 THEN -D.MONTO ELSE 0 END)")} "renta",${str("SUM(CASE WHEN C.CODIGO='IGSS_LABORAL' THEN D.MONTO ELSE 0 END)")} "igss",${str("SUM(CASE WHEN C.CODIGO='ISR' THEN D.MONTO WHEN C.CODIGO='ISR_DEVOLUCION' THEN -D.MONTO ELSE 0 END)")} "isr" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA JOIN NOMINA_DETALLE D ON D.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO JOIN CONCEPTOS_NOMINA C ON C.ID_CONCEPTO_NOMINA=D.ID_CONCEPTO_NOMINA WHERE N.ID_EMPLEADO=:id AND ((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO'))) AND ((P.MOTOR='V0' AND P.ESTADO='CERRADO') OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PM WHERE PM.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PM.TIPO_PAGO='PAGO' AND PM.ESTADO='PAGADO'))) AND P.FECHA_FIN<${fecha('inicio')} AND EXTRACT(YEAR FROM P.FECHA_INICIO)=:anio GROUP BY P.FECHA_INICIO,P.FECHA_FIN,P.MOTOR ORDER BY P.FECHA_INICIO`,
       { id, inicio: p.inicio, anio },
     );
+    const anterior = (
+      await filas<{ snapshot: string }>(
+        c,
+        `SELECT N.DATOS_EMPLEADO "snapshot" FROM NOMINA_EMPLEADO N JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE N.ID_EMPLEADO=:id AND P.FECHA_FIN<${fecha('inicio')} AND EXTRACT(YEAR FROM P.FECHA_INICIO)=:anio AND ((P.MOTOR='V0' AND P.ESTADO='CERRADO' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO' AND PN.TIPO_PAGO='PAGO'))) ORDER BY P.FECHA_FIN DESC FETCH FIRST 1 ROW ONLY`,
+        { id, inicio: p.inicio, anio },
+      )
+    )[0];
+    // Las estimaciones aceptadas conservan sus importes aunque después cambien las fuentes.
+    const estimados = anterior
+      ? ((JSON.parse(anterior.snapshot) as { entrada: Entrada }).entrada.estimacionFiscal
+          ?.periodos ?? [])
+      : [];
     const acumulado = { renta: '0', igss: '0', isr: '0' };
-    // La continuidad se verifica en el servicio por empleado; nunca se inventa historia salarial pagada.
     const prestaciones = await filas<Entrada['prestaciones'][number]>(
       c,
       `SELECT P.ID_PRESTACION "id",NVL(D.CONCEPTO,P.TIPO) "tipo",${str('NVL(D.MONTO,P.MONTO_TOTAL)')} "monto",${str('D.MONTO_EXENTO_ISR')} "exento" FROM PRESTACIONES P LEFT JOIN PRESTACION_DETALLE D ON D.ID_PRESTACION=P.ID_PRESTACION AND D.ACTIVO=1 WHERE P.ID_EMPLEADO=:id AND P.ACTIVO=1 AND P.ESTADO='PAGADA' AND EXTRACT(YEAR FROM P.FECHA_PAGO)=:anio AND P.FECHA_PAGO<=${fecha('fin')} ORDER BY P.ID_PRESTACION,D.ID_PRESTACION_DETALLE`,
@@ -193,14 +205,23 @@ export async function fuentes(
       deducciones,
       acumulado,
       prestaciones,
-      ...{ historia: { apertura: apertura ?? null, previos } },
+      ...{ historia: { apertura: apertura ?? null, previos, estimados } },
     });
   }
   return entradas;
 }
 export interface Historia {
+  estimados?: PeriodoFiscalEstimado[];
   apertura: { corte: string; renta: string; igss: string; isr: string } | null;
   previos: { inicio: string; fin: string; renta: string; igss: string; isr: string }[];
+}
+export async function estimacionesPeriodo(c: Connection, id: number) {
+  const registros = await resultados(c, id);
+  return registros.flatMap((n) => {
+    const s = JSON.parse(n.snapshot) as { entrada: Entrada; resultado: Resultado };
+    const estimacion = s.resultado.estimacionFiscal;
+    return estimacion ? [{ empleado: s.entrada.empleado.codigo, estimacion }] : [];
+  });
 }
 export async function guardarResultado(
   c: Connection,

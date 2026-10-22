@@ -94,6 +94,36 @@ beforeEach(() => {
   vi.mocked(api.simular).mockResolvedValue(resultado as api.Simulacion);
 });
 describe('A11: simulación guiada y confirmación', () => {
+  it('muestra el desglose automático sin exigir aperturas individuales ni bloquear la confirmación', async () => {
+    const datos = structuredClone(resultado);
+    Object.assign(datos.registros[0]!.resultado!, {
+      estimacionFiscal: {
+        renta: '92250.00',
+        igss: '4347.00',
+        isr: '2595.15',
+        periodos: [
+          {
+            inicio: '2026-01-01',
+            fin: '2026-09-30',
+            renta: '92250.00',
+            igss: '4347.00',
+            isr: '2595.15',
+            metodo: 'MENSUAL',
+          },
+        ],
+      },
+    });
+    vi.mocked(api.simular).mockResolvedValue(datos as api.Simulacion);
+    montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Simular' }));
+    await screen.findByRole('heading', { name: 'Acumulados fiscales automáticos' });
+    expect(screen.getByText(/historia faltante de 1 empleado/)).toBeVisible();
+    fireEvent.click(screen.getByText('Ver desglose de acumulados calculados'));
+    expect(screen.getAllByText('Q 92,250.00').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: 'Confirmar y pagar' })).toBeEnabled();
+    expect(api.pagar).not.toHaveBeenCalled();
+  });
   it('Bono 14 está habilitado y selecciona julio antes de simular', async () => {
     montar();
     fireEvent.focus(screen.getByRole('combobox', { name: 'Tipo de pago' }));

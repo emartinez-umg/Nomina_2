@@ -1,7 +1,7 @@
 import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaSimular: DefinicionAyuda = {
-  id: 'simular-pago-v1-11',
+  id: 'simular-pago-acumulados-automaticos',
   pasos: [
     pasoSelectorEmpleado,
     {
@@ -20,13 +20,19 @@ export const ayudaSimular: DefinicionAyuda = {
       elemento: 'pago-resultados',
       titulo: 'Revisa importes y bloqueos por empleado',
       descripcion:
-        'La tabla suma únicamente empleados habilitados. Cada alerta explica qué completar: salario, horario, historia fiscal, vehículo/tarifa o un neto negativo. Los demás empleados se pueden pagar. Una comisión u hora pagada en el anticipo permanece en el devengado del mes y en IGSS; se resta el anticipo completo para no pagarla dos veces. Las novedades de meses anteriores se identifican como retroactivas.',
+        'La tabla suma únicamente empleados habilitados. La historia fiscal faltante se estima automáticamente desde enero o el ingreso, usando las vigencias de salario, incentivo y parámetros. Las aperturas y los pagos registrados tienen prioridad. Revisa el bloque Acumulados fiscales automáticos: muestra renta, IGSS e ISR teórico de los intervalos faltantes. Es una estimación académica de salario e incentivo, sin inventar pagos anteriores ni novedades externas. Cada alerta explica qué completar: salario, horario, vehículo/tarifa o un neto negativo. Una comisión u hora pagada en el anticipo permanece en el devengado mensual y en IGSS; se resta el anticipo completo para no pagarla dos veces.',
+    },
+    {
+      elemento: 'nomina-acumulados',
+      titulo: 'Acumulados calculados automáticamente',
+      descripcion:
+        'Este bloque aparece cuando faltan periodos fiscales anteriores. Abre el desglose para revisar renta, IGSS e ISR teórico por empleado. Al abrir una boleta puedes revisar cada intervalo estimado. Las vigencias salariales permiten considerar aumentos e ingresos parciales. No se crean pagos pasados ni aperturas certificadas; los datos ya registrados conservan prioridad. La estimación se conserva con la boleta para los meses siguientes.',
     },
     {
       elemento: 'pago-verificacion',
       titulo: 'Completa las novedades antes de confirmar',
       descripcion:
-        'Los contadores indican empleados con horas extra, comisiones, consumo, ausencias, retroactivas y alertas. Compara con tus respaldos; cero significa que no hay cargas de ese tipo. Para prestaciones, revisa la historia salarial completa del ciclo, su proporción y las bases exenta y gravada. El excedente se incorpora al ISR mensual; la prestación no consume cuotas ni novedades. Marca obligatoriamente que las fuentes están completas. Cambiar datos o simular de nuevo retira esa confirmación.',
+        'Los contadores indican empleados con horas extra, comisiones, consumo, ausencias, retroactivas y alertas. Revisa también los acumulados automáticos si aparecen; abre el desglose para ver importes por empleado. No necesitas capturar una apertura individual para esta simulación académica. Para prestaciones, revisa la historia salarial completa del ciclo y las bases exenta y gravada. Marca que las fuentes están completas. Cambiar datos o simular de nuevo retira esa confirmación.',
     },
     {
       elemento: 'pago-confirmar',

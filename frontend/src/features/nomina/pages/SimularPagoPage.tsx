@@ -17,6 +17,7 @@ import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa'
 import { useToast } from '../../../components/ui/Toast';
 import { ayudaSimular } from '../help/simular';
 import * as api from '../api/nomina';
+import { AcumuladosAutomaticos } from './AcumuladosAutomaticos';
 export function SimularPagoPage() {
   const { usuario } = useSession();
   usePageHelp(ayudaSimular, usuario?.rol);
@@ -353,6 +354,13 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
               ]}
             />
           </section>
+          <AcumuladosAutomaticos
+            estimaciones={r.registros.flatMap((f) =>
+              f.resultado?.estimacionFiscal
+                ? [{ empleado: f.empleado, estimacion: f.resultado.estimacionFiscal }]
+                : [],
+            )}
+          />
           <section data-tour="pago-verificacion" className="my-5">
             <h2>Lista de verificación previa a pagar</h2>
             <ul className="my-3">
@@ -384,8 +392,9 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
                 : 'Confirmo que las novedades del mes están completas'}
             </label>
             <p className="campo-hint">
-              Se pagarán {r.registros.filter((f) => f.resultado).length} empleados. Los bloqueados
-              conservan sus novedades pendientes.
+              Revisa también los acumulados automáticos, cuando aparezcan. Se pagarán{' '}
+              {r.registros.filter((f) => f.resultado).length} empleados. Los bloqueados conservan
+              sus novedades pendientes.
             </p>
           </section>
           <div data-tour="pago-confirmar">

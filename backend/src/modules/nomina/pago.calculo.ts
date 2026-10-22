@@ -292,6 +292,7 @@ export function calcularPago(e: EntradaPago): ResultadoPago {
     if (v.gt('9999999999.99'))
       throw new ErrorConflicto('El resultado excede el límite monetario de nómina.');
   return {
+    ...(e.estimacionFiscal ? { estimacionFiscal: e.estimacionFiscal } : {}),
     tipoPago: e.tipoPago,
     mes: e.mes,
     devengado: dinero(devengado),

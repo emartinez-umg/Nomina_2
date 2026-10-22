@@ -310,14 +310,18 @@ describe('Cierre, reapertura y continuidad fiscal', () => {
       validarTransicion('CERRADO', 'reabrir', 'ADMIN', 'Corrección de comisión'),
     ).not.toThrow();
   });
-  it('bloquea historia incompleta y permite apertura certificada sin duplicación', () => {
+  it('estima historia incompleta y prioriza la apertura certificada sin duplicación', () => {
     const e = {
       ...entradaPrueba(),
       inicio: '2026-10-01',
       fin: '2026-10-15',
       historia: { apertura: null, previos: [] },
     };
-    expect(() => completarHistoria(e)).toThrow(/historia fiscal/);
+    expect(completarHistoria(e).acumulado).toEqual({
+      renta: '29250.00',
+      igss: '1304.10',
+      isr: '0.00',
+    });
     const f = {
       ...e,
       historia: {

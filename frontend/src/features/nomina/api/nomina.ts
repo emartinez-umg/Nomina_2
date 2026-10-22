@@ -7,6 +7,22 @@ const totales = z.object({
   neto: z.string(),
   patronal: z.string(),
 });
+const estimacionFiscal = z.object({
+  renta: z.string(),
+  igss: z.string(),
+  isr: z.string(),
+  periodos: z.array(
+    z.object({
+      inicio: z.string(),
+      fin: z.string(),
+      renta: z.string(),
+      igss: z.string(),
+      isr: z.string(),
+      metodo: z.enum(['MENSUAL', 'QUINCENAL']),
+    }),
+  ),
+});
+export type EstimacionFiscal = z.infer<typeof estimacionFiscal>;
 const fila = z.object({
   tipoPago: z.string().nullable().optional(),
   id: z.number(),
@@ -25,6 +41,9 @@ const fila = z.object({
 });
 export type Fila = z.infer<typeof fila>;
 const periodo = z.object({
+  estimaciones: z
+    .array(z.object({ empleado: z.string(), estimacion: estimacionFiscal }))
+    .optional(),
   motor: z.string().optional(),
   id: z.number(),
   inicio: z.string(),
@@ -64,6 +83,7 @@ const detalleSchema = z.object({
   version: z.number(),
   empleado: z.string(),
   resultado: totales.extend({
+    estimacionFiscal: estimacionFiscal.optional(),
     dias: z.string(),
     salario: z.string(),
     baseIgss: z.string(),

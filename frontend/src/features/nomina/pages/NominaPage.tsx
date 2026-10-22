@@ -32,6 +32,7 @@ import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { RefField } from '../../empleados/pages/CampoEmpleado';
 import { fechaVisible, hoyGuatemala } from '../../../lib/validadores';
 import { Fiscal } from './Fiscal';
+import { AcumuladosAutomaticos } from './AcumuladosAutomaticos';
 import { FormatoIgss } from './FormatoIgss';
 const moneda = (v: string) => {
   const [entero, centavos] = new Decimal(v).toFixed(2).split('.');
@@ -411,6 +412,7 @@ function Planilla({
                     setError('');
                   }}
                 />
+                <AcumuladosAutomaticos estimaciones={p.data.estimaciones ?? []} />
                 {api.alertasDe(p.data).length > 0 && (
                   <div className="form-resumen-errores mt-4" role="alert">
                     <strong>Resuelve estas alertas antes de continuar</strong>
@@ -771,7 +773,7 @@ function Planilla({
             : accion === 'reabrir'
               ? 'En v1 se reabre el periodo conservando los pagos. Para corregirlos, ADMIN debe revertir cada pago antes de volver a pagar. En v0 se revierten los cobros y se conserva la versión.'
               : accion === 'calcular'
-                ? 'Se calculará una nueva versión con las fuentes y vigencias actuales; tendrás que revisarla otra vez.'
+                ? 'Se calculará una nueva versión con las fuentes y vigencias actuales. Los acumulados fiscales faltantes se estiman automáticamente desde enero o el ingreso con el salario y el incentivo; revisa su desglose antes de aprobar.'
                 : accion === 'devolver'
                   ? 'Se quitará la aprobación para corregir fuentes y recalcular.'
                   : 'Confirma que revisaste los conceptos, totales y alertas de esta versión.'}
@@ -888,6 +890,13 @@ function DetalleBoleta({
                 </table>
               </div>
               <strong>Neto: {moneda(d.data.resultado.neto)}</strong>
+              <AcumuladosAutomaticos
+                estimaciones={
+                  d.data.resultado.estimacionFiscal
+                    ? [{ empleado: d.data.empleado, estimacion: d.data.resultado.estimacionFiscal }]
+                    : []
+                }
+              />
               <details className="my-4">
                 <summary>Proyección ISR y acumulados</summary>
                 {Object.entries(d.data.resultado.isr).map(([k, v]) => (

@@ -58,6 +58,7 @@ export interface Descuento {
   saldo: string | null;
 }
 export interface Entrada {
+  estimacionFiscal?: EstimacionFiscal;
   inicio: string;
   fin: string;
   empleado: Empleado;
@@ -91,6 +92,7 @@ export interface Linea {
   descuento?: Descuento;
 }
 export interface Resultado {
+  estimacionFiscal?: EstimacionFiscal;
   dias: string;
   salario: string;
   idSalario: number;
@@ -120,6 +122,20 @@ export interface Resultado {
   };
 }
 export type Estado = 'ABIERTO' | 'CALCULADO' | 'REVISADO' | 'APROBADO' | 'CERRADO';
+export interface PeriodoFiscalEstimado {
+  inicio: string;
+  fin: string;
+  renta: string;
+  igss: string;
+  isr: string;
+  metodo: 'MENSUAL' | 'QUINCENAL';
+}
+export interface EstimacionFiscal {
+  periodos: PeriodoFiscalEstimado[];
+  renta: string;
+  igss: string;
+  isr: string;
+}
 export interface Periodo {
   motor?: string;
   id: number;

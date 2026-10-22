@@ -120,7 +120,11 @@ export function crearNominaService(db: BaseDatos) {
     periodo: (id: number) =>
       lectura(async (c) => {
         const p = await buscar(c, id);
-        return { ...p, alertas: JSON.parse(p.alertas) as string[] };
+        return {
+          ...p,
+          alertas: JSON.parse(p.alertas) as string[],
+          estimaciones: await repo.estimacionesPeriodo(c, id),
+        };
       }),
     crear: (auth: Autenticacion, ip: string, fecha: string) =>
       tx(auth, ip, async (c, a) => {

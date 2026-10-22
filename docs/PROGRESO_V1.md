@@ -2894,3 +2894,78 @@ fases solicitadas. No hay cambios de esquema, migraciones, lógica de negocio ni
    DBeaver, ni confirmó boletas/pagos en producción. Frontend conserva sus pruebas existentes.
 5. La ERS original sigue sin estar disponible para certificar la numeración RF; se documenta
    ese límite sin inventar correspondencias. No quedan fases de implementación solicitadas.
+
+## Ronda 2 — Acumulados fiscales automáticos para la planilla académica
+
+Estado: implementada el 22/10/2026 en `v1.1`, por solicitud de automatizar el cálculo según el
+salario del empleado. El usuario confirmó expresamente que el sistema se utiliza en un curso de
+Análisis de Sistemas y que todos los datos son simulados.
+
+### Hecho y decisiones
+
+- Causa reproducida: `completarHistoria` bloqueaba cada empleado al encontrar una quincena sin
+  historia, aunque tuviera salario registrado. La nueva regresión, ejecutada contra el código
+  anterior, falló con el mismo mensaje de la captura; pasa con la reconstrucción automática.
+- Calcular/Recalcular de la planilla v0 y Simular pago mensual reconstruyen únicamente los
+  intervalos faltantes desde enero o el ingreso, tomando la fecha posterior. Reutilizan los motores
+  quincenal/mensual, Decimal y las vigencias de salarios, incentivo, conceptos, parámetros y tramos.
+  Consideran altas parciales y aumentos; no multiplican el salario actual por todos los meses.
+- Aperturas y pagos existentes tienen prioridad. Los huecos entre registros se completan sin
+  duplicar importes; los traslapes, vigencias ausentes/ambiguas y demás bloqueos siguen vigentes.
+- Las estimaciones conservan renta gravada, IGSS, ISR teórico, fechas y método por intervalo en
+  `entrada`/`resultado` del snapshot existente. El repositorio recupera las aceptadas en el último
+  pago mensual o cierre v0 para mantenerlas en meses posteriores aunque cambien las fuentes.
+  No hay tablas nuevas, migraciones ni creación automática de aperturas certificadas/pagos pasados.
+- Planilla, Simular pago y detalle de boleta muestran «Acumulados fiscales automáticos», con
+  desglose por empleado y por intervalo al abrir una boleta. Es información para revisar, no una
+  alerta que impida continuar. El PDF identifica el origen estimado académico. Actualizados los
+  hints, recorridos manuales y la guía NOMINA_V1; se mantiene la apertura manual como alternativa.
+- Simular conserva su transacción de solo lectura. Confirmar vuelve a validar el hash y conserva
+  las protecciones de concurrencia, idempotencia, reversión, propiedad de boletas y cierre.
+
+### Supuestos y cambio intencional de regla
+
+- Autorización del usuario: «este proyecto no es para una implementacion real, es para un curso
+  de analisis de sistemas, todos los datos son simulados, pero el objetivo es automatizar procesos».
+  Por ello se reemplaza deliberadamente el bloqueo por historia fiscal incompleta por un cálculo
+  automático identificado como estimación. Se actualizó la prueba que exigía ese bloqueo.
+- La reconstrucción de intervalos sin pago registrado usa solo salario e incentivo. No presume
+  comisiones, horas extra, ausencias, deducciones acreditadas ni cuotas históricas. Las novedades
+  actuales y retroactivas siguen aplicándose en su pago, con sus reglas existentes.
+- El ISR reconstruido es teórico y no certifica retenciones externas. Esta política académica
+  requiere revisión si el proyecto se adapta a una implementación real; la guía enlaza orientación
+  oficial de SAT. No se relajaron los validadores de dinero ni se codificaron tasas de respaldo.
+
+### Validación
+
+- Node 20.20.2: **792 pruebas aprobadas**: 448 backend, 337 frontend y siete del exportador.
+  Diecisiete regresiones nuevas de historia y tres de interfaz; se conserva el resto de la suite.
+- **17 pruebas Oracle/Supertest de pagos aprobadas**. El escenario nuevo comprueba simulación
+  sin escrituras/aperturas, importes independientes, hash invalidado al cambiar salario, pago único,
+  snapshot, API de periodo, PDF, conservación de estimaciones y la secuencia v0 calcular → revisar
+  → aprobar → cerrar que reproduce la pantalla reportada. Solo esquemas N2SEC desechables.
+- Lint, TypeScript strict y build backend/frontend aprobados. El build conserva el aviso existente
+  de tamaño de chunk de Vite. PDF generado renderizado e inspeccionado en sus dos páginas, con
+  membrete, importes, nota de estimación y firma legibles. Los artefactos están en tmp, ignorado.
+- Lectura consistente de la instalación: **35 de 35 empleados calculables en la quincena v0 de
+  01/10/2026 a 15/10/2026**, 33 con estimación; cero bloqueos fiscales. El Pago mensual de octubre
+  calcula 34 de 35; el restante conserva una novedad pendiente de autorizar/rechazar. No es falta
+  de historia. La comprobación no registró pagos, aperturas ni cambios de periodo.
+- API y web locales reconstruidas con Docker Compose; se conserva la base Oracle y su volumen.
+  Los registros de comprobación y la regresión contra la versión anterior quedan en tmp.
+- Regresión adicional: **82 pruebas Oracle de seguridad aprobadas**, incluidas nómina histórica,
+  aperturas, permisos y propiedad. Ambos esquemas temporales se eliminaron al terminar.
+  Los tres servicios locales quedaron saludables. Formato, revisión de secretos y diff aprobados.
+
+### Cómo probar y pendientes
+
+1. Recargar la aplicación. En la quincena de la captura, pulsar Recalcular y confirmar. Se reemplazan
+   las alertas guardadas de la versión anterior por resultados y el bloque de acumulados automáticos.
+2. Abrir el desglose y una boleta para revisar renta, IGSS, ISR teórico y fechas. Continuar con
+   Marcar revisada → Aprobar → Cerrar cuando se haya revisado la planilla.
+3. Nómina → Simular pago → Pago del mes → octubre 2026 → Todos → Simular. Revisar los acumulados
+   y resolver la novedad pendiente antes de pagar también al empleado afectado.
+4. Reproducir con npm test, npm run lint, npm run typecheck, npm run build y npm run verify:pagos.
+   Las pruebas Oracle pagan/cierra únicamente sus fixtures desechables; no la nómina operativa.
+5. Sin pendientes de implementación de esta solicitud. La autorización/rechazo de la novedad
+   pendiente y la confirmación de pagos quedan en el flujo normal de RRHH.

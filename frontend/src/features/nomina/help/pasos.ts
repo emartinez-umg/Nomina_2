@@ -1,7 +1,7 @@
 import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaNomina: DefinicionAyuda = {
-  id: 'nomina-v1-11',
+  id: 'nomina-acumulados-automaticos',
   pasos: [
     pasoSelectorEmpleado,
     {
@@ -100,10 +100,17 @@ export const ayudaNomina: DefinicionAyuda = {
       roles: ['ADMIN', 'RH'],
     },
     {
+      elemento: 'nomina-acumulados',
+      titulo: 'Historia fiscal automática',
+      descripcion:
+        'El cálculo completa únicamente los intervalos fiscales faltantes. Abre Ver desglose de acumulados calculados para revisar los importes por empleado. El detalle de la boleta también muestra cada periodo estimado. Estos importes académicos se derivan de salarios e incentivo con sus vigencias; no bloquean Marcar revisada ni sustituyen pagos o aperturas registrados. Si cambias fuentes, recalcula antes de revisar.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
       elemento: 'nomina-fiscal',
       titulo: 'Historia fiscal y deducciones acreditadas',
       descripcion:
-        'Si implantas el sistema a mitad de año, registra renta gravada, cuotas IGSS e ISR realmente acumulados al cierre de la quincena anterior. No dupliques periodos ya cerrados. Las deducciones requieren comprobante y referencia única: el cálculo aplica los topes vigentes agrupados por tipo.',
+        'Calcular o Recalcular reconstruye automáticamente la historia fiscal faltante con el salario y el incentivo desde enero o el ingreso del empleado. Los importes se muestran como estimados para el proyecto académico; los pagos y aperturas registrados conservan prioridad. No se crean pagos ni aperturas certificadas. Revisa el desglose antes de aprobar. Usa Historia fiscal y deducciones si necesitas incorporar acumulados acreditados en lugar de la estimación, antes de aprobar la primera nómina. Las deducciones conservan comprobante, referencia y topes vigentes.',
       roles: ['ADMIN', 'RH'],
     },
   ],

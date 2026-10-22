@@ -452,6 +452,7 @@ export function calcularNomina(e: Entrada): Resultado {
     if (valor.gt('9999999999.99'))
       throw new ErrorConflicto('El resultado excede el límite monetario de nómina.');
   return {
+    ...(e.estimacionFiscal ? { estimacionFiscal: e.estimacionFiscal } : {}),
     dias: dinero(diasPagados),
     salario: ultimo.monto,
     idSalario: ultimo.id,
