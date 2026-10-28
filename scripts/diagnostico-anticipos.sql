@@ -1,0 +1,74 @@
+-- R3-1. Diagnóstico de SOLO LECTURA para Oracle 21c; ejecutar con el usuario de aplicación.
+-- Una única consulta: no corrige, revierte ni recalcula pagos. No utiliza datos personales actuales.
+-- Compara cada anticipo PAGADO contra C1.1/C1.2 usando su snapshot y parámetros aplicados.
+-- Los parámetros ambiguos/ausentes se señalan para revisión, nunca se sustituyen por Q250/30.
+-- El procedimiento de corrección por ADMIN está en docs/NOMINA_V1.md, sección R3-1.
+WITH anticipos AS (
+  SELECT pn.ID_NOMINA_EMPLEADO, pn.ID_EMPLEADO, pn.MES, n.NETO,
+         p.ESTADO AS ESTADO_PERIODO, n.DATOS_EMPLEADO,
+         JSON_VALUE(n.DATOS_EMPLEADO, '$.entrada.empleado.codigo') AS CODIGO_EMPLEADO,
+         TO_DATE(JSON_VALUE(n.DATOS_EMPLEADO, '$.entrada.empleado.ingreso'), 'YYYY-MM-DD') AS INGRESO,
+         TO_DATE(JSON_VALUE(n.DATOS_EMPLEADO, '$.entrada.empleado.egreso'), 'YYYY-MM-DD') AS EGRESO
+  FROM PAGOS_NOMINA pn
+  JOIN NOMINA_EMPLEADO n ON n.ID_NOMINA_EMPLEADO = pn.ID_NOMINA_EMPLEADO
+  JOIN PERIODOS_NOMINA p ON p.ID_PERIODO_NOMINA = n.ID_PERIODO_NOMINA
+  WHERE pn.TIPO_PAGO = 'ANTICIPO' AND pn.ESTADO = 'PAGADO'
+), parametros AS (
+  SELECT a.ID_NOMINA_EMPLEADO,
+         CASE WHEN COUNT(DISTINCT CASE WHEN j.CODIGO = 'SALARIO_DIAS_MES' THEN j.VALOR END) = 1
+              THEN MAX(CASE WHEN j.CODIGO = 'SALARIO_DIAS_MES' THEN j.VALOR END) END AS DIVISOR,
+         CASE WHEN COUNT(DISTINCT CASE WHEN j.CODIGO = 'BONIFICACION_INCENTIVO_MENSUAL' THEN j.VALOR END) = 1
+              THEN MAX(CASE WHEN j.CODIGO = 'BONIFICACION_INCENTIVO_MENSUAL' THEN j.VALOR END) END AS BI
+  FROM anticipos a
+  LEFT JOIN JSON_TABLE(a.DATOS_EMPLEADO, '$.resultado.parametros[*]'
+    COLUMNS (CODIGO VARCHAR2(100) PATH '$.codigo', VALOR NUMBER PATH '$.valor')) j ON 1 = 1
+  GROUP BY a.ID_NOMINA_EMPLEADO
+), ausencias AS (
+  SELECT a.ID_NOMINA_EMPLEADO,
+         SUM(CASE WHEN j.TIPO = 'AUSENCIA' AND j.AUTORIZACION = 'APROBADA' AND j.MONTO > 0
+                       AND j.MES = TO_CHAR(a.MES, 'YYYY-MM') THEN j.CANTIDAD ELSE 0 END) AS DIAS_SIN_GOCE
+  FROM anticipos a
+  LEFT JOIN JSON_TABLE(a.DATOS_EMPLEADO, '$.entrada.novedades[*]'
+    COLUMNS (TIPO VARCHAR2(30) PATH '$.tipo', AUTORIZACION VARCHAR2(30) PATH '$.autorizacion',
+             MES VARCHAR2(7) PATH '$.mes', MONTO NUMBER PATH '$.monto',
+             CANTIDAD NUMBER PATH '$.cantidad')) j ON 1 = 1
+  GROUP BY a.ID_NOMINA_EMPLEADO
+), bonificaciones AS (
+  SELECT a.ID_NOMINA_EMPLEADO,
+         SUM(CASE WHEN j.CODIGO = 'BONIFICACION_INCENTIVO' THEN j.MONTO ELSE 0 END) AS BI_PAGADA
+  FROM anticipos a
+  LEFT JOIN JSON_TABLE(a.DATOS_EMPLEADO, '$.resultado.lineas[*]'
+    COLUMNS (CODIGO VARCHAR2(100) PATH '$.concepto.codigo', MONTO NUMBER PATH '$.monto')) j ON 1 = 1
+  GROUP BY a.ID_NOMINA_EMPLEADO
+), dias AS (
+  SELECT a.ID_NOMINA_EMPLEADO, a.ID_EMPLEADO, a.MES, a.NETO, a.ESTADO_PERIODO,
+         a.CODIGO_EMPLEADO, a.INGRESO, a.EGRESO, p.DIVISOR, p.BI, u.DIAS_SIN_GOCE, b.BI_PAGADA,
+         GREATEST(0, LEAST(a.MES + 14, NVL(a.EGRESO, a.MES + 14))
+                     - GREATEST(a.MES, a.INGRESO) + 1) AS D_ACT_15,
+         CASE WHEN a.INGRESO <= a.MES AND NVL(a.EGRESO, LAST_DAY(a.MES)) >= LAST_DAY(a.MES)
+              THEN p.DIVISOR
+              ELSE LEAST(p.DIVISOR, GREATEST(0, LEAST(LAST_DAY(a.MES), NVL(a.EGRESO, LAST_DAY(a.MES)))
+                                           - GREATEST(a.MES, a.INGRESO) + 1)) END AS D_ACT_MES
+  FROM anticipos a
+  JOIN parametros p ON p.ID_NOMINA_EMPLEADO = a.ID_NOMINA_EMPLEADO
+  JOIN ausencias u ON u.ID_NOMINA_EMPLEADO = a.ID_NOMINA_EMPLEADO
+  JOIN bonificaciones b ON b.ID_NOMINA_EMPLEADO = a.ID_NOMINA_EMPLEADO
+), esperado AS (
+  SELECT d.*,
+         CASE WHEN D_ACT_15 = 0 THEN 0
+              ELSE ROUND(LEAST(BI * D_ACT_15 / 15,
+                               BI * GREATEST(0, D_ACT_MES - DIAS_SIN_GOCE) / NULLIF(DIVISOR, 0)), 2)
+         END AS BI_ESPERADA
+  FROM dias d
+)
+SELECT ID_NOMINA_EMPLEADO, ID_EMPLEADO, CODIGO_EMPLEADO, TO_CHAR(MES, 'YYYY-MM') AS MES,
+       TO_CHAR(INGRESO, 'DD/MM/YYYY') AS INGRESO, TO_CHAR(EGRESO, 'DD/MM/YYYY') AS EGRESO,
+       ESTADO_PERIODO, D_ACT_15, D_ACT_MES, DIAS_SIN_GOCE, NETO AS ANTICIPO_PAGADO,
+       BI_PAGADA, BI_ESPERADA, BI_PAGADA - BI_ESPERADA AS DIFERENCIA_BI,
+       CASE WHEN D_ACT_15 = 0 THEN 'SIN DIAS ACTIVOS DEL 1 AL 15'
+            WHEN DIVISOR IS NULL OR DIVISOR <= 0 OR BI IS NULL THEN 'REVISAR PARAMETROS DEL SNAPSHOT'
+            ELSE 'BONIFICACION DESPROPORCIONADA' END AS HALLAZGO
+FROM esperado
+WHERE D_ACT_15 = 0 OR BI_PAGADA <> BI_ESPERADA
+   OR DIVISOR IS NULL OR DIVISOR <= 0 OR BI IS NULL
+ORDER BY MES, CODIGO_EMPLEADO, ID_NOMINA_EMPLEADO;

@@ -41,16 +41,24 @@ objetivo, periodos y pagos observados. Una diferencia exige simular nuevamente.
 
 Se usa Decimal y `shared/utils/dinero.ts` (half-up, dos decimales) para líneas y totales. Salario,
 conceptos/banderas, IGSS laboral/patronal, IRTRA, INTECAP, BI, recargo HE, divisor, deducción personal,
-topes y tramos se leen de Oracle con su vigencia. Parámetros del Anticipo usan el corte del día 15; los del Pago, el último día (IGSS sobre toda su base mensual). ANTICIPO_PORCENTAJE se configura en BD (referencia 50).
+topes y tramos se leen de Oracle con su vigencia. Parámetros del Anticipo usan el corte del día 15;
+los del Pago, el último día (IGSS sobre toda su base mensual). C1.1 sustituye el porcentaje de A11
+por días activos del 1 al 15; ANTICIPO_PORCENTAJE se conserva para historia y no gobierna cálculos nuevos.
 Los meses y sus días son calendario; la fecha informativa de pago nunca se desplaza por feriados.
 
 - SB: mensual por días de contrato con tope del divisor mensual (referencia 30); mes completo paga
   el mensual también en febrero. Una vigencia salarial intermedia distribuye la base por sus días.
 - AUS = días sin goce × SB prorrateado / divisor, según A11. La captura A10 conserva su
-  valoración nominal de referencia; al pagar se archiva y aplica la valoración del motor. Con goce no resta. BI = parámetro mensual × max(0, divisor − días de AUS) / divisor.
+  valoración nominal de referencia; al pagar se archiva y aplica la valoración del motor. Con goce no resta.
+- BI del mes = parámetro mensual × max(0, días activos del mes − ausencias sin goce del mes) / divisor.
+  Se conserva la convención v1: mes completo equivale al divisor; parcial usa días calendario con tope.
 - HE: horas × salario / divisor / horas diarias del horario × (1 + recargo / 100), sin redondear
   el valor hora antes de multiplicar; se revalora al calcular y conserva cantidad/importe aplicado.
-- Anticipo = porcentaje × SB + BI + comisiones + HE cargadas. Sin deducciones de ley ni cuotas.
+- Anticipo base = salario mensual × días activos del 1 al 15 / divisor, respetando las vigencias
+  salariales de esos días. BI del anticipo = min(parámetro mensual × días activos del 1 al 15 / 15,
+  BI del mes). Se suman comisiones y HE cargadas; sin deducciones de ley ni cuotas.
+- Si no hay días activos del 1 al 15, la simulación informa «Sin anticipo». No bloquea a los demás,
+  no consume novedades, no genera pago ni boleta y no se exige para cerrar el periodo del anticipo.
 - Pago = SB − AUS + BI + COM + HE − anticipo realmente pagado − IGSS − ISR − parqueo − tienda
   − préstamos/anticipos/embargos/otros. Sin anticipo registrado se resta cero.
 - Los ingresos aplicados al anticipo integran nuevamente el devengado mensual y las bases fiscales;
@@ -61,8 +69,10 @@ Los meses y sus días son calendario; la fecha informativa de pago nunca se desp
   futuros. Retención = saldo ISR anual / meses restantes; diciembre/egreso liquida el saldo y devuelve
   excesos. Aguinaldo/Bono 14 conservan sus exenciones y snapshots; no se adelanta su automatización.
 
-BI sigue literalmente A11: no se multiplica por días de contrato, solo se reduce por AUS; salario sí
-se prorratea. AUS usa el SB ya prorrateado, literalmente según A11; una ausencia retroactiva toma el SB de su mes de origen.
+BI sigue C1.2, con prorrateo por ingreso, egreso y ausencias sin goce; también en proyección fiscal
+y acumulados mensuales nuevos. Es un supuesto de negocio solicitado, pendiente de validar con el contador.
+AUS conserva el SB ya prorrateado de A11; una ausencia retroactiva toma el SB de su mes de origen
+y no reduce los días de incentivo del mes actual. La fórmula salarial de AUS no cambia en R3-1.
 Estas decisiones quedan registradas también en PROGRESO_V1.md. Las referencias iniciales requieren
 validación operativa de RH; el motor no usa porcentajes monetarios de respaldo en el código.
 
@@ -121,3 +131,32 @@ hasta dos veces, esperando un segundo y abriendo otra lectura. No se repiten pag
 Validación: `npm run verify:pagos`, `npm test`, `npm run lint`, `npm run typecheck`,
 `npm run build`, `npm run db:verify` y `npm run test:e2e -- --grep 'FASE V1-10'`.
 Oracle/Supertest usa esquemas desechables y Node 20; no crea datos ficticios en la aplicación.
+
+## R3-1 — Diagnóstico y corrección de pagos anteriores
+
+Ejecutar `scripts/diagnostico-anticipos.sql` con una conexión Oracle de consulta al esquema de la
+aplicación (SQL Developer o SQL*Plus). Es una única consulta de solo lectura: lista anticipos aún
+pagados sin días activos del 1 al 15 o con incentivo distinto al proporcional. Usa fechas, novedades
+y parámetros guardados en el snapshot, sin tomar salarios ni parámetros actuales. Muestra IDs,
+código, mes, estado del periodo, días, incentivo pagado/esperado y diferencia. Los parámetros
+ausentes o ambiguos se marcan para revisión; no se inventan valores de respaldo. No cubre los
+errores de totales mensuales de C1.3, reservados para otra fase.
+
+La actualización del código no modifica pagos, boletas, snapshots ni acumulados ya aceptados.
+ADMIN debe revisar cada hallazgo con RH/contador antes de corregirlo:
+
+1. Conservar el diagnóstico y revisar anticipo, pago mensual y dependencias del empleado. Documentar
+   IDs, importes y motivo. El neteo de un anticipo histórico realmente confirmado se conserva hasta
+   su reversión explícita; no se transforma en cero silenciosamente.
+2. Si el periodo está cerrado, ADMIN lo reabre con motivo. Revertir por la interfaz los pagos
+   dependientes en orden inverso, primero el Pago del mes y luego su Anticipo. Resolver también
+   las dependencias fiscales posteriores o prestaciones indicadas por el sistema; no saltar bloqueos.
+3. En Planilla, usar Revertir con confirmación y motivo de al menos diez caracteres. Se restituyen
+   novedades/cuotas/saldos y se conserva el comprobante histórico con su auditoría. No ejecutar UPDATE/DELETE manuales.
+4. Simular otra vez en orden cronológico. Si ingresó después del 15, dejar el anticipo sin registrar;
+   el Pago tomará cero. Con ingreso 08/10 y salario Q9,000: anticipo Q2,533.33, devengado Q7,400.00,
+   pago antes de descuentos Q4,866.67. Revisar diferencias de IGSS/ISR y los netos antes de confirmar.
+5. Confirmar únicamente lo revisado, descargar las nuevas boletas y completar revisar → aprobar
+   → cerrar. Repetir la consulta y comprobar que los pagos vigentes corregidos ya no aparecen.
+   Si el neto es negativo (por ejemplo, un egreso temprano con anticipo ya entregado), resolverlo
+   con RH/contador mediante el flujo permitido; se mantiene el bloqueo existente.

@@ -236,6 +236,7 @@ const filaSimulada = z.object({
   resultado: resultadoPago.nullable(),
   alertas: z.array(z.string()),
   pagado: z.boolean(),
+  informacion: z.string().optional(),
 });
 const simulacion = z.object({
   mes: z.string(),

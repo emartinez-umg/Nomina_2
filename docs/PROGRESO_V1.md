@@ -3091,3 +3091,80 @@ Estado: preparación documental completada el 27/10/2026 en `v1.2`.
 3. Reproducir las comprobaciones con `npm run lint`, `npm test` y `git diff --check`.
 4. Pendientes de próximas fases: correcciones de nómina, detalles de pantalla, jefaturas y
    permisos de equipo, vacaciones, estadísticas de comisiones, expediente digital y actas.
+
+## Ronda 3 — FASE R3-1: anticipo e incentivo proporcional
+
+Estado: implementada el 27/10/2026 en `v1.2`. Alcance C1.1 y C1.2.
+
+### Causa y reproducción
+
+- Rama `v1.2` ya existente, árbol inicialmente limpio. Suite base: 804 pruebas aprobadas
+  (458 backend, 339 frontend y siete del exportador).
+- `pago.calculo.ts` recorría los días activos de todo el mes, prorrateaba SB y aplicaba 50 %;
+  no intersectaba el contrato con el tramo del 1 al 15. Con ingreso 24/10 y SB Q6,500, la fixture
+  reprodujo exactamente Q1,116.67 = Q6,500 × 8/30 × 50 % + Q250, pese a cero días al 15.
+- BI partía del divisor mensual menos ausencias: no descontaba los días anteriores al ingreso ni
+  posteriores al egreso. La proyección mensual del ISR repetía la BI completa para un egreso parcial.
+- Antes del arreglo, seis de las siete regresiones iniciales fallaron (incluido Q1,116.67 en lugar
+  de cero); el caso de mes completo ya pasaba. Evidencia local en `/private/tmp/nomina2-r31-rojo.log`.
+
+### Hecho y decisiones
+
+- Base del anticipo calculada solo con días de contrato del 1 al 15, inclusivos, y sus vigencias
+  salariales. Cubre altas/egresos parciales; un cambio salarial del 16 ya no altera el anticipo.
+- BI del mes proporcional a días de contrato menos ausencias sin goce de ese mes. BI del anticipo
+  = min(BI × días activos del 1 al 15 / 15, BI del mes). Se mantiene Decimal/half-up por línea.
+- «Sin anticipo: ingresó después del día 15» es información independiente de las alertas. No genera
+  pago cero, boleta, notificación ni aplicaciones; no impide pagar a otros o cerrar el anticipo.
+  El servidor revalida al confirmar; el hash incluye el criterio R3-1 para invalidar simulaciones anteriores.
+- Simulación consume el dato informativo de la API; muestra «No corresponde», deshabilita la
+  boleta y orienta si todo el objetivo queda sin anticipo. Hints y recorrido manual actualizados.
+- Búsqueda del patrón en backend/frontend: proyección mensual de ISR corregida; la reconstrucción
+  fiscal mensual usa el mismo motor. El motor quincenal v0 ya prorratea BI por contrato y no cambia.
+  Boletas, reporte IGSS, dashboards y exportaciones consumen resultados guardados; no recalculan
+  BI o anticipos al consultarlos. La consolidación de totales C1.3 queda para su fase.
+- `scripts/diagnostico-anticipos.sql`: una única consulta sin escrituras, basada en snapshots y
+  parámetros aplicados, con fechas, días y BI esperada/diferencia. Señala parámetros faltantes o
+  ambiguos sin valores de respaldo. Probada sobre pagos válidos y anomalías históricas en N2SEC.
+- Procedimiento ADMIN en `docs/NOMINA_V1.md`: revisar hallazgos/dependencias, reabrir si procede,
+  revertir en orden inverso con motivo, simular y confirmar de nuevo en orden cronológico.
+  No se modificaron datos de la instalación, pagos confirmados, PDF, snapshots ni migraciones.
+
+### Supuestos y reglas sustituidas
+
+- Criterio proporcional solicitado pendiente de validar con el contador, registrado también en
+  `docs/DECISIONES.md`. No se afirma que constituya una interpretación legal certificada.
+- Se conserva la convención mensual v1: mes completo = divisor, parcial = calendario con tope.
+  Las ausencias retroactivas conservan su valoración salarial v1 y no restan días de BI del mes actual.
+  No cambia la fórmula de AUS sobre SB prorrateado.
+- C1.1 sustituye el porcentaje de A11 por días activos al 15. ANTICIPO_PORCENTAJE se conserva
+  para historia, sin gobernar cálculos nuevos. Se actualizaron deliberadamente cuatro pruebas de
+  A11 y una de historia que exigían las reglas sustituidas (incluida BI futura completa al egreso).
+- Un anticipo histórico realmente confirmado sigue neteándose hasta que ADMIN lo revierta;
+  sustituirlo silenciosamente por cero duplicaría dinero. Regresión específica conserva ese importe.
+
+### Validación
+
+- Suite final: **817 pruebas aprobadas** (469 backend, 341 frontend y siete del exportador),
+  con Node 24.13.1 del host. Once nuevas regresiones backend y dos de interfaz; se conservan
+  las demás pruebas salvo los esperados sustituidos expresamente por C1.1/C1.2.
+- Lint, TypeScript strict (incluido E2E), formato, build backend/frontend y `git diff --check`
+  aprobados. El build conserva el aviso previo de Vite por el tamaño de un chunk.
+- 20 pruebas Oracle/Supertest de pagos aprobadas, incluidas dos regresiones nuevas de diagnóstico
+  y flujo de simulación → confirmación → revisión → aprobación → cierre. Esquemas N2SEC eliminados.
+- Casos independientes: 24/10 sin anticipo; 08/10 y SB Q9,000 → Q2,533.33 de anticipo,
+  Q7,400 devengados y Q4,866.67 antes de descuentos; egreso 10/10 → base Q3,000 y BI Q83.33;
+  días 15/16, meses completos (incluidos febreros), ausencias, vigencias y anticipos históricos.
+
+### Cómo probar y pendientes
+
+1. Ejecutar `npm run lint`, `npm test`, `npm run typecheck`, `npm run format:check`,
+   `npm run build` y `npm run verify:pagos` (Docker/Oracle; esquema desechable).
+2. En la versión actualizada, Nómina → Simular pago → Anticipo → octubre 2026: el ingreso 24/10
+   muestra información sin pago/boleta; el ingreso 08/10 con SB Q9,000 muestra Q2,533.33.
+3. Simular Pago del mes: BI Q200 y devengado Q7,400 para el ingreso 08/10. Sin anticipo registrado,
+   el neteo es cero; si aún existe uno histórico incorrecto, aplicar el procedimiento ADMIN documentado.
+4. Ejecutar el SQL de diagnóstico con una conexión de consulta; revisar cada hallazgo antes de
+   corregir. La actualización no ejecuta reversiones ni recalcula nómina operativa automáticamente.
+5. Pendiente operativo: validación del supuesto por el contador y revisión de hallazgos históricos.
+   C1.3–C1.5 y C2–C8 permanecen para las siguientes fases.

@@ -60,7 +60,7 @@ describe('Acumulados fiscales automáticos para la simulación académica', () =
     e.empleado.ingreso = '2026-09-10';
     const r = completarHistoria(e);
     expect(r.estimacionFiscal?.periodos).toHaveLength(1);
-    expect(r.acumulado.renta).toBe('7250.00');
+    expect(r.acumulado.renta).toBe('7175.00'); // 10000 × 21/30 + 250 × 21/30 (C1.2)
     expect(r.acumulado.igss).toBe('338.10');
     expect(r.estimacionFiscal?.periodos[0]).toMatchObject({
       inicio: '2026-09-10',

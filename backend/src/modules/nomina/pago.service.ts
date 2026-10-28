@@ -33,7 +33,7 @@ import { rangoMes, validarMes } from '../novedades/mensuales.service.js';
 import { registrarCobroCuota } from '../novedades/novedades.service.js';
 import { fuenteUtilizada } from '../prestaciones/prestaciones.repository.js';
 import { completarHistoria } from './nomina.historia.js';
-import { calcularPago } from './pago.calculo.js';
+import { calcularPago, motivoSinAnticipo } from './pago.calculo.js';
 import type { EntradaPago, ResultadoPago } from './pago.calculo.js';
 import type { ObjetivoPago } from './pago.schemas.js';
 import { simularSchema, pagarSchema, revertirPagoSchema } from './pago.schemas.js';
@@ -51,6 +51,7 @@ interface FilaSimulacion {
   resultado: ResultadoPago | null;
   alertas: string[];
   pagado: boolean;
+  informacion?: string;
 }
 async function preparar(c: Connection, d: ObjetivoPago) {
   const rango = validarMes(d.mes, await hoy(c)),
@@ -105,7 +106,9 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     const conSalario = e.salarios.some(
       (s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio),
     );
-    const novedades = esAnual || !conSalario ? [] : await pago.novedades(c, d.mes, e.empleado.id);
+    const sinAnticipo = motivoSinAnticipo({ ...e, mes: d.mes, tipoPago: d.tipoPago });
+    const novedades =
+      esAnual || !conSalario || sinAnticipo ? [] : await pago.novedades(c, d.mes, e.empleado.id);
     const entrada: EntradaPago = {
       ...e,
       mes: d.mes,
@@ -129,6 +132,11 @@ async function preparar(c: Connection, d: ObjetivoPago) {
       pagado: yaPagado,
     };
     try {
+      if (sinAnticipo && !yaPagado) {
+        fila.informacion = sinAnticipo;
+        registros.push(fila);
+        continue;
+      }
       if (!e.salarios.some((s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio)))
         throw new ErrorConflicto(
           'Perfil incompleto: falta salario vigente. Empleado excluido de este pago; completa el salario en su ficha y vuelve a simular.',
@@ -217,7 +225,7 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     registros,
     totales,
     verificacion,
-    hash: hashDe({ d, entradas, periodo: periodo ?? null, pagos }),
+    hash: hashDe({ criterio: 'R3-1', d, entradas, periodo: periodo ?? null, pagos }),
   };
 }
 function publica(r: Awaited<ReturnType<typeof preparar>>) {
@@ -261,7 +269,7 @@ export function crearPagosService(db: BaseDatos) {
           f = r.registros.find((f) => f.idEmpleado === idEmpleado),
           e = r.entradas.find((e) => e.empleado.id === idEmpleado);
         if (!f || !e) throw new ErrorNoEncontrado();
-        if (!f.resultado) throw new ErrorConflicto(f.alertas.join(' '));
+        if (!f.resultado) throw new ErrorConflicto(f.informacion ?? f.alertas.join(' '));
         const n: repo.Guardado = {
           id: 0,
           idEmpleado,
@@ -411,7 +419,7 @@ export function crearPagosService(db: BaseDatos) {
         return {
           idPeriodo: p.id,
           pagados: ids,
-          bloqueados: r.registros.filter((f) => !f.resultado),
+          bloqueados: r.registros.filter((f) => !f.resultado && !f.informacion),
           mensaje: `Se pagaron ${ids.length} empleados. Los bloqueados conservan sus novedades pendientes.`,
         };
       }),
@@ -537,8 +545,10 @@ export async function accionPeriodoMensual(
     const mes = p.inicio.slice(0, 7),
       tipo = p.inicio.endsWith('-01') ? 'ANTICIPO' : 'PAGO';
     const rango = rangoMes(mes),
-      fuentes = (await repo.fuentes(c, { ...p, ...rango })).filter((e) =>
-        e.salarios.some((s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio)),
+      fuentes = (await repo.fuentes(c, { ...p, ...rango })).filter(
+        (e) =>
+          !motivoSinAnticipo({ ...e, mes, tipoPago: tipo }) &&
+          e.salarios.some((s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio)),
       );
     const tienePagoSalarial = rs.some((n) =>
       ['ANTICIPO', 'PAGO'].includes(

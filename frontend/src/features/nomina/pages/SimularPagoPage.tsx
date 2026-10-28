@@ -137,7 +137,7 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
             <SelectField
               name="tipoPago"
               label="Tipo de pago"
-              hint="Anticipo: día 15. Pago: fin de mes. Bono 14: julio. Aguinaldo: diciembre; promedio con comisiones y horas extra."
+              hint="Anticipo: salario por días activos del 1 al 15 y bonificación proporcional. Pago: fin de mes. Bono 14: julio. Aguinaldo: diciembre."
               value={tipo}
               disabled={ocupado}
               onValueChange={(v) => {
@@ -318,15 +318,21 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
                   titulo: 'Neto',
                   render: (f) => (
                     <span className="whitespace-nowrap">
-                      {f.resultado ? moneda(f.resultado.neto) : 'Bloqueado'}
+                      {f.resultado
+                        ? moneda(f.resultado.neto)
+                        : f.informacion
+                          ? 'No corresponde'
+                          : 'Bloqueado'}
                     </span>
                   ),
                 },
                 {
                   id: 'alertas',
-                  titulo: 'Alertas',
+                  titulo: 'Información y alertas',
                   render: (f) =>
-                    f.alertas.length ? (
+                    f.informacion ? (
+                      <p role="status">{f.informacion}</p>
+                    ) : f.alertas.length ? (
                       <ul>
                         {f.alertas.map((a) => (
                           <li key={a}>{a}</li>
@@ -344,7 +350,10 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
                       icono="ver"
                       variante="secundario"
                       disabled={!f.resultado || descarga.isPending}
-                      motivoDeshabilitado="Resuelve las alertas de este empleado para ver su simulación."
+                      motivoDeshabilitado={
+                        f.informacion ??
+                        'Resuelve las alertas de este empleado para ver su simulación.'
+                      }
                       onClick={() => descarga.mutate(f.idEmpleado)}
                     >
                       Vista previa
@@ -405,7 +414,9 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
               }
               motivoDeshabilitado={
                 bloqueo ||
-                'Simula, resuelve los bloqueos y confirma que las novedades están completas.'
+                (r.registros.every((f) => f.informacion)
+                  ? 'No hay empleados con días activos del 1 al 15; no corresponde registrar un anticipo.'
+                  : 'Simula, resuelve los bloqueos y confirma que las novedades están completas.')
               }
               onClick={() => setDialogo(true)}
             >

@@ -24,8 +24,54 @@ export interface ResultadoPago extends Resultado {
   anticipo: string;
   componentes?: Componente[];
 }
+export function motivoSinAnticipo(e: Pick<EntradaPago, 'empleado' | 'mes' | 'tipoPago'>) {
+  if (e.tipoPago !== 'ANTICIPO') return null;
+  const corte = `${e.mes}-15`;
+  if (e.empleado.ingreso > corte) return 'Sin anticipo: ingresó después del día 15';
+  if (e.empleado.egreso && e.empleado.egreso < `${e.mes}-01`)
+    return 'Sin anticipo: no tuvo días de contrato del 1 al 15';
+  return null;
+}
+function fiscalSinRetencion(e: EntradaPago): Resultado['isr'] {
+  return {
+    anio: Number(e.mes.slice(0, 4)),
+    renta: '0.00',
+    personal: '0.00',
+    acreditadas: '0.00',
+    igss: '0.00',
+    imponible: '0.00',
+    anual: '0.00',
+    retenido: e.acumulado.isr,
+    restantes: 13 - Number(e.mes.slice(5, 7)),
+    retencion: '0.00',
+    exceso: '0.00',
+    tramos: [],
+    deducciones: [],
+    futuro: '0.00',
+  };
+}
 // Motor A11: las novedades aplicadas al anticipo también integran el devengado mensual.
 export function calcularPago(e: EntradaPago): ResultadoPago {
+  // No genera conceptos ni consume novedades de quien aún no trabajaba en la primera quincena.
+  if (motivoSinAnticipo(e))
+    return {
+      tipoPago: e.tipoPago,
+      mes: e.mes,
+      devengado: '0.00',
+      anticipo: '0.00',
+      dias: '0.00',
+      salario: '0.00',
+      idSalario: 0,
+      ingresos: '0.00',
+      descuentos: '0.00',
+      neto: '0.00',
+      patronal: '0.00',
+      baseIgss: '0.00',
+      lineas: [],
+      parametros: [],
+      alertas: [],
+      isr: fiscalSinRetencion(e),
+    };
   const lineas: Linea[] = [],
     usados = new Map<number, Parametro>();
   const cortePago = e.tipoPago === 'ANTICIPO' ? `${e.mes}-15` : e.fin;
@@ -64,11 +110,12 @@ export function calcularPago(e: EntradaPago): ResultadoPago {
   );
   if (!activos.length)
     throw new ErrorConflicto('El empleado no tiene días de contrato en este mes.');
-  const ultimo = vigente(e.salarios, activos.at(-1)!, 'salario');
+  const diasBase = e.tipoPago === 'ANTICIPO' ? activos.filter((f) => f <= cortePago) : activos;
+  const ultimo = vigente(e.salarios, diasBase.at(-1)!, 'salario');
   if (!new Decimal(ultimo.monto).gt(0))
     throw new ErrorConflicto('Completa un salario vigente mayor que cero.');
   // La asignación es requisito incluso cuando no se han cargado horas extra.
-  for (const fecha of activos)
+  for (const fecha of diasBase)
     vigente(
       e.horarios.map((h, id) => ({ ...h, id })),
       fecha,
@@ -78,10 +125,11 @@ export function calcularPago(e: EntradaPago): ResultadoPago {
   if (!divisor.gt(0)) throw new ErrorConflicto('Configura un divisor mensual positivo.');
   const diasContrato =
     activos.length === diasMes.length ? divisor : Decimal.min(divisor, activos.length);
+  const diasSalario = e.tipoPago === 'ANTICIPO' ? new Decimal(diasBase.length) : diasContrato;
   const grupos = new Map<number, { monto: Decimal; dias: Decimal; fecha: string }>();
-  for (const fecha of activos) {
+  for (const fecha of diasBase) {
     const salario = vigente(e.salarios, fecha, 'salario');
-    const peso = diasContrato.div(activos.length);
+    const peso = diasSalario.div(diasBase.length);
     const g = grupos.get(salario.id) ?? { monto: new Decimal(0), dias: new Decimal(0), fecha };
     g.monto = g.monto.plus(new Decimal(salario.monto).div(p('SALARIO_DIAS_MES', fecha)).mul(peso));
     g.dias = g.dias.plus(peso);
@@ -102,17 +150,20 @@ export function calcularPago(e: EntradaPago): ResultadoPago {
   const ausencias = aprobado.filter(
     (n) => n.tipo === 'AUSENCIA' && new Decimal(n.monto ?? 0).gt(0),
   );
-  const diasAusencia = ausencias.reduce((s, n) => s.plus(n.cantidad), new Decimal(0));
-  const bonificacion = p('BONIFICACION_INCENTIVO_MENSUAL')
-    .mul(Decimal.max(0, divisor.minus(diasAusencia)))
-    .div(divisor);
-  const porcentaje = e.tipoPago === 'ANTICIPO' ? p('ANTICIPO_PORCENTAJE').div(100) : new Decimal(1);
-  if (!porcentaje.gt(0) || porcentaje.gt(1))
-    throw new ErrorConflicto('El porcentaje de anticipo debe estar entre 0 y 100.');
+  const diasAusencia = ausencias
+    .filter((n) => n.mes === e.mes)
+    .reduce((s, n) => s.plus(n.cantidad), new Decimal(0));
+  const diasPagados = Decimal.max(0, diasContrato.minus(diasAusencia));
+  const incentivo = p('BONIFICACION_INCENTIVO_MENSUAL');
+  const bonificacionMes = incentivo.mul(diasPagados).div(divisor);
+  const bonificacion =
+    e.tipoPago === 'ANTICIPO'
+      ? Decimal.min(incentivo.mul(diasBase.length).div(15), bonificacionMes)
+      : bonificacionMes;
   for (const g of grupos.values())
     agregar(
       'SALARIO_BASE',
-      g.monto.mul(porcentaje),
+      g.monto,
       e.tipoPago === 'ANTICIPO' ? 'Anticipo de salario base' : 'Salario base',
       g.dias.toFixed(4),
       g.fecha,
@@ -203,22 +254,7 @@ export function calcularPago(e: EntradaPago): ResultadoPago {
       ),
     );
   const baseIgss = e.tipoPago === 'PAGO' ? base('igss') : new Decimal(0);
-  let fiscal: Resultado['isr'] = {
-    anio: Number(e.mes.slice(0, 4)),
-    renta: '0.00',
-    personal: '0.00',
-    acreditadas: '0.00',
-    igss: '0.00',
-    imponible: '0.00',
-    anual: '0.00',
-    retenido: e.acumulado.isr,
-    restantes: 13 - Number(e.mes.slice(5, 7)),
-    retencion: '0.00',
-    exceso: '0.00',
-    tramos: [],
-    deducciones: [],
-    futuro: '0.00',
-  };
+  let fiscal = fiscalSinRetencion(e);
   const devengado = suma((l) => l.concepto.naturaleza === 'INGRESO').minus(
     suma((l) => l.concepto.codigo === 'AUSENCIA_SIN_GOCE'),
   );
@@ -297,7 +333,7 @@ export function calcularPago(e: EntradaPago): ResultadoPago {
     mes: e.mes,
     devengado: dinero(devengado),
     anticipo: e.anticipo,
-    dias: e.tipoPago === 'PAGO' ? dinero(Decimal.max(0, diasContrato.minus(diasAusencia))) : '0.00',
+    dias: dinero(e.tipoPago === 'PAGO' ? diasPagados : diasSalario),
     salario: ultimo.monto,
     idSalario: ultimo.id,
     ingresos: dinero(ingresos),
@@ -349,7 +385,9 @@ function calcularFiscalMensual(
         const monto =
           codigo === 'SALARIO_BASE'
             ? new Decimal(salario.monto).div(p('SALARIO_DIAS_MES', f)).mul(dias.div(activos.length))
-            : p('BONIFICACION_INCENTIVO_MENSUAL', f).div(activos.length);
+            : p('BONIFICACION_INCENTIVO_MENSUAL', f)
+                .div(p('SALARIO_DIAS_MES', f))
+                .mul(dias.div(activos.length));
         if (concepto.isr) rentaMes = rentaMes.plus(monto);
         if (concepto.igss)
           igssMes = igssMes.plus(monto.mul(p('IGSS_LABORAL_PORCENTAJE', f)).div(100));

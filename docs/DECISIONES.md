@@ -428,3 +428,27 @@ referencias y resultados por fase están en [PROGRESO_V1.md](PROGRESO_V1.md).
   su cambio, y el envío implícito no abre revisión prematuramente. La espera muestra estado y
   tooltip; un fallo ofrece Reintentar regla sin perder entradas. Playwright retiene la consulta
   real, verifica el bloqueo y la libera para completar los pasos opcionales. Hints y ayuda actualizados.
+
+## Ronda 3 — R3-1: anticipo e incentivo proporcional
+
+- C1.1 sustituye el anticipo de A11: se suman salario mensual vigente / divisor mensual por cada
+  día activo del 1 al 15, incluidos ingreso y egreso. Un ingreso posterior al 15 no recibe anticipo,
+  aunque tenga salario, comisiones u horas extra de ese mes; se liquidan en Pago.
+- C1.2 sustituye deliberadamente la bonificación completa de A11. Incentivo mensual = monto
+  vigente × max(0, días activos del mes − ausencias sin goce del mes) / divisor. Se conserva la
+  convención v1 (mes completo = divisor, parciales calendario con tope). Incentivo del anticipo =
+  min(monto vigente × días activos del 1 al 15 / 15, incentivo del mes). Con mes completo y sin
+  ausencias conserva 50 % del salario y bonificación completa. Decimal/half-up se aplica por línea.
+- Este criterio proporcional, incluida la entrega adelantada del incentivo y su tope, es un
+  **supuesto solicitado en el adendo, pendiente de validar con el contador**; no se presenta como
+  interpretación legal certificada del Decreto 37-2001. Montos y divisor siguen proviniendo de BD.
+- ANTICIPO_PORCENTAJE queda conservado en BD/snapshots históricos; la nueva fórmula por días lo
+  sustituye. No se cambia el cálculo de AUS sobre SB prorrateado, ni los totales C1.3 ni prestaciones.
+- La misma regla de BI se aplica a proyecciones mensuales de ISR y a nuevas reconstrucciones de
+  historia fiscal. No se reescriben estimaciones aceptadas, pagos, PDF ni snapshots confirmados.
+  Boletas, IGSS y exportaciones consumen el resultado guardado, sin recalcular dinero al consultarlo.
+- Una fila «Sin anticipo» es informativa: no se paga, no emite PDF y no cuenta como bloqueo para
+  pagar a los demás o cerrar el anticipo. La comprobación también se realiza al confirmar en servidor.
+- Los hallazgos históricos requieren diagnóstico de solo lectura y reversión explícita por ADMIN,
+  seguida de simulación y confirmación nuevas. Procedimiento en `docs/NOMINA_V1.md`; no se corrigen
+  pagos automáticamente ni se editan migraciones anteriores.

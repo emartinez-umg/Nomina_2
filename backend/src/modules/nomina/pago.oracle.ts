@@ -1,5 +1,5 @@
 import { alertas } from '../tableros/tableros.repository.js';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
@@ -942,5 +942,150 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
     expect(vista.body.data.estimaciones).toHaveLength(1);
     for (const accion of ['revisar', 'aprobar', 'cerrar'])
       await post(rh, `/periodos/${historico}/${accion}`, { version: 1, confirmado: true });
+  });
+  it('R3-1: diagnóstico SQL de solo lectura detecta anticipos históricos sin alterar el snapshot', async () => {
+    const sql = (
+      await readFile(
+        new URL('../../../../scripts/diagnostico-anticipos.sql', import.meta.url),
+        'utf8',
+      )
+    )
+      .trim()
+      .replace(/;$/, '');
+    const leer = async () =>
+      (
+        await db.conConexion((c) =>
+          c.execute<{ snapshot: string }>(
+            'SELECT DATOS_EMPLEADO "snapshot" FROM NOMINA_EMPLEADO WHERE ID_NOMINA_EMPLEADO=:id',
+            { id: anticipoId },
+            {
+              outFormat: oracledb.OUT_FORMAT_OBJECT,
+              fetchInfo: { snapshot: { type: oracledb.STRING } },
+            },
+          ),
+        )
+      ).rows![0]!.snapshot;
+    const original = await leer();
+    const consultar = () =>
+      db.conConexion((c) =>
+        c.execute<{ ID_NOMINA_EMPLEADO: number; BI_ESPERADA: number; HALLAZGO: string }>(
+          sql,
+          {},
+          { outFormat: oracledb.OUT_FORMAT_OBJECT },
+        ),
+      );
+    expect((await consultar()).rows!.some((r) => r.ID_NOMINA_EMPLEADO === anticipoId)).toBe(false);
+    try {
+      for (const [ingreso, egreso, biEsperada, hallazgo] of [
+        ['2026-01-24', null, 0, 'SIN DIAS ACTIVOS DEL 1 AL 15'],
+        ['2026-01-08', null, 133.33, 'BONIFICACION DESPROPORCIONADA'],
+        ['2026-01-01', '2026-01-10', 83.33, 'BONIFICACION DESPROPORCIONADA'],
+      ] as const) {
+        const s = JSON.parse(original);
+        Object.assign(s.entrada.empleado, { ingreso, egreso });
+        const snapshot = JSON.stringify(s);
+        await ejecutar(
+          'UPDATE NOMINA_EMPLEADO SET DATOS_EMPLEADO=:snapshot WHERE ID_NOMINA_EMPLEADO=:id',
+          { snapshot, id: anticipoId },
+        );
+        const auditorias = await escalar('SELECT COUNT(*) FROM BITACORA_AUDITORIA');
+        const fila = (await consultar()).rows!.find((r) => r.ID_NOMINA_EMPLEADO === anticipoId);
+        expect(fila).toMatchObject({ BI_ESPERADA: biEsperada, HALLAZGO: hallazgo });
+        expect(await leer()).toBe(snapshot);
+        expect(await escalar('SELECT COUNT(*) FROM BITACORA_AUDITORIA')).toBe(auditorias);
+      }
+    } finally {
+      await ejecutar(
+        'UPDATE NOMINA_EMPLEADO SET DATOS_EMPLEADO=:snapshot WHERE ID_NOMINA_EMPLEADO=:id',
+        { snapshot: original, id: anticipoId },
+      );
+    }
+  });
+  it('R3-1: sin anticipo es informativo, no genera pago/boleta y no impide cerrar a los elegibles', async () => {
+    // Todo ocurre en N2SEC desechable; mayo evita los periodos de otras regresiones.
+    await ejecutar("UPDATE EMPLEADOS SET ACTIVO=0 WHERE NOMBRES<>'ZZ Firmante'");
+    const ids: number[] = [];
+    for (const [i, dia, salario] of [
+      [1, '08', 9000],
+      [2, '24', 6500],
+    ] as const) {
+      const u = await enTransaccion(db, (c) =>
+        crearUsuarioInterno(c, actor, {
+          nombre: i === 1 ? 'Ingreso temprano' : 'Ingreso tardio',
+          apellido: 'Anticipo',
+          correo: `r31-${i}@example.test`,
+          rol: 'EMPLEADO',
+        }),
+      );
+      await ejecutar(
+        "INSERT INTO EMPLEADOS(ID_USUARIO,NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO) SELECT :usuario,'Ronda','Anticipo',:dpi,:nit,DATE '1990-01-01','F','SOLTERO','Guatemala','55551234',:correo,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,TO_DATE(:ingreso,'YYYY-MM-DD') FROM EMPLEADOS WHERE ID_EMPLEADO=:origen",
+        {
+          usuario: u.idUsuario,
+          dpi: `987654321099${i}`,
+          nit: `987650${i}-K`,
+          correo: `r31-persona-${i}@example.test`,
+          ingreso: `2026-05-${dia}`,
+          origen: empleado,
+        },
+      );
+      const id = Number(
+        await escalar('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE ID_USUARIO=:u', { u: u.idUsuario }),
+      );
+      ids.push(id);
+      await ejecutar(
+        "INSERT INTO HISTORIAL_SALARIAL(ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES(:id,:salario,TO_DATE(:fecha,'YYYY-MM-DD'),'Regresión R3-1')",
+        { id, salario, fecha: `2026-05-${dia}` },
+      );
+      await ejecutar(
+        "INSERT INTO EMPLEADO_HORARIO(ID_EMPLEADO,ID_HORARIO,VIGENTE_DESDE,MOTIVO) SELECT :id,MIN(ID_HORARIO),TO_DATE(:fecha,'YYYY-MM-DD'),'Regresión R3-1' FROM HORARIOS",
+        { id, fecha: `2026-05-${dia}` },
+      );
+    }
+    const d: ObjetivoPago = { mes: '2026-05', tipoPago: 'ANTICIPO', objetivo: 'TODOS' };
+    const r = await simular(d);
+    expect(
+      r.registros.find((f: { idEmpleado: number }) => f.idEmpleado === ids[0]).resultado.neto,
+    ).toBe('2533.33');
+    expect(r.registros.find((f: { idEmpleado: number }) => f.idEmpleado === ids[1])).toMatchObject({
+      resultado: null,
+      alertas: [],
+      informacion: 'Sin anticipo: ingresó después del día 15',
+      pagado: false,
+    });
+    expect(r.verificacion.conAlertas).toBe(0);
+    expect(r.totales.neto).toBe('2533.33');
+    const soloTardio: ObjetivoPago = { ...d, objetivo: 'EMPLEADO', idEmpleado: ids[1]! };
+    await pagar(soloTardio, (await simular(soloTardio)).hash, 409);
+    await post(rh, `/simular/${ids[1]}/pdf`, soloTardio, 409);
+    const respuesta = await rh.agent
+      .post('/api/nomina/pagar')
+      .set('X-CSRF-Token', rh.csrf)
+      .send({ ...d, hash: r.hash, confirmado: true, novedadesCompletas: true });
+    expect(respuesta.body.error).toBeUndefined();
+    expect(respuesta.status).toBe(201);
+    const pagado = respuesta.body.data;
+    expect(pagado.pagados).toHaveLength(1);
+    expect(pagado.bloqueados).toEqual([]);
+    expect(
+      Number(
+        await escalar('SELECT COUNT(*) FROM NOMINA_EMPLEADO WHERE ID_EMPLEADO=:id', {
+          id: ids[1]!,
+        }),
+      ),
+    ).toBe(0);
+    for (const accion of ['revisar', 'aprobar', 'cerrar'])
+      await post(rh, `/periodos/${pagado.idPeriodo}/${accion}`, { version: 1, confirmado: true });
+    const pagoMes = await simular({ ...soloTardio, tipoPago: 'PAGO' });
+    expect(pagoMes.registros[0].resultado.anticipo).toBe('0.00');
+    expect(pagoMes.registros[0].resultado.devengado).toBe('1800.00');
+    // La boleta del elegible consume exactamente los importes calculados, sin recomputarlos.
+    const detalle = (await rh.agent.get(`/api/nomina/boletas/${pagado.pagados[0]}`).expect(200))
+      .body.data;
+    expect(detalle.resultado.neto).toBe('2533.33');
+    expect(
+      detalle.resultado.lineas.find(
+        (l: { concepto: { codigo: string } }) => l.concepto.codigo === 'BONIFICACION_INCENTIVO',
+      ).monto,
+    ).toBe('133.33');
   });
 });

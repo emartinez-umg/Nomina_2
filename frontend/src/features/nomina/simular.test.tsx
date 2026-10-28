@@ -94,6 +94,35 @@ beforeEach(() => {
   vi.mocked(api.simular).mockResolvedValue(resultado as api.Simulacion);
 });
 describe('A11: simulación guiada y confirmación', () => {
+  it('sin días al 15 informa sin bloqueo, conserva los demás pagos y deshabilita su boleta', async () => {
+    const datos = structuredClone(resultado);
+    datos.registros[1]!.alertas = [];
+    Object.assign(datos.registros[1]!, { informacion: 'Sin anticipo: ingresó después del día 15' });
+    datos.verificacion.conAlertas = 0;
+    vi.mocked(api.simular).mockResolvedValue(datos as api.Simulacion);
+    montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Simular' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Sin anticipo: ingresó después del día 15',
+    );
+    expect(screen.getByText('No corresponde')).toBeVisible();
+    expect(screen.queryByText('Bloqueado')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Vista previa' })[1]).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: 'Confirmar y pagar' })).toBeEnabled();
+  });
+  it('si todo el objetivo ingresó después del 15 no permite confirmar un pago cero', async () => {
+    const datos = structuredClone(resultado);
+    datos.registros = [{ ...datos.registros[1]!, alertas: [] }];
+    Object.assign(datos.registros[0]!, { informacion: 'Sin anticipo: ingresó después del día 15' });
+    vi.mocked(api.simular).mockResolvedValue(datos as api.Simulacion);
+    montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Simular' }));
+    await screen.findByRole('status');
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(screen.getByRole('button', { name: 'Confirmar y pagar' })).toBeDisabled();
+    expect(api.pagar).not.toHaveBeenCalled();
+  });
   it('muestra el desglose automático sin exigir aperturas individuales ni bloquear la confirmación', async () => {
     const datos = structuredClone(resultado);
     Object.assign(datos.registros[0]!.resultado!, {
