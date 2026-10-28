@@ -475,3 +475,105 @@ Requisitos transversales:
 - Sección 9 (v0): el recorrido guiado **ya no se ofrece automáticamente**; solo desde el botón de ayuda.
 - A8 (v1): el NIT no exige dígito verificador por defecto; el formulario de empleado es un asistente de 4 pasos con los pasos 3 y 4 opcionales; "Número de casa" pasa a "Dirección".
 - A3 (v1): "Descartar borrador" elimina de forma definitiva y "Cancelar" ofrece conservar o descartar.
+
+---
+# ADENDO v1.2 — Tercera ronda: nómina, vacaciones, equipo, expediente y actas
+Donde contradiga a versiones anteriores, este adendo manda.
+
+## C0. Reglas de la ronda
+- Rama v1.2 desde v1.1. No edites migraciones anteriores: todo cambio de esquema va en migraciones nuevas que conserven los datos.
+- Cada error se corrige en su causa raíz, con una prueba de regresión que habría fallado antes. Las rutas y líneas citadas en los prompts son orientativas: verifica la causa real.
+- Al corregir un error, busca el mismo patrón en reportes, dashboards y exportaciones.
+- Nunca modifiques pagos ya confirmados de forma automática. Para datos mal calculados entrega un script de diagnóstico de solo lectura y el procedimiento (reversión por ADMIN y nuevo cálculo).
+- Bitácora: docs/PROGRESO_V1.md, sección "Ronda 3". Mantén la convención de días de la v1 salvo donde este adendo diga otra cosa.
+
+## C1. Correcciones de nómina
+Convenciones: dAct15 = días activos del empleado entre el día 1 y el 15 del mes (0 si ingresó después del 15 o egresó antes del 1; 15 si estuvo activo todo el tramo). dActMes = días activos del mes con la convención ya implementada (tope 30; mes completo = 30). dAus = días de ausencia sin goce.
+
+C1.1 Anticipo (día 15)
+- Si dAct15 = 0: NO hay anticipo. La simulación lo muestra como "Sin anticipo: ingresó después del día 15" (informativo, no es error) y en el pago del último día el anticipo ya pagado es 0.
+- Si dAct15 > 0: anticipo base = SB × dAct15 / 30 (con mes completo equivale al 50 % de SB). Cubre también a quien egresa antes del 15.
+- Prueba: SB Q9,000.00, ingreso 08/10/2026, dAct15 = 8 → anticipo base Q2,400.00.
+
+C1.2 Bonificación incentivo proporcional (Decreto 37-2001)
+- BI del mes = BI × días pagados / 30, con días pagados = dActMes − dAus (tope 30). Se reduce por ingreso, egreso y ausencias sin goce. El monto de referencia (Q250) sigue en parámetros.
+- Anticipo: BI anticipo = BI × dAct15 / 15, nunca mayor que la BI del mes. Con mes completo sigue siendo la bonificación completa.
+- Prueba (ingreso 08/10/2026, 24 días activos en el mes, SB 9,000): BI del mes Q200.00; BI anticipo Q133.33; anticipo total Q2,533.33; devengado del mes Q7,400.00; antes de descuentos el pago del último día es Q4,866.67.
+- Prueba (egreso 10/10/2026, SB 9,000): anticipo base Q3,000.00; BI del mes Q83.33; BI anticipo min(166.67, 83.33) = Q83.33.
+- Documenta en docs/DECISIONES.md que el criterio proporcional es un supuesto a validar con el contador.
+
+C1.3 Totales mensuales (historial, reportes, dashboard)
+- Una sola fuente de totales del mes (resumenMensualNomina) usada por historial, dashboard, reporte IGSS y exportaciones.
+- Ingresos del mes = devengado del PAGO del mes (ya incluye lo del anticipo). Si aún no hay pago, se muestra el anticipo marcado "parcial".
+- Descuentos = IGSS, ISR, parqueo, tienda, préstamos y demás. La línea "Anticipo ya pagado" NO es un descuento (es neteo) y nunca entra en totales.
+- Neto del mes = neto del anticipo + neto del pago.
+- Prueba: SB Q10,000 sin extras → anticipo Q5,250.00; devengado del mes Q10,250.00 (no Q15,500); IGSS Q483.00; neto del mes = 10,250 − 483 − ISR − otros descuentos.
+
+C1.4 Inicio de RH: tarjetas "Nómina bruta del mes" (ingresos del mes) y "Nómina neta del mes" (anticipo + pago), con indicador "Parcial: solo anticipo" si falta el pago y tooltips que definan cada concepto.
+
+C1.5 Prestaciones atrasadas (Bono 14 y Aguinaldo)
+- La validación "hay pagos posteriores, reviértelos en orden inverso" solo aplica a Anticipo y Pago del mes. Las prestaciones son independientes de esa cadena.
+- Se pueden pagar fuera de fecha (pago extemporáneo) sin revertir nada. El cálculo sigue usando el periodo legal original (1 jul–30 jun Bono 14; 1 dic–30 nov Aguinaldo).
+- Si la fecha de pago supera el límite legal configurado: marca "Extemporáneo", exige motivo, queda en bitácora y el comprobante PDF lo indica.
+- Se mantiene unicidad (empleado + tipo + año), idempotencia y reversión por ADMIN con motivo, sin exigir revertir planillas.
+- En pantalla, en lugar de "Bloqueado": "Pendiente de pago (atrasado desde dd/mm/aaaa)".
+
+## C2. Detalles de pantalla
+- Título de pestaña por pantalla: "Nombre de pantalla | nomina2", definido en la configuración de rutas. index.html solo trae "nomina2". En detalles usa el código del registro (ej. "Empleado EMP_ING_0001 | nomina2"), nunca datos sensibles.
+- MonthField acepta anioMin y anioMax. En dashboard y estadísticas se limita a los años con datos (endpoint de rango de años por fuente: planillas, comisiones, ausencias, vacaciones), siempre incluyendo el año actual.
+- Etiquetas de estado: ningún código interno visible (EN_PROCESO). Un único registro de estados (código → etiqueta, color, ícono) y un componente EstadoBadge en todo el sistema, exportaciones y PDF. Audita las pantallas buscando códigos MAYÚSCULAS_CON_GUION y agrega una prueba que escanee el texto visible.
+
+## C3. Jefaturas
+- Jefatura: código automático, nombre, jefe responsable (empleado activo), departamento y jefatura superior opcional. Sin ciclos; un empleado pertenece a una sola jefatura.
+- Ficha y listados muestran "Jefe inmediato: Nombre Apellido" (nunca "Sin registro" si existe).
+- Asignación masiva de jefatura (varios empleados, filtros por departamento y centro) y asistente "Configurar jefaturas" cuando el catálogo está vacío. No inventes datos de ejemplo.
+- Alertas para RH: empleados sin jefatura y jefaturas sin jefe. Todo auditado.
+- Equipo de un jefe = empleados de las jefaturas que dirige y de sus descendientes.
+
+## C4. Permisos de jefatura y vistas de equipo
+- Los roles siguen siendo ADMIN, RH y EMPLEADO. Se agregan permisos por jefatura (PERMISOS_JEFATURA, administrados por RH/ADMIN en Jefaturas con interruptores y auditoría): VER_EQUIPO, VER_COMISIONES_EQUIPO, VER_VACACIONES_EQUIPO.
+- El alcance se calcula SIEMPRE en el servidor desde la sesión (resolverAlcanceEquipo); ningún id o filtro del cliente lo amplía.
+- Datos expuestos al jefe: nombre, código, puesto, departamento, centro, comisiones y saldos de vacaciones de su equipo. Nunca salario, banco, DPI/NIT, expediente ni actas.
+- El menú muestra el grupo "Mi equipo" solo a quien tenga algún permiso activo; el buscador Ctrl/⌘ K respeta lo mismo. La aprobación de solicitudes por el jefe queda fuera de esta ronda.
+
+## C5. Vacaciones: colisiones y listado general
+Colisiones (solo RRHH; nunca visibles al empleado)
+- Al revisar una solicitud, buscar solicitudes de OTROS empleados que se traslapen en fechas, en estado Aprobada (incluye en curso) o En proceso, y que sean del mismo departamento o del mismo centro de trabajo. Etiquetar: "Mismo departamento", "Mismo centro de trabajo" o "Ambos". Ignorar rechazadas/canceladas; centro vacío no coincide con nada.
+- Panel de advertencia ámbar con: empleado, código, departamento, centro, rango, días que coinciden, estado y tipo de coincidencia; máximo de personas ausentes en un mismo día frente al tamaño del equipo; línea de tiempo visual.
+- NO impiden aprobar (salvo la regla de saldo insuficiente, que no cambia). Al aprobar con colisiones: confirmación "Aprobar de todos modos"; se guarda copia de las colisiones vigentes en el registro y la bitácora.
+- Bandeja: insignia "⚠ N colisiones" con tooltip y filtro "Con colisiones".
+Listado general de saldos
+- Para RH y ADMIN (y jefe con permiso, limitado a su equipo): código, nombre, departamento, centro, jefatura, ingreso, meses completos, acumulado, tomados, disponible y solicitables.
+- Rojo (fila resaltada + ícono + etiqueta "Más de 15 días", no solo color) a quien tenga más de 15 días disponibles. Umbral = parámetro VACACIONES_ALERTA_DIAS (15 por defecto, editable con confirmación y bitácora).
+- Filtros: departamento, centro, jefatura, solo con alerta, activos, búsqueda; orden y paginación en servidor; indicadores superiores; exportación CSV/Excel con la marca de alerta.
+- Dashboard de RH: aviso "N empleados con más de 15 días" que abre el listado filtrado.
+
+## C6. Estadísticas de comisiones (dashboard de ventas)
+- Rango desde/hasta por mes y año (años con datos), departamento, vendedores (múltiple) y estado de la comisión (todas / pendientes / aplicadas). Atajos: este mes, últimos 3/6/12 meses, este año, año anterior. Máximo 60 meses; sin meses futuros.
+- Indicadores: total, promedio mensual, mejor mes, vendedores con comisión y variación frente al periodo anterior equivalente.
+- Gráficas: tendencia mensual (total y opcionalmente por vendedor), ranking, reparto por vendedor, tabla vendedor × mes con totales, e historial por vendedor (evolución, mejor/peor mes, promedio y comparación con el promedio del equipo). Meses sin datos en cero. Cada gráfica con alternativa tabular accesible.
+- Vendedor = cualquier empleado con comisiones en el rango (no depende del puesto).
+- Alcance: RH y ADMIN ven todo; un jefe con VER_COMISIONES_EQUIPO ve solo a su equipo, con indicador visible ("Equipo: …, N personas").
+- Estados vacíos útiles con acceso a cargar comisiones (solo RH). El recuadro "Top 5 de remuneraciones" del Inicio distingue "sin comisiones registradas" de "sin pagos" y enlaza a estas estadísticas.
+- Exportación CSV/Excel, animaciones con framer-motion (respeta prefers-reduced-motion), fidelidad al mockup y recorrido de ayuda.
+
+## C7. Expediente digital
+- La pestaña Documentos de la ficha combina lo que genera el sistema con un expediente donde RH sube: DPI, antecedentes penales, antecedentes policiacos, contrato firmado, títulos y diplomas, fotografía y otros. Catálogo TIPOS_DOCUMENTO_EXPEDIENTE con banderas OBLIGATORIO y REQUIERE_VENCIMIENTO (fecha de vencimiento y aviso previo parametrizable).
+- Indicador "Expediente X de Y", filtro "expediente incompleto" y alertas de vencimiento en el dashboard de RH.
+- Seguridad (datos muy sensibles): archivos fuera de la ruta pública, en un volumen Docker dedicado y con nombre aleatorio; descarga solo por endpoint autenticado con control de rol y propiedad; PDF/JPG/PNG verificados por contenido, máximo 10 MB (parametrizable), cabeceras nosniff y Content-Disposition, hash SHA-256, sin interpretar contenido. Cada visualización, descarga, carga y baja queda en bitácora.
+- Reemplazar conserva historial de versiones; la baja es lógica con motivo (física solo ADMIN). Vista previa, arrastrar y soltar, progreso y errores claros.
+- Acceso: RH y ADMIN administran; el empleado ve y descarga solo los suyos (sin subir ni borrar); el jefe no tiene acceso. El volumen se documenta en el README (respaldo) y se excluye del script de exportación de la BD.
+
+## C8. Actas administrativas y amonestaciones
+- Módulo solo para RH y ADMIN. Catálogo TIPOS_ACTA con gravedad (leve/moderada/grave): llamada de atención verbal, amonestación escrita, suspensión sin goce de sueldo y acta administrativa general.
+- Campos: código automático (ACT_2026_0001), empleado (SelectorEmpleado en cascada), tipo, fecha del hecho (no futura ni anterior al ingreso), lugar, descripción de los hechos (30–4,000 caracteres), testigos, norma o reglamento aplicado, medida adoptada, descargos del empleado y adjuntos (servicio de archivos de C7).
+- Suspensión: pide los días (máximo parametrizable con advertencia) y ofrece, con confirmación, registrar la ausencia sin goce correspondiente para que se refleje en la nómina.
+- Estados: Borrador → Emitida → Firmada (con escaneo adjunto) o "Se negó a firmar" (con testigos) → Anulada (con motivo). Después de emitida no se edita; solo se adjunta la firma o se anula. Sin eliminación física.
+- Al emitir: PDF membretado desde plantilla editable, con línea "Recibí conforme" y el nombre y cargo del usuario RH que la emitió. El empleado recibe notificación y ve solo sus actas emitidas, en lectura.
+- Al crear una acta se muestran los antecedentes del empleado (actas de los últimos 12 meses). Pestaña "Actas" en la ficha, filtros por empleado, tipo, estado, departamento y fechas, y alerta de actas pendientes de firma. Los textos de las actas no se escriben en los logs.
+
+## C9. Reglas anteriores que cambian
+- A11 (v1): anticipo y bonificación incentivo con las fórmulas C1.1 y C1.2; "Anticipo ya pagado" deja de contarse como descuento en totales.
+- A12 (v1): Bono 14 y Aguinaldo se pagan de forma independiente de la cadena de planillas (C1.5).
+- Menú: grupo condicional "Mi equipo", "Saldos de vacaciones" y "Estadísticas de comisiones".
+- Rol EMPLEADO: conserva su rol, pero puede tener capacidades de equipo mediante permisos de jefatura (C4).

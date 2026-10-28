@@ -3057,3 +3057,37 @@ Estado: implementado el 22/10/2026 en `v1.1`.
    npm run verify:pagos y npm run verify:security. Las suites Oracle usan esquemas desechables.
 5. Sin migraciones ni cambios de cálculo pendientes. El código específico de empresa no se
    agregó al modelo; se usa su NIT conforme al supuesto anterior.
+
+## Ronda 3 — Preparación del adendo v1.2
+
+Estado: preparación documental completada el 27/10/2026 en `v1.2`.
+
+### Hecho y decisiones
+
+- Ejecutados `git checkout v1.1` y `git checkout -b v1.2`, desde un árbol limpio.
+- Incorporado íntegramente el adendo v1.2 adjunto por el usuario al final de `AGENTS.md`,
+  después de los adendos v1 y v1.1, conservando todo el contenido anterior.
+- El alcance de esta solicitud es preparar la rama e incorporar las instrucciones. Los apartados
+  C1–C8 se implementarán únicamente al solicitar sus fases; C9 documenta las reglas sustituidas.
+
+### Supuestos
+
+- La incorporación del adendo establece el alcance de la ronda; no solicita ejecutar todas sus
+  fases en esta sesión. Se mantiene la regla de trabajo por fases de `AGENTS.md`.
+
+### Validación
+
+- Comprobada la igualdad literal del bloque agregado con el archivo adjunto y la conservación
+  del contenido de `AGENTS.md` de `v1.1`. `git diff --check`, formato de los archivos modificados
+  y `npm run lint` aprobados.
+- El primer intento de `npm test` encontró `listen EPERM` en pruebas Supertest por la restricción
+  de puertos locales del sandbox. Reejecución con el permiso del entorno aprobada: 804 pruebas
+  (458 backend, 339 frontend y siete del exportador), ejecutadas con Node 24.13.1 del host.
+
+### Cómo probar y pendientes
+
+1. `git branch --show-current` debe indicar `v1.2`.
+2. Revisar el final de `AGENTS.md`: debe contener una sola copia del adendo v1.2, tras v1.1.
+3. Reproducir las comprobaciones con `npm run lint`, `npm test` y `git diff --check`.
+4. Pendientes de próximas fases: correcciones de nómina, detalles de pantalla, jefaturas y
+   permisos de equipo, vacaciones, estadísticas de comisiones, expediente digital y actas.
