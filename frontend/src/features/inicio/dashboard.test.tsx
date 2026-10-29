@@ -360,6 +360,54 @@ describe('R2-9: primera vista de RRHH', () => {
     fireEvent.click(within(card).getByRole('tab', { name: 'Aniversarios' }));
     expect(within(card).getByText('5 años en el equipo')).toBeInTheDocument();
   });
+  it.each([0, 1])(
+    'R3-10: distingue comisiones registradas (%s) de pagos confirmados y enlaza su mes',
+    async (cantidad) => {
+      const original = fetchDatos(true);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) =>
+          url.includes('/comisiones/resumen?')
+            ? {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                  ok: true,
+                  data: {
+                    actualizadoEn,
+                    moneda: 'GTQ',
+                    periodo: { desde: '2026-10', hasta: '2026-10', meses: 1 },
+                    periodoAnterior: null,
+                    alcance: { tipo: 'GENERAL', personas: null },
+                    indicadores: {
+                      total: cantidad ? '100.00' : '0.00',
+                      promedioMensual: '0.00',
+                      mejorMes: null,
+                      vendedoresConComision: cantidad,
+                      totalAnterior: null,
+                      variacionPorcentual: null,
+                      sinBaseComparacion: false,
+                    },
+                  },
+                }),
+              }
+            : original(url),
+        ),
+      );
+      mostrar();
+      const card = screen.getByRole('region', { name: 'Top 5 de remuneraciones' });
+      await within(card).findByText('Sin pagos para esta métrica');
+      fireEvent.change(within(card).getByLabelText('Métrica'), { target: { value: 'comisiones' } });
+      await within(card).findByText(
+        cantidad
+          ? 'Sin comisiones en pagos confirmados'
+          : 'Sin comisiones registradas en octubre de 2026',
+      );
+      expect(
+        within(card).getByRole('link', { name: /^Estadísticas de comisiones$/ }),
+      ).toHaveAttribute('href', '/estadisticas/comisiones?desde=2026-10&hasta=2026-10');
+    },
+  );
   it('explica los cuatro estados vacíos con acciones útiles y conserva ceros', async () => {
     vi.stubGlobal('fetch', fetchDatos(true));
     mostrar();

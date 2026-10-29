@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { Request, Response } from 'express';
 import { autenticacionDe } from '../../shared/security/rbac.js';
 import { respuestaOk } from '../../shared/utils/respuesta.js';
@@ -33,6 +34,17 @@ export function crearComisionesController(s: ReturnType<typeof crearComisionesSe
       res.json(
         respuestaOk(
           await s.historial(autenticacionDe(req), id, comisionesHistorialSchema.parse(req.query)),
+        ),
+      );
+    },
+    async exportar(req: Request, res: Response) {
+      res.json(
+        respuestaOk(
+          await s.exportar(
+            autenticacionDe(req),
+            comisionesQuerySchema.parse(req.query),
+            z.enum(['csv', 'excel']).parse(req.params.formato),
+          ),
         ),
       );
     },

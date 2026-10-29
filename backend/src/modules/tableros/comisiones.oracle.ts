@@ -1,3 +1,4 @@
+import { unzipSync, strFromU8 } from 'fflate';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
@@ -421,6 +422,30 @@ describe('R3-9: datos de ventas protegidos con Oracle/Supertest', () => {
     await get('resumen', { vendedores: 999999 }).expect(404);
     await get('resumen', { idDepartamento: 999999 }).expect(404);
   });
+  it('R3-10: descargas CSV/XLSX completas, filtradas y limitadas al equipo vigente', async () => {
+    for (const formato of ['csv', 'excel']) {
+      const r = await get(`exportar/${formato}`, { comparar: 'true' }, jefe).expect(200);
+      const bytes = Buffer.from(r.body.data.base64, 'base64');
+      const contenido =
+        formato === 'csv'
+          ? bytes.toString('utf8')
+          : strFromU8(unzipSync(bytes)['xl/worksheets/sheet1.xml']!);
+      expect(contenido).toContain('600.00');
+      expect(contenido).toContain('Equipo: 3 personas');
+      expect(contenido).not.toMatch(/6550.00|5000.00|DPI|Salario|Banco|Expediente/);
+      for (const id of [ids[0], ids[3], ids[5]])
+        await get(`exportar/${formato}`, { vendedores: `${ids[1]},${id}` }, jefe).expect(403);
+      await get(`exportar/${formato}`, {}, empleado).expect(403);
+      await get(`exportar/${formato}`, {}, temporal).expect(403);
+      await get(`exportar/${formato}`, { alcance: 'general' }, jefe).expect(400);
+      const filtrado = await get(`exportar/${formato}`, {
+        vendedores: String(ids[1]),
+        estado: 'pendientes',
+      }).expect(200);
+      expect(filtrado.body.data.nombre).toMatch(/comisiones-2026-01-2026-03/);
+    }
+    await get('exportar/pdf').expect(400);
+  });
   it('años con datos respeta alcance y ambas rutas R3-4/C6 comparten contrato', async () => {
     const r = await jefe.agent.get(base + 'anios').expect(200);
     expect(r.body.data.anios).toEqual([2024, 2025, 2026]);
@@ -462,6 +487,8 @@ describe('R3-9: datos de ventas protegidos con Oracle/Supertest', () => {
       'tabla',
       'opciones',
       `vendedores/${ids[1]}/historial`,
+      'exportar/csv',
+      'exportar/excel',
     ]) {
       await request(app)
         .get(base + ruta)

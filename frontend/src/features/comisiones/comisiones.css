@@ -1,0 +1,183 @@
+/* Paleta, superficies y radios del mockup; cifras exactas acompañan cada gráfica. */
+.com-pagina {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.com-pagina > *,
+.com-graficas > *,
+.com-grafica {
+  min-width: 0;
+}
+.com-cabecera,
+.com-alcance,
+.com-acciones,
+.com-atajos {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.com-cabecera {
+  justify-content: space-between;
+}
+.com-cabecera h1 {
+  margin-bottom: 0.4rem;
+}
+.com-campos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.com-atajos {
+  margin-top: 1rem;
+}
+.com-atajos .boton {
+  font-size: 0.85rem;
+}
+.com-indicadores {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+.com-indicador {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 0.6rem;
+  padding: 1.25rem;
+}
+.com-indicador h2 {
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.com-numero {
+  font-size: clamp(1.3rem, 2.1vw, 1.85rem);
+  overflow-wrap: anywhere;
+}
+.com-variacion {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+.com-alcance {
+  border-left: 4px solid var(--com-primario);
+  background: var(--com-suave);
+  padding: 1rem;
+  border-radius: 0.625rem;
+}
+.com-graficas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+.com-grafica {
+  width: 100%;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+.com-datos {
+  margin-top: 0.75rem;
+}
+.com-pagina summary {
+  cursor: pointer;
+  font-weight: bold;
+  padding: 0.6rem 0;
+}
+.com-interruptor {
+  display: inline-flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+.com-interruptor input,
+.com-lista-vendedores input {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+}
+.com-lista-vendedores {
+  max-height: 14rem;
+  overflow: auto;
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.com-lista-vendedores label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.com-pagina table {
+  white-space: nowrap;
+}
+.com-calor {
+  display: block;
+  padding: 0.45rem;
+  border-radius: 0.4rem;
+  color: var(--com-marca);
+}
+.com-calor[data-nivel='1'] {
+  background: var(--com-suave);
+}
+.com-calor[data-nivel='2'] {
+  background: var(--com-informacion);
+  border-bottom: 3px solid var(--com-marca);
+}
+.com-calor[data-nivel='3'] {
+  background: var(--com-marca);
+  color: white;
+  font-weight: bold;
+}
+.com-resumen-vendedor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 1rem 0;
+}
+.com-resumen-vendedor dt {
+  color: var(--com-secundario);
+}
+.com-resumen-vendedor dd {
+  font-weight: bold;
+  margin-top: 0.35rem;
+}
+@media (max-width: 1100px) {
+  .com-indicadores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .com-graficas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .com-acciones {
+    align-items: stretch;
+  }
+  .com-pagina .tarjeta {
+    padding: 1rem;
+  }
+  .com-indicadores {
+    gap: 0.6rem;
+  }
+  .com-pagina .com-numero {
+    font-size: 1.2rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .com-pagina *,
+  .com-pagina *::before,
+  .com-pagina *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

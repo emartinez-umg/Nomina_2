@@ -1,3 +1,4 @@
+import { unzipSync, strFromU8 } from 'fflate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
@@ -262,10 +263,40 @@ describe('R3-9: estadísticas de comisiones', () => {
       'ranking',
       'tabla',
       'opciones',
+      'exportar/csv',
+      'exportar/excel',
       'vendedores/3/historial',
     ])
       await request(app)
         .get(`/comisiones/${ruta}?desde=2026-01&hasta=2026-03&alcance=general`)
         .expect(400);
   });
+});
+
+it('R3-10: CSV/Excel exportan todo el conjunto exacto, neutralizan fórmulas y revalidan equipo', async () => {
+  vi.mocked(repo.mesesVendedores).mockResolvedValue(
+    Array.from({ length: 25 }, (_, i) => ({
+      ...fila('2026-01', '100.10', i + 3),
+      nombre: i === 0 ? '=SUM(1,2)' : `Vendedor ${i}`,
+      codigo: `EMP_${i}`,
+    })),
+  );
+  const s = crearComisionesService(db, async () => '2026-10-29');
+  const csv = Buffer.from(
+    (await s.exportar(auth, query({ comparar: 'true' }), 'csv')).base64,
+    'base64',
+  ).toString();
+  expect(csv.match(/EMP_/g)).toHaveLength(25);
+  expect(csv).toContain("'=SUM(1,2)");
+  expect(csv).toContain('2502.50');
+  expect(csv).toContain('Sin base de comparación');
+  const x = unzipSync(Buffer.from((await s.exportar(auth, query(), 'excel')).base64, 'base64'));
+  expect(strFromU8(x['xl/worksheets/sheet1.xml']!)).toContain('EMP_24');
+  expect(strFromU8(x['xl/worksheets/sheet1.xml']!)).not.toContain('<f>');
+  await s.exportar({ ...auth, rol: 'EMPLEADO' }, query(), 'csv');
+  expect(repo.mesesVendedores).toHaveBeenLastCalledWith(c, expect.anything(), [3]);
+  await expect(
+    s.exportar({ ...auth, rol: 'EMPLEADO' }, query({ vendedores: '4' }), 'excel'),
+  ).rejects.toMatchObject({ estado: 403 });
+  expect(csv).not.toMatch(/DPI|CUENTA_BANCARIA|SALARIO_BASE/);
 });

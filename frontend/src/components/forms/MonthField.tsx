@@ -95,6 +95,11 @@ export function MonthField({
           onChange={(e) => elegir(e.target.value, month ?? '01')}
           className="min-h-11 min-w-0 rounded-control border border-borde bg-white px-3 py-2"
         >
+          {year && /^\d{4}$/.test(year) && !anios.includes(year) && Number(year) <= limite && (
+            <option value={year} disabled>
+              {year} (sin registros)
+            </option>
+          )}
           {anios.map((y) => (
             <option key={y}>{y}</option>
           ))}

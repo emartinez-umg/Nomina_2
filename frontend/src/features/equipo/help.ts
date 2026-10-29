@@ -13,7 +13,7 @@ export const ayudaPermisosEquipo: DefinicionAyuda = {
       elemento: 'permisos-interruptores',
       titulo: 'Permisos independientes',
       descripcion:
-        'Cada interruptor concede una consulta al responsable de esta jefatura. Ver equipo habilita el directorio; Ver vacaciones habilita saldos y exportaciones sin aprobar solicitudes. Ver comisiones registra la autorización para las estadísticas de ventas cuando esa vista esté disponible. Una jefatura sin permiso no amplía el alcance de otra. El usuario conserva el rol Empleado. Nunca se concede acceso al salario, banco, DPI, NIT, expediente ni actas.',
+        'Cada interruptor concede una consulta al responsable de esta jefatura. Ver equipo habilita el directorio; Ver vacaciones habilita saldos y exportaciones sin aprobar solicitudes. Ver comisiones habilita Estadísticas de comisiones en Mi equipo, con filtros, historial por vendedor y exportaciones limitadas a esas ramas. Una jefatura sin permiso no amplía el alcance de otra. El usuario conserva el rol Empleado. Nunca se concede acceso al salario, banco, DPI, NIT, expediente ni actas.',
     },
     {
       elemento: 'permisos-guardar',
@@ -30,7 +30,7 @@ export const ayudaMiEquipo: DefinicionAyuda = {
       elemento: 'equipo-resumen',
       titulo: 'Tu equipo y tus permisos',
       descripcion:
-        'El equipo reúne empleados activos de las jefaturas que diriges y sus descendientes activas, excluyéndote. Los permisos los administra Recursos Humanos. Cada vista usa solo las ramas que tienen su permiso; no cambia tu rol de Empleado ni permite aprobar solicitudes.',
+        'El equipo reúne empleados activos de las jefaturas que diriges y sus descendientes activas, excluyéndote. Los permisos los administra Recursos Humanos. Estadísticas de comisiones abre tendencia, ranking e historial por vendedor solo con el permiso correspondiente. Cada vista usa solo las ramas que tienen su permiso; no cambia tu rol de Empleado ni permite aprobar solicitudes.',
     },
     {
       elemento: 'equipo-filtros',

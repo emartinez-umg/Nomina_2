@@ -58,10 +58,10 @@ export function MiEquipoPage() {
               </Link>
             )}
             {r.data.permisos.includes('VER_COMISIONES_EQUIPO') && (
-              <p className="campo-hint my-3">
-                Permiso de comisiones activo. Las estadísticas de comisiones estarán disponibles
-                próximamente.
-              </p>
+              <Link className="enlace-icono my-3" to="/mi-equipo/comisiones">
+                <iconos.estadisticas aria-hidden="true" />
+                Estadísticas de comisiones del equipo
+              </Link>
             )}
           </>
         )}

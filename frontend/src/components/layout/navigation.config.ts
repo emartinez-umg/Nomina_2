@@ -241,6 +241,21 @@ const compartidos: GrupoNavegacion[] = [
     ],
   },
   {
+    id: 'estadisticas',
+    titulo: 'Estadísticas',
+    icono: 'estadisticas',
+    items: [
+      acceso(
+        'estadisticas-comisiones',
+        'Estadísticas de comisiones',
+        '/estadisticas/comisiones',
+        'estadisticas',
+        'Analiza tendencia, reparto e historial por vendedor.',
+        ['ventas', 'vendedores', 'ranking', 'historial comisiones', 'dashboard ventas'],
+      ),
+    ],
+  },
+  {
     id: 'prestaciones',
     titulo: 'Prestaciones',
     icono: 'documento',
@@ -522,6 +537,18 @@ export function gruposNavegacion(
           'Consulta tu equipo y tus permisos de jefatura.',
           ['personal', 'jefatura', 'colaboradores'],
         ),
+        ...(permisos.includes('VER_COMISIONES_EQUIPO')
+          ? [
+              acceso(
+                'comisiones-equipo',
+                'Estadísticas de comisiones',
+                '/mi-equipo/comisiones',
+                'estadisticas',
+                'Analiza comisiones e historial de tu equipo autorizado.',
+                ['ventas', 'vendedores', 'ranking', 'comisiones equipo', 'dashboard ventas'],
+              ),
+            ]
+          : []),
         ...(permisos.includes('VER_VACACIONES_EQUIPO')
           ? [
               acceso(

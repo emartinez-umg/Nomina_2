@@ -1,4 +1,4 @@
-# Estadísticas de comisiones — contrato R3-9
+# Estadísticas de comisiones — contrato R3-9 / interfaz R3-10
 
 API de lectura para C6. Sesión autenticada con contraseña definitiva. RH y ADMIN consultan
 todo el historial; EMPLEADO requiere `VER_COMISIONES_EQUIPO` vigente en una jefatura que
@@ -10,15 +10,16 @@ al propio jefe y a personas/ramas inactivas. No concede acceso a otras vistas de
 Base: `/api/tableros/comisiones`. Todas responden `{ ok, data }`, con
 `Cache-Control: private, no-store`. No escriben datos; usan snapshot READ ONLY.
 
-| GET                         | Datos                                                                                             |
-| --------------------------- | ------------------------------------------------------------------------------------------------- |
-| `/resumen`                  | Indicadores globales del conjunto filtrado                                                        |
-| `/tendencia`                | `registros`: un total por mes, con ceros y comparación alineada opcional                          |
-| `/ranking`                  | Vendedores, total, promedio, participación porcentual, comparación y posición                     |
-| `/tabla`                    | Vendedores × meses: `registros[].serie`, `meses`, `totalesMensuales`, `totalComisiones`           |
-| `/vendedores/:id/historial` | Vendedor, indicadores propios, evolución, promedio del equipo y comisiones individuales paginadas |
-| `/opciones`                 | Vendedores y departamentos con comisiones en el rango/filtros/alcance                             |
-| `/anios`                    | Años únicos con datos y año actual; `anioMin`, `anioMax`, `anioActual`, `anios`                   |
+| GET                                | Datos                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `/resumen`                         | Indicadores globales del conjunto filtrado                                                        |
+| `/tendencia`                       | `registros`: un total por mes, con ceros y comparación alineada opcional                          |
+| `/ranking`                         | Vendedores, total, promedio, participación porcentual, comparación y posición                     |
+| `/tabla`                           | Vendedores × meses: `registros[].serie`, `meses`, `totalesMensuales`, `totalComisiones`           |
+| `/vendedores/:id/historial`        | Vendedor, indicadores propios, evolución, promedio del equipo y comisiones individuales paginadas |
+| `/opciones`                        | Vendedores y departamentos con comisiones en el rango/filtros/alcance                             |
+| `/exportar/csv`, `/exportar/excel` | Matriz completa, totales, indicadores y comparación en CSV/XLSX; mismos filtros y permisos        |
+| `/anios`                           | Años únicos con datos y año actual; `anioMin`, `anioMax`, `anioActual`, `anios`                   |
 
 `GET /api/tableros/anios?fuente=comisiones` conserva el contrato de R3-4 y comparte la
 misma lectura y autorización que `/comisiones/anios`. Las otras fuentes mantienen su RBAC.
@@ -95,4 +96,39 @@ históricas para revisar planes general/por vendedor/por equipo. Escribe planes/
 `-- --docker` para Node 20. No se fijan hints ni se exige que Oracle elija un índice nuevo
 si uno previo cuesta menos. La prueba impide un full scan mensual para estos rangos selectivos.
 
-La interfaz, atajos, gráficas, descargas y ayuda C6 se conectarán en su fase de frontend.
+## Interfaz R3-10
+
+RH/ADMIN: Estadísticas → Estadísticas de comisiones (`/estadisticas/comisiones`). El jefe
+con `VER_COMISIONES_EQUIPO`: Mi equipo → Estadísticas de comisiones (`/mi-equipo/comisiones`).
+Menú, buscador y recientes comparten esa configuración y los guards existentes.
+
+Desde/Hasta usan MonthField con años de comisiones y el actual. Los seis atajos aplican el rango;
+los demás cambios esperan Aplicar filtros. El rango y los filtros quedan en la URL, sin borrador.
+Un atajo hacia un año vacío conserva ese año visible como «sin registros» sin ofrecer otros
+huecos. Cambiar rango/estado limpia departamento/vendedores; cambiar departamento limpia
+vendedores y consulta opciones en servidor. Selección múltiple buscable, hasta 500 personas.
+
+Indicadores animados, tendencia, ranking, reparto, matriz y detalle comparten rango/estado/alcance.
+Ranking y matriz paginan de 20 en 20 y ordenan en servidor; las barras muestran diez filas de la
+página, el reparto cinco y Resto de vendedores (total global), y la tendencia individual hasta
+cinco filas de la página. Se indica junto a cada gráfica. Las alternativas tabulares ofrecen
+cifras exactas, ceros, porcentajes, totales globales y comparación; el mapa de calor conserva
+monto y contraste, con borde/peso tipográfico además de intensidad. El detalle muestra
+comisiones individuales de 10 en 10 y el promedio mensual del equipo filtrado con su denominador.
+
+CSV/Excel se generan con el mismo snapshot READ ONLY y resolvedor de alcance que R3-9;
+exportan toda la matriz, sin el límite de la página visible. Incluyen estado, filtros,
+corte, periodo anterior y alcance; textos protegidos contra fórmulas y campos explícitos.
+No exportan datos salariales/personales sensibles. Los importes conservan strings decimales;
+solo las escalas/interpolaciones gráficas convierten a Number. No se añaden dependencias.
+El esquema Zod puro se comparte en `shared/estadisticas/comisiones.ts`, incluido en Docker web.
+
+Ante errores se retiran resultados anteriores; una revocación bloquea también historial,
+opciones y descargas. Esqueletos, reintento, movimiento reducido, tablas desplazables con
+teclado, ayuda manual por rol y vacíos por rango. Cargar comisiones solo se ofrece a RH.
+Inicio conserva remuneraciones de pagos confirmados y consulta el libro mensual solo para
+explicar su vacío de Comisiones; su enlace de estadísticas conserva el mes.
+
+Pruebas: `npm run test:e2e -- --production comisiones-estadisticas.spec.ts` usa Oracle/API/nginx
+reales en N2E2E, cubre RH/jefe, datos propios/ajenos, CSV/XLSX, revocación, móvil y axe A/AA.
+Las pruebas de componentes y exportación forman parte de `npm test`.

@@ -1,4 +1,8 @@
 import {
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  Minus,
   Copy,
   History,
   Activity,
@@ -50,6 +54,10 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 export const iconos = {
+  estadisticas: BarChart3,
+  tendenciaSube: TrendingUp,
+  tendenciaBaja: TrendingDown,
+  igual: Minus,
   advertencia: TriangleAlert,
   copiar: Copy,
   historial: History,

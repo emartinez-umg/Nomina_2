@@ -185,13 +185,17 @@ Pruebas: `npm run verify:jefaturas -- --docker` incluye aislamiento, revocación
 sesión, privacidad y rollback de auditoría; `npm run test:e2e -- --production equipo.spec.ts`
 comprueba la administración y la consulta reales en un esquema desechable.
 
-Estadísticas de comisiones (R3-9): V041 añade índices para mes y vendedor, sin modificar datos.
+Estadísticas de comisiones (R3-9/R3-10): V041 añade índices para mes y vendedor, sin modificar datos.
 API `/api/tableros/comisiones`: resumen, tendencia, ranking/reparto, tabla vendedor × mes,
 historial individual, opciones limitadas al alcance y años con datos (compatible con R3-4).
 Rangos de hasta 60 meses, sin futuros; RH/ADMIN generales, jefe con permiso solo su equipo.
 Contrato y criterios de comparación en [COMISIONES_ESTADISTICAS.md](docs/COMISIONES_ESTADISTICAS.md).
 Pruebas Oracle: `npm run verify:comisiones -- --docker`, con la imagen Node 20 anterior actualizada.
-Esta fase entrega la capa de datos; la interfaz de C6 corresponde a su fase siguiente.
+Interfaz RH/ADMIN: **Estadísticas → Estadísticas de comisiones**; jefe autorizado: **Mi equipo**.
+Filtros por rango, departamento, vendedores y estado; comparación anterior, gráficas con tablas,
+matriz e historial individual. CSV/Excel exportan todo el conjunto filtrado dentro del alcance.
+Ayuda manual, movimiento reducido y diseño responsive. Aceptación: `npm run test:e2e -- --production comisiones-estadisticas.spec.ts`.
+No cambia pagos ni requiere migraciones nuevas respecto de V041.
 
 ## Migraciones, operación y respaldo
 

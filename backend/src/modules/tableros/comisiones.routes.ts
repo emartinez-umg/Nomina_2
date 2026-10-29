@@ -8,6 +8,7 @@ export function crearComisionesRouter(s: ReturnType<typeof crearComisionesServic
     res.set('Cache-Control', 'private, no-store');
     next();
   });
+  r.get('/exportar/:formato', c.exportar);
   r.get('/anios', c.anios);
   r.get('/opciones', c.opciones);
   r.get('/resumen', c.resumen);

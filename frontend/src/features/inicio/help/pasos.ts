@@ -14,7 +14,7 @@ export const ayudaInicio: DefinicionAyuda = {
       titulo: 'Comparar remuneraciones confirmadas',
       roles: ['RH'],
       descripcion:
-        'Los cuatro recuadros son tu primera vista. Alterna Empleados o Departamentos, elige Salario base, Comisiones, Horas extra o Total devengado y cambia el mes y año. Las barras muestran los cinco importes mayores, posición y monto exacto en quetzales. Se suman pagos mensuales confirmados e históricos v0 cerrados; no anticipos, prestaciones ni simulaciones. Sin pagos aparece vacío, nunca una proyección. Cada barra abre Planilla con el mes y empleado o departamento del snapshot ya filtrados. Actualizado hace indica la antigüedad del corte; se consulta cada minuto y con Actualizar. Un fallo conserva su explicación y permite reintentar este recuadro.',
+        'Los cuatro recuadros son tu primera vista. Alterna Empleados o Departamentos, elige Salario base, Comisiones, Horas extra o Total devengado y cambia el mes y año. Las barras muestran los cinco importes mayores, posición y monto exacto en quetzales. Se suman pagos mensuales confirmados e históricos v0 cerrados; no anticipos, prestaciones ni simulaciones. Sin pagos aparece vacío, nunca una proyección. Al elegir Comisiones, el vacío comprueba el libro mensual y distingue Sin comisiones registradas de Sin comisiones en pagos confirmados. El enlace Estadísticas de comisiones conserva el mes y permite analizar también las pendientes autorizadas. Cada barra abre Planilla con el mes y empleado o departamento del snapshot ya filtrados. Actualizado hace indica la antigüedad del corte; se consulta cada minuto y con Actualizar. Un fallo conserva su explicación y permite reintentar este recuadro.',
     },
     {
       elemento: 'rh-inasistencias',

@@ -466,3 +466,22 @@ limpia las casillas; los filtros las conservan y la confirmación lo recuerda. M
 confirmación son obligatorios; el borrador guarda IDs, filtros y motivo. El servidor revalida
 el lote completo. Tras guardar se invalidan empleados, catálogos y tableros. La ficha, el
 listado y CSV consultan `jefeInmediato`; sin asignación muestran un vacío descriptivo.
+
+## R3-10 — Estadísticas de comisiones
+
+`features/comisiones` consume la API C6 con Zod compartido, TanStack Query y claves por usuario,
+permiso y filtros. Rutas: `/estadisticas/comisiones` (RH/ADMIN) y `/mi-equipo/comisiones`
+(EMPLEADO con `VER_COMISIONES_EQUIPO`). Menú/buscador/recientes, título y ayuda manual por rol
+comparten las reglas de navegación. No se consultan catálogos administrativos desde el portal.
+
+Los filtros residen en URL, sin borradores. MonthField conserva el año seleccionado por un atajo
+sin datos; departamento consulta vendedores en servidor, limpia selecciones incompatibles y permite
+búsqueda múltiple. La página invalida panel, opciones e historial al actualizar, y oculta datos
+previos ante errores/revocación. El exportador vuelve a resolver permisos en el servidor.
+
+Recharts presenta escalas visuales; los importes accesibles y tablas conservan decimales exactos.
+Framer Motion anima tarjetas y conteos, respetando movimiento reducido. Paleta del mockup desde
+`styles/tokens`, superficies compartidas y contención de gráficas/tablas para 390 px. Ranking y
+matriz paginan/ordenan en servidor; las gráficas indican su subconjunto y los totales son globales.
+Contrato y funcionamiento en `COMISIONES_ESTADISTICAS.md`. Componentes en `comisiones.test.tsx`,
+regresión de Inicio en `dashboard.test.tsx` y aceptación Oracle en `comisiones-estadisticas.spec.ts`.

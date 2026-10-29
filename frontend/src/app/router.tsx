@@ -9,6 +9,11 @@ import { EmpresaPage } from '../features/empresa/pages/EmpresaPage';
 import { Suspense } from 'react';
 import { lazyPagina as lazy } from './lazyPagina';
 import { RouteError } from './RouteError';
+const ComisionesEstadisticasPage = lazy(() =>
+  import('../features/comisiones/ComisionesEstadisticasPage').then((m) => ({
+    default: m.ComisionesEstadisticasPage,
+  })),
+);
 const PendientesPage = lazy(() =>
   import('../features/novedades/pages/PendientesPage').then((m) => ({ default: m.PendientesPage })),
 );
@@ -149,6 +154,16 @@ const paginas: RouteObject[] = [
                       ),
                     },
                     {
+                      path: '/mi-equipo/comisiones',
+                      element: (
+                        <RequireEquipo permiso="VER_COMISIONES_EQUIPO">
+                          <Suspense fallback={<Skeleton lineas={8} />}>
+                            <ComisionesEstadisticasPage />
+                          </Suspense>
+                        </RequireEquipo>
+                      ),
+                    },
+                    {
                       path: '/mi-equipo/vacaciones',
                       element: (
                         <RequireEquipo permiso="VER_VACACIONES_EQUIPO">
@@ -225,6 +240,14 @@ const paginas: RouteObject[] = [
                 ),
               },
               { path: '/vacaciones', element: <VacacionesPage /> },
+              {
+                path: '/estadisticas/comisiones',
+                element: (
+                  <Suspense fallback={<Skeleton lineas={8} />}>
+                    <ComisionesEstadisticasPage />
+                  </Suspense>
+                ),
+              },
               { path: '/vacaciones/saldos', element: <SaldosVacacionesPage /> },
               { path: '/solicitudes', element: solicitudesPage },
               {
@@ -262,6 +285,8 @@ const paginas: RouteObject[] = [
 const destinos = opcionesNavegacion('ADMIN');
 const fijos: Record<string, TituloRuta> = {
   '/mi-equipo': 'Mi equipo',
+  '/mi-equipo/comisiones': 'Estadísticas de comisiones',
+  '/estadisticas/comisiones': 'Estadísticas de comisiones',
   '/mi-equipo/vacaciones': 'Vacaciones de mi equipo',
   '/salud': 'Estado del sistema',
   '/login': 'Iniciar sesión',

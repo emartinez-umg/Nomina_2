@@ -3966,3 +3966,109 @@ Estado: implementada el 29/10/2026 en `v1.2`. Alcance C6: backend, índices y pr
    Con jefe autorizado, solo su equipo; al revocar, la siguiente petición devuelve 403.
 4. Sin pendientes de backend R3-9. Interfaz, atajos, gráficas, exportaciones y ayuda de C6
    corresponden a su fase siguiente; C7/C8 y validación contable de R3-1 siguen fuera del alcance.
+
+## Ronda 3 — FASE R3-10: pantalla Estadísticas de comisiones
+
+Estado: implementada el 29/10/2026 en `v1.2`. Alcance C6: interfaz, exportación y aceptación.
+
+### Causa y alcance
+
+- Leídos AGENTS.md con adendos v1/v1.1/v1.2 y el progreso. Árbol limpio al iniciar.
+  R3-9 ya resolvía datos y permisos; faltaban pantalla, navegación, descargas y ayuda.
+  Consultado el mockup (página 6 renderizada) y sus tokens de azul, verde, superficies y tarjetas.
+- Inicio consultaba remuneraciones confirmadas; su vacío genérico no distinguía comisiones
+  registradas pendientes de pago. Se conserva esa fuente y se consulta el libro solo para
+  explicar el vacío de la métrica Comisiones. Sin cambios en pagos, nómina o migraciones previas.
+
+### Hecho y decisiones
+
+- `/estadisticas/comisiones` para RH/ADMIN en Estadísticas; `/mi-equipo/comisiones` para
+  EMPLEADO con VER_COMISIONES_EQUIPO. Menú, buscador Ctrl/⌘ K, sinónimos, recientes, ruta activa,
+  título y acceso desde Mi equipo usan la configuración/guards existentes. No exige VER_EQUIPO.
+- Filtros Desde/Hasta MonthField con años de comisiones; departamento, vendedores múltiples
+  buscables y estado. Seis atajos, interruptor de comparación y validación compartida de 60 meses,
+  sin futuros. Aplicar conserva filtros en URL; Limpiar vuelve al mes actual. Sin borradores.
+  Cambiar rango/estado limpia departamento/vendedores; cambiar departamento consulta vendedores
+  filtrados en servidor y limpia selección. Las opciones generales conservan los departamentos.
+- MonthField conserva visible el año de un atajo vacío como «sin registros», sin ofrecer otros
+  años vacíos ni alterar sus límites existentes. Regresión específica del componente compartido.
+- Indicadores con conteos Framer Motion y variación expresada con flecha/texto; total, promedio,
+  mejor mes y vendedores. Tendencia continua con comparación anterior alineada y hasta cinco
+  vendedores; ranking, reparto y tablas accesibles propias; matriz vendedor × mes con ceros,
+  totales globales y calor con contraste, monto exacto, borde y tipografía además del color.
+- Ranking/matriz ordenan y paginan de 20 en 20 en servidor. Las barras muestran diez filas de
+  la página; reparto cinco y Resto de vendedores sobre el total global; tendencia individual
+  cinco de la página. Cada subconjunto se explica junto a la gráfica, sin presentar una página
+  como el total del equipo. Las alternativas tabulares permiten recorrer todas las páginas.
+- Detalle por nombre: evolución, mejor/peor mes, promedio, comparación anterior y promedio del
+  equipo filtrado con denominador; comisiones individuales paginadas de 10 en 10 con EstadoBadge.
+  Conserva filtros y no abre fichas de empleados ni consulta información sensible.
+- Indicador visible «Equipo: tus jefaturas autorizadas, N personas» desde el DTO del servidor,
+  antes de filtros. Consultas con claves por usuario/permisos/filtros, revalidación cada minuto,
+  actualización manual, cancelación y retirada de datos previos ante errores. La revocación
+  oculta también detalle/opciones y bloquea nuevas descargas; el guard refleja la sesión vigente.
+- Vacíos por mes/rango con explicación y Cargar comisiones solo RH. Inicio diferencia «Sin
+  comisiones registradas» de «Sin comisiones en pagos confirmados», e incluye enlace al análisis
+  conservando el mes. Actualizadas la ayuda de Inicio, Mi equipo y permisos de jefatura.
+- GET `/api/tableros/comisiones/exportar/csv|excel`: matriz completa fuera de la página visible,
+  totales, promedios, reparto y comparación; estado, filtros, corte y alcance en el archivo.
+  Reutiliza snapshot READ ONLY, resolvedor y validación R3-9. CSV neutraliza fórmulas; XLSX usa
+  celdas de texto explícitas; no propaga campos del repositorio ni datos personales/salariales.
+- El esquema Zod puro pasa a `shared/estadisticas/comisiones.ts`; el módulo anterior lo
+  reexporta para conservar sus consumidores. Docker web incluye ese recurso compartido.
+  Sin dependencias nuevas ni cambios a las reglas/contrato de los filtros R3-9.
+- Ayuda manual declarativa por rol, hints, esqueletos, errores con reintento, preferencias de
+  movimiento reducido, tablas desplazables con teclado y diseño móvil 390 px. Paleta desde
+  `styles/tokens` y tarjetas compartidas. README, FRONTEND y contrato C6 actualizados.
+
+### Supuestos y compatibilidad
+
+- El nombre del alcance describe las jefaturas autorizadas; la API R3-9 entrega su conteo,
+  no nombres de ramas. No se consultan catálogos RH para completarlo ni se exponen otras ramas.
+- Fechas/estados se aplican al mes de origen del libro autorizado, incluso sin pago confirmado.
+  Se mantienen los criterios Decimal, ceros, empates y comparación sin base documentados en R3-9.
+  Solo las escalas/interpolaciones gráficas usan Number; tablas y exportaciones conservan strings
+  decimales. Las descargas incluyen todos los vendedores filtrados, sin depender del orden visual.
+- Se añade la opción deshabilitada del año vacío solo si ya está seleccionado (p. ej. Año anterior).
+  No se inventan registros ni se amplían los años disponibles para nuevas selecciones.
+- No se modifican pruebas de negocio anteriores; las nuevas regresiones cubren la presentación
+  y exportación. C7/C8 y la validación contable de R3-1 permanecen fuera de esta fase.
+
+### Validación
+
+- **926 pruebas del repositorio aprobadas**: 530 backend, 389 frontend y siete del exportador.
+  Nuevas: exportación completa de 25 vendedores con centavos, neutralización de fórmulas y RBAC;
+  filtros/selección múltiple/cascada, comparación/ceros, historial/promedio, años vacíos, navegación
+  por permiso, descargas, esqueletos, movimiento y retirada de caché ante revocación; vacío de Inicio.
+- **12 Oracle/Supertest con Node 20 aprobadas** mediante `verify:comisiones -- --docker`.
+  La nueva aceptación de CSV/XLSX comprueba equipo descendiente, totales, filtros ajenos, privacidad,
+  contraseña temporal, formatos/query inválidos y alcance en los archivos. Se conserva R3-9,
+  sus planes con 24,000 registros, V041 repetible y datos intactos. Esquema N2SEC retirado.
+- **Dos E2E de producción aprobados** con Chromium, API/nginx Node 20, TLS y Oracle reales:
+  RH registra comisiones → filtros/comparación/tablas/historial → CSV → ayuda → móvil →
+  vendedores/estado/vacío; jefe con solo permiso de comisiones → buscador ⌘K → equipo propio →
+  historial/Excel → rechazos 403 para IDs ajenos (incluida lista mixta y descargas) → revocación
+  en la misma sesión → datos retirados/403 → recarga sin menú. No obtiene el directorio general.
+- Axe A/AA sin infracciones en escritorio y móvil; 390 px sin desbordamiento del documento.
+  Capturas de RH y jefe revisadas en `tmp/pdfs/r3-10-*`, ignoradas por Git. La QA detectó y
+  corrigió foco interno del gráfico circular oculto, rol de iconos informativos y contención
+  durante el redimensionado. Las tablas propias se conservan como alternativas accesibles.
+- Lint, TypeScript strict (incluidos E2E), builds, formato, secretos y diff aprobados. La primera
+  construcción detectó que Docker necesitaba copiar el nuevo esquema compartido; corregido.
+  Vite mantiene el aviso anterior de chunks mayores de 500 kB. Sin cambios en dependencias.
+  Supertest/Docker usaron los permisos locales del entorno; sin despliegue ni escrituras operativas.
+  Una pasada concurrente con Docker agotó los cinco segundos de una prueba existente de
+  catálogos; repetida la suite completa sin esa carga, las 926 pruebas aprobaron sin cambiarla.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
+2. Con Oracle saludable e imagen `nomina2-security-tests` actualizada según README:
+   `npm run verify:comisiones -- --docker` y `npm run test:e2e -- --production comisiones-estadisticas.spec.ts`.
+3. RH/ADMIN → Estadísticas → Estadísticas de comisiones; elegir rango, departamento, varios
+   vendedores y estado, aplicar y comparar. Abrir tablas e historial y contrastar CSV/Excel.
+4. Organización → Jefaturas → Permisos: conceder Ver comisiones a la jefatura de la Gerente
+   Comercial. Con su sesión EMPLEADO, Mi equipo/buscador → Estadísticas de comisiones. Solo sus
+   ramas; al revocar, la siguiente consulta/descarga se deniega y la sesión actualiza el menú.
+5. No quedan pendientes técnicos R3-10. Despliegue operativo no solicitado; conserva V041 como
+   migración mínima. C7/C8 y validación contable previa se mantienen en sus fases correspondientes.

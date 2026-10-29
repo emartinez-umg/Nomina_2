@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import * as api from '../api/estadisticas';
+import * as comisiones from '../../comisiones/api';
+import { mesVisible } from '../../comisiones/GraficasComisiones';
 import {
   Actualizado,
   Alternador,
@@ -53,6 +55,19 @@ function TopRemuneraciones() {
     queryFn: ({ signal }) => api.remuneraciones({ agrupar, metrica, mes }, signal),
     ...frecuencia,
   });
+  const libro = useQuery({
+    queryKey: ['tablero-rh', 'comisiones-libro', mes],
+    queryFn: ({ signal }) =>
+      comisiones.consultar(
+        'resumen',
+        comisiones.resumenSchema,
+        { desde: mes, hasta: mes, estado: 'todas', comparar: 'false' },
+        signal,
+      ),
+    enabled: metrica === 'comisiones' && q.isSuccess && !q.data.registros.length,
+    ...frecuencia,
+  });
+  const enlaceEstadisticas = `/estadisticas/comisiones?${new URLSearchParams({ desde: mes, hasta: mes })}`;
   return (
     <Recuadro
       titulo="Top 5 de remuneraciones"
@@ -103,9 +118,32 @@ function TopRemuneraciones() {
           !d.registros.length ? (
             <EmptyState
               icono="planilla"
-              titulo="Sin pagos para esta métrica"
-              descripcion="Elige otro mes o revisa los pagos confirmados en Planilla."
-              accion={<EnlaceDetalle to="/planilla">Revisar planilla</EnlaceDetalle>}
+              titulo={
+                metrica !== 'comisiones'
+                  ? 'Sin pagos para esta métrica'
+                  : libro.isPending
+                    ? 'Consultando comisiones registradas…'
+                    : libro.error
+                      ? 'No se pudo comprobar el registro de comisiones'
+                      : libro.data?.indicadores.vendedoresConComision
+                        ? 'Sin comisiones en pagos confirmados'
+                        : `Sin comisiones registradas en ${mesVisible(mes)}`
+              }
+              descripcion={
+                metrica === 'comisiones'
+                  ? (libro.error?.message ??
+                    (libro.data?.indicadores.vendedoresConComision
+                      ? 'Hay comisiones registradas en el libro mensual. Revisa su estado en las estadísticas; pueden estar pendientes de pago.'
+                      : 'Prueba otro mes o registra las comisiones antes de calcular la nómina.'))
+                  : 'Elige otro mes o revisa los pagos confirmados en Planilla.'
+              }
+              accion={
+                metrica === 'comisiones' ? (
+                  <EnlaceDetalle to={enlaceEstadisticas}>Estadísticas de comisiones</EnlaceDetalle>
+                ) : (
+                  <EnlaceDetalle to="/planilla">Revisar planilla</EnlaceDetalle>
+                )
+              }
             />
           ) : (
             <ol className="rh-barras" aria-label="Ranking de remuneraciones">
@@ -150,6 +188,7 @@ function TopRemuneraciones() {
           )
         }
       </EstadoConsulta>
+      <EnlaceDetalle to={enlaceEstadisticas}>Analizar estadísticas de comisiones</EnlaceDetalle>
       <p className="rh-nota">
         Pagos confirmados · {metricas.find((m) => m.valor === metrica)?.texto} · GTQ
       </p>

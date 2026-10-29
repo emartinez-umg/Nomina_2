@@ -2,6 +2,8 @@ import { Decimal } from 'decimal.js';
 import type { Connection } from 'oracledb';
 import type { BaseDatos } from '../../shared/db/pool.js';
 import { ErrorNoEncontrado, ErrorProhibido, ErrorValidacion } from '../../shared/errors/errors.js';
+import { escribirCsv } from '../empleados/empleados.csv.js';
+import { archivo, excel } from '../nomina/nomina.exportar.js';
 import { dinero } from '../../shared/utils/dinero.js';
 import type { Autenticacion } from '../auth/auth.types.js';
 import { resolverAlcanceEquipo } from '../equipo/equipo.service.js';
@@ -199,6 +201,80 @@ export function crearComisionesService(db: BaseDatos, ahora: typeof reloj = relo
             estado: f.estado,
           })),
         };
+      }),
+    exportar: (auth: Autenticacion, q: ComisionesQuery, formato: 'csv' | 'excel') =>
+      leer(auth, async (c, ids, hoy) => {
+        const { modelo, meta } = await datos(c, ids, q, hoy);
+        const filas: (string | number)[][] = [
+          ['Estadísticas de comisiones (GTQ)', q.desde, q.hasta],
+          [
+            'Estado',
+            { todas: 'Todas', pendientes: 'Pendientes', aplicadas: 'Aplicadas' }[q.estado],
+          ],
+          [
+            'Alcance',
+            ids === undefined ? 'General' : `Equipo: ${ids.length} personas`,
+            'Corte',
+            meta.actualizadoEn,
+          ],
+          [
+            'Departamento',
+            q.idDepartamento ?? 'Todos',
+            'Vendedores',
+            q.vendedores?.join(', ') ?? 'Todos',
+          ],
+          [
+            'Periodo anterior',
+            meta.periodoAnterior?.desde ?? 'Sin comparación',
+            meta.periodoAnterior?.hasta ?? '',
+          ],
+          [
+            'Código',
+            'Vendedor',
+            'Departamento',
+            ...modelo.meses,
+            'Total',
+            'Promedio mensual',
+            'Participación (%)',
+            'Total anterior',
+            'Variación (%)',
+          ],
+          ...modelo.registros.map((f) => [
+            f.codigo,
+            f.nombre,
+            f.departamento,
+            ...f.serie.map((m) => m.total),
+            f.total,
+            f.promedioMensual,
+            f.participacionPorcentual,
+            f.totalAnterior ?? '',
+            f.variacionPorcentual ?? (f.sinBaseComparacion ? 'Sin base de comparación' : ''),
+          ]),
+          [
+            'TOTAL',
+            '',
+            '',
+            ...modelo.resumen.serie.map((m) => m.total),
+            modelo.resumen.total,
+            modelo.resumen.promedioMensual,
+            '',
+            modelo.resumen.totalAnterior ?? '',
+            modelo.resumen.variacionPorcentual ??
+              (modelo.resumen.sinBaseComparacion ? 'Sin base de comparación' : ''),
+          ],
+        ];
+        const nombre = `comisiones-${q.desde}-${q.hasta}`;
+        return formato === 'csv'
+          ? archivo(
+              Buffer.from(escribirCsv(filas), 'utf8'),
+              `${nombre}.csv`,
+              'text/csv;charset=utf-8',
+            )
+          : archivo(
+              excel(filas, 'Comisiones'),
+              `${nombre}.xlsx`,
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            );
       }),
     anios: (auth: Autenticacion) =>
       leer(auth, async (c, ids, hoy) => {
