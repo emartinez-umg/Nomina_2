@@ -21,7 +21,10 @@ export function AppLayout() {
   const [buscar, setBuscar] = useState(false);
   const [panel, setPanel] = useState<'usuario' | 'notificaciones' | null>(null);
   const barra = useRef<HTMLElement>(null);
-  const opciones = useMemo(() => (usuario ? opcionesNavegacion(usuario.rol) : []), [usuario]);
+  const opciones = useMemo(
+    () => (usuario ? opcionesNavegacion(usuario.rol, usuario.permisosEquipo) : []),
+    [usuario],
+  );
   const logout = useMutation({
     mutationFn: cerrarSesion,
     onSuccess: () => establecer(null),
@@ -65,8 +68,9 @@ export function AppLayout() {
             <strong>Nómina</strong>
           </Link>
           <NavigationMenu
-            key={`${usuario.idUsuario}:${usuario.rol}`}
+            key={`${usuario.idUsuario}:${usuario.rol}:${usuario.permisosEquipo?.join(',') ?? ''}`}
             rol={usuario.rol}
+            permisos={usuario.permisosEquipo ?? []}
             onElegir={recordar}
           />
           <div className="barra-acciones">
@@ -146,7 +150,7 @@ export function AppLayout() {
       </div>
       {buscar && (
         <CommandPalette
-          key={`${usuario.idUsuario}:${usuario.rol}`}
+          key={`${usuario.idUsuario}:${usuario.rol}:${usuario.permisosEquipo?.join(',') ?? ''}`}
           opciones={opciones}
           recientes={leerRecientes(usuario.idUsuario, opciones)}
           onCerrar={() => setBuscar(false)}

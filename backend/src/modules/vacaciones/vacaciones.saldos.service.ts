@@ -81,7 +81,7 @@ export async function consultarSaldosVacaciones(
     },
   };
 }
-// R3-8 inyectará el resolvedor de permisos desde la sesión; sin él el alcance de equipo se deniega.
+// Sin un resolvedor autorizado, equipo nunca se convierte en alcance general.
 export type ResolverEquipoVacaciones = (
   c: Connection,
   auth: Autenticacion,
@@ -95,7 +95,11 @@ export function crearSaldosVacacionesService(
     q: SaldosQuery,
     fn: (r: Awaited<ReturnType<typeof consultarSaldosVacaciones>>) => T,
   ) {
-    if (!['RH', 'ADMIN'].includes(auth.rol)) throw new ErrorProhibido();
+    if (
+      !['RH', 'ADMIN'].includes(auth.rol) &&
+      !(auth.rol === 'EMPLEADO' && q.alcance === 'equipo' && resolverEquipo)
+    )
+      throw new ErrorProhibido();
     return db.conConexion(async (c) => {
       await c.execute('SET TRANSACTION READ ONLY');
       try {
@@ -111,7 +115,29 @@ export function crearSaldosVacacionesService(
     listar: (auth: Autenticacion, q: SaldosQuery) =>
       leer(auth, q, (r) => ({
         ...r,
-        registros: r.registros.slice((q.pagina - 1) * q.limite, q.pagina * q.limite),
+        registros: r.registros.slice((q.pagina - 1) * q.limite, q.pagina * q.limite).map((e) =>
+          auth.rol === 'EMPLEADO'
+            ? {
+                id: e.id,
+                codigo: e.codigo,
+                nombre: e.nombre,
+                departamento: e.departamento,
+                centro: e.centro,
+                jefatura: e.jefatura,
+                ingreso: e.ingreso,
+                egreso: e.egreso,
+                activo: e.activo,
+                mesesCompletos: e.mesesCompletos,
+                acumulado: e.acumulado,
+                tomados: e.tomados,
+                previas: e.previas,
+                disponible: e.disponible,
+                solicitables: e.solicitables,
+                corte: e.corte,
+                alerta: e.alerta,
+              }
+            : e,
+        ),
         pagina: q.pagina,
         limite: q.limite,
       })),

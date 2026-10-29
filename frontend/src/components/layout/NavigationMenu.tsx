@@ -1,20 +1,29 @@
+import type { PermisoEquipo } from '../../features/equipo/api';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { Rol } from '../../features/auth/api/auth';
 import { Button } from '../ui/Button';
 import { iconos } from '../ui/icons';
-import { accesoActivo, navigation } from './navigation.config';
+import { accesoActivo, gruposNavegacion } from './navigation.config';
 
-export function NavigationMenu({ rol, onElegir }: { rol: Rol; onElegir: (id: string) => void }) {
+export function NavigationMenu({
+  rol,
+  onElegir,
+  permisos = [],
+}: {
+  rol: Rol;
+  onElegir: (id: string) => void;
+  permisos?: readonly PermisoEquipo[];
+}) {
   const [grupo, setGrupo] = useState<string | null>(null);
   const [movil, setMovil] = useState(false);
   const [foco, setFoco] = useState<{ id: string; ultimo: boolean } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const activadorMovil = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
-  const grupos = navigation[rol];
-  const activo = accesoActivo(rol, pathname);
+  const grupos = gruposNavegacion(rol, permisos);
+  const activo = accesoActivo(rol, pathname, permisos);
   const cerrar = () => {
     setGrupo(null);
     setMovil(false);

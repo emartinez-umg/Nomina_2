@@ -67,7 +67,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
                   elemento: 'jefaturas-configurar',
                   titulo: 'Configurar jefaturas y equipos',
                   descripcion:
-                    'Si no existe ninguna jefatura, el asistente indica cómo crearla sin inventar datos. Primero nombre y departamento, luego responsable activo y superior opcional; al guardar se ofrece asignar empleados. Las alertas cuentan empleados sin jefatura activa y jefaturas sin responsable activo. Asignar empleados filtra por departamento y centro, conserva la selección entre páginas y confirma el reemplazo de la jefatura anterior con motivo y auditoría.',
+                    'La pestaña Permisos permite a RH/ADMIN conceder consultas al responsable por jefatura, con resumen del equipo, motivo, confirmación e historial. No cambia el rol del usuario. Si no existe ninguna jefatura, el asistente indica cómo crearla sin inventar datos. Primero nombre y departamento, luego responsable activo y superior opcional; al guardar se ofrece asignar empleados. Las alertas cuentan empleados sin jefatura activa y jefaturas sin responsable activo. Asignar empleados filtra por departamento y centro, conserva la selección entre páginas y confirma el reemplazo de la jefatura anterior con motivo y auditoría.',
                 },
               ]
             : []),

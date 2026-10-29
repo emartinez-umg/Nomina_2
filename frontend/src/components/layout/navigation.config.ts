@@ -1,3 +1,4 @@
+import type { PermisoEquipo } from '../../features/equipo/api';
 import type { Rol } from '../../features/auth/api/auth';
 import type { NombreIcono } from '../ui/icons';
 
@@ -501,16 +502,59 @@ export const nombreRol: Record<Rol, string> = {
   EMPLEADO: 'Empleado',
 };
 export type OpcionNavegacion = Acceso & { grupo: string; rapida: boolean };
-export function opcionesNavegacion(rol: Rol): OpcionNavegacion[] {
-  return navigation[rol].flatMap((grupo) => [
+export function gruposNavegacion(
+  rol: Rol,
+  permisos: readonly PermisoEquipo[] = [],
+): GrupoNavegacion[] {
+  if (rol !== 'EMPLEADO' || !permisos.length) return navigation[rol];
+  return [
+    ...navigation[rol],
+    {
+      id: 'mi-equipo',
+      titulo: 'Mi equipo',
+      icono: 'empleados',
+      items: [
+        acceso(
+          'mi-equipo',
+          'Mi equipo',
+          '/mi-equipo',
+          'empleados',
+          'Consulta tu equipo y tus permisos de jefatura.',
+          ['personal', 'jefatura', 'colaboradores'],
+        ),
+        ...(permisos.includes('VER_VACACIONES_EQUIPO')
+          ? [
+              acceso(
+                'vacaciones-equipo',
+                'Vacaciones del equipo',
+                '/mi-equipo/vacaciones',
+                'calendario',
+                'Consulta y exporta saldos de vacaciones de tu equipo.',
+                ['saldos', 'descanso'],
+              ),
+            ]
+          : []),
+      ],
+    },
+  ];
+}
+export function opcionesNavegacion(
+  rol: Rol,
+  permisos: readonly PermisoEquipo[] = [],
+): OpcionNavegacion[] {
+  return gruposNavegacion(rol, permisos).flatMap((grupo) => [
     ...grupo.items.map((item) => ({ ...item, grupo: grupo.titulo, rapida: false })),
     ...(grupo.acciones ?? []).map((item) => ({ ...item, grupo: grupo.titulo, rapida: true })),
   ]);
 }
 
 // Se elige el destino más específico para no activar «Empleados» al importar, ni dos catálogos.
-export function accesoActivo(rol: Rol, pathname: string): string | undefined {
-  return opcionesNavegacion(rol)
+export function accesoActivo(
+  rol: Rol,
+  pathname: string,
+  permisos: readonly PermisoEquipo[] = [],
+): string | undefined {
+  return opcionesNavegacion(rol, permisos)
     .filter(
       (item) => !item.rapida && (pathname === item.ruta || pathname.startsWith(`${item.ruta}/`)),
     )

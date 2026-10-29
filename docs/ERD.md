@@ -2003,3 +2003,27 @@ clave no la reemplaza. Versiones, códigos automáticos y auditoría siguen el m
 de parámetros. No se agregan tablas, relaciones ni columnas y no se modifica el kardex.
 Las consultas de saldos usan los índices existentes por departamento, centro, jefatura, activo
 y empleado/fecha del kardex. Alcance y contrato en [VACACIONES.md](VACACIONES.md).
+
+## Ronda 3: permisos por jefatura (V040)
+
+`PERMISOS_EQUIPO` contiene el catálogo cerrado de consultas: VER_EQUIPO,
+VER_COMISIONES_EQUIPO y VER_VACACIONES_EQUIPO. `PERMISOS_JEFATURA` relaciona la
+jefatura y el código del permiso con un UNIQUE compuesto, ACTIVO y columnas de auditoría.
+Ambas tablas usan PK identity; el catálogo tiene código UNIQUE estable y CHECK cerrado.
+La FK de jefatura usa el índice del UNIQUE; la FK del permiso tiene índice propio.
+No concede permisos a registros previos ni cambia roles, empleados o movimientos.
+
+```mermaid
+erDiagram
+  JEFATURAS ||--o{ PERMISOS_JEFATURA : concede
+  PERMISOS_EQUIPO ||--o{ PERMISOS_JEFATURA : identifica
+  USUARIOS ||--o{ PERMISOS_JEFATURA : audita
+```
+
+Cada consulta obtiene el empleado activo de la sesión, sus responsabilidades activas y
+las raíces que conceden el permiso solicitado. Reutiliza la jerarquía V037; corta ramas
+inactivas y excluye al propio jefe. Dirigir varias jefaturas no combina sus permisos.
+Los filtros se intersectan con esa lista, incluidos los indicadores, opciones y archivos.
+El servidor vuelve a consultar las concesiones en cada petición, sin guardarlas en SESIONES.
+La edición bloquea la jefatura y comprueba la revisión SHA-256 del estado consultado;
+cambio y bitácora anterior/nuevo se confirman o revierten juntos.

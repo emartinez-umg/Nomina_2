@@ -34,7 +34,10 @@ describe('Configuración única de navegación', () => {
   it.each(roles)(
     'cubre todas las rutas protegidas de %s y solo ofrece rutas autorizadas reales',
     (rol) => {
-      const opciones = opcionesNavegacion(rol);
+      const opciones = opcionesNavegacion(
+        rol,
+        rol === 'EMPLEADO' ? ['VER_EQUIPO', 'VER_COMISIONES_EQUIPO', 'VER_VACACIONES_EQUIPO'] : [],
+      );
       expect(new Set(opciones.map((opcion) => opcion.id)).size).toBe(opciones.length);
       for (const opcion of opciones) {
         const publica = opcion.ruta === '/salud' && rol === 'ADMIN';
@@ -68,6 +71,26 @@ describe('Configuración única de navegación', () => {
       }
     },
   );
+  it('equipo, buscador y recientes respetan concesión y revocación sin cambiar de rol', () => {
+    expect(opcionesNavegacion('EMPLEADO').some((o) => o.grupo === 'Mi equipo')).toBe(false);
+    const permisos = ['VER_EQUIPO', 'VER_VACACIONES_EQUIPO'] as const;
+    const opciones = opcionesNavegacion('EMPLEADO', permisos);
+    expect(opciones.filter((o) => o.grupo === 'Mi equipo').map((o) => o.ruta)).toEqual([
+      '/mi-equipo',
+      '/mi-equipo/vacaciones',
+    ]);
+    expect(accesoActivo('EMPLEADO', '/mi-equipo/vacaciones', permisos)).toBe('vacaciones-equipo');
+    guardarReciente(1, 'vacaciones-equipo', opciones);
+    expect(leerRecientes(1, opcionesNavegacion('EMPLEADO'))).toEqual([]);
+    expect(
+      opcionesNavegacion('EMPLEADO', ['VER_EQUIPO']).some((o) => o.id === 'vacaciones-equipo'),
+    ).toBe(false);
+    expect(
+      opcionesNavegacion('EMPLEADO', ['VER_COMISIONES_EQUIPO']).some(
+        (o) => o.grupo === 'Mi equipo',
+      ),
+    ).toBe(true);
+  });
   it.each(roles)('Inicio es directo y el buscador de %s no contiene Resumen', (rol) => {
     expect(navigation[rol][0]?.directo).toBe(true);
     expect(opcionesNavegacion(rol).find((o) => o.id === 'inicio')?.titulo).toBe('Inicio');

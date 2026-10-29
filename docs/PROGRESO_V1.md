@@ -3746,3 +3746,109 @@ Estado: implementada el 29/10/2026 en `v1.2`. Alcance C5, segunda parte.
    CSV/Excel, cambio de umbral y Ayuda. Dashboard RH → Revisar saldos de vacaciones.
 5. Sin pendientes técnicos R3-7. Despliegue operativo no solicitado; permisos/menú de equipo
    se activarán en R3-8. C6–C8 y la validación contable de R3-1 siguen fuera de esta fase.
+
+## Ronda 3 — FASE R3-8: permisos de jefatura y vistas de equipo
+
+Estado: implementada el 29/10/2026 en `v1.2`. Alcance C4.
+
+### Causa y alcance
+
+- Leídos AGENTS.md con sus adendos y el avance de Ronda 3. Árbol limpio al iniciar.
+  R3-5 calculaba la jerarquía sin conceder acceso al portal; R3-7 preparó un resolvedor
+  autorizado para saldos. El menú solo consideraba el rol y no existían concesiones por rama.
+- Se conservan ADMIN, RH y EMPLEADO. No se habilita aprobación por el jefe ni se implementan
+  las estadísticas de comisiones C6, el expediente C7 o las actas C8.
+
+### Hecho y decisiones
+
+- V040 aditiva crea PERMISOS_EQUIPO (catálogo cerrado de tres permisos, PK identity, código
+  único, ACTIVO y columnas de auditoría) y PERMISOS_JEFATURA (PK identity, UNIQUE
+  jefatura/permiso, ACTIVO, FKs de dominio indexadas y auditoría). No concede accesos implícitos,
+  no cambia asignaciones previas y conserva intactas todas las migraciones anteriores.
+- Organización → Jefaturas → pestaña **Permisos**, solo RH/ADMIN: selector buscable,
+  interruptores accesibles con tooltip y descripción, resumen real «Equipo: N personas»,
+  motivo obligatorio, borrador, revisión y confirmación, errores con reintento e historial.
+  Revalida al actor, bloquea la jefatura y compara revisión SHA-256 para evitar sobrescrituras.
+  Cada concesión/revocación y bitácora con anterior/nuevo, actor, fecha y motivo comparten
+  transacción. Un fallo de auditoría revierte todos los cambios del envío.
+- `resolverAlcanceEquipo(conexión, sesión, permiso)` obtiene la ficha activa desde ID_USUARIO,
+  sus responsabilidades activas y las raíces que conceden ese permiso; reutiliza la consulta
+  de R3-5 con raíces resueltas en servidor. Excluye al propio jefe, empleados no activos y ramas
+  inactivas. Mantiene separados los alcances de distintos permisos del mismo responsable.
+- Middleware `requierePermisoEquipo(permiso)` y comprobación adicional en servicio. Consultas
+  con snapshot READ ONLY y rollback de lectura; cada petición vuelve a obtener las concesiones.
+  Ninguna lista de empleados, propietario o raíz procede del cliente. Los filtros solo se
+  intersectan en Oracle mediante binds/JSON_TABLE; query, orden y formato usan Zod estricto.
+- `/api/equipo/resumen`, `/personas`, `/opciones` y `/saldos` con exportación CSV/XLSX. El
+  directorio devuelve solo ID técnico, código, nombre abreviado, puesto, departamento y centro;
+  sin enlaces a la ficha. Proyección SQL y DTO explícitos impiden exponer salario, banco,
+  DPI/NIT, expediente o actas incluso si el repositorio agrega campos en el futuro.
+- Los saldos reutilizan el servicio R3-7, su fórmula determinista, filtros, indicadores globales,
+  orden y paginación. El DTO para el jefe omite los movimientos internos del kardex, su tasa y
+  la apertura; CSV/XLSX usan proyección explícita y el mismo alcance. Las opciones organizativas
+  también se limitan al equipo; el portal no consulta los catálogos generales de RH.
+- `/mi-equipo` muestra resumen y directorio autorizado con búsqueda, filtros, chips y páginas;
+  `/mi-equipo/vacaciones` reutiliza el listado de saldos sin configuración del umbral ni acciones
+  de aprobación. Los errores de revocación retiran los datos previos. Hints, ayuda manual,
+  títulos y migas actualizados; estilos y componentes existentes conservan los tokens del mockup.
+- Login, cambio de contraseña y consulta de sesión entregan `permisosEquipo` vigentes, sin
+  persistirlos en SESIONES. `navigation.config.ts` deriva menú, buscador y recientes desde rol
+  y concesiones; el grupo Mi equipo solo aparece con alguna y Vacaciones exige la específica.
+  La comprobación al recuperar el foco o actualizar sesión refleja cambios sin nuevo login;
+  el servidor los aplica en la siguiente consulta. El guard permite actualizar permisos.
+
+### Supuestos y compatibilidad
+
+- Los permisos son independientes. VER_VACACIONES_EQUIPO permite saldos sin exigir VER_EQUIPO;
+  sin este último no se consulta el directorio. Cada permiso abarca únicamente la jefatura que
+  lo concede y sus descendientes activas, aunque el mismo jefe dirija otras ramas sin permiso.
+- El resumen inicial cuenta la unión de ramas con alguna concesión; cada vista calcula sus
+  filtros e indicadores sobre el alcance de su propio permiso. Los equipos conservan la regla
+  R3-5 de personas activas: solicitar Todos o Inactivos no incorpora bajas fuera de esa lista.
+- VER_COMISIONES_EQUIPO se registra y refleja en sesión desde esta fase; la vista y exportación
+  de estadísticas corresponde a C6. Con solo ese permiso se muestra el resumen y su estado,
+  sin acceder al directorio ni a vacaciones. No se inventan comisiones ni rutas administrativas.
+- Se amplía la prueba de cobertura del menú para recorrer las rutas condicionales con los
+  permisos correspondientes y se agrega la regresión sin concesiones/revocación/recientes.
+  No se relajan los permisos previos ni las reglas de nómina o vacaciones.
+
+### Validación
+
+- 900 pruebas unitarias/de interfaz aprobadas: 517 backend, 376 frontend y siete del exportador.
+  Doce nuevas cubren raíces por permiso, identidad desde sesión, permiso falsificado, alcance
+  vacío, proyección segura, queries manipuladas, menú/buscador/recientes, directorio, errores,
+  filtros limitados de saldos e interruptores con confirmación antes de escribir.
+- 111 pruebas Oracle/Supertest aprobadas con Node 20: 15 jefaturas (seis nuevas de C4),
+  82 de seguridad y 14 de vacaciones. Comprueban equipo descendiente, paginación, filtros ajenos,
+  lista blanca exacta de respuestas, CSV/XLSX, privacidad, separación de ramas por permiso,
+  jefe/rama inactivos, concesión y revocación en la misma sesión, CSRF, revisión caducada y
+  rollback de auditoría. La regresión R3-7 conserva las 505 filas y su exportación completa.
+- Las primeras pruebas locales encontraron restricciones de puertos de Supertest: repetición
+  con permiso del entorno aprobada. Se corrigieron fixtures/selectores de las pruebas nuevas.
+  Tras pasar seguridad, Oracle rechazó su primer DROP por una sesión de cierre; comprobada
+  la ausencia de sesiones, se retiró únicamente el esquema exacto N2SEC de esa ejecución.
+  Las otras ejecuciones completaron limpieza automática. Sin cambios en la instalación operativa.
+- Un E2E de producción aprobado con Chromium, Oracle, API Node 20/nginx y TLS reales:
+  jefatura y asignación → concesión desde interruptores con motivo → misma sesión EMPLEADO
+  sin nuevo login → directorio de una persona y exclusión de la otra → buscador ⌘K →
+  saldos/filtros → revocación confirmada → 403 y menú oculto → historial de auditoría.
+  Axe A/AA sin infracciones en Permisos y saldos móviles a 390 px, sin desbordamiento del
+  documento. Capturas de Permisos, directorio y saldos de escritorio/móvil en `tmp/pdfs/r3-8-*`
+  (ignoradas por Git); revisadas visualmente. Datos de aceptación solo en N2E2E y eliminados.
+- Lint, TypeScript strict incluido E2E, builds backend/frontend, formato, secretos y diff
+  aprobados. Vite conserva el aviso previo de tamaño de chunk. Sin dependencias nuevas.
+  ERD, FRONTEND y README documentan la migración, operación y límites de C4.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
+2. Construir `nomina2-security-tests` según README y ejecutar, de forma secuencial:
+   `npm run verify:jefaturas -- --docker`, `npm run verify:security -- --docker` y
+   `npm run verify:vacaciones -- --docker`.
+3. `npm run test:e2e -- --production equipo.spec.ts` comprueba administración y portal.
+4. Aplicar V040 mediante el runner y reconstruir API/web. RH/ADMIN → Organización → Jefaturas
+   → Permisos → elegir la jefatura de la Gerente Comercial → activar Ver equipo y/o vacaciones
+   → motivo y confirmación. Con su sesión EMPLEADO, actualizar la página o recuperar el foco:
+   Mi equipo solo muestra las personas de sus ramas autorizadas. Revocar y repetir consulta.
+5. El despliegue operativo no fue solicitado. C6–C8 y la validación contable de R3-1 siguen
+   pendientes de sus fases; no hay concesiones automáticas a los datos existentes.

@@ -1,3 +1,4 @@
+import type { PermisoEquipo } from '../features/equipo/api';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useSession } from './session';
 import { destinoRol } from '../features/auth/api/auth';
@@ -67,4 +68,28 @@ export function Entrada() {
       replace
     />
   );
+}
+
+export function RequireEquipo({
+  permiso,
+  children,
+}: {
+  permiso?: PermisoEquipo;
+  children: React.ReactNode;
+}) {
+  const { usuario, reintentar } = useSession();
+  const permisos = usuario?.permisosEquipo ?? [];
+  if (usuario?.rol !== 'EMPLEADO' || !(permiso ? permisos.includes(permiso) : permisos.length))
+    return (
+      <EmptyState
+        titulo="Sin permiso de equipo"
+        descripcion="Recursos Humanos administra los permisos de tus jefaturas. Actualiza para comprobar los cambios."
+        accion={
+          <Button icono="actualizar" onClick={reintentar}>
+            Actualizar permisos
+          </Button>
+        }
+      />
+    );
+  return children;
 }

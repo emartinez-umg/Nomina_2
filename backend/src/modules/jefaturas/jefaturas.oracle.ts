@@ -1,3 +1,5 @@
+import { crearEquipoService } from '../equipo/equipo.service.js';
+import { crearVacacionesService } from '../vacaciones/vacaciones.service.js';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
 import type { BindParameters } from 'oracledb';
@@ -73,6 +75,8 @@ describe('R3-5: jefaturas funcionales Oracle/API', () => {
         usuarios: crearUsuariosService(db),
         auditoria: crearAuditoriaService(db),
         catalogos: crearCatalogosService(db),
+        equipo: crearEquipoService(db),
+        vacaciones: crearVacacionesService(db),
         empleados: crearEmpleadosService(db),
         config,
       },
@@ -337,5 +341,200 @@ describe('R3-5: jefaturas funcionales Oracle/API', () => {
     expect((await rh.get('/api/empleados?sinJefatura=1')).body.data.total).toBe(2);
     expect((await db.conConexion(alertas)).some((a) => a.tipo === 'SIN_JEFATURA')).toBe(true);
     expect(await ejecutarMigraciones(db, logger)).toBe(0);
+  });
+  describe('R3-8: permisos de jefatura y aislamiento', () => {
+    const base = '/api/equipo';
+    const configurar = async (permisos: string[], id = jefaturas[0]!, estado = 200) => {
+      const actual = (await rh.get(`${base}/jefaturas/${id}/permisos`).expect(200)).body.data;
+      return rh
+        .patch(`${base}/jefaturas/${id}/permisos`)
+        .set('X-CSRF-Token', csrf)
+        .send({
+          permisos,
+          revision: actual.revision,
+          motivo: 'Acceso de la Gerente Comercial',
+          confirmado: true,
+        })
+        .expect(estado);
+    };
+    it('catálogo sin concesiones implícitas: empleado sin permisos recibe 403', async () => {
+      await sql(
+        "UPDATE EMPLEADOS SET ID_USUARIO=(SELECT ID_USUARIO FROM USUARIOS WHERE USUARIO='persona.jefaturas') WHERE ID_EMPLEADO=:id",
+        { id: ids[0]! },
+      );
+      for (const ruta of [
+        '/resumen',
+        '/personas',
+        '/saldos',
+        '/saldos/exportar/csv',
+        '/saldos/exportar/excel',
+        '/opciones?vista=personas',
+      ])
+        await empleado.get(base + ruta).expect(403);
+      const r = await rh.get(`${base}/jefaturas/${jefaturas[0]}/permisos`).expect(200);
+      expect(r.body.data.equipo).toBe(4);
+      expect(r.body.data.permisos).toHaveLength(3);
+      expect(r.body.data.permisos.every((p: { activo: boolean }) => !p.activo)).toBe(true);
+      await empleado.get(`${base}/jefaturas/${jefaturas[0]}/permisos`).expect(403);
+      await empleado
+        .patch(`${base}/jefaturas/${jefaturas[0]}/permisos`)
+        .set('X-CSRF-Token', csrfEmpleado)
+        .send({})
+        .expect(403);
+    });
+    it('la Gerente Comercial conserva EMPLEADO y ve exclusivamente el directorio seguro de su jerarquía', async () => {
+      await configurar(['VER_EQUIPO', 'VER_VACACIONES_EQUIPO']);
+      const sesion = (await empleado.get('/api/auth/sesion').expect(200)).body.data;
+      expect(sesion.rol).toBe('EMPLEADO');
+      expect(sesion.permisosEquipo).toEqual(['VER_EQUIPO', 'VER_VACACIONES_EQUIPO']);
+      const r = (await empleado.get(`${base}/personas?limite=2`).expect(200)).body.data;
+      expect(r.total).toBe(4);
+      expect(r.registros).toHaveLength(2);
+      const todo = (await empleado.get(`${base}/personas?limite=100`).expect(200)).body.data
+        .registros;
+      expect(todo.map((e: { id: number }) => e.id).sort()).toEqual(ids.slice(1, 5));
+      for (const e of todo)
+        expect(Object.keys(e).sort()).toEqual(
+          ['id', 'codigo', 'nombre', 'puesto', 'departamento', 'centro'].sort(),
+        );
+      for (const ruta of ['/api/empleados', '/api/empleados/' + ids[1], '/api/catalogos'])
+        await empleado.get(ruta).expect(403);
+      for (const filtro of [
+        `idDepartamento=${otro}`,
+        `buscar=Flora`,
+        `idJefatura=999999`,
+        `idCentroTrabajo=999999`,
+      ])
+        expect((await empleado.get(`${base}/personas?${filtro}`).expect(200)).body.data.total).toBe(
+          0,
+        );
+      for (const filtro of [`idEmpleado=${ids[5]}`, `empleados=${ids[5]}`, 'ordenarPor=salario'])
+        await empleado.get(`${base}/personas?${filtro}`).expect(400);
+      const opciones = (await empleado.get(`${base}/opciones?vista=personas`).expect(200)).body
+        .data;
+      expect(opciones.departamentos).toEqual([{ id: dep, nombre: 'Equipo Prueba' }]);
+    });
+    it('saldos, indicadores y ambas exportaciones se intersectan con el equipo antes de filtrar', async () => {
+      const r = (await empleado.get(`${base}/saldos?limite=1`).expect(200)).body.data;
+      expect(r.total).toBe(4);
+      expect(r.registros).toHaveLength(1);
+      for (const e of (await empleado.get(`${base}/saldos?limite=100`).expect(200)).body.data
+        .registros) {
+        expect(ids.slice(1, 5)).toContain(e.id);
+        expect(Object.keys(e).sort()).toEqual(
+          [
+            'id',
+            'codigo',
+            'nombre',
+            'departamento',
+            'centro',
+            'jefatura',
+            'ingreso',
+            'egreso',
+            'activo',
+            'mesesCompletos',
+            'acumulado',
+            'tomados',
+            'previas',
+            'disponible',
+            'solicitables',
+            'corte',
+            'alerta',
+          ].sort(),
+        );
+      }
+      expect(
+        (await empleado.get(`${base}/saldos?idDepartamento=${otro}&activos=todos`).expect(200)).body
+          .data,
+      ).toMatchObject({ total: 0, indicadores: { empleadosAlerta: 0, totalAcumulado: '0.00' } });
+      for (const formato of ['csv', 'excel']) {
+        const d = (await empleado.get(`${base}/saldos/exportar/${formato}?limite=1`).expect(200))
+          .body.data;
+        expect(d.base64.length).toBeGreaterThan(100);
+        if (formato === 'csv') {
+          const csv = Buffer.from(d.base64, 'base64').toString();
+          expect(csv).toContain('Bea López');
+          expect(csv).not.toContain('Flora');
+          expect(csv).not.toMatch(/DPI|NIT|Salario|Banco|Expediente|Actas/);
+        }
+        await empleado.get(`/api/vacaciones/saldos/exportar/${formato}?alcance=equipo`).expect(403);
+      }
+      await empleado.get(`${base}/saldos?alcance=general`).expect(400);
+      await empleado.get(`${base}/saldos?idEmpleado=${ids[5]}`).expect(400);
+      await empleado.get('/api/vacaciones/solicitudes/1/colisiones').expect(403);
+      await empleado
+        .post('/api/vacaciones/solicitudes/1/resolver')
+        .set('X-CSRF-Token', csrfEmpleado)
+        .send({})
+        .expect(403);
+    });
+    it('revocar y conceder se refleja sin login nuevo; un permiso no concede los demás', async () => {
+      await configurar(['VER_VACACIONES_EQUIPO']);
+      await empleado.get(`${base}/personas`).expect(403);
+      await empleado.get(`${base}/saldos`).expect(200);
+      expect((await empleado.get('/api/auth/sesion').expect(200)).body.data.permisosEquipo).toEqual(
+        ['VER_VACACIONES_EQUIPO'],
+      );
+      await configurar([]);
+      await empleado.get(`${base}/saldos`).expect(403);
+      await empleado.get(`${base}/resumen`).expect(403);
+      expect((await empleado.get('/api/auth/sesion').expect(200)).body.data.permisosEquipo).toEqual(
+        [],
+      );
+    });
+    it('no mezcla permisos de distintas jefaturas y corta ramas/jefes inactivos', async () => {
+      const separada = (await crear('Equipo Comercial Separado', ids[0]!).expect(201)).body.data.id;
+      await asignar(separada, [ids[5]!]).expect(409);
+      await asignar(separada, [ids[4]!]).expect(200);
+      await configurar(['VER_EQUIPO']);
+      await configurar(['VER_VACACIONES_EQUIPO'], separada);
+      expect((await empleado.get(`${base}/personas`).expect(200)).body.data.total).toBe(3);
+      expect(
+        (await empleado.get(`${base}/saldos`).expect(200)).body.data.registros.map(
+          (e: { id: number }) => e.id,
+        ),
+      ).toEqual([ids[4]]);
+      await sql('UPDATE JEFATURAS SET ACTIVO=0 WHERE ID_JEFATURA=:id', { id: jefaturas[1]! });
+      expect((await empleado.get(`${base}/personas`).expect(200)).body.data.total).toBe(1);
+      await sql('UPDATE JEFATURAS SET ACTIVO=1 WHERE ID_JEFATURA=:id', { id: jefaturas[1]! });
+      await sql("UPDATE EMPLEADOS SET ESTADO='SUSPENDIDO' WHERE ID_EMPLEADO=:id", { id: ids[0]! });
+      await empleado.get(`${base}/personas`).expect(403);
+      await sql("UPDATE EMPLEADOS SET ESTADO='ACTIVO' WHERE ID_EMPLEADO=:id", { id: ids[0]! });
+      await configurar(['VER_EQUIPO', 'VER_VACACIONES_EQUIPO']);
+    });
+    it('audita cambios, rechaza revisiones caducadas, CSRF y revierte si falla la bitácora', async () => {
+      const url = `${base}/jefaturas/${jefaturas[0]}/permisos`;
+      const antes = (await rh.get(url).expect(200)).body.data;
+      await rh.patch(url).send({}).expect(403);
+      await rh
+        .patch(url)
+        .set('X-CSRF-Token', csrf)
+        .send({
+          permisos: [],
+          revision: '0'.repeat(64),
+          motivo: 'Revisión caducada',
+          confirmado: true,
+        })
+        .expect(409);
+      await sql(
+        "CREATE OR REPLACE TRIGGER QA_PERMISO_AUD BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='CAMBIAR_PERMISOS_JEFATURA' THEN RAISE_APPLICATION_ERROR(-20001,'Fallo QA'); END IF; END;",
+      );
+      try {
+        await configurar([], jefaturas[0]!, 500);
+      } finally {
+        await sql('DROP TRIGGER QA_PERMISO_AUD');
+      }
+      expect((await rh.get(url).expect(200)).body.data.revision).toBe(antes.revision);
+      const historial = (
+        await rh.get(`/api/catalogos/jefaturas/${jefaturas[0]}/historial`).expect(200)
+      ).body.data;
+      expect(
+        historial.some(
+          (e: { accion: string; motivo: string }) =>
+            e.accion === 'CAMBIAR_PERMISOS_JEFATURA' &&
+            e.motivo === 'Acceso de la Gerente Comercial',
+        ),
+      ).toBe(true);
+    });
   });
 });

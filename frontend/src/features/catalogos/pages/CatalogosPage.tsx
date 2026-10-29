@@ -1,3 +1,6 @@
+import { PermisosJefaturas } from '../../jefaturas/PermisosJefaturas';
+import { ayudaPermisosEquipo } from '../../equipo/help';
+import { Tabs } from '../../../components/ui/Tabs';
 import { listarTodos } from '../api/listarTodos';
 export { listarTodos } from '../api/listarTodos';
 import { ayudaAsignacionJefaturas } from '../../jefaturas/help';
@@ -122,6 +125,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
   });
   const [expandido, setExpandido] = useState(false);
   const [formulario, setFormulario] = useState(false);
+  const [pestana, setPestana] = useState('datos');
   const [asignacion, setAsignacion] = useState<string | null>(null);
   const [actual, setActual] = useState<Fila>();
   const [duplicar, setDuplicar] = useState(false);
@@ -131,8 +135,13 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
   const [ocupado, setOcupado] = useState(false);
   const [exportando, setExportando] = useState(false);
   const ayuda = useMemo(
-    () => (asignacion !== null ? ayudaAsignacionJefaturas : ayudaCatalogo(cat, formulario)),
-    [cat, formulario, asignacion],
+    () =>
+      cat.slug === 'jefaturas' && pestana === 'permisos'
+        ? ayudaPermisosEquipo
+        : asignacion !== null
+          ? ayudaAsignacionJefaturas
+          : ayudaCatalogo(cat, formulario),
+    [cat, formulario, asignacion, pestana],
   );
   usePageHelp(ayuda, usuario?.rol);
   const params = {
@@ -196,10 +205,8 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
     }
   };
   const permitidoCrear = !cat.legal || (reglas.isSuccess && !reglas.isFetching);
-  return (
+  const contenido = (
     <>
-      <h1>{cat.titulo}</h1>
-      <p className="my-3 text-sm text-secundario">Catálogos y parametrización / {cat.titulo}</p>
       <nav className="catalogo-menu" aria-label="Cambiar catálogo" data-tour="catalogo-menu">
         {catalogos.map((c) => (
           <Link
@@ -636,6 +643,34 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
           </div>
         )}
       </Modal>
+    </>
+  );
+  return (
+    <>
+      <h1>{cat.titulo}</h1>
+      <p className="my-3 text-sm text-secundario">Catálogos y parametrización / {cat.titulo}</p>
+      {cat.slug === 'jefaturas' ? (
+        <Tabs
+          valor={pestana}
+          onCambiar={setPestana}
+          items={[
+            {
+              id: 'datos',
+              titulo: 'Jefaturas',
+              icono: 'empleados',
+              contenido: pestana === 'datos' ? contenido : null,
+            },
+            {
+              id: 'permisos',
+              titulo: 'Permisos',
+              icono: 'seguridad',
+              contenido: pestana === 'permisos' ? <PermisosJefaturas cat={cat} /> : null,
+            },
+          ]}
+        />
+      ) : (
+        contenido
+      )}
     </>
   );
 }

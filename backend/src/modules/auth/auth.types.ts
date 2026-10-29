@@ -1,5 +1,7 @@
+import type { PermisoEquipo } from '../equipo/equipo.schemas.js';
 export type Rol = 'ADMIN' | 'RH' | 'EMPLEADO';
 export interface UsuarioSeguro {
+  permisosEquipo?: PermisoEquipo[];
   idUsuario: number;
   usuario: string;
   nombreMostrado?: string | undefined;
@@ -31,6 +33,7 @@ export interface ActorAuditoria {
 
 export function usuarioPublico(u: UsuarioSeguro) {
   return {
+    ...(u.permisosEquipo ? { permisosEquipo: u.permisosEquipo } : {}),
     idUsuario: u.idUsuario,
     usuario: u.usuario,
     nombreMostrado: u.nombreMostrado,

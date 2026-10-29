@@ -62,6 +62,25 @@ ToastProvider/useToast, Tabs, Breadcrumbs y NotificationBell (contador opcional 
 `Button` exige icono y soporta carga, variantes, solo icono con nombre/tooltip y motivo de bloqueo.
 El modal usa dialog nativo: foco, Escape, contención y restauración. Tabs admite flechas/Home/End.
 
+### Equipo de jefatura (R3-8)
+
+Organización → Jefaturas → **Permisos** permite a RH/ADMIN seleccionar una jefatura,
+consultar su equipo real y administrar tres permisos con interruptores, motivo, confirmación
+e historial. Conserva borradores por usuario/jefatura. Las jefaturas previas no tienen permisos.
+Un conflicto de revisión exige recargar, sin sobrescribir una modificación ajena.
+
+`navigation.config.ts` deriva los grupos, opciones de búsqueda y recientes desde el rol y
+`permisosEquipo` de la sesión. Solo EMPLEADO con alguna concesión ve **Mi equipo**;
+Vacaciones del equipo exige su permiso específico. La consulta de sesión al recuperar el foco
+actualiza el menú sin cerrar sesión; cada petición valida nuevamente el acceso en el servidor.
+El guard ofrece actualizar permisos al abrir un enlace sin autorización.
+
+`/mi-equipo` presenta resumen y directorio seguro con búsqueda, filtros, chips, orden y páginas.
+`/mi-equipo/vacaciones` reutiliza el listado R3-7 con API y opciones de equipo, indicadores y
+exportación limitada, sin configurar parámetros ni aprobar solicitudes. Los errores de revocación
+retiran los datos anteriores. Ayuda manual y hints específicos explican el alcance por permiso.
+VER_COMISIONES_EQUIPO se administra desde esta fase; su vista corresponde a C6, aún pendiente.
+
 `Table` recibe filas del servidor, total, página/límite, orden y callbacks. Los callbacks deben
 actualizar los query params de la API mediante TanStack Query; no ordena ni pagina un lote local.
 Las búsquedas, filtros y exportaciones de cada CRUD se implementarán junto con sus endpoints.

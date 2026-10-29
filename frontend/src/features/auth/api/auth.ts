@@ -1,7 +1,9 @@
+import { permisoEquipoSchema } from '../../equipo/api';
 import { z } from 'zod';
 import { guardarCsrf, solicitar } from '../../../lib/http';
 import { activarBorradoresUsuario, limpiarBorradoresSesion } from '../../../lib/formDraft';
 export const usuarioSchema = z.object({
+  permisosEquipo: z.array(permisoEquipoSchema).optional(),
   idUsuario: z.number().int(),
   usuario: z.string(),
   nombreMostrado: z.string().optional(),

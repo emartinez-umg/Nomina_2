@@ -1,3 +1,4 @@
+import { permisosDeSesion } from '../equipo/equipo.repository.js';
 import { verify } from 'argon2';
 import type { Connection } from 'oracledb';
 import type { Config } from '../../config/env.schema.js';
@@ -88,7 +89,11 @@ export async function crearAuthService(db: BaseDatos, config: ConfigSeguridad) {
           entidad: 'USUARIOS',
           idEntidad: u.idUsuario,
         });
-        return { usuario: usuarioPublico(u), token, csrf };
+        return {
+          usuario: { ...usuarioPublico(u), permisosEquipo: await permisosDeSesion(c, u) },
+          token,
+          csrf,
+        };
       });
       if ('error' in resultado) throw resultado.error;
       return resultado;
@@ -109,7 +114,7 @@ export async function crearAuthService(db: BaseDatos, config: ConfigSeguridad) {
           );
         }
         await repository.renovarActividad(c, sesion.idSesion, config.SESSION_IDLE_MINUTES);
-        return { ...usuarioPublico(u), ...sesion };
+        return { ...usuarioPublico(u), ...sesion, permisosEquipo: await permisosDeSesion(c, u) };
       });
     },
     async logout(auth: Autenticacion, ip: string) {
@@ -175,7 +180,11 @@ export async function crearAuthService(db: BaseDatos, config: ConfigSeguridad) {
         return {
           token,
           csrf,
-          usuario: { ...usuarioPublico(u), cambioObligatorio: false },
+          usuario: {
+            ...usuarioPublico(u),
+            cambioObligatorio: false,
+            permisosEquipo: await permisosDeSesion(c, { ...u, cambioObligatorio: false }),
+          },
         };
       });
       if ('error' in resultado) throw resultado.error;

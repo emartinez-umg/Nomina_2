@@ -1,7 +1,14 @@
+import { ayudaSaldosEquipo } from '../../equipo/help';
+import { opcionesEquipo } from '../../equipo/api';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useInfiniteQuery, useMutation } from '@tanstack/react-query';
-import { listarSaldos, exportarSaldos } from '../api/saldos';
+import {
+  listarSaldos,
+  exportarSaldos,
+  listarSaldosEquipo,
+  exportarSaldosEquipo,
+} from '../api/saldos';
 import type { SaldoGeneral } from '../api/saldos';
 import { listar as listarCatalogo } from '../../catalogos/api/catalogos';
 import { descargar } from '../../nomina/api/nomina';
@@ -22,15 +29,23 @@ function FiltroOrganizacion({
   label,
   value,
   onChange,
+  equipo = false,
 }: {
+  equipo?: boolean;
   slug: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
 }) {
   const [buscar, setBuscar] = useState('');
+  const deEquipo = useQuery({
+    queryKey: ['equipo', 'opciones', 'vacaciones'],
+    queryFn: ({ signal }) => opcionesEquipo('vacaciones', signal),
+    enabled: equipo,
+  });
   const q = useInfiniteQuery({
     queryKey: ['catalogos', 'saldos-filtro', slug, buscar],
+    enabled: !equipo,
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
       listarCatalogo(
@@ -46,10 +61,13 @@ function FiltroOrganizacion({
       ),
     getNextPageParam: (last, _all, p) => (p * 100 < last.total ? p + 1 : undefined),
   });
-  const opciones =
-    q.data?.pages.flatMap((p) =>
-      p.registros.map((r) => ({ value: String(r.id), label: String(r.nombre) })),
-    ) ?? [];
+  const opciones = equipo
+    ? (deEquipo.data?.[
+        slug === 'departamentos' ? 'departamentos' : slug === 'jefaturas' ? 'jefaturas' : 'centros'
+      ].map((o) => ({ value: String(o.id), label: o.nombre })) ?? [])
+    : (q.data?.pages.flatMap((p) =>
+        p.registros.map((r) => ({ value: String(r.id), label: String(r.nombre) })),
+      ) ?? []);
   return (
     <SelectField
       name={slug}
@@ -58,12 +76,12 @@ function FiltroOrganizacion({
       value={value}
       onValueChange={onChange}
       onBuscar={setBuscar}
-      filtrarEnServidor
+      filtrarEnServidor={!equipo}
       opciones={[{ value: '', label: 'Todos' }, ...opciones]}
-      error={q.error?.message}
+      error={deEquipo.error?.message ?? q.error?.message}
       complemento={
         <>
-          {q.isPending && <p role="status">Cargando opciones…</p>}
+          {(equipo ? deEquipo.isPending : q.isPending) && <p role="status">Cargando opciones…</p>}
           {q.hasNextPage && (
             <Button
               icono="siguiente"
@@ -99,11 +117,13 @@ const etiquetas: Record<string, string> = {
   soloAlerta: 'Solo con alerta',
   activos: 'Estado',
 };
-export function SaldosVacacionesPage() {
+export function SaldosVacacionesPage({ equipo = false }: { equipo?: boolean }) {
   const [params, setParams] = useSearchParams();
   const toast = useToast();
   const [editarUmbral, setEditarUmbral] = useState(false);
-  usePageHelp(editarUmbral ? ayudaUmbralVacaciones : ayudaSaldosVacaciones);
+  usePageHelp(
+    equipo ? ayudaSaldosEquipo : editarUmbral ? ayudaUmbralVacaciones : ayudaSaldosVacaciones,
+  );
   const [filtros, setFiltros] = useState(false);
   const q = {
     ...iniciales,
@@ -117,19 +137,20 @@ export function SaldosVacacionesPage() {
     setParams(next, { replace: true });
   };
   const consulta = useQuery({
-    queryKey: ['vacaciones', 'saldos', q],
-    queryFn: ({ signal }) => listarSaldos(q, signal),
+    queryKey: ['vacaciones', 'saldos', equipo ? 'equipo' : 'general', q],
+    queryFn: ({ signal }) => (equipo ? listarSaldosEquipo : listarSaldos)(q, signal),
     refetchInterval: 60000,
   });
   const exportacion = useMutation({
-    mutationFn: (formato: 'csv' | 'excel') => exportarSaldos(q, formato),
+    mutationFn: (formato: 'csv' | 'excel') =>
+      (equipo ? exportarSaldosEquipo : exportarSaldos)(q, formato),
     onSuccess: (d) => {
       descargar(d);
       toast('Saldos exportados.');
     },
     onError: (e) => toast(e.message, 'peligro'),
   });
-  const d = consulta.data;
+  const d = consulta.error ? undefined : consulta.data;
   const chips = Object.entries(etiquetas).filter(
     ([k]) => q[k] && (k !== 'soloAlerta' || q[k] === 'true'),
   );
@@ -138,9 +159,11 @@ export function SaldosVacacionesPage() {
       {editarUmbral && d && (
         <EditarUmbralVacaciones id={d.idParametro} onCerrar={() => setEditarUmbral(false)} />
       )}
-      <h1>Saldos de vacaciones</h1>
+      <h1>{equipo ? 'Vacaciones de mi equipo' : 'Saldos de vacaciones'}</h1>
       <p className="text-secundario mb-5">
-        Planifica el descanso del personal y localiza los saldos que requieren atención.
+        {equipo
+          ? 'Mi equipo / Vacaciones · Solo las personas de tus jefaturas autorizadas. Consulta y exporta sus saldos, sin aprobar solicitudes.'
+          : 'Planifica el descanso del personal y localiza los saldos que requieren atención.'}
       </p>
       <section
         data-tour="saldos-indicadores"
@@ -170,14 +193,16 @@ export function SaldosVacacionesPage() {
           Una aprobación descuenta días; una solicitud pendiente no reserva saldo. Los indicadores
           abarcan todos los resultados filtrados.
         </p>
-        <Button
-          icono="configuracion"
-          variante="texto"
-          disabled={!d}
-          onClick={() => setEditarUmbral(true)}
-        >
-          Configurar umbral
-        </Button>
+        {!equipo && (
+          <Button
+            icono="configuracion"
+            variante="texto"
+            disabled={!d}
+            onClick={() => setEditarUmbral(true)}
+          >
+            Configurar umbral
+          </Button>
+        )}
       </Card>
       <Card>
         <div className="flex flex-wrap justify-between gap-3 mb-4">
@@ -225,18 +250,21 @@ export function SaldosVacacionesPage() {
           {filtros && (
             <FormGrid className="my-4">
               <FiltroOrganizacion
+                equipo={equipo}
                 slug="departamentos"
                 label="Departamento"
                 value={q.idDepartamento ?? ''}
                 onChange={(v) => cambiar('idDepartamento', v)}
               />
               <FiltroOrganizacion
+                equipo={equipo}
                 slug="centros-trabajo"
                 label="Centro de trabajo"
                 value={q.idCentroTrabajo ?? ''}
                 onChange={(v) => cambiar('idCentroTrabajo', v)}
               />
               <FiltroOrganizacion
+                equipo={equipo}
                 slug="jefaturas"
                 label="Jefatura"
                 value={q.idJefatura ?? ''}
@@ -245,7 +273,11 @@ export function SaldosVacacionesPage() {
               <SelectField
                 name="activos"
                 label="Estado del empleado"
-                hint="Activos: ficha habilitada y estado Activo. Todos incluye bajas e inactivos."
+                hint={
+                  equipo
+                    ? 'El equipo solo incluye personas activas. Los filtros nunca amplían tu alcance.'
+                    : 'Activos: ficha habilitada y estado Activo. Todos incluye bajas e inactivos.'
+                }
                 value={q.activos!}
                 onValueChange={(v) => cambiar('activos', v)}
                 opciones={[

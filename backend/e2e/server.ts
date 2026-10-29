@@ -1,3 +1,4 @@
+import { crearEquipoService } from '../src/modules/equipo/equipo.service.js';
 import { prepararFirmantePrueba } from '../src/shared/pdf/empresa.fixture.js';
 import { crearEmpresaService } from '../src/modules/empresa/empresa.service.js';
 import { crearCodigosService } from '../src/modules/codigos/codigos.service.js';
@@ -173,6 +174,7 @@ if (process.env.E2E_PREPARE_ONLY === '1') {
     empleados: crearEmpleadosService(db),
     novedades: crearNovedadesService(db),
     vacaciones: crearVacacionesService(db),
+    equipo: crearEquipoService(db),
     nomina: crearNominaService(db),
     prestaciones: crearPrestacionesService(db),
     solicitudes: crearSolicitudesService(db),

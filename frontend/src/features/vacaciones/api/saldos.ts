@@ -44,3 +44,12 @@ export const exportarSaldos = (q: Record<string, string>, formato: 'csv' | 'exce
     z.object({ nombre: z.string(), tipo: z.string(), base64: z.string() }),
     { timeoutMs: 120000 },
   );
+
+export const listarSaldosEquipo = (q: Record<string, string>, signal?: AbortSignal) =>
+  solicitar(`/equipo/saldos?${query(q)}`, saldosSchema, { signal });
+export const exportarSaldosEquipo = (q: Record<string, string>, formato: 'csv' | 'excel') =>
+  solicitar(
+    `/equipo/saldos/exportar/${formato}?${query(q)}`,
+    z.object({ nombre: z.string(), tipo: z.string(), base64: z.string() }),
+    { timeoutMs: 120000 },
+  );

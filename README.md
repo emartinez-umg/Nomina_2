@@ -175,6 +175,16 @@ npm run verify:security -- --docker
 # Los otros tres verify:* también admiten -- --docker.
 ```
 
+Permisos de equipo (R3-8): aplicar V040 mediante el runner habitual y reconstruir API/web.
+RH/ADMIN → Organización → Jefaturas → Permisos → elegir jefatura → habilitar consultas →
+motivo y confirmación. El responsable conserva el rol EMPLEADO y recibe el menú Mi equipo
+al actualizar la sesión o volver a la pestaña. Directorio y saldos solo muestran las ramas
+autorizadas, sin acceso a salarios, banco, DPI/NIT, expedientes, actas ni aprobaciones.
+El permiso de comisiones queda preparado para C6. No hay concesiones automáticas.
+Pruebas: `npm run verify:jefaturas -- --docker` incluye aislamiento, revocación en la misma
+sesión, privacidad y rollback de auditoría; `npm run test:e2e -- --production equipo.spec.ts`
+comprueba la administración y la consulta reales en un esquema desechable.
+
 ## Migraciones, operación y respaldo
 
 ```bash

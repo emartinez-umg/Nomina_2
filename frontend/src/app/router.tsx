@@ -1,3 +1,4 @@
+import { MiEquipoPage } from '../features/equipo/MiEquipoPage';
 import { SaldosVacacionesPage } from '../features/vacaciones/pages/SaldosVacacionesPage';
 import { TituloPagina, type TituloRuta } from './titulos';
 import type { RouteObject } from 'react-router-dom';
@@ -90,7 +91,7 @@ const Auditoria = lazy(() =>
 );
 import { AppLayout } from '../components/layout/AppLayout';
 import { FormPageContainer } from '../components/layout/FormPageContainer';
-import { Entrada, RequireSession, SessionGate } from './guards';
+import { Entrada, RequireSession, SessionGate, RequireEquipo } from './guards';
 import { Outlet } from 'react-router-dom';
 const paginas: RouteObject[] = [
   { path: '/salud', element: <SaludPage />, errorElement: <RouteError /> },
@@ -139,6 +140,22 @@ const paginas: RouteObject[] = [
                 : []),
               ...(rol === 'EMPLEADO'
                 ? [
+                    {
+                      path: '/mi-equipo',
+                      element: (
+                        <RequireEquipo>
+                          <MiEquipoPage />
+                        </RequireEquipo>
+                      ),
+                    },
+                    {
+                      path: '/mi-equipo/vacaciones',
+                      element: (
+                        <RequireEquipo permiso="VER_VACACIONES_EQUIPO">
+                          <SaldosVacacionesPage equipo />
+                        </RequireEquipo>
+                      ),
+                    },
                     { path: '/mis-gestiones/anuncios', element: comunicacionPage },
                     { path: '/mis-gestiones/eventos', element: comunicacionPage },
                     { path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> },
@@ -244,6 +261,8 @@ const paginas: RouteObject[] = [
 // Cada ruta declara su título en el árbol que consume React Router.
 const destinos = opcionesNavegacion('ADMIN');
 const fijos: Record<string, TituloRuta> = {
+  '/mi-equipo': 'Mi equipo',
+  '/mi-equipo/vacaciones': 'Vacaciones de mi equipo',
   '/salud': 'Estado del sistema',
   '/login': 'Iniciar sesión',
   '/cambiar-contrasena': 'Cambiar contraseña',

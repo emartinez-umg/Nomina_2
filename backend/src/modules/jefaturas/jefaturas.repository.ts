@@ -54,17 +54,22 @@ export async function resumen(c: Connection) {
     )
   ).rows![0]!;
 }
-// Solo identificadores: los datos permitidos y el alcance de sesión se resolverán en C4.
-export async function equipo(c: Connection, idJefe: number) {
+// Las raíces opcionales provienen de permisos resueltos en servidor, nunca de la query pública.
+export async function equipo(c: Connection, idJefe: number, raices?: readonly number[]) {
   return (
     (
       await c.execute<{ id: number }>(
         `SELECT E.ID_EMPLEADO "id" FROM EMPLEADOS E WHERE E.ACTIVO=1 AND E.ESTADO='ACTIVO' AND E.ID_EMPLEADO<>:idJefe AND E.ID_JEFATURA IN (
       SELECT J.ID_JEFATURA FROM JEFATURAS J WHERE J.ACTIVO=1
-      START WITH J.ACTIVO=1 AND J.ID_EMPLEADO_RESPONSABLE=:idJefe AND EXISTS (SELECT 1 FROM EMPLEADOS R WHERE R.ID_EMPLEADO=:idJefe AND R.ACTIVO=1 AND R.ESTADO='ACTIVO' AND R.ID_DEPARTAMENTO=J.ID_DEPARTAMENTO)
+      START WITH J.ACTIVO=1 AND J.ID_EMPLEADO_RESPONSABLE=:idJefe ${raices === undefined ? '' : "AND J.ID_JEFATURA IN (SELECT ID FROM JSON_TABLE(:raices,'$[*]' COLUMNS(ID NUMBER PATH '$')))"} AND EXISTS (SELECT 1 FROM EMPLEADOS R WHERE R.ID_EMPLEADO=:idJefe AND R.ACTIVO=1 AND R.ESTADO='ACTIVO' AND R.ID_DEPARTAMENTO=J.ID_DEPARTAMENTO)
       CONNECT BY NOCYCLE PRIOR J.ID_JEFATURA=J.ID_JEFATURA_SUPERIOR AND J.ACTIVO=1
     ) ORDER BY E.ID_EMPLEADO`,
-        { idJefe },
+        {
+          idJefe,
+          ...(raices === undefined
+            ? {}
+            : { raices: { val: JSON.stringify(raices), type: oracledb.CLOB } }),
+        },
         opts,
       )
     ).rows?.map((e) => e.id) ?? []
