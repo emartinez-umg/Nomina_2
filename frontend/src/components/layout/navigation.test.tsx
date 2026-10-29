@@ -104,6 +104,12 @@ describe('Configuración única de navegación', () => {
     ]);
   });
   it('resalta únicamente el destino más específico, incluidos detalle y edición', () => {
+    expect(accesoActivo('RH', '/vacaciones/saldos')).toBe('saldos-vacaciones');
+    expect(accesoActivo('ADMIN', '/vacaciones/saldos')).toBe('saldos-vacaciones');
+    expect(accesoActivo('EMPLEADO', '/vacaciones/saldos')).toBeUndefined();
+    expect(opcionesNavegacion('EMPLEADO').some((item) => item.id === 'saldos-vacaciones')).toBe(
+      false,
+    );
     expect(accesoActivo('RH', '/catalogos/puestos')).toBe('puestos');
     expect(accesoActivo('RH', '/empleados/carga-masiva')).toBe('carga-masiva');
     expect(accesoActivo('RH', '/empleados/10/editar')).toBe('empleados');

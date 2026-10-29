@@ -1,3 +1,7 @@
+import {
+  consultarSaldosVacaciones,
+  consultaDashboardSaldos,
+} from '../vacaciones/vacaciones.saldos.service.js';
 import { textoPresentacion } from '../../shared/presentacion/codigos.js';
 import { crearCalendarioService } from '../calendario/calendario.service.js';
 import { crearEstadisticasService } from './estadisticas.service.js';
@@ -63,7 +67,18 @@ export function crearTablerosService(db: BaseDatos) {
                 parcial: r.parcial,
               });
             }
+            const saldos = await consultarSaldosVacaciones(
+              c,
+              consultaDashboardSaldos,
+              undefined,
+              ahora.slice(0, 10),
+            );
             return {
+              saldosVacaciones: {
+                cantidad: saldos.indicadores.empleadosAlerta,
+                umbral: saldos.umbral,
+                etiqueta: saldos.etiquetaAlerta,
+              },
               rol: 'RH' as const,
               ahora,
               indicadores: await repo.indicadoresRh(c),

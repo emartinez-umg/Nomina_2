@@ -3643,3 +3643,106 @@ Estado: implementada el 29/10/2026 en `v1.2`. Alcance C5, primera parte.
    Ver la aprobación conserva la copia; el portal del empleado no muestra el panel ni conteos.
 5. Sin pendientes de implementación R3-6. No se desplegó en la instalación operativa. El listado
    general de saldos de C5, C4/C6–C8 y la validación contable de R3-1 quedan fuera de esta fase.
+
+## Ronda 3 — FASE R3-7: listado general de saldos de vacaciones
+
+Estado: implementada el 29/10/2026 en `v1.2`. Alcance C5, segunda parte.
+
+### Causa y alcance
+
+- Leídos AGENTS.md con los adendos v1/v1.1/v1.2 y el progreso v1; árbol limpio al iniciar.
+  RH solo podía consultar el saldo individual, sin una vista de todo el personal ni un aviso
+  configurable para planificar el descanso. No existían la clave de alerta ni su exportación.
+- Se reutiliza `calcularSaldo`, la regla determinista del servicio individual; no se agrega
+  ninguna fórmula SQL ni una segunda acumulación. No se activa C4 ni se adelanta R3-8.
+
+### Hecho y decisiones
+
+- `/vacaciones/saldos` para RH/ADMIN: código, nombre, departamento, centro, jefatura, ingreso,
+  meses completos, acumulado, tomados/aprobados, disponible y solicitables. Disponible y
+  Solicitables quedan junto al nombre para leerlos de un vistazo; previas/ajustes se explica
+  en Tomados. Fila roja, ícono y etiqueta «Más de N días» junto al nombre, visible en móvil.
+- Búsqueda por nombre/código y filtros combinables de departamento, centro, jefatura, activos
+  y solo alerta; selectores buscables con páginas, panel colapsable, chips y limpiar filtros.
+  Orden de lista blanca con desempate estable por ID, páginas en servidor y URL compartible.
+  Tres indicadores sobre todos los resultados filtrados: personas en alerta, promedio
+  disponible y total de días acumulados. Estados de carga, error con reintento y vacío útil.
+- GET `/api/vacaciones/saldos` y `/saldos/exportar/csv|excel`: routes/controller/service/repository,
+  Zod estricto y RBAC también en servicio. Las exportaciones incluyen todas las páginas,
+  orden/filtros, alerta y umbral, previas, estado y corte. XLSX real reutiliza el exportador
+  existente con nombre de hoja opcional; CSV lleva BOM y ambos protegen textos de fórmulas.
+  No exponen salarios, banco, DPI/NIT, usuarios ni identificadores de sesión.
+- Snapshot READ ONLY con rollback de lectura; empleados filtrados en Oracle, movimientos
+  por lote con JSON_TABLE y binds CLOB, una lectura de tasas y umbral, sin consultas por
+  empleado. Agrupación, cálculo, filtro de alerta, indicadores, orden y paginación se hacen
+  en Node. Conserva apertura certificada, devoluciones, previas y corte al egreso.
+- V039 aditiva inserta `VACACIONES_ALERTA_DIAS=15`, DIAS, desde 1900, sin reemplazar valores
+  existentes ni tocar migraciones anteriores, movimientos o pagos. Comparación estricta
+  con Decimal: 15.00 no alerta; 15.25 sí. El umbral conserva hasta seis decimales de su
+  configuración; solo la presentación de saldos mantiene las dos decimales existentes.
+- **Configurar umbral** abre el formulario compartido de parámetros, con borrador, vigencias,
+  comparación anterior/nuevo, motivo obligatorio, confirmación y auditoría transaccional.
+  Validación duplicada de valor mayor que cero y unidad Días. Tras guardar refresca saldos
+  y dashboard; conserva el historial de vigencias. No hay un mecanismo paralelo de edición.
+- Dashboard RH consume la misma consulta y muestra «N empleados con más de 15 días» por defecto, usando
+  el umbral vigente, con enlace a `soloAlerta=true&activos=true`. Menú, buscador, ruta/título,
+  hints y ayuda declarativa del listado, parámetro y dashboard actualizados; la ayuda del
+  listado vuelve a estar disponible al cerrar la edición. Sin dependencias nuevas.
+- Preparación de equipo: query `alcance=equipo`, denegada sin resolvedor autorizado. El
+  servicio admite un resolvedor inyectado que recibe conexión y autenticación; su lista se
+  intersecta con los filtros en Oracle. Lista vacía devuelve cero; una lista ausente/inválida
+  se deniega y nunca se convierte en alcance general. La query pública no acepta listas de
+  empleados. EMPLEADO sigue recibiendo 403 en consulta y ambas exportaciones.
+
+### Supuestos y compatibilidad
+
+- Por defecto se muestran fichas habilitadas con estado Activo. Inactivos/bajas incluye
+  `ACTIVO=0` o estado distinto de ACTIVO; Todos permite consultar ambos. Una baja detiene
+  acumulación en su egreso; deshabilitar una ficha sin egreso no inventa una fecha de baja.
+- Indicadores y exportación usan exactamente el conjunto filtrado, incluido Solo con alerta.
+  Tomados conserva el significado del servicio existente; previas/ajustes se muestra aparte
+  para reconciliar disponible. Una pendiente no reserva días. El listado no modifica saldos.
+- Máximo explícito de 100,000 empleados por consulta/exportación. Los saldos derivados se
+  ordenan/paginan en el servidor de aplicación para reutilizar la fórmula y evitar duplicarla
+  en SQL. Se reutilizan índices existentes por organización/activo y empleado/fecha del kardex.
+  La medición local con 505 personas comprueba regresión; no es una prueba de carga operativa.
+- Tasas y umbral requieren vigencia única al corte; se explica una configuración ausente en
+  vez de inventar un saldo. La activación de permisos y menú Mi equipo corresponde a R3-8.
+
+### Validación
+
+- **888 pruebas unitarias/de interfaz aprobadas**: 511 backend, 370 frontend y siete del
+  exportador. Trece nuevas: límites/precisión del umbral, apertura/egreso, indicadores antes
+  de paginar, filtros/orden/enlace, CSV/XLSX completos y seguros, 601 empleados sin N+1,
+  RBAC, alcance vacío/incompleto, fila con marca accesible, recuperación y datos no inventados.
+- **26 Oracle/Supertest aprobadas con Node 20**: 14 de vacaciones y 12 del dashboard.
+  Las dos nuevas de R3-7 comprueban 505 empleados reales, filtros combinados/búsqueda por
+  código, 15.00/15.25, orden numérico, páginas, indicadores globales, CSV/XLSX de las 505
+  filas, estados, alcance interno limitado/vacío, RBAC y edición confirmada/auditada del
+  parámetro. Listado e indicadores de 505 empleados: **68 ms** en esta ejecución local.
+  V039 aplicada desde las migraciones previas y repetición del runner sin pendientes.
+- **Un E2E de producción aprobado** con Chromium, API/nginx Node 20, TLS y Oracle real:
+  dashboard → enlace filtrado → alerta junto al nombre → búsqueda → Excel → filtros →
+  ayuda → cambio de umbral con comparación/motivo/confirmación → listado actualizado y
+  ayuda restituida. Escritorio y móvil 390 px sin desbordamiento de documento; axe A/AA
+  sin infracciones. Capturas revisadas en `tmp/pdfs/r3-7-saldos-*.png`, ignoradas por Git.
+- Lint, TypeScript strict (incluido E2E), builds, formato, secretos y diff aprobados. Vite
+  conserva el aviso anterior de tamaño de chunk. No se cambian pruebas de reglas previas;
+  la fixture del dashboard añade únicamente el nuevo contrato de alerta.
+- Datos únicamente en esquemas N2SEC/N2E2E desechables. Oracle rechazó un REVERSO de fixture
+  sin solicitud; se corrigió el dato de prueba a AJUSTE sin relajar el CHECK. Algunos intentos
+  de creación/limpieza encontraron indisponibilidad temporal o sesiones de cierre; se
+  comprobaron y retiraron los esquemas exactos cuando quedaron sin sesiones. La aceptación
+  final completó también su limpieza automática. No se desplegó en la instalación operativa.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
+2. Oracle saludable: `npm run verify:vacaciones -- --docker` y `npm run verify:tableros -- --docker`
+   de forma secuencial, con `nomina2-security-tests` reconstruida según README.
+3. `npm run test:e2e -- --production vacaciones-saldos.spec.ts` verifica el criterio completo.
+4. Para cargar la versión: `docker compose up --build -d nomina2-api nomina2-web`; el runner
+   aplica V039. RH/ADMIN → Vacaciones → Saldos de vacaciones. Probar filtros, orden/páginas,
+   CSV/Excel, cambio de umbral y Ayuda. Dashboard RH → Revisar saldos de vacaciones.
+5. Sin pendientes técnicos R3-7. Despliegue operativo no solicitado; permisos/menú de equipo
+   se activarán en R3-8. C6–C8 y la validación contable de R3-1 siguen fuera de esta fase.

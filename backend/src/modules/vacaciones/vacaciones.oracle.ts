@@ -1,3 +1,7 @@
+import { crearCatalogosService } from '../catalogos/catalogos.service.js';
+import { crearSaldosVacacionesService } from './vacaciones.saldos.service.js';
+import { saldosQuerySchema } from './vacaciones.saldos.schemas.js';
+import { unzipSync, strFromU8 } from 'fflate';
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { crearBaseDatos } from '../../shared/db/pool.js';
@@ -207,6 +211,7 @@ describe('FASE V1-8: migración de vacaciones sin alterar aprobaciones', () => {
           usuarios: crearUsuariosService(db),
           auditoria: crearAuditoriaService(db),
           vacaciones: crearVacacionesService(db),
+          catalogos: crearCatalogosService(db),
           config,
         },
       );
@@ -533,6 +538,224 @@ describe('FASE V1-8: migración de vacaciones sin alterar aprobaciones', () => {
       expect(JSON.stringify(cancelacion.body)).not.toMatch(
         /"(?:colisiones|colisionesAprobacion|COLISIONES_APROBACION|cantidadColisiones|revision|tamanoEquipo)"\s*:|Ana Colisiones|Bea Colisiones|Carla Colisiones/i,
       );
+    });
+
+    it('R3-7: saldos con 505 empleados, filtros, orden, páginas, exportación y RBAC', async () => {
+      await ejecutar(`INSERT INTO EMPLEADOS(NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO)
+        SELECT 'Carga','Saldos', '888'||LPAD(LEVEL,10,'0'),'88'||LPAD(LEVEL,7,'0')||'-1',DATE '1990-01-01','F','SOLTERO','Calle 1','55551234','saldos'||LEVEL||'@example.test',
+        (SELECT ID_PUESTO FROM PUESTOS WHERE NOMBRE='Departamento Colisiones'),
+        (SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NOMBRE='Departamento Colisiones'),
+        (SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO),
+        (SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NOMBRE='Departamento Colisiones'),
+        ADD_MONTHS(TRUNC(CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE)),-12)
+        FROM DUAL CONNECT BY LEVEL<=505`);
+      const ids = await db.conConexion(async (c) =>
+        (
+          await c.execute<{ ID: number }>(
+            "SELECT ID_EMPLEADO ID FROM EMPLEADOS WHERE NOMBRES='Carga' ORDER BY ID_EMPLEADO",
+            {},
+            { outFormat: oracledb.OUT_FORMAT_OBJECT },
+          )
+        ).rows!.map((r) => r.ID),
+      );
+      await ejecutar(
+        "INSERT INTO VACACIONES_MOVIMIENTOS(ID_EMPLEADO,TIPO,FECHA,DIAS,CLAVE_ORIGEN,MOTIVO) VALUES(:id,'AJUSTE',TRUNC(CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE)),0.25,'SALDOS:REVERSO','Devolución de prueba')",
+        { id: ids[0]! },
+      );
+      const base = '/api/vacaciones/saldos';
+      const comienzo = performance.now();
+      const r = (await rh.get(base).query({ buscar: 'Carga Saldos', limite: 1 }).expect(200)).body
+        .data;
+      const duracion = performance.now() - comienzo;
+      expect(r.total).toBe(505);
+      expect(r.registros[0]).toMatchObject({
+        id: ids[0],
+        disponible: '15.25',
+        alerta: true,
+        mesesCompletos: 12,
+      });
+      expect(r.indicadores).toEqual({
+        empleadosAlerta: 1,
+        promedioDisponible: '15.00',
+        totalAcumulado: '7575.00',
+      });
+      expect(duracion).toBeLessThan(5000);
+      console.info(`R3-7: 505 empleados, listado/indicadores en ${Math.round(duracion)} ms`);
+      const pagina = (
+        await rh
+          .get(base)
+          .query({
+            buscar: 'Carga Saldos',
+            pagina: 6,
+            limite: 100,
+            ordenarPor: 'codigo',
+            direccion: 'asc',
+          })
+          .expect(200)
+      ).body.data;
+      expect(pagina.registros).toHaveLength(5);
+      expect(pagina.total).toBe(505);
+      const alerta = (
+        await rh.get(base).query({ buscar: 'Carga Saldos', soloAlerta: true }).expect(200)
+      ).body.data;
+      expect(alerta.total).toBe(1);
+      expect(alerta.registros[0].id).toBe(ids[0]);
+      const sin = (
+        await rh
+          .get(base)
+          .query({ buscar: 'Carga Saldos', ordenarPor: 'disponible', direccion: 'asc', limite: 1 })
+          .expect(200)
+      ).body.data.registros[0];
+      expect(sin.disponible).toBe('15.00');
+      expect(sin.alerta).toBe(false);
+      const dep = await numero(
+        "SELECT ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NOMBRE='Departamento Colisiones'",
+      );
+      const centro = await numero(
+        "SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NOMBRE='Departamento Colisiones'",
+      );
+      await ejecutar(
+        "INSERT INTO JEFATURAS(NOMBRE,ID_DEPARTAMENTO) VALUES('Jefatura Saldos',:dep)",
+        { dep },
+      );
+      const jefe = await numero("SELECT ID_JEFATURA FROM JEFATURAS WHERE NOMBRE='Jefatura Saldos'");
+      await ejecutar('UPDATE EMPLEADOS SET ID_JEFATURA=:jefe WHERE ID_EMPLEADO=:id', {
+        jefe,
+        id: ids[0]!,
+      });
+      const combinados = {
+        buscar: 'Carga Saldos',
+        idDepartamento: dep,
+        idCentroTrabajo: centro,
+        idJefatura: jefe,
+        soloAlerta: true,
+      };
+      expect((await rh.get(base).query(combinados).expect(200)).body.data.total).toBe(1);
+      expect(
+        (
+          await rh
+            .get(base)
+            .query({ ...combinados, idDepartamento: 999999 })
+            .expect(200)
+        ).body.data.total,
+      ).toBe(0);
+      const codigo = r.registros[0].codigo;
+      expect((await rh.get(base).query({ buscar: codigo }).expect(200)).body.data.total).toBe(1);
+      for (const formato of ['csv', 'excel']) {
+        const exportado = (
+          await rh
+            .get(`${base}/exportar/${formato}`)
+            .query({ buscar: 'Carga Saldos', limite: 1 })
+            .expect(200)
+        ).body.data;
+        const bytes = Buffer.from(exportado.base64, 'base64');
+        const texto =
+          formato === 'csv'
+            ? bytes.toString()
+            : strFromU8(unzipSync(bytes)['xl/worksheets/sheet1.xml']!);
+        expect(texto.match(/EMP_/g)).toHaveLength(505);
+        expect(texto).toContain('Más de 15 días');
+        expect(texto).toContain('Sin alerta');
+      }
+      const servicio = crearSaldosVacacionesService(db, async () => [ids[0]!]);
+      const acotado = await servicio.listar(
+        {
+          ...actor,
+          idSesion: 0,
+          csrfHash: Buffer.alloc(32),
+          activo: true,
+          usuario: 'admin.prueba',
+          correo: 'admin@example.test',
+          cambioObligatorio: false,
+        },
+        saldosQuerySchema.parse({ alcance: 'equipo', buscar: 'Carga Saldos' }),
+      );
+      expect(acotado.total).toBe(1);
+      expect(
+        (
+          await crearSaldosVacacionesService(db, async () => []).listar(
+            {
+              ...actor,
+              idSesion: 0,
+              csrfHash: Buffer.alloc(32),
+              activo: true,
+              usuario: 'admin.prueba',
+              correo: 'admin@example.test',
+              cambioObligatorio: false,
+            },
+            saldosQuerySchema.parse({ alcance: 'equipo' }),
+          )
+        ).total,
+      ).toBe(0);
+      await ejecutar('UPDATE EMPLEADOS SET ACTIVO=0 WHERE ID_EMPLEADO=:id', { id: ids[0]! });
+      expect(
+        (await rh.get(base).query({ buscar: 'Carga Saldos', soloAlerta: true }).expect(200)).body
+          .data.total,
+      ).toBe(0);
+      expect(
+        (await rh.get(base).query({ buscar: 'Carga Saldos', activos: 'false' }).expect(200)).body
+          .data.total,
+      ).toBe(1);
+      expect(
+        (await rh.get(base).query({ buscar: 'Carga Saldos', activos: 'todos' }).expect(200)).body
+          .data.total,
+      ).toBe(505);
+      for (const ruta of [base, `${base}/exportar/csv`, `${base}/exportar/excel`])
+        await e.get(ruta).expect(403);
+      await rh.get(base).query({ empleados: ids[0] }).expect(400);
+      await rh.get(base).query({ alcance: 'equipo' }).expect(403);
+      // Actor ADMIN también consulta por servicio y no recibe datos sensibles.
+      expect(JSON.stringify(acotado)).not.toMatch(/salario|banco|dpi|nit|usuario/i);
+    });
+    it('R3-7: umbral editable solo con confirmación, motivo y copia auditada', async () => {
+      const actual = (await rh.get('/api/vacaciones/saldos').expect(200)).body.data;
+      const fila = (
+        await rh.get(`/api/catalogos/parametros-legales/${actual.idParametro}`).expect(200)
+      ).body.data;
+      const cambio = {
+        nombre: fila.nombre,
+        valor: '20',
+        unidad: 'DIAS',
+        vigenteDesde: '2026-01-01',
+        vigenteHasta: null,
+        fundamento: 'Planeación del descanso',
+        motivo: 'Ajuste operativo del umbral',
+        confirmado: true,
+      };
+      const url = `/api/catalogos/parametros-legales/${fila.id}`;
+      await rh
+        .patch(url)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...cambio, confirmado: false })
+        .expect(400);
+      await rh
+        .patch(url)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...cambio, motivo: '' })
+        .expect(400);
+      await rh
+        .patch(url)
+        .set('X-CSRF-Token', csrf)
+        .send({ ...cambio, valor: '0' })
+        .expect(409);
+      await rh.patch(url).set('X-CSRF-Token', csrf).send(cambio).expect(200);
+      expect((await rh.get('/api/vacaciones/saldos').expect(200)).body.data.umbral).toBe('20');
+      const historial = await db.conConexion(
+        async (c) =>
+          (
+            await c.execute<unknown[]>(
+              "SELECT VALORES_ANTERIORES,VALORES_NUEVOS,MOTIVO FROM BITACORA_AUDITORIA WHERE ENTIDAD='PARAMETROS_LEGALES' AND ACCION IN ('VERSIONAR_CATALOGO','EDITAR_CATALOGO') ORDER BY ID_BITACORA_AUDITORIA DESC FETCH FIRST 1 ROW ONLY",
+              {},
+              {
+                fetchInfo: {
+                  VALORES_ANTERIORES: { type: oracledb.STRING },
+                  VALORES_NUEVOS: { type: oracledb.STRING },
+                },
+              },
+            )
+          ).rows,
+      );
+      expect(JSON.stringify(historial)).toContain('Ajuste operativo del umbral');
     });
   });
 });

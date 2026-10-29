@@ -1994,3 +1994,12 @@ del SELECT de solicitudes usado por el empleado. La aprobación y su bitácora s
 en la misma transacción que el débito del kardex. Cancelar conserva la copia.
 El índice compuesto nuevo `IX_VAC_EQUIPO_RANGO` cubre empleado/activo/estado/fin/inicio;
 la búsqueda global de rangos reutiliza `IX_VAC_TABLERO` de V035. No se agregan relaciones.
+
+## Ronda 3: umbral de saldos de vacaciones (V039)
+
+Migración aditiva de datos: inserta en `PARAMETROS_LEGALES` la clave interna
+`VACACIONES_ALERTA_DIAS`, valor inicial 15, unidad DIAS, vigencia desde 1900. Si ya existe la
+clave no la reemplaza. Versiones, códigos automáticos y auditoría siguen el mecanismo compartido
+de parámetros. No se agregan tablas, relaciones ni columnas y no se modifica el kardex.
+Las consultas de saldos usan los índices existentes por departamento, centro, jefatura, activo
+y empleado/fecha del kardex. Alcance y contrato en [VACACIONES.md](VACACIONES.md).

@@ -1,3 +1,4 @@
+import { SaldosVacacionesPage } from '../features/vacaciones/pages/SaldosVacacionesPage';
 import { TituloPagina, type TituloRuta } from './titulos';
 import type { RouteObject } from 'react-router-dom';
 import { opcionesNavegacion } from '../components/layout/navigation.config';
@@ -207,6 +208,7 @@ const paginas: RouteObject[] = [
                 ),
               },
               { path: '/vacaciones', element: <VacacionesPage /> },
+              { path: '/vacaciones/saldos', element: <SaldosVacacionesPage /> },
               { path: '/solicitudes', element: solicitudesPage },
               {
                 path: '/novedades/pendientes',
@@ -246,6 +248,7 @@ const fijos: Record<string, TituloRuta> = {
   '/login': 'Iniciar sesión',
   '/cambiar-contrasena': 'Cambiar contraseña',
   '/vacaciones': 'Vacaciones',
+  '/vacaciones/saldos': 'Saldos de vacaciones',
   '/solicitudes': 'Solicitudes',
   '/prestaciones': 'Prestaciones',
   '/admin': 'Inicio',

@@ -435,3 +435,15 @@ Aplicar V038 mediante el runner habitual y reconstruir API/web para cargar la ve
 Pruebas: `npm run verify:vacaciones` y
 `npm run test:e2e -- --production vacaciones-colisiones.spec.ts`.
 Contrato y supuestos: [VACACIONES.md](docs/VACACIONES.md).
+
+### Saldos de vacaciones (R3-7)
+
+RH/ADMIN → Vacaciones → **Saldos de vacaciones**: saldo de todo el personal con filtros de
+organización/estado/búsqueda, orden y páginas en servidor, indicadores globales y CSV/Excel.
+Disponible mayor que el umbral vigente resalta la fila en rojo con ícono y «Más de N días».
+**Configurar umbral** reutiliza parámetros con vigencias, comparación, motivo y confirmación
+auditada. El dashboard RH abre directamente el listado de activos en alerta.
+Aplicar V039 con el runner y reconstruir API/web; no modifica movimientos ni pagos.
+Pruebas: `npm run verify:vacaciones`, `npm run verify:tableros` (añadir `-- --docker` con imagen
+Node 20 actualizada), `npm run test:e2e -- --production vacaciones-saldos.spec.ts`.
+El alcance de equipo queda preparado para R3-8 y continúa denegado al empleado.

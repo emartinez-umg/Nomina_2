@@ -316,6 +316,25 @@ export function InicioPage() {
                   <div className="my-6">
                     <Card data-tour="alertas">
                       <h2>Alertas operativas</h2>
+                      <div data-tour="rh-alerta-saldos" className="alerta-tablero">
+                        <iconos.advertencia aria-hidden="true" />
+                        <div>
+                          <strong>
+                            {d.saldosVacaciones.cantidad} empleados con{' '}
+                            {d.saldosVacaciones.etiqueta.toLowerCase()}
+                          </strong>
+                          <p className="campo-hint">
+                            Personal activo; se compara el disponible con decimales.
+                          </p>
+                          <Button
+                            icono="ver"
+                            variante="texto"
+                            onClick={() => nav('/vacaciones/saldos?soloAlerta=true&activos=true')}
+                          >
+                            Revisar saldos de vacaciones
+                          </Button>
+                        </div>
+                      </div>
                       {!d.periodo && (
                         <p className="alerta-tablero">
                           No existe una quincena para hoy. Abre Planilla para crearla.

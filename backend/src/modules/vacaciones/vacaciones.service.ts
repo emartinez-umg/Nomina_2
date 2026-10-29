@@ -1,3 +1,4 @@
+import { crearSaldosVacacionesService } from './vacaciones.saldos.service.js';
 import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { diasLaboralesRango } from '../../shared/horarios/calendario.js';
 import type { Connection } from 'oracledb';
@@ -205,6 +206,7 @@ export function crearVacacionesService(db: BaseDatos) {
     }
   }
   return {
+    saldos: crearSaldosVacacionesService(db),
     saldo: (auth: Autenticacion, ip: string, id?: number) =>
       tx(auth, ip, async (c, a) => consultarSaldo(c, await obtener(c, a, id), await hoy(c))),
     calendario: (auth: Autenticacion, ip: string, inicio: string, fin: string, id?: number) =>

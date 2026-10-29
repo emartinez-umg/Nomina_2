@@ -260,6 +260,14 @@ const compartidos: GrupoNavegacion[] = [
     icono: 'calendario',
     items: [
       acceso(
+        'saldos-vacaciones',
+        'Saldos de vacaciones',
+        '/vacaciones/saldos',
+        'calendario',
+        'Consulta el descanso disponible y las alertas del personal.',
+        ['saldo', 'disponible', 'acumulado', 'más de 15 días', 'alerta vacaciones'],
+      ),
+      acceso(
         'vacaciones',
         'Vacaciones del personal',
         '/vacaciones',

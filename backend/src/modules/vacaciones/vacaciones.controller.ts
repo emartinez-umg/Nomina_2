@@ -1,3 +1,4 @@
+import { saldosQuerySchema } from './vacaciones.saldos.schemas.js';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { autenticacionDe } from '../../shared/security/rbac.js';
@@ -21,6 +22,17 @@ export function crearVacacionesController(s: ReturnType<typeof crearVacacionesSe
   const responder = (res: Response, d: unknown, status = 200) =>
     res.status(status).json(respuestaOk(d));
   return {
+    saldos: async (req: Request, res: Response) =>
+      responder(res, await s.saldos.listar(auth(req), saldosQuerySchema.parse(req.query))),
+    exportarSaldos: async (req: Request, res: Response) =>
+      responder(
+        res,
+        await s.saldos.exportar(
+          auth(req),
+          saldosQuerySchema.parse(req.query),
+          z.enum(['csv', 'excel']).parse(req.params.formato),
+        ),
+      ),
     colisiones: async (req: Request, res: Response) => {
       sinDatos.parse(req.query);
       responder(res, await s.colisiones(auth(req), ip(req), id(req)));

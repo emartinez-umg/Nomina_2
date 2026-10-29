@@ -154,6 +154,11 @@ export function crearCatalogosService(db: BaseDatos) {
     if (cat.slug === 'parametros-legales') {
       const clave = String(d.claveInterna);
       const valor = Number(d.valor);
+      if (clave === 'VACACIONES_ALERTA_DIAS' && (valor <= 0 || d.unidad !== 'DIAS'))
+        conflicto(
+          'valor',
+          'El umbral de vacaciones debe ser mayor que cero y usar la unidad Días.',
+        );
       const max = clave.endsWith('_DIA') ? 31 : clave.endsWith('_MES') ? 12 : null;
       if (max !== null && (!Number.isInteger(valor) || valor < 1 || valor > max))
         conflicto('valor', `Ingresa un entero entre 1 y ${max} para esta posición del calendario.`);

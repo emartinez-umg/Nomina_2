@@ -1023,3 +1023,11 @@
     gap: 0.3rem;
   }
 }
+
+/* C5: alerta identificable por fila, ícono y etiqueta, además del color. */
+tr.saldo-vacaciones-alerta > td {
+  @apply bg-red-50 text-peligro;
+}
+tr.saldo-vacaciones-alerta > td:first-child {
+  @apply border-l-4 border-peligro;
+}

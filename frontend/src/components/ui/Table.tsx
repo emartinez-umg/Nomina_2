@@ -23,6 +23,7 @@ export function Table<T>({
   error,
   onReintentar,
   titulo = 'Registros',
+  claseFila,
 }: {
   columnas: Columna<T>[];
   filas: T[];
@@ -37,6 +38,7 @@ export function Table<T>({
   error?: string;
   onReintentar?: () => void;
   titulo?: string;
+  claseFila?: (fila: T) => string | undefined;
 }) {
   const paginas = Math.max(1, Math.ceil(total / limite));
   if (error)
@@ -115,7 +117,7 @@ export function Table<T>({
             </thead>
             <tbody>
               {filas.map((f) => (
-                <tr key={clave(f)}>
+                <tr key={clave(f)} className={claseFila?.(f)}>
                   {columnas.map((c) => (
                     <td key={c.id}>{c.render(f)}</td>
                   ))}

@@ -129,4 +129,47 @@ conserva esa evidencia aunque otras solicitudes cambien o se cancele la aprobaci
 
 Validación específica: `npm run verify:vacaciones` (migración y Oracle/Supertest),
 `npm run test:e2e -- --production vacaciones-colisiones.spec.ts` (navegador, ayuda, móvil y axe).
-El listado general de saldos y la alerta por umbral de C5 quedan para una fase posterior.
+El listado general y el umbral se implementan en R3-7, descrita a continuación.
+
+## R3-7 — Saldos de vacaciones (C5, segunda parte)
+
+RH/ADMIN acceden a `/vacaciones/saldos` desde el menú y el buscador. Se muestran código, nombre,
+departamento, centro, jefatura, ingreso, meses completos, acumulado, tomados/aprobados, disponible
+y solicitables. Previas/ajustes se explica en la celda Tomados para reconciliar el disponible.
+La fila roja incluye además ícono y etiqueta «Más de N días»: la comparación es estricta y conserva
+los decimales del umbral (15.00 no alerta; 15.25 sí con el valor inicial 15).
+
+- `GET /api/vacaciones/saldos`: `buscar`, `idDepartamento`, `idCentroTrabajo`, `idJefatura`,
+  `activos=true|false|todos` (por defecto true), `soloAlerta=true|false`, `pagina`, `limite`
+  (máximo 100), `ordenarPor` y `direccion`. Estado activo exige ficha habilitada y estado ACTIVO;
+  false incluye bajas y fichas inactivas. Todos permite consultar ambos grupos.
+- Orden: código, nombre, departamento, centro, jefatura, ingreso, mesesCompletos, acumulado,
+  tomados, disponible o solicitables, con desempate por ID. Se calcula, filtra, ordena y pagina
+  en el servidor. Los tres indicadores abarcan todos los resultados filtrados antes de paginar.
+- `GET /api/vacaciones/saldos/exportar/csv|excel`: mismos filtros/orden, todas las páginas,
+  marca de alerta, umbral, previas, estado y corte. Respuesta de archivo en base64 como los
+  exportadores existentes; la interfaz descarga CSV con BOM o XLSX real. Texto protegido frente
+  a fórmulas; no se incluyen datos salariales, bancarios ni identificaciones personales.
+- V039 añade únicamente `VACACIONES_ALERTA_DIAS=15`, unidad DIAS, desde 1900, sin reemplazar
+  ajustes existentes. **Configurar umbral** abre el formulario compartido de parámetros: valor
+  mayor que cero, vigencias, comparación anterior/nuevo, motivo, confirmación y auditoría.
+- Dashboard RH cuenta empleados activos con disponible por encima del mismo umbral y abre
+  `/vacaciones/saldos?soloAlerta=true&activos=true`. No tiene un conteo ni fórmula independientes.
+
+`consultarSaldosVacaciones` utiliza `calcularSaldo`, la misma regla determinista del saldo
+individual. Lee empleados filtrados y movimientos en lote; agrupa en memoria sin consultas por
+empleado. Mantiene apertura certificada, consumos/devoluciones, previas y tope al egreso. La
+consulta completa es un snapshot READ ONLY y no materializa acumulaciones. Requiere tasas
+vigentes para las fechas de corte y un único umbral vigente; explica configuraciones faltantes.
+Límite explícito de 100,000 empleados; agregación/ordenación/paginación de saldos derivados en Node,
+filtros organizativos en Oracle con binds. Reutiliza índices existentes de empleados y kardex.
+
+Preparación C4: la query acepta `alcance=equipo`, pero lo deniega hasta inyectar en R3-8 el
+resolvedor de permisos desde sesión. `crearSaldosVacacionesService(db, resolverEquipo)` recibe
+solo IDs resueltos en servidor; aplica su intersección con los filtros, y una lista vacía no
+amplía el alcance. La query pública es estricta y nunca admite listas de empleados. EMPLEADO
+continúa sin acceso al listado ni a sus exportaciones; no se activa ningún permiso de equipo.
+
+Pruebas: `npm test`, `npm run verify:vacaciones -- --docker`,
+`npm run verify:tableros -- --docker`, y
+`npm run test:e2e -- --production vacaciones-saldos.spec.ts`.

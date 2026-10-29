@@ -133,6 +133,7 @@ function datos(u: URL, vacio = false): unknown {
     };
   return {
     rol: 'RH',
+    saldosVacaciones: { cantidad: 2, umbral: '15', etiqueta: 'Más de 15 días' },
     ahora: actualizadoEn,
     indicadores: { activos: 2, altas: 1, bajas: 0, solicitudes: 3, vacaciones: 2 },
     periodo: null,

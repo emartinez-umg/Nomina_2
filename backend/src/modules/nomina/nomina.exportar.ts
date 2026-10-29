@@ -236,7 +236,7 @@ const xml = (s: unknown) =>
       /[&<>"']/g,
       (v) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[v]!,
     );
-export function excel(filas: (string | number)[][]) {
+export function excel(filas: (string | number)[][], nombreHoja = 'Planilla') {
   const archivos: Record<string, Uint8Array> = {};
   const agregar = (nombre: string, contenido: string) => {
     archivos[nombre] = strToU8(contenido);
@@ -251,7 +251,7 @@ export function excel(filas: (string | number)[][]) {
   );
   agregar(
     'xl/workbook.xml',
-    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Planilla" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xml(nombreHoja)}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
   );
   agregar(
     'xl/_rels/workbook.xml.rels',

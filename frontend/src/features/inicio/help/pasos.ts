@@ -3,6 +3,13 @@ export const ayudaInicio: DefinicionAyuda = {
   id: 'tableros-r3-2',
   pasos: [
     {
+      elemento: 'rh-alerta-saldos',
+      titulo: 'Personal con saldo de vacaciones en alerta',
+      descripcion:
+        'El aviso cuenta todos los empleados activos cuyo disponible supera estrictamente VACACIONES_ALERTA_DIAS, 15 por defecto. 15.00 no alerta y 15.25 sí. Revisar saldos de vacaciones abre el listado con Solo con alerta y Activos aplicados. Allí puedes combinar departamento, centro y jefatura, ordenar, exportar todas las páginas o abrir el parámetro para modificarlo con confirmación, motivo y bitácora.',
+      roles: ['RH', 'ADMIN'],
+    },
+    {
       elemento: 'rh-remuneraciones',
       titulo: 'Comparar remuneraciones confirmadas',
       roles: ['RH'],

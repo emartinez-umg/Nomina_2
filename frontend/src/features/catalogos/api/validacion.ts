@@ -126,6 +126,8 @@ export function schemaFormulario(
           .replace(/[^A-Z0-9 ]/g, '')
           .trim()
           .replace(/ +/g, '_');
+      if (clave === 'VACACIONES_ALERTA_DIAS' && (valor.lte(0) || d.unidad !== 'DIAS'))
+        error('valor', 'El umbral de vacaciones debe ser mayor que cero y usar la unidad Días.');
       const max = clave?.endsWith('_DIA') ? 31 : clave?.endsWith('_MES') ? 12 : null;
       if (max !== null && (!valor.isInteger() || valor.lt(1) || valor.gt(max)))
         error('valor', `Ingresa un entero entre 1 y ${max} para esta posición del calendario.`);

@@ -29,6 +29,7 @@ const periodo = z.object({
 });
 export const rhSchema = z.object({
   rol: z.literal('RH'),
+  saldosVacaciones: z.object({ cantidad: z.number(), umbral: z.string(), etiqueta: z.string() }),
   ahora: z.string(),
   indicadores: z.object({
     activos: z.number(),

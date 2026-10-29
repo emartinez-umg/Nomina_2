@@ -17,6 +17,8 @@ export function crearVacacionesRouter(s: ReturnType<typeof crearVacacionesServic
   r.get('/exportar', c.exportar);
   r.use(permitirRoles('ADMIN', 'RH'));
   r.get('/solicitudes/:id/colisiones', c.colisiones);
+  r.get('/saldos', c.saldos);
+  r.get('/saldos/exportar/:formato', c.exportarSaldos);
   r.get('/opciones', c.opciones);
   r.get('/empleados/:id/saldo', c.saldo);
   r.get('/empleados/:id/calendario', c.calendario);
