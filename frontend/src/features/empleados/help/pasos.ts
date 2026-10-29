@@ -15,7 +15,7 @@ export function ayudaEmpleados(
         elemento: 'empleados-filtros',
         titulo: 'Combinar filtros',
         descripcion:
-          'Nombre, DPI y NIT se combinan con departamento, puesto, jefatura, contrato, estado, ingreso y salario. Aplica los filtros para consultar Oracle. Un resultado vacío no elimina datos; amplía la búsqueda o limpia los filtros.',
+          'Cada fila y ficha muestra el jefe inmediato derivado de su jefatura. Asignar jefatura abre la selección masiva por departamento y centro, con confirmación y auditoría. Nombre, DPI y NIT se combinan con departamento, puesto, jefatura, contrato, estado, ingreso y salario. Aplica los filtros para consultar Oracle. Un resultado vacío no elimina datos; amplía la búsqueda o limpia los filtros.',
       },
       {
         elemento: 'empleados-tabla',

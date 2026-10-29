@@ -367,8 +367,7 @@ ocultar resultados encontrados por un segundo nombre que no aparece en la etique
 Cerrar, seleccionar o salir con Escape reinicia también la búsqueda remota.
 
 Las altas de novedades y responsables ofrecen activos. Los filtros de historia, constancias,
-consulta de saldos y simulaciones históricas incluyen suspendidos/egresados. Al editar una
-jefatura, `seleccionActual` conserva una referencia inactiva anterior, sin ofrecer otros
+consulta de saldos y simulaciones históricas incluyen suspendidos/egresados. En otros usos, `seleccionActual` conserva una referencia inactiva anterior, sin ofrecer otros
 inactivos como nuevas asignaciones. Esta excepción tampoco permite cruzar departamentos.
 La API solo admite RH/ADMIN con sesión y cambio obligatorio completado; no publica salarios,
 DPI, NIT ni datos de contacto.
@@ -434,3 +433,17 @@ intactos. Un estado desconocido se presenta de forma neutral sin exponer su cód
 `etiquetaCodigo` traduce otras enumeraciones; `textoPresentacion` adapta mensajes históricos
 sin reescribirlos. Los códigos públicos de registros conservan su escritura original.
 La ayuda compartida explica la pestaña, el selector acotado y las insignias cuando están presentes.
+
+### Jefaturas funcionales (R3-5)
+
+El catálogo usa las mismas acciones, códigos, borradores y validadores compartidos, con
+responsable activo del departamento y superior opcional. La ayuda explica ciclos y pendientes.
+Si está vacío, «Configurar jefaturas» guía el alta y abre la asignación tras guardar.
+El panel muestra conteos reales de empleados sin jefatura activa y jefaturas sin jefe activo.
+
+«Asignar empleados» / «Asignar jefatura» abre un modal compartido con filtros en servidor
+por departamento y centro, casillas y selección entre páginas (máximo 500). Cambiar destino
+limpia las casillas; los filtros las conservan y la confirmación lo recuerda. Motivo y
+confirmación son obligatorios; el borrador guarda IDs, filtros y motivo. El servidor revalida
+el lote completo. Tras guardar se invalidan empleados, catálogos y tableros. La ficha, el
+listado y CSV consultan `jefeInmediato`; sin asignación muestran un vacío descriptivo.

@@ -101,7 +101,14 @@ export function CatalogoFormulario({
   } = form;
   const draft = useFormDraft(`catalogo-${cat.slug}${duplicar ? '-duplicado' : ''}`, actual?.id, {
     form,
-    version: cat.slug === 'horarios' ? 4 : cat.slug === 'centros-trabajo' ? 3 : 2,
+    version:
+      cat.slug === 'horarios'
+        ? 4
+        : cat.slug === 'centros-trabajo'
+          ? 3
+          : cat.slug === 'jefaturas'
+            ? 3
+            : 2,
     alDescartar: () => {
       setRevision(null);
       setMotivoError(undefined);
@@ -128,8 +135,9 @@ export function CatalogoFormulario({
     onSuccess: (fila) => {
       draft.limpiar();
       void cliente.invalidateQueries({ queryKey: ['catalogos'] });
-      void cliente.invalidateQueries({ queryKey: ['empleados', 'opciones'] });
+      void cliente.invalidateQueries({ queryKey: ['empleados'] });
       void cliente.invalidateQueries({ queryKey: ['empleados', 'parentescos'] });
+      void cliente.invalidateQueries({ queryKey: ['tableros'] });
       onGuardado?.(fila);
       toast('Registro guardado y auditado.');
       onCerrar();

@@ -219,6 +219,8 @@ export const querySchema = z
       .regex(/^[0-9K-]{1,20}$/)
       .optional(),
     idDepartamento: qid,
+    idCentroTrabajo: qid,
+    sinJefatura: z.enum(['1']).optional(),
     idPuesto: qid,
     idJefatura: qid,
     idTipoContrato: qid,

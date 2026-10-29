@@ -28,7 +28,7 @@ export interface CampoCatalogo {
   max?: number;
   decimales?: number;
   opciones?: string[];
-  referencia?: 'departamentos' | 'empleados' | 'departamentos-gt' | 'municipios-gt';
+  referencia?: 'jefaturas' | 'departamentos' | 'empleados' | 'departamentos-gt' | 'municipios-gt';
 }
 export interface Catalogo {
   slug: string;
@@ -272,8 +272,16 @@ export const catalogos: Catalogo[] = [
         'ID_EMPLEADO_RESPONSABLE',
         'Jefe responsable',
         'referencia',
-        'Empleado activo del departamento. Puede asignarse después de registrar empleados en la fase 5.',
+        'Selecciona un empleado activo del departamento. Si queda pendiente, RH verá una alerta hasta asignar responsable.',
         { referencia: 'empleados' },
+      ),
+      campo(
+        'idJefaturaSuperior',
+        'ID_JEFATURA_SUPERIOR',
+        'Jefatura superior',
+        'referencia',
+        'Opcional. Selecciona la jefatura de la que depende; no puede ser ella misma ni una descendiente.',
+        { referencia: 'jefaturas' },
       ),
       descripcion,
     ],

@@ -40,9 +40,20 @@ function etiquetas(cat: Catalogo) {
           f.referencia === 'departamentos-gt' || f.referencia === 'municipios-gt'
             ? referenciasGt[f.referencia]
             : null;
-        const tabla = gt?.[0] ?? (f.referencia === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS');
+        const tabla =
+          gt?.[0] ??
+          (f.referencia === 'jefaturas'
+            ? 'JEFATURAS'
+            : f.referencia === 'departamentos'
+              ? 'DEPARTAMENTOS'
+              : 'EMPLEADOS');
         const pk =
-          gt?.[1] ?? (f.referencia === 'departamentos' ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO');
+          gt?.[1] ??
+          (f.referencia === 'jefaturas'
+            ? 'ID_JEFATURA'
+            : f.referencia === 'departamentos'
+              ? 'ID_DEPARTAMENTO'
+              : 'ID_EMPLEADO');
         const label =
           f.referencia === 'empleados' ? nombrePersonaSql('R.NOMBRES', 'R.APELLIDOS') : 'R.NOMBRE';
         return `,(SELECT ${label} FROM ${tabla} R WHERE R.${pk}=T.${f.columna}) "${f.nombre}Etiqueta"`;
@@ -392,9 +403,11 @@ export async function referenciaActiva(
   const r = await c.execute<{ DEPARTAMENTO: number }>(
     ref === 'departamentos-gt' || ref === 'municipios-gt'
       ? `SELECT ${ref === 'municipios-gt' ? 'ID_DEPARTAMENTO_GT' : referenciasGt[ref][1]} DEPARTAMENTO FROM ${referenciasGt[ref][0]} WHERE ${referenciasGt[ref][1]}=:id AND (:historica=1 OR ACTIVO=1)`
-      : ref === 'departamentos'
-        ? 'SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM DEPARTAMENTOS WHERE ID_DEPARTAMENTO=:id AND (:historica=1 OR ACTIVO=1)'
-        : "SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM EMPLEADOS WHERE ID_EMPLEADO=:id AND (:historica=1 OR (ACTIVO=1 AND ESTADO='ACTIVO'))",
+      : ref === 'jefaturas'
+        ? 'SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM JEFATURAS WHERE ID_JEFATURA=:id AND (:historica=1 OR ACTIVO=1)'
+        : ref === 'departamentos'
+          ? 'SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM DEPARTAMENTOS WHERE ID_DEPARTAMENTO=:id AND (:historica=1 OR ACTIVO=1)'
+          : "SELECT ID_DEPARTAMENTO DEPARTAMENTO FROM EMPLEADOS WHERE ID_EMPLEADO=:id AND (:historica=1 OR (ACTIVO=1 AND ESTADO='ACTIVO'))",
     { id, historica: Number(historica) },
     opciones,
   );
@@ -407,8 +420,16 @@ export async function opcionesReferencia(
   pagina: number,
 ) {
   const gt = ref === 'departamentos-gt' || ref === 'municipios-gt' ? referenciasGt[ref] : null;
-  const tabla = gt?.[0] ?? (ref === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS');
-  const pk = gt?.[1] ?? (ref === 'departamentos' ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO');
+  const tabla =
+    gt?.[0] ??
+    (ref === 'jefaturas' ? 'JEFATURAS' : ref === 'departamentos' ? 'DEPARTAMENTOS' : 'EMPLEADOS');
+  const pk =
+    gt?.[1] ??
+    (ref === 'jefaturas'
+      ? 'ID_JEFATURA'
+      : ref === 'departamentos'
+        ? 'ID_DEPARTAMENTO'
+        : 'ID_EMPLEADO');
   const label = ref === 'empleados' ? nombrePersonaSql('NOMBRES', 'APELLIDOS') : 'NOMBRE';
   const busqueda = ref === 'empleados' ? "NOMBRES||' '||APELLIDOS" : label;
   const r = await c.execute<{ value: string; label: string }>(

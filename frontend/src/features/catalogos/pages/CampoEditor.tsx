@@ -146,7 +146,9 @@ export function CampoEditor({
             departamentoId={departamentoId}
             soloActivos={soloActivos ?? true}
             seleccionActual={
-              actual?.[campo.nombre] == null ? undefined : String(actual[campo.nombre])
+              campo.nombre === 'idEmpleadoResponsable' || actual?.[campo.nombre] == null
+                ? undefined
+                : String(actual[campo.nombre])
             }
           />
         );

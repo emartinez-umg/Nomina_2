@@ -1,3 +1,7 @@
+import { listarTodos } from '../api/listarTodos';
+export { listarTodos } from '../api/listarTodos';
+import { ayudaAsignacionJefaturas } from '../../jefaturas/help';
+import { JefaturasPanel, AsignarJefatura } from '../../jefaturas/JefaturasPanel';
 import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import { etiquetaCodigo } from '../../../lib/estados';
 import { CatalogoAcciones } from './CatalogoAcciones';
@@ -31,19 +35,6 @@ const anioActual = Number(
     new Date(),
   ),
 );
-export async function listarTodos(slug: string, q: Record<string, string>, signal?: AbortSignal) {
-  const filas: Fila[] = [];
-  let pagina = 1,
-    total = 0;
-  do {
-    const r = await listar(slug, { ...q, pagina: String(pagina), limite: '100' }, signal);
-    filas.push(...r.registros);
-    total = r.total;
-    pagina++;
-    if (!r.registros.length) break;
-  } while (filas.length < total);
-  return filas;
-}
 export function CatalogosPage() {
   const { catalogo } = useParams();
   const q = useQuery({
@@ -131,6 +122,7 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
   });
   const [expandido, setExpandido] = useState(false);
   const [formulario, setFormulario] = useState(false);
+  const [asignacion, setAsignacion] = useState<string | null>(null);
   const [actual, setActual] = useState<Fila>();
   const [duplicar, setDuplicar] = useState(false);
   const [historia, setHistoria] = useState<Fila>();
@@ -138,7 +130,10 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
   const [accion, setAccion] = useState<{ fila: Fila; tipo: 'eliminar' | 'estado' }>();
   const [ocupado, setOcupado] = useState(false);
   const [exportando, setExportando] = useState(false);
-  const ayuda = useMemo(() => ayudaCatalogo(cat, formulario), [cat, formulario]);
+  const ayuda = useMemo(
+    () => (asignacion !== null ? ayudaAsignacionJefaturas : ayudaCatalogo(cat, formulario)),
+    [cat, formulario, asignacion],
+  );
   usePageHelp(ayuda, usuario?.rol);
   const params = {
     ...filtros,
@@ -217,6 +212,18 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
           </Link>
         ))}
       </nav>
+      {cat.slug === 'jefaturas' && (
+        <JefaturasPanel
+          crear={() => {
+            setActual(undefined);
+            setFormulario(true);
+          }}
+          asignar={() => setAsignacion('')}
+        />
+      )}
+      {asignacion !== null && (
+        <AsignarJefatura inicial={asignacion} cerrar={() => setAsignacion(null)} />
+      )}
       <Card className="mt-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -576,6 +583,9 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
       {formulario && (
         <CatalogoFormulario
           cat={cat}
+          onGuardado={(fila) => {
+            if (cat.slug === 'jefaturas' && !actual) setAsignacion(String(fila.id));
+          }}
           actual={actual}
           duplicar={duplicar}
           cierre={reglas.data?.ultimoCierre ?? null}

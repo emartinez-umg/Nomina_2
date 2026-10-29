@@ -49,7 +49,7 @@ export const ayudaInicio: DefinicionAyuda = {
       titulo: 'Acciones que requieren atención',
       roles: ['RH'],
       descripcion:
-        'Los perfiles incompletos sin salario se excluyen de planilla; Revisar abre la ficha para completar su salario. Revisa los periodos iniciados que siguen sin cerrar y los contratos vencidos o que vencen dentro de 30 días. Revisar abre el módulo correspondiente. Se muestran hasta 50 alertas, empezando por las fechas más antiguas. No se cierra una nómina automáticamente desde este tablero.',
+        'Las alertas de empleados sin jefatura activa abren su listado filtrado; las jefaturas sin jefe activo abren Configurar jefaturas para asignar un responsable. Los perfiles incompletos sin salario se excluyen de planilla; Revisar abre la ficha para completar su salario. Revisa los periodos iniciados que siguen sin cerrar y los contratos vencidos o que vencen dentro de 30 días. Revisar abre el módulo correspondiente. Se muestran hasta 50 alertas: primero los conteos de organización y luego las fechas más antiguas. No se cierra una nómina automáticamente desde este tablero.',
     },
     {
       elemento: 'indicadores',

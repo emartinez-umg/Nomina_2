@@ -189,6 +189,7 @@ erDiagram
     number ID_JEFATURA PK
     number ID_DEPARTAMENTO FK
     number ID_EMPLEADO_RESPONSABLE FK
+    number ID_JEFATURA_SUPERIOR FK
   }
   MUNICIPIOS_GT {
     number ID_MUNICIPIO_GT PK
@@ -480,6 +481,7 @@ erDiagram
   USUARIOS o|--o{ JEFATURAS : "FK_JEFATURAS_CREADOR"
   USUARIOS o|--o{ JEFATURAS : "FK_JEFATURAS_EDITOR"
   EMPLEADOS o|--o{ JEFATURAS : "FK_JEFATURA_RESP"
+  JEFATURAS o|--o{ JEFATURAS : "FK_JEFATURA_SUPERIOR"
   USUARIOS o|--o{ MUNICIPIOS_GT : "FK_MUNICIPIOS_GT_CREADOR"
   DEPARTAMENTOS_GT ||--o{ MUNICIPIOS_GT : "FK_MUNICIPIOS_GT_DEP"
   USUARIOS o|--o{ MUNICIPIOS_GT : "FK_MUNICIPIOS_GT_EDITOR"
@@ -722,6 +724,7 @@ erDiagram
         DATE FECHA_CREACION
         NUMBER ACTIVO
         NUMBER ID_EMPLEADO_RESPONSABLE FK
+        NUMBER ID_JEFATURA_SUPERIOR FK
     }
     TIPOS_CONTRATO {
         NUMBER ID_TIPO_CONTRATO PK
@@ -752,15 +755,15 @@ erDiagram
     EMPLEADOS ||--o{ JEFATURAS : "ID_EMPLEADO_RESPONSABLE"
 ```
 
-| Tabla y PK                                             | Propósito                                                                | Campos de dominio (tipo; `?` admite NULL)                                                                                                                           |
-| ------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DEPARTAMENTOS** / `ID_DEPARTAMENTO`                  | Unidades organizativas reales, sin departamentos ficticios.              | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?                                                                                      |
-| **PUESTOS** / `ID_PUESTO`                              | Puestos pertenecientes a un departamento.                                | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `ID_DEPARTAMENTO`: NUMBER                                                           |
-| **JEFATURAS** / `ID_JEFATURA`                          | Jefatura por departamento; responsable opcional después de empleados.    | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `ID_DEPARTAMENTO`: NUMBER; `ID_EMPLEADO_RESPONSABLE`: NUMBER?                       |
-| **TIPOS_CONTRATO** / `ID_TIPO_CONTRATO`                | Modalidades contractuales.                                               | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `REQUIERE_FIN`: NUMBER(1)                                                           |
-| **BANCOS** / `ID_BANCO`                                | Catálogo de bancos; se carga con datos de la empresa, sin seed ficticio. | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?                                                                                      |
-| **CENTROS_TRABAJO** / `ID_CENTRO_TRABAJO`              | Sede y localidad para aplicar feriados locales.                          | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `LOCALIDAD`: VARCHAR2(120); `DIRECCION`: VARCHAR2(500)?                             |
-| **CONFIGURACION_EMPRESA** / `ID_CONFIGURACION_EMPRESA` | Datos institucionales para documentos; una fila activa.                  | `RAZON_SOCIAL`: VARCHAR2(200); `NIT`: VARCHAR2(20); `DIRECCION`: VARCHAR2(500); `REPRESENTANTE`: VARCHAR2(200)?; `CORREO`: VARCHAR2(254)?; `TELEFONO`: VARCHAR2(8)? |
+| Tabla y PK                                             | Propósito                                                                | Campos de dominio (tipo; `?` admite NULL)                                                                                                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **DEPARTAMENTOS** / `ID_DEPARTAMENTO`                  | Unidades organizativas reales, sin departamentos ficticios.              | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?                                                                                                 |
+| **PUESTOS** / `ID_PUESTO`                              | Puestos pertenecientes a un departamento.                                | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `ID_DEPARTAMENTO`: NUMBER                                                                      |
+| **JEFATURAS** / `ID_JEFATURA`                          | Jefatura por departamento; responsable activo y superior opcionales.     | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `ID_DEPARTAMENTO`: NUMBER; `ID_EMPLEADO_RESPONSABLE`: NUMBER?; `ID_JEFATURA_SUPERIOR`: NUMBER? |
+| **TIPOS_CONTRATO** / `ID_TIPO_CONTRATO`                | Modalidades contractuales.                                               | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `REQUIERE_FIN`: NUMBER(1)                                                                      |
+| **BANCOS** / `ID_BANCO`                                | Catálogo de bancos; se carga con datos de la empresa, sin seed ficticio. | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?                                                                                                 |
+| **CENTROS_TRABAJO** / `ID_CENTRO_TRABAJO`              | Sede y localidad para aplicar feriados locales.                          | `CODIGO`: VARCHAR2(40); `NOMBRE`: VARCHAR2(120); `DESCRIPCION`: VARCHAR2(500)?; `LOCALIDAD`: VARCHAR2(120); `DIRECCION`: VARCHAR2(500)?                                        |
+| **CONFIGURACION_EMPRESA** / `ID_CONFIGURACION_EMPRESA` | Datos institucionales para documentos; una fila activa.                  | `RAZON_SOCIAL`: VARCHAR2(200); `NIT`: VARCHAR2(20); `DIRECCION`: VARCHAR2(500); `REPRESENTANTE`: VARCHAR2(200)?; `CORREO`: VARCHAR2(254)?; `TELEFONO`: VARCHAR2(8)?            |
 
 ## 3. Empleados
 
@@ -1962,3 +1965,21 @@ todos sus días/importes. Se reconoce INJUSTIFICADA y se incorpora el nuevo tipo
 No se agregan tablas ni se modifican snapshots. Índices nuevos: IX_TA_CATEGORIA, IX_AUS_TABLERO,
 IX_VAC_TABLERO, IX_PAGO_TABLERO, IX_EMP_CUMPLE e IX_EMP_ANIVERSARIO.
 Contrato, filtros y semántica histórica en [DASHBOARD_RH.md](DASHBOARD_RH.md).
+
+## Ronda 3: jefaturas funcionales (V037)
+
+`JEFATURAS.ID_JEFATURA_SUPERIOR` es una FK opcional indexada hacia la misma tabla;
+el CHECK impide autorreferencia directa y el servicio recorre ancestros bajo el bloqueo
+compartido de administración para impedir ciclos indirectos o concurrentes. La migración
+no cambia códigos, responsables, departamentos ni asignaciones existentes.
+
+Un empleado conserva una única `EMPLEADOS.ID_JEFATURA`; la FK compuesta exige el mismo
+departamento. Un responsable activo puede dirigir varias jefaturas. Se permite dejarlo
+pendiente (y se alerta); guardar una referencia de responsable exige estado activo incluso
+al editar. Si después se suspende, egresa o traslada, la alerta pide a RH reemplazarlo.
+`Jefe inmediato` se consulta desde la jefatura, sin duplicar nombres en empleados.
+
+La asignación masiva cambia cada FK y registra antes/después, actor y motivo en una sola
+transacción; una fila inválida o un fallo de auditoría revierte el lote. `obtenerEquipoDeJefe`
+retorna IDs únicos de empleados activos en sus jefaturas activas y descendientes activas,
+excluye al propio jefe y corta ramas inactivas. No publica datos ni permisos de C4.

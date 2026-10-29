@@ -1,6 +1,9 @@
 import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState } from 'react';
+import { ayudaAsignacionJefaturas } from '../../jefaturas/help';
+import { AsignarJefatura } from '../../jefaturas/JefaturasPanel';
+import { useSearchParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listar, exportar, descargar } from '../api/empleados';
@@ -34,6 +37,7 @@ const filtros: Def[] = [
         'idDepartamento',
         'idPuesto',
         'idJefatura',
+        'idCentroTrabajo',
         'idTipoContrato',
         'estado',
       ].includes(f.nombre),
@@ -70,11 +74,14 @@ const filtros: Def[] = [
 ];
 export function EmpleadosPage() {
   const { usuario } = useSession();
-  usePageHelp(ayuda, usuario?.rol);
+  const [asignando, setAsignando] = useState(false);
+  usePageHelp(asignando ? ayudaAsignacionJefaturas : ayuda, usuario?.rol);
   const nav = useNavigate(),
     toast = useToast();
-  const [borrador, setBorrador] = useState<Record<string, string>>({}),
-    [q, setQ] = useState<Record<string, string>>({}),
+  const [url] = useSearchParams();
+  const inicial = url.get('sinJefatura') === '1' ? { sinJefatura: '1', estado: 'ACTIVO' } : {};
+  const [borrador, setBorrador] = useState<Record<string, string>>(inicial),
+    [q, setQ] = useState<Record<string, string>>(inicial),
     [pagina, setPagina] = useState(1),
     [orden, setOrden] = useState<{ campo: string; direccion: 'asc' | 'desc' }>({
       campo: 'nombre',
@@ -104,6 +111,7 @@ export function EmpleadosPage() {
   };
   return (
     <>
+      {asignando && <AsignarJefatura cerrar={() => setAsignando(false)} />}
       <h1>Gestión de empleados</h1>
       <p className="my-3 text-secundario">Expedientes, salarios y altas individuales o masivas.</p>
 
@@ -113,6 +121,14 @@ export function EmpleadosPage() {
         </Button>
         <Button icono="cargar" variante="secundario" onClick={() => nav('/empleados/carga-masiva')}>
           Carga masiva
+        </Button>
+        <Button
+          icono="empleados"
+          data-tour="jefaturas-asignar"
+          variante="secundario"
+          onClick={() => setAsignando(true)}
+        >
+          Asignar jefatura
         </Button>
         <span data-tour="empleados-exportar">
           <Button
@@ -220,8 +236,10 @@ export function EmpleadosPage() {
                   setPagina(1);
                 }}
               >
-                {filtros.find((f) => f.nombre === k)?.label}:{' '}
-                {k.startsWith('ingreso') ? fechaVisible(v) : v}
+                {k === 'sinJefatura'
+                  ? 'Sin jefatura activa'
+                  : filtros.find((f) => f.nombre === k)?.label}
+                : {k.startsWith('ingreso') ? fechaVisible(v) : v}
               </Button>
             ))}
           </div>
@@ -252,6 +270,16 @@ export function EmpleadosPage() {
                 titulo: 'Departamento',
                 ordenable: true,
                 render: (r) => r.departamento,
+              },
+              {
+                id: 'jefatura',
+                titulo: 'Jefatura',
+                render: (r) => r.jefatura ?? 'Sin jefatura asignada',
+              },
+              {
+                id: 'jefeInmediato',
+                titulo: 'Jefe inmediato',
+                render: (r) => r.jefeInmediato ?? 'Sin jefe asignado',
               },
               { id: 'puesto', titulo: 'Puesto', ordenable: true, render: (r) => r.puesto },
               {

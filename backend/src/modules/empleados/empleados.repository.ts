@@ -99,6 +99,7 @@ export type Empleado = Omit<DatosEmpleado, 'estado'> & {
   idUsuario: number | null;
   usuario: string | null;
   departamento: string;
+  jefeInmediato: string | null;
   puesto: string;
   fechaEgreso: string | null;
   motivoEgreso: string | null;
@@ -109,6 +110,7 @@ export type Empleado = Omit<DatosEmpleado, 'estado'> & {
   faltantes: string[];
 };
 const salarioSql = `(SELECT S.SALARIO_BASE FROM HISTORIAL_SALARIAL S WHERE S.ID_EMPLEADO=E.ID_EMPLEADO AND S.ACTIVO=1 AND S.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (S.VIGENTE_HASTA IS NULL OR S.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY S.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY)`;
+const jefeInmediatoSql = `(SELECT ${nombrePersonaSql('JR.NOMBRES', 'JR.APELLIDOS')} FROM JEFATURAS J JOIN EMPLEADOS JR ON JR.ID_EMPLEADO=J.ID_EMPLEADO_RESPONSABLE WHERE J.ID_JEFATURA=E.ID_JEFATURA)`;
 const base = `SELECT E.*, D.NOMBRE DEPARTAMENTO,P.NOMBRE PUESTO,${salarioSql} SALARIO FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO`;
 export function perfil(salario: string | null, banco: unknown, contacto: unknown) {
   const faltantes = [
@@ -166,11 +168,16 @@ export async function listar(c: Connection, q: QueryEmpleados) {
   for (const key of [
     'idDepartamento',
     'idPuesto',
+    'idCentroTrabajo',
     'idJefatura',
     'idTipoContrato',
     'estado',
   ] as const)
     add(key, q[key], `E.${campos[key]}=:${key}`);
+  if (q.sinJefatura)
+    where.push(
+      'NOT EXISTS (SELECT 1 FROM JEFATURAS J WHERE J.ID_JEFATURA=E.ID_JEFATURA AND J.ACTIVO=1)',
+    );
   add('ingresoDesde', q.ingresoDesde, "E.FECHA_INGRESO>=TO_DATE(:ingresoDesde,'YYYY-MM-DD')");
   add('ingresoHasta', q.ingresoHasta, "E.FECHA_INGRESO<=TO_DATE(:ingresoHasta,'YYYY-MM-DD')");
   add('salarioMin', q.salarioMin, `SALARIO>=${sqlDinero('salarioMin')}`);
@@ -189,7 +196,7 @@ export async function listar(c: Connection, q: QueryEmpleados) {
   }[q.ordenarPor];
   const dir = q.direccion === 'asc' ? 'ASC' : 'DESC';
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT E.ID_EMPLEADO "id",E.CODIGO "codigo",${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "nombre",'*********'||SUBSTR(E.DPI,-4) "dpi",'****-'||SUBSTR(E.NIT,-1) "nit",E.DEPARTAMENTO "departamento",E.PUESTO "puesto",${fecha('E.FECHA_INGRESO')} "fechaIngreso",${monto('E.SALARIO')} "salarioBase",E.ESTADO "estado",E.ID_BANCO "idBanco",(SELECT C.NOMBRE FROM EMPLEADO_CONTACTOS_EMERGENCIA C WHERE C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1) "contactoNombre" ${from} ORDER BY E.${orden} ${dir},E.ID_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+    `SELECT E.ID_EMPLEADO "id",E.ID_DEPARTAMENTO "idDepartamento",E.ID_JEFATURA "idJefatura",${jefeInmediatoSql} "jefeInmediato",(SELECT NOMBRE FROM JEFATURAS J WHERE J.ID_JEFATURA=E.ID_JEFATURA) "jefatura",E.CODIGO "codigo",${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "nombre",'*********'||SUBSTR(E.DPI,-4) "dpi",'****-'||SUBSTR(E.NIT,-1) "nit",E.DEPARTAMENTO "departamento",E.PUESTO "puesto",${fecha('E.FECHA_INGRESO')} "fechaIngreso",${monto('E.SALARIO')} "salarioBase",E.ESTADO "estado",E.ID_BANCO "idBanco",(SELECT C.NOMBRE FROM EMPLEADO_CONTACTOS_EMERGENCIA C WHERE C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1) "contactoNombre" ${from} ORDER BY E.${orden} ${dir},E.ID_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
     { ...binds, offset: (q.pagina - 1) * q.limite, limite: q.limite },
     opts,
   );
@@ -208,7 +215,7 @@ export async function detalle(c: Connection, id: number): Promise<Empleado | nul
     .map(([key, col]) => `${key.startsWith('fecha') ? fecha('E.' + col) : 'E.' + col} "${key}"`)
     .join(',');
   const r = await c.execute<Empleado>(
-    `SELECT E.DIRECCION_COMPLETA "direccionCompleta",E.DIRECCION_ANTERIOR "direccionAnterior",E.SEXO_ANTERIOR "sexoAnterior",(SELECT NOMBRE FROM DEPARTAMENTOS_GT WHERE ID_DEPARTAMENTO_GT=E.ID_DEPARTAMENTO_GT) "idDepartamentoGtEtiqueta",(SELECT NOMBRE FROM MUNICIPIOS_GT WHERE ID_MUNICIPIO_GT=E.ID_MUNICIPIO_GT) "idMunicipioGtEtiqueta",C.PARENTESCO_ANTERIOR "parentescoAnterior",E.ID_EMPLEADO "id",E.ID_USUARIO "idUsuario",E.ACTIVO "activo",${selection},${fecha('E.FECHA_EGRESO')} "fechaEgreso",E.MOTIVO_EGRESO "motivoEgreso",D.NOMBRE "departamento",P.NOMBRE "puesto",U.USUARIO "usuario",${monto(salarioSql)} "salarioBase",(SELECT H.ID_HORARIO FROM EMPLEADO_HORARIO H WHERE H.ID_EMPLEADO=E.ID_EMPLEADO AND H.ACTIVO=1 AND H.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (H.VIGENTE_HASTA IS NULL OR H.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY H.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "idHorario",(SELECT NOMBRE FROM JEFATURAS WHERE ID_JEFATURA=E.ID_JEFATURA) "idJefaturaEtiqueta",(SELECT NOMBRE FROM TIPOS_CONTRATO WHERE ID_TIPO_CONTRATO=E.ID_TIPO_CONTRATO) "idTipoContratoEtiqueta",(SELECT NOMBRE FROM CENTROS_TRABAJO WHERE ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO) "idCentroTrabajoEtiqueta",(SELECT NOMBRE FROM BANCOS WHERE ID_BANCO=E.ID_BANCO) "idBancoEtiqueta",(SELECT H.NOMBRE FROM HORARIOS H JOIN EMPLEADO_HORARIO A ON A.ID_HORARIO=H.ID_HORARIO WHERE A.ID_EMPLEADO=E.ID_EMPLEADO AND A.ACTIVO=1 AND A.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (A.VIGENTE_HASTA IS NULL OR A.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY A.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "idHorarioEtiqueta",C.NOMBRE "contactoNombre",C.PARENTESCO "contactoParentesco",C.TELEFONO "contactoTelefono" FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO LEFT JOIN USUARIOS U ON U.ID_USUARIO=E.ID_USUARIO LEFT JOIN EMPLEADO_CONTACTOS_EMERGENCIA C ON C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1 WHERE E.ID_EMPLEADO=:id`,
+    `SELECT ${jefeInmediatoSql} "jefeInmediato",E.DIRECCION_COMPLETA "direccionCompleta",E.DIRECCION_ANTERIOR "direccionAnterior",E.SEXO_ANTERIOR "sexoAnterior",(SELECT NOMBRE FROM DEPARTAMENTOS_GT WHERE ID_DEPARTAMENTO_GT=E.ID_DEPARTAMENTO_GT) "idDepartamentoGtEtiqueta",(SELECT NOMBRE FROM MUNICIPIOS_GT WHERE ID_MUNICIPIO_GT=E.ID_MUNICIPIO_GT) "idMunicipioGtEtiqueta",C.PARENTESCO_ANTERIOR "parentescoAnterior",E.ID_EMPLEADO "id",E.ID_USUARIO "idUsuario",E.ACTIVO "activo",${selection},${fecha('E.FECHA_EGRESO')} "fechaEgreso",E.MOTIVO_EGRESO "motivoEgreso",D.NOMBRE "departamento",P.NOMBRE "puesto",U.USUARIO "usuario",${monto(salarioSql)} "salarioBase",(SELECT H.ID_HORARIO FROM EMPLEADO_HORARIO H WHERE H.ID_EMPLEADO=E.ID_EMPLEADO AND H.ACTIVO=1 AND H.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (H.VIGENTE_HASTA IS NULL OR H.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY H.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "idHorario",(SELECT NOMBRE FROM JEFATURAS WHERE ID_JEFATURA=E.ID_JEFATURA) "idJefaturaEtiqueta",(SELECT NOMBRE FROM TIPOS_CONTRATO WHERE ID_TIPO_CONTRATO=E.ID_TIPO_CONTRATO) "idTipoContratoEtiqueta",(SELECT NOMBRE FROM CENTROS_TRABAJO WHERE ID_CENTRO_TRABAJO=E.ID_CENTRO_TRABAJO) "idCentroTrabajoEtiqueta",(SELECT NOMBRE FROM BANCOS WHERE ID_BANCO=E.ID_BANCO) "idBancoEtiqueta",(SELECT H.NOMBRE FROM HORARIOS H JOIN EMPLEADO_HORARIO A ON A.ID_HORARIO=H.ID_HORARIO WHERE A.ID_EMPLEADO=E.ID_EMPLEADO AND A.ACTIVO=1 AND A.VIGENTE_DESDE<=GREATEST(${hoy},E.FECHA_INGRESO) AND (A.VIGENTE_HASTA IS NULL OR A.VIGENTE_HASTA>=GREATEST(${hoy},E.FECHA_INGRESO)) ORDER BY A.VIGENTE_DESDE DESC FETCH FIRST 1 ROW ONLY) "idHorarioEtiqueta",C.NOMBRE "contactoNombre",C.PARENTESCO "contactoParentesco",C.TELEFONO "contactoTelefono" FROM EMPLEADOS E JOIN DEPARTAMENTOS D ON D.ID_DEPARTAMENTO=E.ID_DEPARTAMENTO JOIN PUESTOS P ON P.ID_PUESTO=E.ID_PUESTO LEFT JOIN USUARIOS U ON U.ID_USUARIO=E.ID_USUARIO LEFT JOIN EMPLEADO_CONTACTOS_EMERGENCIA C ON C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1 WHERE E.ID_EMPLEADO=:id`,
     { id },
     opts,
   );

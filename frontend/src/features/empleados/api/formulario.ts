@@ -180,7 +180,10 @@ export const secciones: {
         nombre: nombre!,
         label: label!,
         tipo: 'referencia' as const,
-        hint: 'Busca y selecciona un registro activo. Administra las opciones desde Catálogos.',
+        hint:
+          nombre === 'idJefatura'
+            ? 'Determina el jefe inmediato. Elige una jefatura del departamento o asígnala en bloque desde Empleados o Jefaturas.'
+            : 'Busca y selecciona un registro activo. Administra las opciones desde Catálogos.',
         required: nombre !== 'idJefatura',
       })),
       {

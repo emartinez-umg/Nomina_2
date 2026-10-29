@@ -1,3 +1,4 @@
+import { asignacionJefaturaSchema } from '../jefaturas/jefaturas.schemas.js';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { respuestaOk } from '../../shared/utils/respuesta.js';
@@ -24,6 +25,24 @@ function contexto(req: Request) {
 }
 export function crearCatalogosController(service: ReturnType<typeof crearCatalogosService>) {
   return {
+    async resumenJefaturas(req: Request, res: Response) {
+      sinDatos.parse(req.query);
+      res.json(respuestaOk(await service.resumenJefaturas()));
+    },
+    async asignarJefatura(req: Request, res: Response) {
+      sinDatos.parse(req.query);
+      const cat = obtenerCatalogo('jefaturas')!;
+      res.json(
+        respuestaOk(
+          await service.asignarJefatura(
+            autenticacionDe(req),
+            contextoDe(req).ip,
+            cat,
+            asignacionJefaturaSchema.parse(req.body),
+          ),
+        ),
+      );
+    },
     definiciones(req: Request, res: Response) {
       sinDatos.parse(req.query);
       res.json(
@@ -45,7 +64,13 @@ export function crearCatalogosController(service: ReturnType<typeof crearCatalog
     async opciones(req: Request, res: Response) {
       const { referencia } = z
         .object({
-          referencia: z.enum(['departamentos', 'empleados', 'departamentos-gt', 'municipios-gt']),
+          referencia: z.enum([
+            'jefaturas',
+            'departamentos',
+            'empleados',
+            'departamentos-gt',
+            'municipios-gt',
+          ]),
         })
         .strict()
         .parse(req.params);

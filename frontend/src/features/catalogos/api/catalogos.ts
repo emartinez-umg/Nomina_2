@@ -33,7 +33,7 @@ export const campoSchema = z.object({
   decimales: z.number().optional(),
   opciones: z.array(z.string()).optional(),
   referencia: z
-    .enum(['departamentos', 'empleados', 'departamentos-gt', 'municipios-gt'])
+    .enum(['jefaturas', 'departamentos', 'empleados', 'departamentos-gt', 'municipios-gt'])
     .optional(),
 });
 export const catalogoSchema = z.object({

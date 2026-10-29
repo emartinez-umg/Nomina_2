@@ -61,6 +61,16 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
           },
         ]
       : [
+          ...(cat.slug === 'jefaturas'
+            ? [
+                {
+                  elemento: 'jefaturas-configurar',
+                  titulo: 'Configurar jefaturas y equipos',
+                  descripcion:
+                    'Si no existe ninguna jefatura, el asistente indica cómo crearla sin inventar datos. Primero nombre y departamento, luego responsable activo y superior opcional; al guardar se ofrece asignar empleados. Las alertas cuentan empleados sin jefatura activa y jefaturas sin responsable activo. Asignar empleados filtra por departamento y centro, conserva la selección entre páginas y confirma el reemplazo de la jefatura anterior con motivo y auditoría.',
+                },
+              ]
+            : []),
           pasoSelectorEmpleado,
           {
             elemento: 'catalogo-menu',
@@ -78,7 +88,7 @@ export function ayudaCatalogo(cat: Catalogo, formulario: boolean): DefinicionAyu
             elemento: 'catalogo-nuevo',
             titulo: 'Crear registro',
             descripcion:
-              'Abre el formulario guiado. Crea departamentos antes de puestos y jefaturas. Un jefe responsable se elige de empleados activos del mismo departamento; si aún no hay empleados, podrás asignarlo después de crear su expediente.',
+              'Abre el formulario guiado. Crea departamentos antes de puestos y jefaturas. La jefatura superior es opcional y no puede formar ciclos, incluso al editar o ante cambios simultáneos. El responsable debe estar activo, también al editar. Un jefe responsable se elige de empleados activos del mismo departamento; si aún no hay empleados, podrás asignarlo después de crear su expediente.',
           },
           {
             elemento: 'catalogo-tabla',

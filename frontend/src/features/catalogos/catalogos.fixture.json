@@ -405,8 +405,16 @@
         "columna": "ID_EMPLEADO_RESPONSABLE",
         "etiqueta": "Jefe responsable",
         "tipo": "referencia",
-        "hint": "Empleado activo del departamento. Puede asignarse después de registrar empleados en la fase 5.",
+        "hint": "Selecciona un empleado activo del departamento. Si queda pendiente, RH verá una alerta hasta asignar responsable.",
         "referencia": "empleados"
+      },
+      {
+        "nombre": "idJefaturaSuperior",
+        "columna": "ID_JEFATURA_SUPERIOR",
+        "etiqueta": "Jefatura superior",
+        "tipo": "referencia",
+        "hint": "Opcional. Selecciona la jefatura de la que depende; no puede ser ella misma ni una descendiente.",
+        "referencia": "jefaturas"
       },
       {
         "nombre": "descripcion",

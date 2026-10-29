@@ -3451,3 +3451,102 @@ Estado: implementada y validada el 28/10/2026 en `v1.2`. Alcance C2.
    bandejas, campana, historial y exportaciones. Probar ayuda manual y meses sin resultados.
 5. Sin pendientes de implementación R3-4. No se desplegó en la nómina operativa ni se alteraron
    sus pagos/documentos. C3–C8 quedan para sus fases; continúa la validación contable de R3-1.
+
+## Ronda 3 — FASE R3-5: jefaturas funcionales
+
+Estado: implementada y validada el 29/10/2026 en `v1.2`. Alcance C3.
+
+### Causa y reproducción
+
+- Revisados AGENTS.md y sus adendos v1/v1.1/v1.2, el progreso v1 y las decisiones previas
+  sobre jefaturas. La carga demo había dejado deliberadamente el catálogo y las asignaciones
+  vacíos; no correspondía crear una organización ficticia para ocultar ese estado.
+- Consulta operativa exclusivamente de lectura: V035, dos jefaturas activas sin responsable,
+  36 empleados activos, 32 sin jefatura. Es el estado encontrado durante esta fase, distinto
+  del catálogo vacío reportado; no se atribuye esa diferencia a un fallo no reproducido.
+- El CRUD existente sí crea y asigna jefaturas del mismo departamento. Faltaban superior,
+  asignación masiva, alcance de equipo y consulta del responsable en ficha/listado/CSV.
+  Además, la excepción de referencia histórica permitía guardar al jefe suspendido si no se
+  cambiaba su ID. Reproducido con el servicio de HEAD anterior y Oracle desechable: esperaba
+  409 y obtuvo 200. Evidencia en `/private/tmp/nomina2-r35-rojo.log`; archivos restaurados.
+
+### Hecho y decisiones
+
+- V037 agrega `ID_JEFATURA_SUPERIOR` opcional, FK, índice y CHECK de autorreferencia. No cambia
+  códigos, responsables, departamentos ni asignaciones anteriores; no edita migraciones previas.
+- El catálogo genérico incorpora la referencia de jefatura con etiquetas/opciones, filtros,
+  detalle, edición y CSV. Conserva código automático permanente y auditoría transaccional.
+  Guardar/activar valida responsable activo del departamento incluso al conservar la referencia.
+- El servicio recorre ancestros bajo el bloqueo común de administración, que también utilizan
+  empleados: impide ciclos directos, indirectos y concurrentes. Cambiar el departamento de una
+  jefatura referenciada se rechaza con explicación. Se conserva la FK compuesta de empleados.
+- POST `/api/catalogos/jefaturas/asignaciones`: RH/ADMIN, Zod estricto, CSRF, confirmación,
+  motivo y 1–500 IDs únicos. Revalida jefatura activa, empleados activos y mismo departamento;
+  reemplaza la única jefatura de cada empleado, registra antes/después y motivo por persona.
+  Todo el lote y su auditoría comparten transacción; un fallo revierte todos los cambios.
+  Los ya asignados se cuentan sin cambios y no generan auditorías duplicadas.
+- Modal compartido desde Empleados y Jefaturas: filtros reales por departamento/centro, búsqueda,
+  casillas, seleccionar página, limpiar, paginación y selección entre páginas/filtros. Cambiar
+  destino limpia la selección; la confirmación recuerda que incluye otras páginas. Borrador
+  RHF con IDs/filtros/motivo, recuperación de errores, prevención de doble envío y ayuda propia.
+- «Configurar jefaturas» guía el catálogo vacío sin insertar ejemplos; al guardar la primera
+  jefatura se ofrece asignar empleados. Panel de organización con conteos reales y reintento.
+- `jefeInmediato` se deriva en Oracle del responsable de la jefatura, con primer nombre/apellido:
+  ficha, listado y CSV. Se mantiene el filtro por jefatura y se añade centro de trabajo y consulta
+  de empleados sin jefatura activa. Los vacíos dicen «Sin jefatura asignada»/«Sin jefe asignado».
+- `obtenerEquipoDeJefe(db, idEmpleado)` devuelve IDs únicos de empleados activos en sus jefaturas
+  activas y descendientes activas, excluye al propio jefe y corta ramas inactivas. Sin endpoint
+  público ni permisos nuevos; C4 resolverá el alcance desde la sesión antes de exponer datos.
+- Alertas RH agregadas de empleados sin jefatura activa y jefaturas sin jefe activo del
+  departamento, con enlaces al listado filtrado y al catálogo. Tienen prioridad dentro del
+  límite de 50 para no perderse detrás del historial de periodos. Ayuda e hints actualizados
+  en catálogo, asignación, empleados e Inicio; documentación en ERD, FRONTEND y README.
+
+### Supuestos y compatibilidad
+
+- Un responsable puede dirigir varias jefaturas; pertenencia del empleado y responsabilidad
+  son relaciones distintas. La pertenencia sigue siendo única por empleado y departamento.
+  Una superior puede pertenecer a otro departamento; no se infiere ni se crea automáticamente.
+- Se permite dejar responsable pendiente para configurar la organización progresivamente y
+  conservar registros previos. La alerta incluye jefe inexistente, suspendido/egresado/inactivo
+  o trasladado a otro departamento. Si su estado cambia después, RH debe reemplazarlo; no se
+  borra su referencia automáticamente ni se impide el egreso laboral por este motivo.
+- La asignación no exige responsable completo: puede organizarse primero y resolver la alerta
+  después. No cambia salarios, horarios, pagos ni documentos confirmados. El servicio de equipo
+  devuelve vacío si el jefe no está activo; no concede acceso al empleado desde esta fase.
+- El inventario de catálogos de las pruebas se actualiza por el campo/hint nuevo. No se relajan
+  sus reglas de nombres, duplicados, referencias, permisos o auditoría.
+
+### Validación
+
+- **864 pruebas aprobadas**: 498 backend, 359 frontend y siete del exportador. Nueve nuevas
+  unitarias/de interfaz cubren ciclos, validación del lote, guía vacía, selección entre páginas,
+  filtro de centro, confirmación explícita y recuperación de un error de selección/servidor.
+- **114 Oracle/Supertest aprobadas con Node 20**: jefaturas nueve, catálogos 11, seguridad 82 y
+  tableros 12. Creación/asignación real, jerarquía de tres niveles, jefe inactivo al crear/editar,
+  pertenencia única al trasladar, filtros, etiquetas/nombre abreviado, ficha/CSV, equipo sin
+  duplicados ni ramas inactivas, concurrencia de ciclos, RBAC/CSRF y rollback de lote/auditoría.
+- **Un E2E de producción aprobado** con Chromium, API/nginx, TLS y Oracle reales: catálogo vacío
+  → alta con responsable → asignación de dos personas por centro → ficha/listado filtrado con
+  jefe inmediato. Recorrido específico de ayuda, móvil a 390 px y axe A/AA sin infracciones.
+  Capturas revisadas en `tmp/pdfs/r3-5-asignacion-movil.png` y `r3-5-empleados.png` (ignoradas).
+- Todos los datos de pruebas viven en N2SEC/N2E2E y se eliminan al terminar. La suite de tableros
+  pasó, pero su primer DROP encontró una sesión aún abierta; comprobada su desaparición, se
+  eliminó el esquema exacto de esa ejecución. La instalación operativa solo se consultó.
+- Lint, TypeScript strict (incluido E2E), builds backend/frontend, formato, secretos y diff
+  aprobados. Vite conserva el aviso previo por tamaño de chunk. Sin dependencias nuevas.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run format:check`; `npm run build`.
+2. Oracle saludable: `npm run verify:jefaturas`; `npm run verify:catalogos`;
+   `npm run verify:security`; `npm run verify:tableros` (secuenciales, esquemas desechables).
+   Si el host no usa Node 20, reconstruir `nomina2-security-tests` según README y usar `-- --docker`.
+3. `npm run test:e2e -- --production jefaturas.spec.ts` verifica el criterio completo.
+4. Para cargar la versión operativa, aplicar migraciones pendientes mediante el runner habitual
+   y reconstruir API/web con `docker compose up --build -d nomina2-api nomina2-web`. Recargar;
+   Organización → Jefaturas → crear/editar responsable y superior → Asignar empleados por centro
+   y departamento → confirmar motivo → revisar jefe inmediato en Empleados y su ficha.
+5. Sin pendientes de implementación de R3-5. No se desplegó en la instalación operativa ni se
+   crearon jefaturas/empleados de ejemplo allí. C4–C8 y la validación contable de R3-1 siguen
+   fuera de esta fase. RH completa sus responsables y asignaciones reales usando el flujo nuevo.

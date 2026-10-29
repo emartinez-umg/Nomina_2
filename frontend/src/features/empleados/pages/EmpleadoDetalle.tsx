@@ -180,6 +180,9 @@ export function EmpleadoDetallePage() {
 function Resumen({ empleado: e }: { empleado: Empleado }) {
   return (
     <div data-tour="empleado-resumen">
+      <p className="my-4">
+        <strong>Jefe inmediato:</strong> {String(e.jefeInmediato ?? 'Sin jefe asignado')}
+      </p>
       {secciones.map((s) => (
         <section className="my-6" key={s.titulo}>
           <h2>{s.titulo}</h2>
@@ -192,7 +195,9 @@ function Resumen({ empleado: e }: { empleado: Empleado }) {
                 <dt className="text-sm text-secundario">{f.label}</dt>
                 <dd>
                   {e[f.nombre] == null
-                    ? 'Sin registro'
+                    ? f.nombre === 'idJefatura'
+                      ? 'Sin jefatura asignada'
+                      : 'Sin registro'
                     : f.nombre === 'sexo'
                       ? e[f.nombre] === 'F'
                         ? 'Femenino'

@@ -10,6 +10,8 @@ export function crearCatalogosRouter(service: ReturnType<typeof crearCatalogosSe
   router.get('/', c.definiciones);
   router.get('/restricciones', c.restricciones);
   router.get('/opciones/:referencia', c.opciones);
+  router.get('/jefaturas/resumen', c.resumenJefaturas);
+  router.post('/jefaturas/asignaciones', c.asignarJefatura);
   router.get('/:catalogo', c.listar);
   router.get('/:catalogo/:id', c.detalle);
   router.get('/:catalogo/:id/historial', c.historial);

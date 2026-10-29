@@ -413,3 +413,14 @@ siglas sobre fondo sólido para que su texto mantenga AA.
 `verify:clean` ensaya `docker compose up --build` con volúmenes nuevos y genera
 `tmp/aceptacion-limpia.json`, incluida la versión esperada y cero objetos inválidos/migraciones fallidas.
 Resultados y límites de esta ronda en [PROGRESO_V1.md](docs/PROGRESO_V1.md#fase-r2-10--cierre-de-la-ronda).
+
+### Jefaturas (R3-5)
+
+Organización → Jefaturas permite crear responsables y jerarquía, ver pendientes y asignar
+empleados en bloque por departamento/centro. Empleados muestra y filtra la jefatura, y
+consulta el jefe inmediato también en la ficha y CSV. Se aplica V037 con el runner habitual.
+
+- `npm run verify:jefaturas` prueba el flujo Oracle/Supertest en un esquema desechable.
+- Con imagen de pruebas actualizada, `npm run verify:jefaturas -- --docker` usa Node 20.
+- `npm run test:e2e -- --production jefaturas.spec.ts` recorre el alta y asignación con
+  Chromium, API/nginx, ayuda, móvil y accesibilidad; no escribe en la nómina operativa.

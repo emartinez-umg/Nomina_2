@@ -332,7 +332,15 @@ export function InicioPage() {
                                 icono="ver"
                                 variante="texto"
                                 onClick={() =>
-                                  nav(a.tipo === 'PERIODO' ? '/planilla' : `/empleados/${a.id}`)
+                                  nav(
+                                    a.tipo === 'PERIODO'
+                                      ? '/planilla'
+                                      : a.tipo === 'SIN_JEFE'
+                                        ? '/catalogos/jefaturas'
+                                        : a.tipo === 'SIN_JEFATURA'
+                                          ? '/empleados?sinJefatura=1'
+                                          : `/empleados/${a.id}`,
+                                  )
                                 }
                               >
                                 Revisar
@@ -342,12 +350,12 @@ export function InicioPage() {
                         ))
                       ) : (
                         <p className="my-4 text-secundario">
-                          Sin alertas de periodos, contratos o perfiles incompletos.
+                          Sin alertas de periodos, contratos, perfiles incompletos o jefaturas.
                         </p>
                       )}
                       <p className="campo-hint">
                         Hasta 50 alertas: periodos abiertos, contratos por vencer o vencidos y
-                        empleados sin salario.
+                        empleados sin salario, sin jefatura activa y jefaturas sin jefe activo.
                       </p>
                     </Card>
                   </div>

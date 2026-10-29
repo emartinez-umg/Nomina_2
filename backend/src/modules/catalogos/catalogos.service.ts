@@ -1,3 +1,7 @@
+import { validarSuperior, asignarJefaturaMasiva } from '../jefaturas/jefaturas.service.js';
+import { resumen as resumenJefaturas } from '../jefaturas/jefaturas.repository.js';
+import type { z } from 'zod';
+import type { asignacionJefaturaSchema } from '../jefaturas/jefaturas.schemas.js';
 import { validarNombreCatalogo, recortarNombreCatalogo } from '../../shared/catalogos/nombre.js';
 import { ErrorValidacion } from '../../shared/errors/errors.js';
 import { analizarHorario, normalizarBloques } from '../../shared/horarios/modelo.js';
@@ -99,12 +103,24 @@ export function crearCatalogosService(db: BaseDatos) {
         c,
         f.referencia!,
         Number(valor),
-        !!antes && valor === antes[f.nombre],
+        f.referencia !== 'empleados' && !!antes && valor === antes[f.nombre],
       );
       if (!ref)
         conflicto(f.nombre, 'El registro seleccionado no existe o está inactivo. Selecciona otro.');
       if (f.referencia === 'empleados' && ref?.DEPARTAMENTO !== d.idDepartamento)
         conflicto(f.nombre, 'El jefe responsable debe pertenecer al departamento seleccionado.');
+    }
+    if (cat.slug === 'jefaturas') {
+      await validarSuperior(
+        c,
+        id,
+        d.idJefaturaSuperior == null ? null : Number(d.idJefaturaSuperior),
+      );
+      if (antes && antes.idDepartamento !== d.idDepartamento && antes.enUso)
+        conflicto(
+          'idDepartamento',
+          'La jefatura tiene referencias. Conserva su departamento o crea otra jefatura.',
+        );
     }
     if (cat.slug === 'horarios') {
       const bloques = d.bloques as BloqueHorario[];
@@ -243,6 +259,13 @@ export function crearCatalogosService(db: BaseDatos) {
     return row;
   };
   return {
+    resumenJefaturas: () => db.conConexion(resumenJefaturas),
+    asignarJefatura: (
+      auth: Autenticacion,
+      ip: string,
+      cat: Catalogo,
+      d: z.infer<typeof asignacionJefaturaSchema>,
+    ) => transaccion(auth, cat, (c, actor) => asignarJefaturaMasiva(c, { ...actor, ip }, d)),
     listar: (cat: Catalogo, q: QueryCatalogo) =>
       db.conConexion((c) => repository.listar(c, cat, q)),
     detalle: (cat: Catalogo, id: number) => db.conConexion((c) => buscar(c, cat, id)),
