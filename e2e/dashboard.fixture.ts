@@ -1,4 +1,7 @@
 import oracledb, { type BindParameters } from 'oracledb';
+import { Decimal } from 'decimal.js';
+import { entradaPrueba } from '../backend/src/modules/nomina/nomina.fixture.js';
+import { calcularPago, type EntradaPago } from '../backend/src/modules/nomina/pago.calculo.js';
 
 /** Datos de ejemplo exclusivamente en el esquema aleatorio del runner E2E. */
 export async function prepararDashboard() {
@@ -22,8 +25,17 @@ export async function prepararDashboard() {
   };
   let dep = 0,
     periodo = 0;
+  const mensuales: number[] = [],
+    periodosCreados: number[] = [];
   const limpiar = async () => {
     // Los IDs se originan en este esquema; nunca se borra información de la aplicación.
+    for (const id of mensuales) {
+      await sql('DELETE FROM PAGOS_NOMINA WHERE ID_NOMINA_EMPLEADO=:id', { id });
+      await sql('DELETE FROM NOMINA_DETALLE WHERE ID_NOMINA_EMPLEADO=:id', { id });
+      await sql('DELETE FROM NOMINA_EMPLEADO WHERE ID_NOMINA_EMPLEADO=:id', { id });
+    }
+    for (const id of periodosCreados)
+      await sql('DELETE FROM PERIODOS_NOMINA WHERE ID_PERIODO_NOMINA=:id', { id });
     for (const tabla of ['NOMINA_DETALLE', 'NOMINA_EMPLEADO'])
       await sql(`DELETE FROM ${tabla} WHERE ID_PERIODO_NOMINA=:id`, { id: periodo });
     await sql('DELETE FROM PERIODOS_NOMINA WHERE ID_PERIODO_NOMINA=:id', { id: periodo });
@@ -150,11 +162,113 @@ export async function prepararDashboard() {
       );
     }
     await c.commit();
+    const registrarMensual = async (tipoPago: 'ANTICIPO' | 'PAGO') => {
+      const mes = hoy.slice(0, 7);
+      const inicio = `${mes}-${tipoPago === 'ANTICIPO' ? '01' : '16'}`;
+      const finMes = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5)), 0))
+        .toISOString()
+        .slice(0, 10);
+      const fin = tipoPago === 'ANTICIPO' ? `${mes}-15` : finMes;
+      let idPeriodo = await scalar(
+        "SELECT NVL(MAX(ID_PERIODO_NOMINA),0) FROM PERIODOS_NOMINA WHERE FECHA_INICIO=TO_DATE(:inicio,'YYYY-MM-DD')",
+        { inicio },
+      );
+      if (!idPeriodo) {
+        await sql(
+          "INSERT INTO PERIODOS_NOMINA(FECHA_INICIO,FECHA_FIN,QUINCENA,MOTOR,VERSION_CALCULO) VALUES(TO_DATE(:inicio,'YYYY-MM-DD'),TO_DATE(:fin,'YYYY-MM-DD'),:quincena,'V1',1)",
+          { inicio, fin, quincena: tipoPago === 'ANTICIPO' ? 1 : 2 },
+        );
+        idPeriodo = await scalar('SELECT MAX(ID_PERIODO_NOMINA) FROM PERIODOS_NOMINA');
+        periodosCreados.push(idPeriodo);
+      }
+      if (tipoPago === 'ANTICIPO')
+        await sql(
+          "INSERT INTO HISTORIAL_SALARIAL(ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES(:id,10000,DATE '2020-01-01','Fixture mensual R3-2')",
+          { id: luis },
+        );
+      const idSalario = await scalar(
+        'SELECT MAX(ID_HISTORIAL_SALARIAL) FROM HISTORIAL_SALARIAL WHERE ID_EMPLEADO=:id',
+        { id: luis },
+      );
+      const fuente = entradaPrueba('10000');
+      fuente.salarios[0]!.id = idSalario;
+      fuente.conceptos.push({
+        id: 100,
+        codigo: 'ANTICIPO_PAGADO',
+        nombre: 'Anticipo ya pagado',
+        naturaleza: 'DESCUENTO',
+        igss: 0,
+        isr: 0,
+        prestaciones: 0,
+        desde: '2026-01-01',
+        hasta: null,
+      });
+      Object.assign(fuente.empleado, {
+        id: luis,
+        codigo: 'QA-MENSUAL',
+        nombres: 'Luis',
+        apellidos: 'Dashboard QA',
+        idDepartamento: dep,
+        departamento: 'Equipo dashboard QA',
+      });
+      const previos = Number(mes.slice(5)) - 1;
+      fuente.acumulado = {
+        renta: new Decimal('10250').mul(previos).toFixed(2),
+        igss: new Decimal('483').mul(previos).toFixed(2),
+        isr: new Decimal('288.35').mul(previos).toFixed(2),
+      };
+      const entrada: EntradaPago = {
+        ...fuente,
+        inicio: `${mes}-01`,
+        fin: finMes,
+        mes,
+        tipoPago,
+        anticipo: tipoPago === 'PAGO' ? '5250.00' : '0.00',
+        novedades: [],
+      };
+      const resultado = calcularPago(entrada);
+      await sql(
+        `INSERT INTO NOMINA_EMPLEADO(ID_PERIODO_NOMINA,ID_EMPLEADO,ID_HISTORIAL_SALARIAL,VERSION_CALCULO,DIAS_PAGADOS,SALARIO_BASE,TOTAL_INGRESOS,TOTAL_DESCUENTOS,NETO,COSTO_PATRONAL,DATOS_EMPLEADO)
+        VALUES(:periodo,:id,:salario,1,30,10000,TO_NUMBER(:ingresos),TO_NUMBER(:descuentos),TO_NUMBER(:neto),TO_NUMBER(:patronal),:snapshot)`,
+        {
+          periodo: idPeriodo,
+          id: luis,
+          salario: idSalario,
+          ingresos: resultado.ingresos,
+          descuentos: resultado.descuentos,
+          neto: resultado.neto,
+          patronal: resultado.patronal,
+          snapshot: JSON.stringify({ entrada, resultado }),
+        },
+      );
+      const id = await scalar('SELECT MAX(ID_NOMINA_EMPLEADO) FROM NOMINA_EMPLEADO');
+      mensuales.push(id);
+      for (const [i, linea] of resultado.lineas.entries())
+        await sql(
+          `INSERT INTO NOMINA_DETALLE(ID_NOMINA_EMPLEADO,ID_EMPLEADO,ID_PERIODO_NOMINA,ID_CONCEPTO_NOMINA,ORDEN,DESCRIPCION,NATURALEZA,BASE_CALCULO,CANTIDAD,MONTO,AFECTA_IGSS,AFECTA_ISR,AFECTA_PRESTACIONES)
+          SELECT :id,:empleado,:periodo,ID_CONCEPTO_NOMINA,:orden,:descripcion,NATURALEZA,TO_NUMBER(:monto),1,TO_NUMBER(:monto),AFECTA_IGSS,AFECTA_ISR,AFECTA_PRESTACIONES FROM CONCEPTOS_NOMINA WHERE CODIGO=:codigo AND VIGENTE_DESDE=DATE '2026-01-01'`,
+          {
+            id,
+            empleado: luis,
+            periodo: idPeriodo,
+            orden: i + 1,
+            descripcion: linea.descripcion,
+            monto: linea.monto,
+            codigo: linea.concepto.codigo,
+          },
+        );
+      await sql(
+        "INSERT INTO PAGOS_NOMINA(ID_EMPLEADO,MES,TIPO_PAGO,ID_NOMINA_EMPLEADO) VALUES(:empleado,TO_DATE(:mes||'-01','YYYY-MM-DD'),:tipoPago,:id)",
+        { empleado: luis, mes, tipoPago, id },
+      );
+      await c.commit();
+    };
     return {
       ana,
       luis,
       dep,
       hoy,
+      registrarMensual,
       limpiar: async () => {
         try {
           await limpiar();

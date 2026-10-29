@@ -7,10 +7,12 @@ import { Decimal } from 'decimal.js';
 import { dinero } from '../../shared/utils/dinero.js';
 import { ErrorConflicto } from '../../shared/errors/errors.js';
 import type { Entrada, Resultado } from './nomina.types.js';
+import type { ResultadoPago } from './pago.calculo.js';
 import type { FilaNomina, Guardado } from './nomina.repository.js';
 import type { FormatoIgss } from './nomina.schemas.js';
 import { generarBoletasPdf, esPrestacion } from './boleta.pdf.js';
 import type { DatosBoleta } from './boleta.pdf.js';
+import { movimientoDesdeSnapshot, resumenMensualNomina } from './nomina.resumen.service.js';
 export { nombreBoleta, tituloBoleta, nombreLoteBoletas } from './boleta.pdf.js';
 export interface Snapshot {
   entrada: Entrada;
@@ -249,7 +251,7 @@ export function excel(filas: (string | number)[][]) {
         (f, i) =>
           `<row r="${i + 1}">${f
             .map((v, j) =>
-              i > 0 && j >= 6 && /^\d+(\.\d+)?$/.test(String(v))
+              i > 0 && j >= 6 && /^-?\d+(\.\d+)?$/.test(String(v))
                 ? `<c r="${String.fromCharCode(65 + j)}${i + 1}" t="n"><v>${xml(v)}</v></c>`
                 : `<c r="${String.fromCharCode(65 + j)}${i + 1}" t="inlineStr"><is><t xml:space="preserve">${xml(v)}</t></is></c>`,
             )
@@ -324,14 +326,19 @@ export function reporteIgss(
   out.push('[Liquidaciones]');
   f.tipos.forEach((t, i) => linea([i + 1, t.codigo, visible(inicio), visible(fin), 'O', '']));
   out.push('[Empleados]');
-  const grupos = new Map<number, Guardado[]>();
-  for (const n of filas) {
-    const tipo = (snapshot(n).resultado as Resultado & { tipoPago?: string }).tipoPago;
-    if (tipo && tipo !== 'PAGO') continue;
-    grupos.set(n.idEmpleado, [...(grupos.get(n.idEmpleado) ?? []), n]);
-  }
+  const resumen = resumenMensualNomina(filas.map(movimientoDesdeSnapshot), false);
+  if (resumen.parcial)
+    throw new ErrorConflicto(
+      'Falta el pago mensual: el anticipo es un resumen parcial y no permite declarar IGSS.',
+    );
   const extras: { etiqueta: string; linea: unknown[] }[] = [];
-  for (const [id, ns] of grupos) {
+  for (const mensual of resumen.registros) {
+    const id = mensual.idEmpleado;
+    const ns = filas.filter(
+      (n) =>
+        mensual.boletas.includes(n.id) &&
+        (snapshot(n).resultado as ResultadoPago).tipoPago !== 'ANTICIPO',
+    );
     const s = snapshot(ns.at(-1)!),
       e = s.entrada.empleado,
       m = f.empleados.find((v) => v.id === id),
@@ -353,8 +360,8 @@ export function reporteIgss(
         m.segundoApellido,
         m.apellidoCasada,
       ];
-    const total = ns.reduce((v, n) => v.plus(snapshot(n).resultado.baseIgss), new Decimal(0)),
-      dias = ns.reduce((v, n) => v.plus(snapshot(n).resultado.dias), new Decimal(0));
+    const total = mensual.baseIgss,
+      dias = new Decimal(mensual.dias);
     let horas = '';
     if (t.tiempo === 'TP') {
       let totalHoras = new Decimal(0);

@@ -3168,3 +3168,92 @@ Estado: implementada el 27/10/2026 en `v1.2`. Alcance C1.1 y C1.2.
    corregir. La actualización no ejecuta reversiones ni recalcula nómina operativa automáticamente.
 5. Pendiente operativo: validación del supuesto por el contador y revisión de hallazgos históricos.
    C1.3–C1.5 y C2–C8 permanecen para las siguientes fases.
+
+## Ronda 3 — FASE R3-2: totales mensuales sin duplicar el anticipo
+
+Estado: implementada el 28/10/2026 en `v1.2`. Alcance C1.3 y C1.4.
+
+### Causa y reproducción
+
+- Árbol limpio y rama `v1.2` al iniciar; leídos AGENTS.md con los tres adendos y el progreso v1.
+- Historial sumaba TOTAL_INGRESOS y TOTAL_DESCUENTOS de las dos boletas. Pago ya contiene el
+  devengado mensual y su descuento técnico ANTICIPO_PAGADO: sumar Anticipo duplicaba ingresos
+  y presentar el neteo como deducción inflaba descuentos. Inicio consultaba solo la quincena de hoy.
+- La regresión Oracle/API nueva falló antes del arreglo: con extras, Q18,825.00 de ingresos y
+  Q7,898.99 de descuentos, frente a Q12,075.00/Q1,148.99 correctos. El neto Q10,926.01 ya era
+  correcto. Evidencia local: `/private/tmp/nomina2-r32-rojo.log`; esquema temporal eliminado.
+
+### Hecho y decisiones
+
+- Servicio común `resumenMensualNomina`, por empleado/mes y con Decimal/half-up: ingresos toma
+  DEV del Pago, descuentos excluye ANTICIPO_PAGADO y neto suma ambos pagos. Si un empleado solo
+  tiene Anticipo usa sus importes y marca parcial antes de consolidar, incluso en un lote mixto.
+- AUS ya resta en DEV: su línea tampoco se vuelve a deducir en el resumen. Una devolución ISR
+  reduce el ISR/deducción efectiva y conserva DEV y netos archivados; Excel admite esos valores
+  numéricos con signo. Las quincenas v0 siguen devengando por separado; se deduplican IDs físicos.
+- Eliminadas sumas independientes del historial, periodo/evolución RH y ranking remunerativo.
+  El repositorio obtiene movimientos/detalles vigentes con binds; el servicio conserva la lógica
+  de consolidación. Se excluyen resultados inactivos, versiones descartadas y pagos revertidos.
+- Historial y portal mantienen boletas individuales y añaden resumen/totales independientes de
+  la página. Excel/PDF de planilla consolidan una fila por empleado/mes/tipo; sus totales usan la
+  misma fuente. Los intervalos v0/anticipos conservan sus fechas reales; Pago muestra el mes.
+- IGSS usa la base afecta y los días del mismo resumen, conserva sus 19 campos y rechaza meses
+  parciales. Horas de tiempo parcial y licencias siguen procediendo de las fuentes efectivas,
+  sin sumar el Anticipo. Prestaciones anuales permanecen separadas del salario.
+- Inicio publica/consume `nominaMes`, independiente de que exista la quincena actual. Tarjetas
+  «Nómina bruta del mes»/«Nómina neta del mes», marca «Parcial: solo anticipo» y tooltips con foco,
+  cursor y Escape. Aportes también usa el mes; evolución muestra seis meses con periodos.
+  Hints, recorridos manuales, NOMINA_V1 y DASHBOARD_RH actualizados.
+- No se editaron migraciones, motores de pago, nóminas confirmadas, PDF archivados ni snapshots.
+  La corrección es de consulta: no necesita revertir pagos ni un diagnóstico de importes persistidos.
+
+### Supuestos y compatibilidad
+
+- Los filtros delimitan los movimientos incluidos; filtrar solo Pago/Anticipo o un periodo
+  limita también el neto al flujo seleccionado. Para comparar con Inicio se consulta el mes
+  completo sin filtro de tipo/periodo. La paginación nunca restringe el resumen ni la exportación.
+- Historial/exportaciones conservan las prestaciones en grupos propios; Inicio/IGSS las excluyen.
+  El top remunerativo conserva su criterio de pagos mensuales confirmados/v0 cerrado, sin anticipos
+  parciales. La consulta mensual conserva resultados v0 vigentes provisionales, como el historial.
+- Históricos v1 sin DEV explícito usan ingresos menos AUS archivada. No se inventan tasas ni se
+  consultan salarios actuales para corregir historia. Un pago confirmado con importe incorrecto
+  conserva el procedimiento ADMIN de diagnóstico/reversión documentado en R3-1.
+- Ajustadas dos fixtures previas: IGSS representa quincenas v0 con IDs distintos en vez de repetir
+  la misma boleta; el tablero legado espera dinero a dos decimales. No se rebajan sus aserciones.
+- Se conserva el rango de años admitido por remuneraciones. El primer E2E detectó que reutilizar
+  la validación pública de historial restringía indebidamente 1900; corregida la integración,
+  manteniendo los validadores originales de ambos endpoints y la comprobación de vacío.
+
+### Validación
+
+- Node 20.20.2: **829 pruebas aprobadas** (479 backend, 343 frontend, siete del exportador).
+  Diez regresiones nuevas de resumen y dos de interfaz. SB Q10,000 sin extras: Anticipo Q5,250,
+  DEV Q10,250, IGSS Q483, ISR Q288.35, deducciones Q771.35 y neto mensual Q9,478.65.
+  Incluyen solo Anticipo, lote completo/mixto, alta 08/10, alta posterior al 15, AUS, centavos,
+  varios meses, v0, prestaciones y devolución ISR; snapshots originales conservados.
+- **131 pruebas Oracle/Supertest aprobadas**: pagos 22 (dos nuevas), dashboard 11, comunicación 16
+  y seguridad 82. Comparadas cifras de historial por año/mes, totales con página de una boleta,
+  Excel OOXML, texto PDF y base de reporte IGSS. Las suites afectadas de pagos/dashboard se
+  repitieron tras el ajuste de devolución ISR. Solo esquemas N2SEC desechables, retirados.
+- **Tres E2E de Inicio aprobados en producción**, con imágenes API/nginx, TLS, Chromium y Oracle
+  reales: dos regresiones de dashboard (alternancias, enlaces, móvil, movimiento reducido, ayuda
+  y axe A/AA) y la nueva secuencia Anticipo parcial → Pago mensual. Las tarjetas coinciden con
+  historial paginado, se retira la marca parcial y ambos tooltips funcionan con teclado.
+  Datos exclusivamente en el esquema N2E2E, eliminado al finalizar.
+- PDF consolidado renderizado con Poppler e inspeccionado, sin cortes ni solapamientos; membrete,
+  fila y totales correctos. Tarjetas inspeccionadas en captura. Artefactos QA en tmp, ignorados.
+  Fontconfig necesitó configuración/caché temporal escribible; no cambió el documento.
+- Lint, TypeScript strict (incluido E2E), build backend/frontend, formato, secretos y diff
+  aprobados. Se conserva el aviso previo de Vite por tamaño de chunk. Sin dependencias nuevas.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run format:check`; `npm run build`.
+2. Oracle saludable: `npm run verify:pagos`, `npm run verify:tableros`,
+   `npm run verify:comunicacion` y `npm run verify:security` (esquemas desechables).
+3. `npm run test:e2e -- --production dashboard-rh.spec.ts` verifica las tarjetas con API real.
+4. Reconstruir API/web con `docker compose up --build -d nomina2-api nomina2-web` y recargar.
+   En Inicio e Historial, seleccionar el mismo mes completo y comparar ingresos/neto; descargar
+   Excel/PDF. Con solo Anticipo debe aparecer la marca parcial; IGSS requiere el mes cerrado.
+5. Sin pendientes de implementación R3-2. No se reinició ni escribió en la instalación operativa.
+   C1.5 y C2–C8 quedan para sus fases; continúa la validación operativa del supuesto R3-1.

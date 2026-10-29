@@ -1,59 +1,10 @@
 import oracledb from 'oracledb';
 import type { Connection } from 'oracledb';
 import { nombrePersonaSql } from '../../shared/utils/nombre.js';
-import type { QueryRemuneraciones, QueryVacacionesTablero } from './tableros.schemas.js';
+import type { QueryVacacionesTablero } from './tableros.schemas.js';
 const opts = { outFormat: oracledb.OUT_FORMAT_OBJECT };
 const fecha = (bind: string) => `TO_DATE(:${bind},'YYYY-MM-DD')`;
 const numeroTexto = (col: string) => `TO_CHAR(${col},'TM9','NLS_NUMERIC_CHARACTERS=''.,''')`;
-export interface Remuneracion {
-  id: number;
-  nombre: string;
-  salarioBase: string;
-  comisiones: string;
-  horasExtra: string;
-  totalDevengado: string;
-}
-// La lista blanca solo elige expresiones internas. Los valores de filtros siempre usan binds.
-export function remuneracionesSql(q: QueryRemuneraciones) {
-  const departamento = q.agrupar === 'departamento';
-  const id = departamento ? 'ID_DEPARTAMENTO' : 'ID_EMPLEADO';
-  const nombre = departamento ? 'DEPARTAMENTO' : 'NOMBRE';
-  const metrica = { salarioBase: 'SB', comisiones: 'COM', horasExtra: 'HE', totalDevengado: 'DEV' }[
-    q.metrica
-  ];
-  return `WITH RESULTADOS AS (
-    SELECT N.ID_NOMINA_EMPLEADO,N.ID_EMPLEADO,N.TOTAL_INGRESOS,'V1' MOTOR
-    FROM PAGOS_NOMINA PN JOIN NOMINA_EMPLEADO N ON N.ID_NOMINA_EMPLEADO=PN.ID_NOMINA_EMPLEADO
-    JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA
-    WHERE PN.MES=${fecha('inicio')} AND PN.TIPO_PAGO='PAGO' AND PN.ESTADO='PAGADO' AND PN.ACTIVO=1 AND N.ACTIVO=1 AND P.ACTIVO=1 AND P.MOTOR='V1'
-    UNION ALL
-    SELECT N.ID_NOMINA_EMPLEADO,N.ID_EMPLEADO,N.TOTAL_INGRESOS,'V0'
-    FROM PERIODOS_NOMINA P JOIN NOMINA_EMPLEADO N ON N.ID_PERIODO_NOMINA=P.ID_PERIODO_NOMINA AND N.VERSION_CALCULO=P.VERSION_CALCULO AND N.ACTIVO=1
-    WHERE P.FECHA_INICIO>=${fecha('inicio')} AND P.FECHA_INICIO<=LAST_DAY(${fecha('inicio')}) AND P.ACTIVO=1 AND P.ESTADO='CERRADO' AND P.MOTOR='V0'
-  ), IMPORTES AS (
-    SELECT R.ID_NOMINA_EMPLEADO,
-    SUM(CASE WHEN C.CODIGO='SALARIO_BASE' THEN D.MONTO ELSE 0 END) SB,
-    SUM(CASE WHEN C.CODIGO='COMISION' THEN D.MONTO ELSE 0 END) COM,
-    SUM(CASE WHEN C.CODIGO='HORAS_EXTRA' THEN D.MONTO ELSE 0 END) HE,
-    SUM(CASE WHEN C.CODIGO='AUSENCIA_SIN_GOCE' THEN D.MONTO ELSE 0 END) AUS
-    FROM RESULTADOS R JOIN NOMINA_DETALLE D ON D.ID_NOMINA_EMPLEADO=R.ID_NOMINA_EMPLEADO AND D.ACTIVO=1
-    JOIN CONCEPTOS_NOMINA C ON C.ID_CONCEPTO_NOMINA=D.ID_CONCEPTO_NOMINA GROUP BY R.ID_NOMINA_EMPLEADO
-  ), BASE AS (
-    SELECT R.ID_EMPLEADO,JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.idDepartamento' RETURNING NUMBER) ID_DEPARTAMENTO,
-    JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.departamento') DEPARTAMENTO,
-    ${nombrePersonaSql("JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.nombres')", "JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.apellidos')")} NOMBRE,
-    NVL(I.SB,0) SB,NVL(I.COM,0) COM,NVL(I.HE,0) HE,R.TOTAL_INGRESOS-CASE WHEN R.MOTOR='V1' THEN NVL(I.AUS,0) ELSE 0 END DEV
-    FROM RESULTADOS R JOIN NOMINA_EMPLEADO N ON N.ID_NOMINA_EMPLEADO=R.ID_NOMINA_EMPLEADO LEFT JOIN IMPORTES I ON I.ID_NOMINA_EMPLEADO=R.ID_NOMINA_EMPLEADO
-  ), AGRUPADOS AS (
-    SELECT ${id} ID,MIN(${nombre}) NOMBRE,SUM(SB) SB,SUM(COM) COM,SUM(HE) HE,SUM(DEV) DEV FROM BASE GROUP BY ${id}
-  ) SELECT ID "id",NOMBRE "nombre",${numeroTexto('SB')} "salarioBase",${numeroTexto('COM')} "comisiones",${numeroTexto('HE')} "horasExtra",${numeroTexto('DEV')} "totalDevengado"
-  FROM AGRUPADOS WHERE ${metrica}>0 ORDER BY ${metrica} DESC,ID FETCH FIRST 5 ROWS ONLY`;
-}
-export async function remuneraciones(c: Connection, q: QueryRemuneraciones, mes: string) {
-  return (
-    (await c.execute<Remuneracion>(remuneracionesSql(q), { inicio: `${mes}-01` }, opts)).rows ?? []
-  );
-}
 export interface Inasistencia {
   id: number;
   nombre: string;

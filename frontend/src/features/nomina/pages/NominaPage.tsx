@@ -460,6 +460,12 @@ function Planilla({
               </div>
             ))}
         </div>
+        <p className="campo-hint mb-4">
+          Resumen mensual de los registros filtrados: el devengado del pago incluye lo anticipado;
+          «Anticipo ya pagado» es neteo, nunca descuento. Neto = anticipo + pago. Las boletas
+          individuales conservan sus importes originales.
+        </p>
+        {datos.data?.parcial && <Badge tono="aviso">Parcial: solo anticipo</Badge>}
         <div className="flex flex-wrap justify-between gap-3">
           <Button
             icono="filtrar"

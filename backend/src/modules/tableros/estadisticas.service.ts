@@ -12,6 +12,8 @@ import type {
   QueryVacacionesTablero,
 } from './tableros.schemas.js';
 import * as repo from './estadisticas.repository.js';
+import { consultarResumenMensual } from '../nomina/nomina.resumen.service.js';
+import { querySchema } from '../nomina/nomina.schemas.js';
 export function crearEstadisticasService(db: BaseDatos, ahora: typeof reloj = reloj) {
   function leer<T>(auth: Autenticacion, consultar: (c: Connection, hoy: string) => Promise<T>) {
     if (!['RH', 'ADMIN'].includes(auth.rol)) throw new ErrorProhibido();
@@ -29,7 +31,43 @@ export function crearEstadisticasService(db: BaseDatos, ahora: typeof reloj = re
     remuneraciones: (auth: Autenticacion, q: QueryRemuneraciones) =>
       leer(auth, async (c, hoy) => {
         const mes = q.mes ?? hoy.slice(0, 7);
-        const filas = await repo.remuneraciones(c, q, mes);
+        const resumen = await consultarResumenMensual(
+          c,
+          { ...querySchema.parse({}), anio: Number(mes.slice(0, 4)), mes: Number(mes.slice(5, 7)) },
+          undefined,
+          undefined,
+          { soloSalarios: true, soloConfirmados: true },
+        );
+        const grupos = new Map<
+          number,
+          {
+            id: number;
+            nombre: string;
+            salarioBase: Decimal;
+            comisiones: Decimal;
+            horasExtra: Decimal;
+            totalDevengado: Decimal;
+          }
+        >();
+        for (const r of resumen.registros.filter((r) => !r.parcial)) {
+          const departamento = q.agrupar === 'departamento';
+          const id = departamento ? r.idDepartamento : r.idEmpleado;
+          const grupo = grupos.get(id) ?? {
+            id,
+            nombre: departamento ? r.departamento : r.empleado.split(' · ').slice(1).join(' · '),
+            salarioBase: new Decimal(0),
+            comisiones: new Decimal(0),
+            horasExtra: new Decimal(0),
+            totalDevengado: new Decimal(0),
+          };
+          for (const k of ['salarioBase', 'comisiones', 'horasExtra', 'totalDevengado'] as const)
+            grupo[k] = grupo[k].plus(k === 'totalDevengado' ? r.ingresos : r[k]);
+          grupos.set(id, grupo);
+        }
+        const filas = [...grupos.values()]
+          .filter((f) => f[q.metrica].gt(0))
+          .sort((a, b) => b[q.metrica].cmp(a[q.metrica]) || a.id - b.id)
+          .slice(0, 5);
         return {
           mes,
           agrupar: q.agrupar,

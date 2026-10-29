@@ -74,7 +74,8 @@ export function RhGraficas({
       <Card>
         <h2>Evolución de nómina</h2>
         <p className="campo-hint">
-          Últimos seis periodos existentes · versión actual; abiertos son provisionales
+          Últimos seis meses con periodos · anticipo y pago sin duplicar ingresos; abiertos son
+          provisionales
         </p>
         {datos.length ? (
           <>
@@ -112,7 +113,8 @@ export function RhGraficas({
               <ul>
                 {evolucion.map((p) => (
                   <li key={p.id}>
-                    {fechaHora(p.inicio)} · {p.estado}: bruto{' '}
+                    {fechaHora(p.inicio)} · {p.estado}
+                    {p.parcial ? ' · Parcial: solo anticipo' : ''}: bruto{' '}
                     {p.bruto === null ? 'sin calcular' : moneda(p.bruto)}, neto{' '}
                     {p.neto === null ? 'sin calcular' : moneda(p.neto)}
                   </li>

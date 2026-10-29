@@ -7,6 +7,8 @@ import * as vacaciones from '../vacaciones/vacaciones.repository.js';
 import { calcularSaldo } from '../vacaciones/vacaciones.reglas.js';
 import { listar, reloj } from '../comunicacion/comunicacion.repository.js';
 import * as repo from './tableros.repository.js';
+import { consultarResumenMensual } from '../nomina/nomina.resumen.service.js';
+import { querySchema } from '../nomina/nomina.schemas.js';
 export function crearTablerosService(db: BaseDatos) {
   return {
     estadisticas: crearEstadisticasService(db),
@@ -21,17 +23,63 @@ export function crearTablerosService(db: BaseDatos) {
         await c.execute('SET TRANSACTION READ ONLY');
         try {
           const ahora = await reloj(c);
-          if (rol === 'rh')
+          if (rol === 'rh') {
+            const mes = ahora.slice(0, 7);
+            const mensual = async (fecha: string) => {
+              const r = await consultarResumenMensual(
+                c,
+                {
+                  ...querySchema.parse({}),
+                  anio: Number(fecha.slice(0, 4)),
+                  mes: Number(fecha.slice(5, 7)),
+                },
+                undefined,
+                undefined,
+                { soloSalarios: true },
+              );
+              return {
+                mes: fecha,
+                ...r.totales,
+                parcial: r.parcial,
+                empleados: r.empleados,
+                calculada: r.registros.length > 0,
+              };
+            };
+            const nominaMes = await mensual(mes);
+            const periodo = await repo.periodo(c);
+            const evolucion = [];
+            for (const p of await repo.evolucion(c)) {
+              const r =
+                p.inicio.slice(0, 7) === mes ? nominaMes : await mensual(p.inicio.slice(0, 7));
+              evolucion.push({
+                ...p,
+                bruto: r.calculada ? r.ingresos : null,
+                neto: r.calculada ? r.neto : null,
+                costoPatronal: r.calculada ? r.patronal : null,
+                empleados: r.empleados,
+                parcial: r.parcial,
+              });
+            }
             return {
               rol: 'RH' as const,
               ahora,
               indicadores: await repo.indicadoresRh(c),
-              periodo: await repo.periodo(c),
+              periodo: periodo
+                ? {
+                    ...periodo,
+                    bruto: nominaMes.calculada ? nominaMes.ingresos : null,
+                    neto: nominaMes.calculada ? nominaMes.neto : null,
+                    costoPatronal: nominaMes.calculada ? nominaMes.patronal : null,
+                    empleados: nominaMes.empleados,
+                  }
+                : null,
+              nominaMes,
               departamentos: await repo.departamentos(c),
-              evolucion: await repo.evolucion(c),
+              evolucion,
               celebraciones: await repo.celebraciones(c),
               alertas: await repo.alertas(c),
             };
+          }
           if (rol === 'admin')
             return {
               rol: 'ADMIN' as const,

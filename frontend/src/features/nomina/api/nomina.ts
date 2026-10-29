@@ -60,6 +60,7 @@ const listado = z.object({
   pagina: z.number(),
   limite: z.number(),
   totales,
+  parcial: z.boolean().optional(),
 });
 const linea = z.object({
   descripcion: z.string(),

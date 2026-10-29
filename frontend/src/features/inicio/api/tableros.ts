@@ -25,6 +25,7 @@ const periodo = z.object({
   neto: z.string().nullable(),
   costoPatronal: z.string().nullable(),
   empleados: z.number(),
+  parcial: z.boolean().optional(),
 });
 export const rhSchema = z.object({
   rol: z.literal('RH'),
@@ -37,6 +38,16 @@ export const rhSchema = z.object({
     vacaciones: z.number(),
   }),
   periodo: periodo.nullable(),
+  nominaMes: z.object({
+    mes: z.string(),
+    ingresos: z.string(),
+    descuentos: z.string(),
+    neto: z.string(),
+    patronal: z.string(),
+    parcial: z.boolean(),
+    empleados: z.number(),
+    calculada: z.boolean(),
+  }),
   departamentos: z.array(z.object({ nombre: z.string(), cantidad: z.number() })),
   evolucion: z.array(periodo),
   celebraciones: z.array(

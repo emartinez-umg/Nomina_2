@@ -38,6 +38,8 @@ import {
 import type { Query } from './nomina.schemas.js';
 import * as repo from './nomina.repository.js';
 import * as exportar from './nomina.exportar.js';
+import { consultarResumenMensual } from './nomina.resumen.service.js';
+export { resumenMensualNomina } from './nomina.resumen.service.js';
 const audit = (
   c: Connection,
   actor: ActorAuditoria,
@@ -104,8 +106,18 @@ export function crearNominaService(db: BaseDatos) {
       );
     return n;
   };
+  const listar = async (c: Connection, q: Query, usuario?: number, periodo?: number) => {
+    const r = await repo.listar(c, q, usuario, periodo);
+    const resumen = await consultarResumenMensual(c, q, usuario, periodo);
+    return {
+      ...r,
+      totales: resumen.totales,
+      parcial: resumen.parcial,
+      resumenMensual: resumen.registros,
+    };
+  };
   const todos = async (c: Connection, q: Query, periodo?: number) => {
-    const r = await repo.listar(c, { ...q, pagina: 1, limite: 100 }, undefined, periodo),
+    const r = await listar(c, { ...q, pagina: 1, limite: 100 }, undefined, periodo),
       registros = [...r.registros];
     if (r.total > 10000)
       throw new ErrorConflicto('Reduce los filtros a un máximo de 10,000 boletas por exportación.');
@@ -249,7 +261,7 @@ export function crearNominaService(db: BaseDatos) {
         return { id, estado: nuevo, version, alertas };
       }),
     listar: (auth: Autenticacion, q: Query, id?: number) =>
-      lectura((c) => repo.listar(c, q, auth.rol === 'EMPLEADO' ? auth.idUsuario : undefined, id)),
+      lectura((c) => listar(c, q, auth.rol === 'EMPLEADO' ? auth.idUsuario : undefined, id)),
     detalle: (auth: Autenticacion, id: number) =>
       lectura(async (c) => {
         const n = await detalle(c, auth, id),
@@ -275,6 +287,21 @@ export function crearNominaService(db: BaseDatos) {
         const r = await todos(c, q, id);
         if (!r.registros.length)
           throw new ErrorConflicto('No hay resultados para exportar con estos filtros.');
+        const consolidados = r.resumenMensual.map((s) => {
+          const fila = r.registros.find((f) => f.id === s.boletas.at(-1))!;
+          const boletas = r.registros.filter((f) => s.boletas.includes(f.id));
+          return {
+            ...fila,
+            ...s,
+            inicio:
+              fila.tipoPago === 'PAGO' ? `${s.mes}-01` : boletas.map((f) => f.inicio).sort()[0]!,
+            fin: boletas
+              .map((f) => f.fin)
+              .sort()
+              .at(-1)!,
+            estado: s.parcial ? 'Parcial: solo anticipo' : fila.estado,
+          };
+        });
         if (formato === 'excel')
           return exportar.archivo(
             exportar.excel([
@@ -290,7 +317,7 @@ export function crearNominaService(db: BaseDatos) {
                 'Neto Q',
                 'Patronal Q',
               ],
-              ...r.registros.map((f) => [
+              ...consolidados.map((f) => [
                 f.empleado,
                 f.departamento,
                 f.inicio,
@@ -320,7 +347,7 @@ export function crearNominaService(db: BaseDatos) {
           );
         if (formato === 'pdf')
           return exportar.archivo(
-            await exportar.planillaPdf(r.registros, r.totales, await membrete(c), [
+            await exportar.planillaPdf(consolidados, r.totales, await membrete(c), [
               ...(await firmas(c, r.registros)).values(),
             ]),
             'planilla.pdf',

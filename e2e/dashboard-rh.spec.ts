@@ -190,3 +190,43 @@ test('R2-9: móvil, movimiento reducido y vacío de remuneraciones con API real'
   const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(axe.violations).toEqual([]);
 });
+test('R3-2: Inicio muestra anticipo parcial y total mensual igual al historial, con Oracle real', async ({
+  page,
+}) => {
+  await entrar(page);
+  const tarjeta = (titulo: string) => page.locator('.indicador').filter({ hasText: titulo });
+  await fixture.registrarMensual('ANTICIPO');
+  await page.reload();
+  const bruto = tarjeta('Nómina bruta del mes'),
+    neto = tarjeta('Nómina neta del mes');
+  await expect(bruto).toContainText('Q 5,250.00');
+  await expect(neto).toContainText('Q 5,250.00');
+  await expect(bruto).toContainText('Parcial: solo anticipo');
+  await expect(neto).toContainText('Parcial: solo anticipo');
+  await bruto.locator('.tooltip').focus();
+  await expect(page.getByRole('tooltip')).toContainText('no se suma el anticipo otra vez');
+  await page.keyboard.press('Escape');
+  await fixture.registrarMensual('PAGO');
+  await page.reload();
+  await expect(bruto).toContainText('Q 10,250.00');
+  await expect(neto).toContainText('Q 9,478.65');
+  await expect(bruto).not.toContainText('Parcial');
+  await expect(neto).not.toContainText('Parcial');
+  await neto.locator('.tooltip').focus();
+  await expect(page.getByRole('tooltip')).toContainText('Suma del neto del anticipo');
+  await page.keyboard.press('Escape');
+  const [anio, mes] = fixture.hoy.split('-');
+  const r = await page.request.get(
+    `/api/nomina/historial?anio=${anio}&mes=${mes}&idEmpleado=${fixture.luis}&limite=1`,
+  );
+  expect(r.status()).toBe(200);
+  const historial = (await r.json()).data;
+  expect(historial.total).toBe(2);
+  expect(historial.totales).toMatchObject({
+    ingresos: '10250.00',
+    descuentos: '771.35',
+    neto: '9478.65',
+    igss: '483.00',
+  });
+  await page.screenshot({ path: 'tmp/pdfs/r3-2-nomina-mensual.png', fullPage: true });
+});

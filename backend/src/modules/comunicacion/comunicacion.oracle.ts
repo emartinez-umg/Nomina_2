@@ -448,8 +448,13 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
       );
     const r = await rh.agent.get('/api/tableros/rh').expect(200);
     expect(r.body.data.indicadores.activos).toBe(2);
-    expect(r.body.data.periodo.bruto).toBe('2500');
-    expect(r.body.data.periodo.neto).toBe('2400');
+    expect(r.body.data.periodo.bruto).toBe('2500.00');
+    expect(r.body.data.periodo.neto).toBe('2400.00');
+    expect(r.body.data.nominaMes).toMatchObject({
+      ingresos: '2500.00',
+      neto: '2400.00',
+      parcial: false,
+    });
     expect(r.body.data.periodo.empleados).toBe(1);
     expect(r.body.data.evolucion).toHaveLength(1);
     expect(r.body.data.departamentos).toHaveLength(2);

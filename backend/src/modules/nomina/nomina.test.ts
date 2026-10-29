@@ -427,7 +427,19 @@ describe('Exportaciones exactas', () => {
         },
       ],
     });
-    const a = reporteIgss([n, n], formato, 2026, 1, new Date('2026-02-01T18:34:00Z')),
+    const segundaEntrada = { ...e, inicio: '2026-01-16', fin: '2026-01-31' };
+    const segunda = {
+      ...n,
+      id: n.id + 1,
+      inicio: segundaEntrada.inicio,
+      fin: segundaEntrada.fin,
+      snapshot: JSON.stringify({
+        entrada: segundaEntrada,
+        resultado: calcularNomina(segundaEntrada),
+        empresa: null,
+      }),
+    };
+    const a = reporteIgss([n, segunda], formato, 2026, 1, new Date('2026-02-01T18:34:00Z')),
       s = Buffer.from(a.base64, 'base64').toString();
     expect(s).toContain('[Liquidaciones]\r\n1|1|01/01/2026|31/01/2026|O|');
     const registro = s.split('[Empleados]\r\n')[1]!.split('\r\n')[0]!;

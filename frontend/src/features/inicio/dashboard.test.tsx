@@ -134,6 +134,16 @@ function datos(u: URL, vacio = false): unknown {
     ahora: actualizadoEn,
     indicadores: { activos: 2, altas: 1, bajas: 0, solicitudes: 3, vacaciones: 2 },
     periodo: null,
+    nominaMes: {
+      mes: '2026-10',
+      ingresos: '10250.00',
+      descuentos: '771.35',
+      neto: '9478.65',
+      patronal: '1267.00',
+      parcial: false,
+      empleados: 1,
+      calculada: true,
+    },
     departamentos: [],
     evolucion: [],
     celebraciones: [],
@@ -178,6 +188,38 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchDatos());
 });
 describe('R2-9: primera vista de RRHH', () => {
+  it.each([false, true])(
+    'R3-2: tarjetas mensuales desde la API, parcial=%s, con definiciones accesibles',
+    async (parcial) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+          const data = datos(new URL(url, 'http://localhost'));
+          if (url.split('?')[0]!.endsWith('/rh')) {
+            const d = data as { nominaMes: { parcial: boolean; ingresos: string; neto: string } };
+            d.nominaMes.parcial = parcial;
+            if (parcial) d.nominaMes.ingresos = d.nominaMes.neto = '5250.00';
+          }
+          return { ok: true, status: 200, json: async () => ({ ok: true, data }) };
+        }),
+      );
+      mostrar(true);
+      const bruto = await screen.findByText('Nómina bruta del mes');
+      expect(
+        within(bruto.closest('section')!).getByText(parcial ? 'Q 5,250.00' : 'Q 10,250.00'),
+      ).toBeVisible();
+      const neto = screen.getByText('Nómina neta del mes');
+      expect(
+        within(neto.closest('section')!).getByText(parcial ? 'Q 5,250.00' : 'Q 9,478.65'),
+      ).toBeVisible();
+      expect(screen.queryAllByText('Parcial: solo anticipo')).toHaveLength(parcial ? 2 : 0);
+      fireEvent.focus(bruto.querySelector('.tooltip')!);
+      expect(screen.getByRole('tooltip')).toHaveTextContent('no se suma el anticipo otra vez');
+      fireEvent.blur(bruto.querySelector('.tooltip')!);
+      fireEvent.focus(neto.querySelector('.tooltip')!);
+      expect(screen.getByRole('tooltip')).toHaveTextContent('Suma del neto del anticipo');
+    },
+  );
   it('mantiene el texto opaco durante entrada y transición para conservar contraste', async () => {
     preferencia.reducir = false;
     mostrar();

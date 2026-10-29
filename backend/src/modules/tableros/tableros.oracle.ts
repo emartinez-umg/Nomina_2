@@ -23,11 +23,12 @@ import { crearCatalogosService } from '../catalogos/catalogos.service.js';
 import { crearTablerosService } from './tableros.service.js';
 import { crearEstadisticasService } from './estadisticas.service.js';
 import {
-  remuneracionesSql,
   inasistenciasSql,
   vacacionesConteoSql,
   celebracionesSql,
 } from './estadisticas.repository.js';
+import { consultaMovimientosResumen } from '../nomina/nomina.repository.js';
+import { querySchema } from '../nomina/nomina.schemas.js';
 import type { ActorAuditoria } from '../auth/auth.types.js';
 let db: BaseDatos, app: Express, actor: ActorAuditoria;
 let hoy = '2026-12-31';
@@ -663,8 +664,13 @@ describe('R2-8: agregaciones protegidas con Oracle/Supertest', () => {
       for (const [nombre, query, binds] of [
         [
           'REMUNERACIONES',
-          remuneracionesSql({ agrupar: 'departamento', metrica: 'totalDevengado' }),
-          { inicio: '2026-12-01' },
+          consultaMovimientosResumen(
+            querySchema.parse({ anio: 2026, mes: 12 }),
+            undefined,
+            undefined,
+            { soloConfirmados: true },
+          ).sql,
+          { anio: 2026, mes: 12 },
         ],
         [
           'INASISTENCIAS',
@@ -685,7 +691,7 @@ describe('R2-8: agregaciones protegidas con Oracle/Supertest', () => {
           .join('\n');
         expect(plan).toMatch(/SELECT STATEMENT/);
         expect(plan).toMatch(/Predicate Information/);
-        if (nombre === 'REMUNERACIONES') expect(plan).toContain('IX_PAGO_TABLERO');
+        if (nombre === 'REMUNERACIONES') expect(plan).toContain('PAGOS_NOMINA');
         if (nombre === 'INASISTENCIAS') expect(plan).toContain('IX_AUS_TABLERO');
         if (nombre === 'VACACIONES') expect(plan).toContain('IX_VAC_TABLERO');
         const inicio = performance.now();

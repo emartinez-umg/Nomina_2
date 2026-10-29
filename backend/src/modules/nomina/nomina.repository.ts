@@ -16,6 +16,7 @@ import type {
   PeriodoFiscalEstimado,
 } from './nomina.types.js';
 import type { Query } from './nomina.schemas.js';
+import type { MovimientoResumen } from './nomina.resumen.service.js';
 import { ErrorConflicto } from '../../shared/errors/errors.js';
 import * as vacaciones from '../vacaciones/vacaciones.repository.js';
 const opts = {
@@ -385,7 +386,7 @@ export interface FilaNomina {
 }
 function filtros(q: Query, usuario?: number, periodo?: number) {
   const w = [
-      "((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO')))",
+      "P.ACTIVO=1 AND N.ACTIVO=1 AND ((P.MOTOR='V0' AND N.VERSION_CALCULO=P.VERSION_CALCULO) OR (P.MOTOR='V1' AND EXISTS(SELECT 1 FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO' AND PN.ACTIVO=1)))",
     ],
     b: Binds = {};
   if (usuario !== undefined) {
@@ -432,17 +433,7 @@ const from =
 export async function listar(c: Connection, q: Query, usuario?: number, periodo?: number) {
   const { w, b } = filtros(q, usuario, periodo);
   const total = (
-    await filas<{
-      n: number;
-      ingresos: string;
-      descuentos: string;
-      neto: string;
-      patronal: string;
-    }>(
-      c,
-      `SELECT COUNT(*) "n",${str('NVL(SUM(N.TOTAL_INGRESOS),0)')} "ingresos",${str('NVL(SUM(N.TOTAL_DESCUENTOS),0)')} "descuentos",${str('NVL(SUM(N.NETO),0)')} "neto",${str('NVL(SUM(N.COSTO_PATRONAL),0)')} "patronal" FROM ${from} WHERE ${w}`,
-      b,
-    )
+    await filas<{ n: number }>(c, `SELECT COUNT(*) "n" FROM ${from} WHERE ${w}`, b)
   )[0]!;
   const orden = {
       inicio: 'P.FECHA_INICIO',
@@ -463,13 +454,48 @@ export async function listar(c: Connection, q: Query, usuario?: number, periodo?
     total: total.n,
     pagina: q.pagina,
     limite: q.limite,
-    totales: {
-      ingresos: total.ingresos,
-      descuentos: total.descuentos,
-      neto: total.neto,
-      patronal: total.patronal,
-    },
   };
+}
+export function consultaMovimientosResumen(
+  q: Query,
+  usuario?: number,
+  periodo?: number,
+  opciones?: { desde?: string; hasta?: string; soloConfirmados?: boolean },
+) {
+  const { w, b } = filtros(q, usuario, periodo);
+  const condiciones = [w];
+  for (const [clave, operador] of [
+    ['desde', '>='],
+    ['hasta', '<='],
+  ] as const)
+    if (opciones?.[clave]) {
+      condiciones.push(`P.FECHA_INICIO${operador}${fecha(clave)}`);
+      b[clave] = opciones[clave];
+    }
+  if (opciones?.soloConfirmados) condiciones.push("(P.MOTOR='V1' OR P.ESTADO='CERRADO')");
+  const montoConcepto = (codigo: string) =>
+    `NVL((SELECT SUM(D.MONTO) FROM NOMINA_DETALLE D JOIN CONCEPTOS_NOMINA C ON C.ID_CONCEPTO_NOMINA=D.ID_CONCEPTO_NOMINA WHERE D.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND D.ACTIVO=1 AND C.CODIGO='${codigo}'),0)`;
+  const suma = (codigo: string) => str(montoConcepto(codigo));
+  const sql = `SELECT N.ID_NOMINA_EMPLEADO "id",N.ID_EMPLEADO "idEmpleado",
+    JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.idDepartamento' RETURNING NUMBER) "idDepartamento",
+    JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.codigo')||' · '||${nombrePersonaSql("JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.nombres')", "JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.apellidos')")} "empleado",
+    JSON_VALUE(N.DATOS_EMPLEADO,'$.entrada.empleado.departamento') "departamento",
+    TO_CHAR(P.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(P.FECHA_FIN,'YYYY-MM-DD') "fin",P.MOTOR "motor",
+    COALESCE((SELECT PN.TIPO_PAGO FROM PAGOS_NOMINA PN WHERE PN.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO AND PN.ESTADO='PAGADO' AND PN.ACTIVO=1),JSON_VALUE(N.DATOS_EMPLEADO,'$.resultado.tipoPago')) "tipoPago",
+    ${str('N.TOTAL_INGRESOS')} "ingresos",${str('N.TOTAL_DESCUENTOS')} "descuentos",${str('N.NETO')} "neto",${str('N.COSTO_PATRONAL')} "patronal",
+    ${str("JSON_VALUE(N.DATOS_EMPLEADO,'$.resultado.devengado' RETURNING NUMBER)")} "devengado",
+    ${str("NVL(JSON_VALUE(N.DATOS_EMPLEADO,'$.resultado.baseIgss' RETURNING NUMBER),0)")} "baseIgss",
+    ${str('N.DIAS_PAGADOS')} "dias",${suma('ANTICIPO_PAGADO')} "anticipoPagado",${suma('AUSENCIA_SIN_GOCE')} "ausencias",
+    ${suma('IGSS_LABORAL')} "igss",${str(`${montoConcepto('ISR')}-${montoConcepto('ISR_DEVOLUCION')}`)} "isr",${suma('ISR_DEVOLUCION')} "devolucionIsr",${suma('SALARIO_BASE')} "salarioBase",${suma('COMISION')} "comisiones",${suma('HORAS_EXTRA')} "horasExtra"
+    FROM ${from} WHERE ${condiciones.join(' AND ')} ORDER BY P.FECHA_INICIO,N.ID_NOMINA_EMPLEADO`;
+  return { sql, binds: b };
+}
+export async function movimientosResumen(
+  c: Connection,
+  ...args: Parameters<typeof consultaMovimientosResumen>
+) {
+  const { sql, binds } = consultaMovimientosResumen(...args);
+  return filas<MovimientoResumen>(c, sql, binds);
 }
 export async function periodos(c: Connection, q: Query) {
   const w = ['P.ACTIVO=1'],

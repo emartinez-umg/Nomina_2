@@ -21,25 +21,41 @@ const RhGraficas = lazy(() => import('./RhGraficas').then((m) => ({ default: m.R
 import { moneda } from '../../../lib/validadores';
 import { hoyGuatemala, fechaVisible } from '../../../lib/validadores';
 import { TableroRh } from '../components/TableroRh';
+import { Tooltip } from '../../../components/ui/Tooltip';
 export function Indicador({
   titulo,
   valor,
   icono,
   detalle,
+  definicion,
+  parcial,
 }: {
   titulo: string;
   valor: string | number;
   icono: NombreIcono;
   detalle?: string;
+  definicion?: string;
+  parcial?: boolean;
 }) {
   const I = iconos[icono];
   return (
     <Card className="indicador">
       <I aria-hidden="true" />
       <div>
-        <p>{titulo}</p>
+        <p>
+          {titulo}{' '}
+          {definicion && (
+            <Tooltip texto={definicion}>
+              <iconos.informacion
+                aria-label={`Definición de ${titulo}`}
+                className="inline h-4 w-4"
+              />
+            </Tooltip>
+          )}
+        </p>
         <strong>{valor}</strong>
         {detalle && <small>{detalle}</small>}
+        {parcial && <Badge tono="aviso">Parcial: solo anticipo</Badge>}
       </div>
     </Card>
   );
@@ -230,29 +246,23 @@ export function InicioPage() {
                       icono="empleados"
                     />
                     <Indicador
-                      titulo="Nómina bruta"
-                      valor={
-                        d.periodo?.bruto !== null && d.periodo?.bruto !== undefined
-                          ? moneda(d.periodo.bruto)
-                          : 'Sin calcular'
-                      }
+                      titulo="Nómina bruta del mes"
+                      valor={d.nominaMes.calculada ? moneda(d.nominaMes.ingresos) : 'Sin calcular'}
                       icono="planilla"
-                      detalle={
-                        d.periodo
-                          ? `${fechaHora(d.periodo.inicio)} – ${fechaHora(d.periodo.fin)} · ${d.periodo.estado}`
-                          : 'No existe el periodo actual'
-                      }
+                      detalle={d.nominaMes.mes.split('-').reverse().join('/')}
+                      parcial={d.nominaMes.parcial}
+                      definicion="Ingresos devengados del mes, después de ausencias sin goce y antes de deducciones. El pago ya incluye lo anticipado: no se suma el anticipo otra vez. Si falta el pago de algún empleado, se incluye solo su anticipo y se marca parcial."
                     />
                     <Indicador
-                      titulo="Nómina neta"
-                      valor={d.periodo?.neto ? moneda(d.periodo.neto) : 'Sin calcular'}
+                      titulo="Nómina neta del mes"
+                      valor={d.nominaMes.calculada ? moneda(d.nominaMes.neto) : 'Sin calcular'}
                       icono="planilla"
+                      parcial={d.nominaMes.parcial}
+                      definicion="Suma del neto del anticipo y del neto del pago mensual. Incluye las deducciones reales (IGSS, ISR y otros); Anticipo ya pagado es un neteo y no un descuento. Excluye Bono 14 y Aguinaldo."
                     />
                     <Indicador
                       titulo="Aportes patronales"
-                      valor={
-                        d.periodo?.costoPatronal ? moneda(d.periodo.costoPatronal) : 'Sin calcular'
-                      }
+                      valor={d.nominaMes.calculada ? moneda(d.nominaMes.patronal) : 'Sin calcular'}
                       icono="planilla"
                       detalle="IGSS, IRTRA e INTECAP informativos"
                     />

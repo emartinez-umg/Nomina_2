@@ -125,6 +125,33 @@ Las cuotas pagadas permanecen intactas. Nuevos planes son mensuales; el residuo 
 - GET `/api/nomina/pagos/zip?mes=AAAA-MM&idDepartamento=…&idEmpleado=…` (filtros opcionales).
 - Boletas, historial (filtro tipoPago), periodos/cierre y formato/exportación IGSS conservan sus rutas.
 
+### Resumen mensual (R3-2, C1.3/C1.4)
+
+`nomina.resumen.service.ts` centraliza `resumenMensualNomina`: agrupa por empleado y mes los
+resultados vigentes, sin recalcular pagos. Historial, Inicio, evolución, remuneraciones y los
+exportadores Excel/PDF/IGSS usan esa misma función, con Decimal y half-up a dos decimales.
+
+- Ingresos = devengado del Pago, que ya incluye lo anticipado. Sin Pago usa solo el Anticipo y
+  marca «Parcial: solo anticipo». El estado parcial se evalúa por empleado antes de sumar el mes.
+- Descuentos excluye `ANTICIPO_PAGADO` (neteo). También excluye `AUSENCIA_SIN_GOCE` en el Pago:
+  esa reducción salarial ya está restada del devengado. Neto = neto Anticipo + neto Pago.
+  Una devolución de ISR reduce la deducción efectiva de ISR; no aumenta el devengado salarial.
+  Puede producir deducciones con signo negativo, conservadas también como números en Excel.
+- SB Q10,000 sin extras: anticipo Q5,250, devengado Q10,250, IGSS Q483. Con el año completo de
+  referencia e ISR Q288.35: deducciones Q771.35, neto mensual Q9,478.65.
+- Los filtros limitan los registros incluidos; la paginación no limita los totales. Filtrar solo
+  Pago o un periodo excluye el neto de los anticipos ajenos a ese filtro. Para comparar con Inicio,
+  consultar el mes completo sin filtro de tipo/periodo. La tabla y los PDF de boletas conservan
+  los importes individuales originales; Excel y PDF de planilla consolidan por empleado y mes.
+- V0 suma sus quincenas vigentes. Las prestaciones anuales conservan grupos separados en historial
+  y exportaciones; Inicio/IGSS las excluyen. IGSS usa base afecta y días del Pago (ambas quincenas
+  en V0), nunca días/base del Anticipo, y rechaza un resumen que aún sea parcial.
+
+Inicio incorpora `nominaMes` (mes, ingresos, descuentos, neto, patronal, empleados, parcial,
+calculada), independiente de que exista la quincena de hoy. Sus dos tarjetas tienen tooltips
+accesibles y la evolución agrupa los últimos seis meses con periodos. No cambia el contenido
+archivado de boletas, snapshots, estados, cuotas ni documentos confirmados.
+
 Oracle puede emitir ORA-01466 justo después del DDL. Las lecturas consistentes de nómina reintentan
 hasta dos veces, esperando un segundo y abriendo otra lectura. No se repiten pagos/escrituras.
 
@@ -140,7 +167,7 @@ pagados sin días activos del 1 al 15 o con incentivo distinto al proporcional. 
 y parámetros guardados en el snapshot, sin tomar salarios ni parámetros actuales. Muestra IDs,
 código, mes, estado del periodo, días, incentivo pagado/esperado y diferencia. Los parámetros
 ausentes o ambiguos se marcan para revisión; no se inventan valores de respaldo. No cubre los
-errores de totales mensuales de C1.3, reservados para otra fase.
+errores de agregación mensual de C1.3, corregidos al consultar por el servicio de resumen mensual.
 
 La actualización del código no modifica pagos, boletas, snapshots ni acumulados ya aceptados.
 ADMIN debe revisar cada hallazgo con RH/contador antes de corregirlo:

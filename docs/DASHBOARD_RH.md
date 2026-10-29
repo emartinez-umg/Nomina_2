@@ -24,7 +24,7 @@ Los IDs y posiciones son números y `esHoy` es booleano. Los nombres usan primer
   sin confirmar. El pago mensual ya contiene todas las comisiones/HE del anticipo. V0 suma las
   dos quincenas cerradas de la versión vigente. Salario base significa las líneas efectivamente
   devengadas, con sus prorrateos, en lugar de sumar el salario nominal mensual dos veces.
-  Total devengado V1 = ingresos menos descuento de ausencias (antes de IGSS/ISR y anticipo);
+  Total devengado V1 procede de `resumenMensualNomina` (antes de IGSS/ISR y neteo del anticipo);
   V0 usa sus ingresos históricos. No simula ni proyecta nómina impaga: sin pagos devuelve vacío.
   Agrupa por IDs y departamento del snapshot, conserva los importes aunque el empleado cambie
   de departamento o egrese. Empates se ordenan por ID. Métricas sin importe positivo no generan barras.

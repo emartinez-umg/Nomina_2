@@ -77,7 +77,7 @@ export const ayudaNomina: DefinicionAyuda = {
       elemento: 'nomina-totales',
       titulo: 'Totales y alertas',
       descripcion:
-        'Los totales suman toda la consulta filtrada, aunque tenga varias páginas. Un neto negativo bloquea la aprobación y muestra el empleado que debes corregir. Las novedades pendientes deben autorizarse o rechazarse antes de recalcular.',
+        'El resumen agrupa por empleado y mes todos los registros filtrados, aunque tengan varias páginas. Ingresos usa el devengado del pago, sin sumar otra vez el anticipo; si falta el pago usa el anticipo con la marca Parcial: solo anticipo. Descuentos excluye Anticipo ya pagado y las ausencias ya restadas del devengado. Neto suma el neto del anticipo y del pago. Las boletas individuales conservan su desglose original; filtrar un tipo de pago limita el resumen a esos registros. Un neto negativo bloquea la aprobación y muestra el empleado que debes corregir. Las novedades pendientes deben autorizarse o rechazarse antes de recalcular.',
       roles: ['ADMIN', 'RH'],
     },
     {
@@ -96,7 +96,7 @@ export const ayudaNomina: DefinicionAyuda = {
       elemento: 'nomina-exportar',
       titulo: 'Excel, PDF e IGSS',
       descripcion:
-        'Excel y PDF descargan todos los resultados de tus filtros; Boletas descarga un ZIP en v1 con el periodo y código del empleado en cada nombre para evitar duplicados; los históricos v0 conservan un PDF masivo con una hoja por empleado y dos copias por hoja. IGSS toma el devengado del pago mensual cerrado, sin sumar otra vez el anticipo; los históricos v0 consolidan ambas quincenas cerradas y se exige configurar los códigos patronales, centros, tipos y nombres registrados. La descarga no presenta la declaración al IGSS.',
+        'Excel y PDF consolidan por empleado y mes todos los registros filtrados, con los mismos totales del resumen y la marca parcial; Boletas descarga un ZIP en v1 con el periodo y código del empleado en cada nombre para evitar duplicados; los históricos v0 conservan un PDF masivo con una hoja por empleado y dos copias por hoja. IGSS toma el devengado del pago mensual cerrado, sin sumar otra vez el anticipo; los históricos v0 consolidan ambas quincenas cerradas y se exige configurar los códigos patronales, centros, tipos y nombres registrados. La descarga no presenta la declaración al IGSS.',
       roles: ['ADMIN', 'RH'],
     },
     {

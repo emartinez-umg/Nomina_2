@@ -1,6 +1,6 @@
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaInicio: DefinicionAyuda = {
-  id: 'tableros-r2-9',
+  id: 'tableros-r3-2',
   pasos: [
     {
       elemento: 'rh-remuneraciones',
@@ -35,14 +35,14 @@ export const ayudaInicio: DefinicionAyuda = {
       titulo: 'Indicadores de Recursos Humanos',
       roles: ['RH'],
       descripcion:
-        'Los empleados activos tienen ingreso efectivo hasta hoy. Altas y bajas cuentan fechas efectivas del mes actual. Bruto, neto y aportes patronales pertenecen a la quincena de hoy y a los pagos vigentes del periodo (o a la versión histórica v0). Sin calcular indica que falta crear o calcular esa quincena; no representa un pago en cero. Solicitudes incluye vacaciones, que también aparecen por separado.',
+        'Los empleados activos tienen ingreso efectivo hasta hoy. Altas y bajas cuentan fechas efectivas del mes actual. Nómina bruta del mes toma el devengado del pago de cada empleado, ya reducido por ausencias sin goce; el anticipo forma parte de ese importe y no se suma otra vez. Nómina neta del mes suma el neto del anticipo y del pago. Anticipo ya pagado es neteo, nunca descuento. Si falta el pago de algún empleado se incluye solo su anticipo y ambas tarjetas indican Parcial: solo anticipo, aunque otros empleados ya tengan pago. Enfoca o pasa el cursor por el ícono de información para leer cada definición. Las prestaciones anuales se consultan por separado. Sin calcular significa que no hay resultados salariales vigentes del mes. Los históricos v0 suman sus quincenas vigentes. Solicitudes incluye vacaciones, que también aparecen por separado.',
     },
     {
       elemento: 'graficas',
       titulo: 'Distribución y evolución',
       roles: ['RH'],
       descripcion:
-        'La distribución agrupa empleados activos por departamento. La evolución muestra los últimos seis periodos existentes y su versión vigente: recalcular no suma dos veces. Un periodo abierto es provisional. Usa Tab y las flechas para recorrer las gráficas; abre Ver datos para consultar cifras exactas y estados.',
+        'La distribución agrupa empleados activos por departamento. La evolución muestra los últimos seis meses con periodos existentes, usando el mismo resumen de historial e Inicio. Cada mes combina anticipo y pago sin duplicar ingresos ni contar el neteo como descuento. Recalcular no suma versiones anteriores; un mes abierto es provisional y Parcial: solo anticipo indica que falta algún pago. Usa Tab y las flechas para recorrer las gráficas; abre Ver datos para consultar cifras exactas y estados.',
     },
     {
       elemento: 'alertas',

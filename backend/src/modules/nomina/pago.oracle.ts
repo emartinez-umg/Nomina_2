@@ -9,6 +9,7 @@ import oracledb from 'oracledb';
 import { generarPdf } from '../../shared/pdf/documento.js';
 import { empresaPrueba } from '../../shared/pdf/documento.fixture.js';
 import { unzipSync } from 'fflate';
+import { inflateSync } from 'node:zlib';
 import { crearApp } from '../../app.js';
 import { crearBaseDatos } from '../../shared/db/pool.js';
 import type { BaseDatos } from '../../shared/db/pool.js';
@@ -316,6 +317,12 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
     await ajeno.agent.get(`/api/nomina/boletas/${anticipoId}/pdf`).expect(403);
     const historial = await propio.agent.get('/api/nomina/boletas').expect(200);
     expect(historial.body.data.registros[0].id).toBe(anticipoId);
+    expect(historial.body.data.parcial).toBe(true);
+    expect(historial.body.data.totales).toMatchObject({
+      ingresos: '6750.00',
+      descuentos: '0.00',
+      neto: '6750.00',
+    });
     expect(
       Number(
         await escalar('SELECT COUNT(*) FROM NOTIFICACIONES WHERE CLAVE_EVENTO=:clave', {
@@ -357,6 +364,58 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
         ),
       ),
     ).toBe(1);
+  });
+  it('R3-2: historial mensual no duplica ingresos ni descuenta el anticipo ya pagado', async () => {
+    for (const filtros of [{ anio: 2026 }, { anio: 2026, mes: 1 }]) {
+      const r = await rh.agent
+        .get('/api/nomina/historial')
+        .query({
+          ...filtros,
+          idEmpleado: empleado,
+          limite: 1,
+        })
+        .expect(200);
+      expect(r.body.data.total).toBe(2);
+      expect(r.body.data.registros).toHaveLength(1);
+      expect(r.body.data.totales).toMatchObject({
+        ingresos: '12075.00',
+        descuentos: '1148.99',
+        neto: '10926.01',
+      });
+    }
+  });
+  it('R3-2: Excel y PDF consolidan por empleado/mes con los mismos totales del historial', async () => {
+    const q = { anio: 2026, mes: 1, idEmpleado: empleado };
+    const excel = await rh.agent.get('/api/nomina/exportar/excel').query(q).expect(200);
+    const xml = Buffer.from(
+      unzipSync(Buffer.from(excel.body.data.base64, 'base64'))['xl/worksheets/sheet1.xml']!,
+    ).toString();
+    expect(xml.match(/<row /g)).toHaveLength(3); // cabecera, resumen mensual y totales
+    expect(xml.match(/<v>12075.00<\/v>/g)).toHaveLength(2);
+    expect(xml.match(/<v>1148.99<\/v>/g)).toHaveLength(2);
+    expect(xml.match(/<v>10926.01<\/v>/g)).toHaveLength(2);
+    expect(xml).not.toContain('18825');
+    const pdf = await rh.agent.get('/api/nomina/exportar/pdf').query(q).expect(200);
+    const bytes = Buffer.from(pdf.body.data.base64, 'base64');
+    const texto = [...bytes.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)]
+      .flatMap((m) => {
+        try {
+          return [
+            ...inflateSync(Buffer.from(m[1]!, 'latin1'))
+              .toString('latin1')
+              .matchAll(/<([a-f\d]+)>/gi),
+          ].map((x) => Buffer.from(x[1]!, 'hex').toString('latin1'));
+        } catch {
+          return [];
+        }
+      })
+      .join('');
+    expect(texto).toContain('12,075.00');
+    expect(texto).toContain('1,148.99');
+    expect(texto).toContain('10,926.01');
+    expect(texto).not.toContain('18,825');
+    await mkdir('../tmp/pdfs', { recursive: true });
+    await writeFile('../tmp/pdfs/r3-2-resumen-mensual.pdf', bytes);
   });
   it('ZIP privado, PDF archivado inmutable y detalle A11', async () => {
     const z = await rh.agent
@@ -607,6 +666,11 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
     expect(filas[0]!.split('|')).toHaveLength(19);
     expect(filas[0]!.split('|')[7]).toBe('11825.00');
     expect(filas[0]!.split('|')[18]).toBe('30');
+    const historial = await rh.agent
+      .get('/api/nomina/historial')
+      .query({ anio: 2026, mes: 1, idEmpleado: empleado })
+      .expect(200);
+    expect(historial.body.data.totales.baseIgss).toBe(filas[0]!.split('|')[7]);
   });
   it('mes siguiente: historia fiscal mensual y última cuota; reversión restituye exactamente el saldo', async () => {
     const d: ObjetivoPago = {
