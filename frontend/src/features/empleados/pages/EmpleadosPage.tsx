@@ -1,3 +1,4 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -266,7 +267,12 @@ export function EmpleadosPage() {
                 render: (r) =>
                   r.salarioBase ? `Q ${formatoMoneda(r.salarioBase)}` : 'Sin vigencia',
               },
-              { id: 'estado', titulo: 'Estado', ordenable: true, render: (r) => r.estado },
+              {
+                id: 'estado',
+                titulo: 'Estado',
+                ordenable: true,
+                render: (r) => <EstadoBadge estado={r.estado} />,
+              },
               {
                 id: 'acciones',
                 titulo: 'Acciones',

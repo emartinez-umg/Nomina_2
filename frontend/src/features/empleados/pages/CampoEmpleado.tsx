@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import { limpiarDireccion } from '../../../../../backend/src/shared/empleados/validadores';
 import { useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -128,7 +129,7 @@ export function CampoEmpleado({
           {...props}
           opciones={(campo.opciones ?? []).map((v) => ({
             value: v,
-            label: v === 'F' ? 'Femenino' : v === 'M' ? 'Masculino' : v,
+            label: v === 'F' ? 'Femenino' : v === 'M' ? 'Masculino' : etiquetaCodigo(v),
           }))}
         />
         {!props.required && props.value && (

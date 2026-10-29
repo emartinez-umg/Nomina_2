@@ -1,3 +1,5 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -241,6 +243,7 @@ function Listado({ tipo }: { tipo: Tipo }) {
                 <div key={f.nombre} className="contents">
                   <CampoNovedad
                     campo={f}
+                    tipoN={tipo}
                     departamentoId={f.ref === 'empleados' ? borrador.idDepartamento : undefined}
                     soloActivos={false}
                     name={f.nombre}
@@ -283,7 +286,8 @@ function Listado({ tipo }: { tipo: Tipo }) {
                   setPagina(1);
                 }}
               >
-                {defs.find((f) => f.nombre === k)?.label ?? 'Buscar'}: {v}
+                {defs.find((f) => f.nombre === k)?.label ?? 'Buscar'}:{' '}
+                {['estado', 'modalidad', 'efecto'].includes(k) ? etiquetaCodigo(v) : v}
               </Button>
             ))}
           </div>
@@ -320,7 +324,13 @@ function Listado({ tipo }: { tipo: Tipo }) {
               },
               { id: 'fin', titulo: 'Fin', render: (r) => finVisible(r.fechaFin) },
               ...(desc
-                ? [{ id: 'modalidad', titulo: 'Modalidad', render: (r: Fila) => r.modalidad }]
+                ? [
+                    {
+                      id: 'modalidad',
+                      titulo: 'Modalidad',
+                      render: (r: Fila) => etiquetaCodigo(r.modalidad),
+                    },
+                  ]
                 : []),
               ...(desc || ['comisiones', 'consumo-tienda'].includes(tipo)
                 ? [
@@ -357,16 +367,27 @@ function Listado({ tipo }: { tipo: Tipo }) {
                   ]
                 : []),
               ...(tipo === 'ausencias'
-                ? [{ id: 'efecto', titulo: 'Efecto', render: (r: Fila) => r.efecto }]
+                ? [
+                    {
+                      id: 'efecto',
+                      titulo: 'Efecto',
+                      render: (r: Fila) => etiquetaCodigo(r.efecto),
+                    },
+                  ]
                 : []),
               {
                 id: 'estado',
                 titulo: 'Estado',
                 ordenable: true,
                 render: (r) =>
-                  r.activo
-                    ? `${r.estadoAplicacion ?? r.estado}${r.idPago ? ` · Pago #${r.idPago}` : ''}`
-                    : 'ANULADA',
+                  r.activo ? (
+                    <>
+                      <EstadoBadge estado={r.estadoAplicacion ?? r.estado} />
+                      {r.idPago ? ` · Pago #${r.idPago}` : ''}
+                    </>
+                  ) : (
+                    <EstadoBadge estado="ANULADA" />
+                  ),
               },
               {
                 id: 'acciones',

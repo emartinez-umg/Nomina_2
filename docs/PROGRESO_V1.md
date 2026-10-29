@@ -3353,3 +3353,101 @@ Estado: implementada el 28/10/2026 en `v1.2`. Alcance C1.5.
    → Revertir con motivo: las planillas posteriores conservan datos/estado; puede simularse de nuevo.
 6. Sin pendientes de implementación R3-3. C2–C8 permanecen fuera de esta fase; continúa el supuesto
    operativo de R3-1 pendiente de validación contable.
+
+## Ronda 3 — FASE R3-4: títulos, años disponibles y estados legibles
+
+Estado: implementada y validada el 28/10/2026 en `v1.2`. Alcance C2.
+
+### Causa y reproducción
+
+- Leídos AGENTS.md con v1/v1.1/v1.2 y el progreso v1; rama `v1.2`, árbol limpio al iniciar.
+- `index.html` fijaba «Estado del sistema» para toda la SPA; las rutas no declaraban títulos.
+  MonthField construía todos los años desde 1900. Dos regresiones nuevas ejecutadas contra
+  una copia de HEAD anterior fallaron: 127 opciones frente a tres y ausencia de límites nuevos.
+  La comprobación del rango histórico original sí pasó. Evidencia en `/private/tmp/nomina2-r34-rojo.log`.
+- Vacaciones traducía algunos guiones a espacios, pero sus chips conservaban EN_PROCESO.
+  Otras tablas, filtros, historial, notificaciones y exportaciones mostraban los códigos crudos
+  o tenían mapas locales independientes. Se auditó el patrón en frontend, reportes y PDF.
+
+### Hecho y decisiones
+
+- Títulos en `handle.titulo` del árbol del router, incluidos los tres roles y pantallas públicas;
+  `useTituloPagina` los actualiza al navegar. Base HTML: nomina2. Detalle/edición de empleado y
+  novedades usan solo el código público devuelto por la API, con limpieza al salir. Una novedad
+  sin código usa su ID numérico; nunca nombres, correos, DPI/NIT, banco ni salario en la pestaña.
+- GET `/api/tableros/anios?fuente=…`: Zod estricto, routes/controller/service/repository,
+  consultas de una lista blanca con binds, lectura consistente y no-store. Devuelve extremos,
+  lista única ordenada sin huecos y el año actual del reloj de Guatemala, incluso sin filas.
+- Fuentes planillas, comisiones, ausencias y vacaciones; también horas extra, tienda, parqueo,
+  novedades y tarifas para los selectores existentes. Comisiones/HE conservan la historia v0;
+  rangos que cruzan años incluyen cada año cubierto. Se excluyen filas inactivas.
+- `MonthField` acepta anioMin/anioMax y lista opcional anios. Wrappers compartidos consultan la
+  API en Inicio, Planilla/Historial, simulador y pantallas con selector mensual. Ante fallo se
+  ofrece el año actual con reintento. DateField/nacimiento y MonthField sin límites conservan
+  su rango anterior. No se cambian las restricciones de fechas futuras o periodos cerrados.
+- Registro único compartido de estados: etiqueta, tono e icono; EstadoBadge en módulos,
+  documentos de la ficha, solicitudes/historial, pagos, vacaciones, publicaciones, usuarios,
+  sistema y notificaciones. CSV/Excel/PDF usan la misma función de etiquetas. Otras enumeraciones
+  (efectos, modalidades, conceptos y acciones) se presentan en español; valores enviados a la
+  API siguen intactos. Los mensajes históricos se adaptan al mostrarlos, sin reescribirlos.
+- Hints y recorrido compartido explican títulos, años e insignias cuando están presentes.
+  Contrato y uso en FRONTEND.md. Docker incluye el contrato de presentación compartido.
+  Sin dependencias nuevas, migraciones, recálculos ni modificación de comprobantes archivados.
+
+### Supuestos y compatibilidad
+
+- Planillas significa periodos activos, incluidos abiertos: también son datos del listado.
+  La fuente `calculo-nomina` consulta años con historia salarial dentro del contrato hasta hoy;
+  Simular pago/Prestaciones la usa para permitir el primer cálculo y prestaciones atrasadas
+  aunque no exista todavía una planilla. No se inventa un rango fijo ni historia salarial.
+- EMPLEADO solo consulta años de planillas, vacaciones y parqueo propios mediante su sesión;
+  las fuentes generales son RH/ADMIN. No se acepta usuario/empleado arbitrario en la consulta.
+- Los códigos públicos siguen visibles y están exceptuados del escáner; los códigos internos
+  de estados nunca se muestran. Un estado desconocido tiene presentación neutral.
+- Se actualizan a propósito las expectativas de etiquetas en E2E y CSV de vacaciones/carga,
+  sin cambiar los códigos de respuesta ni las aserciones de dinero, propiedad o rollback.
+  El vacío del dashboard se verifica en un mes sin pagos de un año con datos, conservando
+  la comprobación de vacío y añadiendo que 1900 no se ofrece.
+
+### Validación
+
+- **855 pruebas aprobadas** con Node 20.20.2: 492 backend, 356 frontend y siete del exportador.
+  Veintitrés regresiones nuevas: contrato HTTP/rangos vacíos y discontinuos, reloj/propiedad,
+  títulos de rutas y limpieza al navegar, título sin datos personales, límites del mes,
+  conservación del rango previo, estados/iconos/tonos y códigos sin alterar el valor enviado.
+  Incluyen estados en mensajes con siglas/identificadores públicos y texto real del PDF.
+- **114/114 Oracle/Supertest aprobadas** con Node 20: seguridad 82, dashboard/rango de años 12
+  y solicitudes 20. Fuentes reales, años vacíos/discontinuos, inactivos, RBAC/CSRF/propiedad,
+  CSV de vacaciones y carga con etiquetas, documentos, notificaciones y rollback. Cada esquema
+  N2SEC y el esquema/contenedores de E2E se retiraron al finalizar; sin fixtures en la instalación.
+- **77/77 E2E aprobados (6.3 min)** con imágenes reales API/nginx, TLS, Chromium y Oracle.
+  Matriz de 142 vistas y 2,078 pasos de ayuda; axe A/AA, teclado, portal móvil, formularios,
+  comprobantes, credenciales, pagos/cierre y permisos. Tres casos nuevos recorren 24 vistas
+  de los tres roles, verifican títulos y años contra la API y escanean texto visible para
+  códigos con guiones bajos y estados de una sola palabra; se exceptúan códigos públicos.
+- La revisión visual detectó CALCULADO dentro del mensaje de alerta SQL de Inicio: el servicio
+  lo presenta con el mismo registro compartido. La prueba nueva cubre también ese caso.
+  Vacaciones verifica «En proceso» tanto en el chip como en una solicitud real antes de aprobar.
+- Se ajustaron fixtures previas sin relajar producción: Aguinaldo 2025 completa el motivo que
+  R3-3 ya exige; ZIP usa el nombre vigente de boleta; la ausencia de layout elige una fecha libre
+  contra restricciones reales. El resumen mensual verifica los mismos incrementos/importes
+  independientes sobre la base existente, preservando la marca parcial si hay otros anticipos.
+  Los totales propios del empleado siguen exigiendo exactamente Q10,250/Q771.35/Q9,478.65.
+- PDF de prestación y planilla consolidada renderizados con Poppler e inspeccionados: estado,
+  conceptos, encabezado, firma y pie legibles, sin cortes ni solapamientos. Capturas de Inicio
+  y Vacaciones inspeccionadas. Artefactos de QA en tmp, ignorados; Fontconfig usa caché temporal.
+- Lint, TypeScript strict (incluido E2E), build backend/frontend, formato, secretos y diff
+  aprobados. Se conserva el aviso previo de Vite por tamaño de chunk. Sin dependencias nuevas.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run format:check`; `npm run build`.
+2. Oracle saludable: `npm run verify:tableros`, `npm run verify:security` y
+   `npm run verify:solicitudes` (esquemas desechables, ejecutar en secuencia).
+3. `npm run test:e2e -- --production interfaz.spec.ts` verifica títulos/estados/años;
+   `npm run test:e2e -- --production` ejecuta la regresión completa y accesibilidad.
+4. Para cargar la versión: `docker compose up --build -d nomina2-api nomina2-web` y recargar.
+   Navegar con los tres roles, abrir ficha/edición, comparar años con la API y revisar chips,
+   bandejas, campana, historial y exportaciones. Probar ayuda manual y meses sin resultados.
+5. Sin pendientes de implementación R3-4. No se desplegó en la nómina operativa ni se alteraron
+   sus pagos/documentos. C3–C8 quedan para sus fases; continúa la validación contable de R3-1.

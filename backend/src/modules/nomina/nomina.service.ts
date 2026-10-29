@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { nombrePersona } from '../../shared/utils/nombre.js';
 import { conLecturaConsistente } from '../../shared/db/lectura.js';
 import { zipSync } from 'fflate';
@@ -322,7 +323,7 @@ export function crearNominaService(db: BaseDatos) {
                 f.departamento,
                 f.inicio,
                 f.fin,
-                f.estado,
+                etiquetaCodigo(f.estado),
                 f.version,
                 f.ingresos,
                 f.descuentos,

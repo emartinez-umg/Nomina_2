@@ -1,3 +1,4 @@
+import { rangoAniosSchema } from '../calendario/calendario.schemas.js';
 import {
   remuneracionesSchema,
   inasistenciasSchema,
@@ -23,6 +24,11 @@ export function crearTablerosController(s: ReturnType<typeof crearTablerosServic
 
 export function crearEstadisticasController(s: ReturnType<typeof crearTablerosService>) {
   return {
+    async anios(req: Request, res: Response) {
+      const { fuente } = rangoAniosSchema.parse(req.query);
+      res.set('Cache-Control', 'private, no-store');
+      res.json(respuestaOk(await s.calendario.consultar(autenticacionDe(req), fuente)));
+    },
     async remuneraciones(req: Request, res: Response) {
       res.json(
         respuestaOk(

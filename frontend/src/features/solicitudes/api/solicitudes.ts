@@ -1,3 +1,4 @@
+import { opcionesEstado } from '../../../lib/estados';
 import { z } from 'zod';
 import { solicitar } from '../../../lib/http';
 export const nombresTipo: Record<string, string> = {
@@ -8,13 +9,11 @@ export const nombresTipo: Record<string, string> = {
   PARQUEO: 'Parqueo',
   ACTUALIZACION_DATOS: 'Actualización de datos',
 };
-export const nombresEstado: Record<string, string> = {
-  EN_PROCESO: 'En proceso',
-  APROBADA: 'Aprobada',
-  RECHAZADA: 'Rechazada',
-  ENTREGADA: 'Entregada',
-  CANCELADA: 'Cancelada',
-};
+export const nombresEstado: Record<string, string> = Object.fromEntries(
+  opcionesEstado(['EN_PROCESO', 'APROBADA', 'RECHAZADA', 'ENTREGADA', 'CANCELADA']).map(
+    ({ value, label }) => [value, label],
+  ),
+);
 export const criticosSchema = z.object({
   nombres: z.string(),
   apellidos: z.string(),

@@ -1,3 +1,5 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { useFormDraft } from '../../../hooks/useFormDraft';
@@ -15,7 +17,6 @@ import { usePageHelp } from '../../../components/help/HelpProvider';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Table } from '../../../components/ui/Table';
-import { Badge } from '../../../components/ui/Badge';
 import { Modal, ConfirmModal } from '../../../components/ui/Modal';
 import {
   TextField,
@@ -54,7 +55,9 @@ export function UsuariosPage() {
       const csv = [
         'Usuario,Correo,Rol,Activo,Cambio obligatorio',
         ...filas.map((u) =>
-          [u.usuario, u.correo, u.rol, u.activo, u.cambioObligatorio].map(celda).join(','),
+          [u.usuario, u.correo, etiquetaCodigo(u.rol), u.activo, u.cambioObligatorio]
+            .map(celda)
+            .join(','),
         ),
       ].join('\r\n');
       const url = URL.createObjectURL(
@@ -185,12 +188,7 @@ export function UsuariosPage() {
               id: 'activo',
               titulo: 'Estado',
               ordenable: true,
-              render: (u) => (
-                <Badge tono={u.activo ? 'correcto' : 'aviso'}>
-                  {u.activo ? 'Activo' : 'Inactivo'}
-                  {u.cambioObligatorio ? ' · Cambio pendiente' : ''}
-                </Badge>
-              ),
+              render: (u) => <EstadoBadge estado={u.activo ? 'ACTIVO' : 'INACTIVO'} />,
             },
             {
               id: 'acciones',

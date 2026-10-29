@@ -1,3 +1,6 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
+import { useTituloRegistro } from '../../../app/titulos';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
@@ -32,6 +35,7 @@ function Detalle({ tipo, id }: { tipo: Tipo; id: number }) {
     queryKey: ['novedades', tipo, 'detalle', String(id)],
     queryFn: ({ signal }) => detalle(tipo, id, signal),
   });
+  useTituloRegistro(d.data?.codigo);
   if (d.isPending) return <Skeleton lineas={6} />;
   if (d.error)
     return (
@@ -75,7 +79,8 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
         <section data-tour="novedad-detalle">
           <h2>{d.empleado}</h2>
           <p className="my-3 text-secundario">
-            {d.tipoNombre ?? titulos[tipo]} · {d.activo ? d.estado : 'ANULADA'}
+            {d.tipoNombre ?? titulos[tipo]} ·{' '}
+            <EstadoBadge estado={d.activo ? d.estado : 'ANULADA'} />
           </p>
           {protegida && (
             <p className="alerta my-3">
@@ -85,13 +90,13 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
           <dl className="form-grid my-5">
             {Object.entries({
               Mes: d.mes,
-              'Autorización del origen': d.autorizacion,
-              'Estado de aplicación': d.estadoAplicacion,
+              'Autorización del origen': etiquetaCodigo(d.autorizacion),
+              'Estado de aplicación': etiquetaCodigo(d.estadoAplicacion),
               'Pago aplicado': d.idPago,
               'Descuento por ausencias': d.descuento ? moneda(d.descuento) : undefined,
               Inicio: fechaVisible(d.fechaInicio),
               Fin: finVisible(d.fechaFin),
-              Modalidad: d.modalidad,
+              Modalidad: etiquetaCodigo(d.modalidad),
               Monto: d.monto ? moneda(d.monto) : undefined,
               'Cuota mensual': d.montoQuincena ? moneda(d.montoQuincena) : undefined,
               'Saldo pendiente': d.saldo != null ? moneda(d.saldo) : undefined,
@@ -99,8 +104,8 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
               Referencia: d.referencia,
               Desembolso: d.fechaDesembolso ? fechaVisible(d.fechaDesembolso) : undefined,
               Horas: d.horas,
-              Jornada: d.jornada,
-              Efecto: d.efecto,
+              Jornada: etiquetaCodigo(d.jornada),
+              Efecto: etiquetaCodigo(d.efecto),
               'Días calendario': d.dias,
               Motivo: d.motivo,
             })
@@ -126,16 +131,16 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
               <summary>Registros originales v0 ({d.origenes.length})</summary>
               {d.origenes.map((o) => (
                 <p key={`${o.entidad}-${o.id}`}>
-                  {o.entidad} #{o.id} · {o.fecha ? fechaVisible(o.fecha) : ''}{' '}
+                  {etiquetaCodigo(o.entidad)} #{o.id} · {o.fecha ? fechaVisible(o.fecha) : ''}{' '}
                   {o.cantidad ? `${o.cantidad} h` : ''} {o.monto ? moneda(o.monto) : ''} ·{' '}
-                  {o.estado} · {o.descripcion}
+                  <EstadoBadge estado={o.estado} /> · {o.descripcion}
                 </p>
               ))}
             </details>
           )}
           {d.aplicaciones?.map((m, i) => (
             <p key={`${m.mes}-${i}`}>
-              {m.mes} · {m.dias} días · {moneda(m.monto)} · {m.estado}{' '}
+              {m.mes} · {m.dias} días · {moneda(m.monto)} · <EstadoBadge estado={m.estado} />{' '}
               {m.idPago ? `· Pago #${m.idPago}` : ''}
             </p>
           ))}
@@ -164,7 +169,9 @@ function Ficha({ tipo, d, volver }: { tipo: Tipo; d: Fila; volver: () => void })
                         <td>{moneda(c.monto)}</td>
                         <td>{moneda(c.pagado)}</td>
                         <td>{moneda(restante.toFixed(2))}</td>
-                        <td>{c.estado}</td>
+                        <td>
+                          <EstadoBadge estado={c.estado} />
+                        </td>
                       </tr>
                     );
                   })}

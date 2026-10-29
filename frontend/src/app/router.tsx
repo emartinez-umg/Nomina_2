@@ -1,3 +1,7 @@
+import { TituloPagina, type TituloRuta } from './titulos';
+import type { RouteObject } from 'react-router-dom';
+import { opcionesNavegacion } from '../components/layout/navigation.config';
+import { titulos as titulosNovedades } from '../features/novedades/api/novedades';
 import { SimularPagoPage } from '../features/nomina/pages/SimularPagoPage';
 import { EmpresaPage } from '../features/empresa/pages/EmpresaPage';
 import { Suspense } from 'react';
@@ -87,7 +91,7 @@ import { AppLayout } from '../components/layout/AppLayout';
 import { FormPageContainer } from '../components/layout/FormPageContainer';
 import { Entrada, RequireSession, SessionGate } from './guards';
 import { Outlet } from 'react-router-dom';
-export const rutas = [
+const paginas: RouteObject[] = [
   { path: '/salud', element: <SaludPage />, errorElement: <RouteError /> },
   {
     errorElement: <RouteError />,
@@ -235,4 +239,63 @@ export const rutas = [
     ],
   },
 ];
+// Cada ruta declara su título en el árbol que consume React Router.
+const destinos = opcionesNavegacion('ADMIN');
+const fijos: Record<string, TituloRuta> = {
+  '/salud': 'Estado del sistema',
+  '/login': 'Iniciar sesión',
+  '/cambiar-contrasena': 'Cambiar contraseña',
+  '/vacaciones': 'Vacaciones',
+  '/solicitudes': 'Solicitudes',
+  '/prestaciones': 'Prestaciones',
+  '/admin': 'Inicio',
+  '/rh': 'Inicio',
+  '/mis-gestiones': 'Mis gestiones',
+  '/admin/usuarios': 'Usuarios',
+  '/admin/bitacora': 'Bitácora',
+  '/mis-gestiones/anuncios': 'Anuncios',
+  '/mis-gestiones/eventos': 'Eventos',
+  '/mis-gestiones/vacaciones': 'Mis vacaciones',
+  '/mis-gestiones/boletas': 'Mis boletas',
+  '/mis-gestiones/parqueo': 'Mi parqueo',
+  '/mis-gestiones/solicitudes': 'Mis solicitudes',
+  '/mis-gestiones/datos': 'Mis datos',
+  '/empleados/:id': ({ codigo }) => (codigo ? `Empleado ${codigo}` : 'Detalle de empleado'),
+  '/empleados/:id/editar': ({ codigo }) =>
+    codigo ? `Editar empleado ${codigo}` : 'Editar empleado',
+  '/comunicacion/:tipo': ({ params }) => (params.tipo === 'eventos' ? 'Eventos' : 'Anuncios'),
+  '/catalogos/:catalogo': ({ params }) =>
+    destinos.find((d) => d.ruta === `/catalogos/${params.catalogo}`)?.titulo ?? 'Catálogos',
+  '/novedades': 'Novedades',
+  '/novedades/:tipo': ({ params }) =>
+    titulosNovedades[params.tipo as keyof typeof titulosNovedades] ?? 'Novedades',
+  '/novedades/:tipo/nuevo': ({ params }) =>
+    `Nuevo registro de ${titulosNovedades[params.tipo as keyof typeof titulosNovedades]?.toLowerCase() ?? 'novedades'}`,
+  '/novedades/:tipo/:id': ({ params, codigo }) =>
+    `${titulosNovedades[params.tipo as keyof typeof titulosNovedades] ?? 'Novedad'} ${codigo ?? (/^\d+$/.test(params.id ?? '') ? `#${params.id}` : '')}`,
+  '/novedades/:tipo/:id/editar': ({ params, codigo }) =>
+    `Editar ${titulosNovedades[params.tipo as keyof typeof titulosNovedades]?.toLowerCase() ?? 'novedad'} ${codigo ?? (/^\d+$/.test(params.id ?? '') ? `#${params.id}` : '')}`,
+  '/planilla': ({ query }) => (query.has('historial') ? 'Historial de nómina' : 'Planilla'),
+  '*': 'nomina2',
+};
+function conTitulos(rutas: RouteObject[]): RouteObject[] {
+  return rutas.map(
+    (ruta) =>
+      ({
+        ...ruta,
+        ...(ruta.path
+          ? {
+              handle: {
+                titulo:
+                  fijos[ruta.path] ??
+                  destinos.find((d) => d.ruta.split('?')[0] === ruta.path)?.titulo ??
+                  'nomina2',
+              },
+            }
+          : {}),
+        ...(ruta.children ? { children: conTitulos(ruta.children) } : {}),
+      }) as RouteObject,
+  );
+}
+export const rutas: RouteObject[] = [{ element: <TituloPagina />, children: conTitulos(paginas) }];
 export const router = createBrowserRouter(rutas);

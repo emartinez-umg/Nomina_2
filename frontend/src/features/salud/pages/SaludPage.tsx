@@ -1,3 +1,4 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import { iconos } from '../../../components/ui/icons';
 import { useSalud } from '../hooks/useSalud';
 import { ayudaSalud } from '../help/pasos';
@@ -55,7 +56,9 @@ export function SaludPage() {
                     <dt className="flex items-center gap-2 text-sm text-secundario">
                       <Actividad size={18} aria-hidden="true" /> Servicio
                     </dt>
-                    <dd className="mt-2 font-bold text-marca">{consulta.data.estado}</dd>
+                    <dd className="mt-2 font-bold text-marca">
+                      <EstadoBadge estado={consulta.data.estado} />
+                    </dd>
                   </div>
                   <div>
                     <dt className="flex items-center gap-2 text-sm text-secundario">

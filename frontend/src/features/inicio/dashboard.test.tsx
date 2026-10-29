@@ -40,6 +40,8 @@ const categorias = [
 }));
 const actualizadoEn = '2026-10-20T10:00:00-06:00';
 function datos(u: URL, vacio = false): unknown {
+  if (u.pathname.endsWith('/anios'))
+    return { anioActual: 2026, anioMin: 2025, anioMax: 2026, anios: [2025, 2026] };
   if (u.pathname.endsWith('remuneraciones'))
     return {
       actualizadoEn,

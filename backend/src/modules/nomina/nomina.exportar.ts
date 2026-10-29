@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import type { Componente } from '../prestaciones/prestaciones.calculo.js';
 import { leyendaPagoExtemporaneo } from '../prestaciones/prestaciones.calculo.js';
 import { fechas, vigente } from './nomina.calculo.js';
@@ -138,7 +139,7 @@ export function boletasPdf(
         .font('Helvetica')
         .fontSize(9)
         .text(
-          `Identificador: ${fila.id} · ${fila.estado}. Generada desde el detalle y las vigencias conservadas del cálculo.`,
+          `Identificador: ${fila.id} · ${etiquetaCodigo(fila.estado)}. Generada desde el detalle y las vigencias conservadas del cálculo.`,
         );
       if (r.estimacionFiscal) {
         if (doc.y > 625) {
@@ -193,9 +194,14 @@ export function planillaPdf(
         doc
           .font('Helvetica')
           .fontSize(9)
-          .text(`${f.empleado}\n${visible(f.inicio)} - ${visible(f.fin)} · ${f.estado}`, 42, y, {
-            width: 305,
-          });
+          .text(
+            `${f.empleado}\n${visible(f.inicio)} - ${visible(f.fin)} · ${etiquetaCodigo(f.estado)}`,
+            42,
+            y,
+            {
+              width: 305,
+            },
+          );
         [f.ingresos, f.descuentos, f.neto, f.patronal].forEach((v, i) =>
           doc.text(q(v), [360, 460, 560, 660][i]!, y, { width: 90, align: 'right' }),
         );

@@ -1,3 +1,5 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
 import { CatalogoAcciones } from './CatalogoAcciones';
 import { CatalogoHistorial } from './CatalogoHistorial';
 import { FormGrid } from '../../../components/forms/FormGrid';
@@ -16,7 +18,6 @@ import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Table } from '../../../components/ui/Table';
 import { Modal } from '../../../components/ui/Modal';
-import { Badge } from '../../../components/ui/Badge';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { TextField, NumberField, SelectField } from '../../../components/forms';
@@ -483,16 +484,16 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                       ? String(fila[f.nombre + 'Etiqueta'] ?? 'Sin asignar')
                       : f.tipo === 'dinero' && fila[f.nombre] != null
                         ? valorCampo(f, fila[f.nombre])
-                        : valorVisible(fila[f.nombre]),
+                        : f.tipo === 'opcion'
+                          ? etiquetaCodigo(String(fila[f.nombre] ?? ''))
+                          : valorVisible(fila[f.nombre]),
                 })),
               {
                 id: 'activo',
                 titulo: 'Estado',
                 ordenable: true,
                 render: (fila: Fila) => (
-                  <Badge tono={fila.activo ? 'correcto' : 'aviso'}>
-                    {fila.activo ? 'Activo' : 'Inactivo'}
-                  </Badge>
+                  <EstadoBadge estado={fila.activo ? 'ACTIVO' : 'INACTIVO'} />
                 ),
               },
               {
@@ -600,7 +601,9 @@ function CatalogoPage({ cat, catalogos }: { cat: Catalogo; catalogos: Catalogo[]
                 <div className="mb-4" key={f.nombre}>
                   <dt className="font-bold">{f.etiqueta}</dt>
                   <dd className="whitespace-pre-wrap break-words">
-                    {valorCampo(f, ver[f.nombre + 'Etiqueta'] ?? ver[f.nombre])}
+                    {f.tipo === 'opcion'
+                      ? etiquetaCodigo(String(ver[f.nombre] ?? ''))
+                      : valorCampo(f, ver[f.nombre + 'Etiqueta'] ?? ver[f.nombre])}
                   </dd>
                 </div>
               ))}

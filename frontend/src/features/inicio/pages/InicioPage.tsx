@@ -1,3 +1,5 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
 import { nombreUsuario } from '../../../lib/nombre';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useIsFetching } from '@tanstack/react-query';
@@ -128,9 +130,9 @@ export function BitacoraResumen({ filas }: { filas: AuditoriaFila[] }) {
               <td>
                 {f.idUsuario ?? 'Sistema'} · {f.rol ?? 'Sistema'}
               </td>
-              <td>{f.accion}</td>
+              <td>{etiquetaCodigo(f.accion)}</td>
               <td>
-                {f.entidad} · {f.idEntidad ?? '—'}
+                {etiquetaCodigo(f.entidad)} · {f.idEntidad ?? '—'}
               </td>
             </tr>
           ))}
@@ -431,17 +433,13 @@ export function InicioPage() {
                   <Card data-tour="sistema" className="mb-6">
                     <h2>Estado del sistema</h2>
                     <div className="flex flex-wrap gap-4 my-4">
-                      <Badge
-                        tono={
+                      <EstadoBadge
+                        estado={
                           d.sistema.objetosInvalidos || d.sistema.migracionesPendientes
-                            ? 'peligro'
-                            : 'correcto'
+                            ? 'REQUIERE_REVISION'
+                            : 'OPERATIVO'
                         }
-                      >
-                        {d.sistema.objetosInvalidos || d.sistema.migracionesPendientes
-                          ? 'Requiere revisión'
-                          : 'Operativo'}
-                      </Badge>
+                      />
                       <span>
                         Oracle {d.sistema.baseDatos.toLowerCase()} · modo {d.sistema.modo} · esquema
                         V{String(d.sistema.version ?? 0).padStart(3, '0')}
@@ -476,12 +474,10 @@ export function InicioPage() {
                           {d.sesiones.map((s) => (
                             <tr key={s.id}>
                               <td>{s.usuario}</td>
-                              <td>{s.rol}</td>
+                              <td>{etiquetaCodigo(s.rol)}</td>
                               <td>{fechaHora(s.fecha)}</td>
                               <td>
-                                <Badge tono={s.vigente ? 'correcto' : 'informacion'}>
-                                  {s.vigente ? 'Activa' : 'Finalizada'}
-                                </Badge>
+                                <EstadoBadge estado={s.vigente ? 'ACTIVA' : 'FINALIZADA'} />
                               </td>
                             </tr>
                           ))}

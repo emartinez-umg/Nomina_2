@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { useFormDraft } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -354,7 +355,7 @@ export function Fiscal() {
               ))}
               {datos.data.deducciones.map((d, i) => (
                 <tr key={i}>
-                  <td>{d.tipo}</td>
+                  <td>{etiquetaCodigo(d.tipo)}</td>
                   <td>{fechaVisible(d.fecha)}</td>
                   <td>{d.monto}</td>
                   <td>{d.referencia}</td>

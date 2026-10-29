@@ -1,4 +1,5 @@
-import { MonthField } from '../../../components/forms/MonthField';
+import { etiquetaCodigo } from '../../../lib/estados';
+import { MonthFieldDatos } from '../../../components/forms/MonthFieldDatos';
 import { useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { opciones } from '../api/novedades';
@@ -99,7 +100,16 @@ export function CampoNovedad({
 }) {
   if (campo.tipo === 'mes')
     return (
-      <MonthField
+      <MonthFieldDatos
+        fuente={
+          tipoN === 'comisiones'
+            ? 'comisiones'
+            : tipoN === 'horas-extra'
+              ? 'horas-extra'
+              : tipoN === 'ausencias'
+                ? 'ausencias'
+                : 'consumos-tienda'
+        }
         {...props}
         max={hoy?.slice(0, 7)}
         deshabilitar={(mes) =>
@@ -122,7 +132,7 @@ export function CampoNovedad({
         {...props}
         opciones={(campo.opciones ?? []).map((value) => ({
           value,
-          label: value.replace(/_/g, ' '),
+          label: etiquetaCodigo(value),
         }))}
       />
     );

@@ -151,6 +151,20 @@ test('formularios: las seis ediciones de novedades usan el mismo bloque centrado
     expect(respuesta.ok()).toBe(true);
     return ((await respuesta.json()).data as { value: string }[])[0]!.value;
   };
+  const restriccionesRespuesta = await page.request.get('/api/novedades/restricciones/1');
+  expect(restriccionesRespuesta.ok()).toBe(true);
+  const restricciones = (await restriccionesRespuesta.json()).data;
+  const fechaLibre = Array.from({ length: 60 }, (_, i) => {
+    const fecha = new Date(`${hoy}T12:00:00Z`);
+    fecha.setUTCDate(fecha.getUTCDate() + i);
+    return fecha.toISOString().slice(0, 10);
+  }).find(
+    (fecha) =>
+      ![...restricciones.rangos, ...restricciones.cierres].some(
+        (r: { inicio: string; fin: string }) => fecha >= r.inicio && fecha <= r.fin,
+      ),
+  );
+  expect(fechaLibre, 'La fixture necesita una fecha sin ausencias ni vacaciones').toBeDefined();
   for (const tipo of tipos) {
     const base = { idEmpleado: 1, motivo: 'Verificación visual de edición', confirmado: true };
     const valores =
@@ -175,8 +189,8 @@ test('formularios: las seis ediciones de novedades usan el mismo bloque centrado
           : tipo === 'ausencias'
             ? {
                 idTipo: Number(await opciones(tipo)),
-                fechaInicio: hoy,
-                fechaFin: hoy,
+                fechaInicio: fechaLibre,
+                fechaFin: fechaLibre,
                 estado: 'PENDIENTE',
               }
             : tipo === 'horas-extra'

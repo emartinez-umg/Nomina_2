@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { tarifas } from '../../novedades/api/parqueo';
 import { formatoMoneda } from '../../../components/forms/MoneyField';
@@ -186,8 +187,12 @@ function Contenido({ s, empleado }: { s: api.Detalle; empleado: boolean }) {
               {Object.entries(s.datos.nuevo).map(([k, v]) => (
                 <tr key={k}>
                   <td>{etiquetasCriticos[k] ?? k}</td>
-                  <td>{s.datos!.anterior[k as keyof api.MisDatos['criticos']]}</td>
-                  <td>{v}</td>
+                  <td>
+                    {k === 'estadoCivil'
+                      ? etiquetaCodigo(s.datos!.anterior.estadoCivil)
+                      : s.datos!.anterior[k as keyof api.MisDatos['criticos']]}
+                  </td>
+                  <td>{k === 'estadoCivil' ? etiquetaCodigo(v) : v}</td>
                 </tr>
               ))}
             </tbody>

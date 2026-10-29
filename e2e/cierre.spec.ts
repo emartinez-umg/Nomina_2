@@ -311,6 +311,9 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
         name: 'Confirmo que la historia salarial, comisiones y horas extra del ciclo están completas',
       })
       .check();
+    await page
+      .getByLabel('Motivo del pago extemporáneo', { exact: true })
+      .fill('Regularización del aguinaldo pendiente de 2025');
     await page.getByRole('button', { name: 'Confirmar y pagar', exact: true }).click();
     const pago = page.waitForResponse((r) => r.url().endsWith('/api/nomina/pagar'));
     await page.getByRole('button', { name: 'Confirmar', exact: true }).click();
@@ -350,7 +353,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await page.getByLabel('NIT', { exact: true }).fill('5489360-7');
     await page.getByLabel('Fecha de nacimiento', { exact: true }).fill('01/01/1995');
     await elegir(page, 'Sexo', 'Femenino');
-    await elegir(page, 'Estado civil', 'SOLTERO');
+    await elegir(page, 'Estado civil', 'Soltero');
     await elegir(page, 'Zona', 'Zona 1');
     await page.getByLabel('Dirección', { exact: true }).fill('12-A');
     await page.getByLabel('Teléfono', { exact: true }).fill('55552222');
@@ -374,7 +377,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await page.getByLabel('Salario base mensual', { exact: true }).fill('5000');
     await elegir(page, 'Banco', 'Banco E2E');
     await page.getByLabel('Cuenta bancaria', { exact: true }).fill('12345678');
-    await elegir(page, 'Tipo de cuenta', 'AHORRO');
+    await elegir(page, 'Tipo de cuenta', 'Ahorro');
     await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
     await page.getByLabel('Nombre del contacto', { exact: true }).fill('Contacto Prueba');
     await elegir(page, 'Parentesco', 'Hermano/a');
@@ -545,6 +548,8 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
     await r.goto('/vacaciones');
     const fila = r.getByRole('row').filter({ hasText: 'Persona E2E' });
     await expect(fila).toHaveCount(1);
+    await expect(fila.getByText('En proceso', { exact: true })).toBeVisible();
+    await expect(fila).not.toContainText('EN_PROCESO');
     await fila.getByRole('button', { name: 'Aprobar', exact: true }).click();
     await tour(r, true);
     await r.getByRole('button', { name: 'Confirmar', exact: true }).click();
@@ -552,7 +557,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       r.getByText('Vacaciones aprobadas; saldo actualizado.', { exact: true }),
     ).toBeVisible();
     await p.reload();
-    await expect(p.getByText('APROBADA', { exact: true }).first()).toBeVisible();
+    await expect(p.getByText('Aprobada', { exact: true }).first()).toBeVisible();
     await empleado.close();
     await rh.close();
   });
@@ -701,7 +706,11 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
       await expect(page.getByText('Pagados: 2.', { exact: false })).toBeVisible();
       const descarga = page.waitForEvent('download');
       await page.getByRole('button', { name: 'ZIP de boletas por departamento' }).click();
-      expect((await descarga).suggestedFilename()).toBe('boletas-2026-01.zip');
+      expect((await descarga).suggestedFilename()).toBe(
+        tipo === 'Anticipo'
+          ? 'Anticipo - Planilla General del 01-01-2026 al 15-01-2026.zip'
+          : 'Planilla General del 01-01-2026 al 31-01-2026.zip',
+      );
       const estadoPeriodo = await page.request.get(`/api/nomina/periodos/${pago.idPeriodo}`);
       expect(estadoPeriodo.status()).toBe(200);
       const filasPeriodo = await page.request.get(
@@ -720,7 +729,7 @@ test.describe('Cierre del proyecto con API y Oracle reales', () => {
           page.getByRole('button', { name: `Confirmar ${accion}`, exact: true }),
         ).toHaveCount(0);
       }
-      await expect(page.getByRole('heading', { name: /· CERRADO$/ })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /· Cerrado$/ })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Recalcular', exact: true })).toHaveCount(0);
     }
     await salir(page);
@@ -1759,8 +1768,8 @@ test('FASE V1-11: finiquito al elegir empleado y cambiar egreso, PDF y baja conf
   await page.goto('/prestaciones?empleado=2');
   await page.getByRole('textbox', { name: 'Fecha de egreso', exact: true }).fill('30/06/2026');
   await expect(page.getByText('Total:', { exact: false }).first()).toBeVisible();
-  await expect(page.getByRole('table').first()).toContainText('INDEMNIZACION');
-  await expect(page.getByRole('table').first()).toContainText('VACACIONES PENDIENTES');
+  await expect(page.getByRole('table').first()).toContainText('Indemnización');
+  await expect(page.getByRole('table').first()).toContainText('Vacaciones pendientes');
   const antes = await page.getByText('Total:', { exact: false }).first().textContent();
   await elegir(page, 'Causa del egreso', 'Renuncia');
   await expect

@@ -1,3 +1,5 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
@@ -11,7 +13,6 @@ import { usePageHelp, HelpButton } from '../../../components/help/HelpProvider';
 import { ayudaComunicacion } from '../help/pasos';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { Badge } from '../../../components/ui/Badge';
 import { Table } from '../../../components/ui/Table';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Skeleton } from '../../../components/ui/Skeleton';
@@ -314,11 +315,7 @@ export function ComunicacionPage() {
             {
               id: 'estado',
               titulo: 'Estado',
-              render: (f) => (
-                <Badge tono={f.activo ? 'correcto' : 'peligro'}>
-                  {f.activo ? 'Activo' : 'Eliminado'}
-                </Badge>
-              ),
+              render: (f) => <EstadoBadge estado={f.activo ? 'ACTIVO' : 'ELIMINADO'} />,
             },
             {
               id: 'acciones',
@@ -432,7 +429,9 @@ function Detalle({ tipo, id, onCerrar }: { tipo: api.Tipo; id: number; onCerrar:
             {q.data.destinatarios.length > 0 && (
               <p className="campo-hint mt-4">
                 Destinatarios:{' '}
-                {q.data.destinatarios.map((d) => `${d.tipo}: ${d.nombre}`).join(' · ')}
+                {q.data.destinatarios
+                  .map((d) => `${etiquetaCodigo(d.tipo)}: ${d.nombre}`)
+                  .join(' · ')}
               </p>
             )}
           </article>

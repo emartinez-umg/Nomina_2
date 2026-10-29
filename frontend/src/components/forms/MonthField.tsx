@@ -17,17 +17,30 @@ const nombres = [
 ];
 export function MonthField({
   max,
+  anioMin = 1900,
+  anioMax,
+  anios: disponibles,
   deshabilitar,
   ...p
 }: CampoProps & {
   max?: string | undefined;
+  anioMin?: number | undefined;
+  anioMax?: number | undefined;
+  anios?: readonly number[] | undefined;
   deshabilitar?: ((mes: string) => boolean) | undefined;
 }) {
   const id = useId();
-  const limite = Number(max?.slice(0, 4) ?? new Date().getFullYear());
+  const limite = Math.min(
+    anioMax ?? 9999,
+    Number(max?.slice(0, 4) ?? anioMax ?? new Date().getFullYear()),
+  );
   const [yearValue, month] = p.value.split('-'),
     year = yearValue || String(limite);
-  const anios = Array.from({ length: limite - 1899 }, (_, i) => String(limite - i));
+  const anios = (
+    disponibles
+      ? [...disponibles].filter((a) => a >= anioMin && a <= limite).sort((a, b) => b - a)
+      : Array.from({ length: Math.max(0, limite - anioMin + 1) }, (_, i) => limite - i)
+  ).map(String);
   const elegir = (y: string, m: string) => {
     const v = y && m ? `${y}-${m}` : '';
     if (v && ((max && v > max) || deshabilitar?.(v))) {

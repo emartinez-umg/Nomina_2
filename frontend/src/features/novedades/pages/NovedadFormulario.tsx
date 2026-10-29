@@ -1,3 +1,5 @@
+import { etiquetaCodigo } from '../../../lib/estados';
+import { useTituloRegistro } from '../../../app/titulos';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
@@ -50,6 +52,7 @@ function Cargar({ tipo, id }: { tipo: Tipo; id: string | undefined }) {
     queryFn: ({ signal }) => detalle(tipo, Number(id), signal),
     enabled: !!id,
   });
+  useTituloRegistro(actual.data?.codigo);
   if (r.isPending || (id && actual.isPending)) return <Skeleton lineas={8} />;
   const error = r.error ?? actual.error;
   if (error)
@@ -302,7 +305,7 @@ function Formulario({ tipo, hoy, actual }: { tipo: Tipo; hoy: string; actual: Fi
       <ConfirmModal
         abierto={!!pendiente}
         titulo="Confirmar novedad"
-        descripcion={`Empleado: ${r.data?.empleado?.nombre ?? actual?.empleado ?? 'selección pendiente'} · Monto: ${moneda(String(pendiente?.monto ?? '').replace(/,/g, ''))} · Mes: ${String(pendiente?.mes ?? '—')} · Fecha: ${fechaVisible(String(pendiente?.fecha ?? pendiente?.fechaInicio ?? ''))} · Cuotas: ${String(pendiente?.cuotas ?? '—')} · Horas: ${String(pendiente?.horas ?? '—')} · Estado: ${String(pendiente?.estado ?? 'VIGENTE')}. Se guardará con tu usuario y motivo en auditoría. ${preview?.advertencia ?? ''}`}
+        descripcion={`Empleado: ${r.data?.empleado?.nombre ?? actual?.empleado ?? 'selección pendiente'} · Monto: ${moneda(String(pendiente?.monto ?? '').replace(/,/g, ''))} · Mes: ${String(pendiente?.mes ?? '—')} · Fecha: ${fechaVisible(String(pendiente?.fecha ?? pendiente?.fechaInicio ?? ''))} · Cuotas: ${String(pendiente?.cuotas ?? '—')} · Horas: ${String(pendiente?.horas ?? '—')} · Estado: ${etiquetaCodigo(String(pendiente?.estado ?? 'VIGENTE'))}. Se guardará con tu usuario y motivo en auditoría. ${preview?.advertencia ?? ''}`}
         cargando={enviando}
         onCancelar={() => setPendiente(null)}
         onConfirmar={() => {

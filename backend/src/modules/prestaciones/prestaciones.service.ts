@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { historiaMensual } from './prestaciones.historia.js';
 import { membrete, firmante } from '../empresa/empresa.service.js';
 import {
@@ -333,7 +334,7 @@ export function crearPrestacionesService(db: BaseDatos) {
         }
         if (!anteriores.some((p) => p.estado === 'PAGADA'))
           throw new ErrorConflicto(
-            `Falta registrar el pago de ${tipo} del ciclo que termina ${periodo.fin}. Regulariza esa obligación antes de liquidar.`,
+            `Falta registrar el pago de ${etiquetaCodigo(tipo)} del ciclo que termina ${periodo.fin}. Regulariza esa obligación antes de liquidar.`,
           );
       }
     }
@@ -376,7 +377,7 @@ export function crearPrestacionesService(db: BaseDatos) {
       const desde = e.ingreso > p.inicio ? e.ingreso : p.inicio;
       const previas = await repo.conflictos(c, e.id, tipo, p.inicio, q.corte);
       if (previas.some((p) => p.estado !== 'PAGADA'))
-        throw new ErrorConflicto(`Resuelve ${tipo} pendiente antes de liquidar.`);
+        throw new ErrorConflicto(`Resuelve ${etiquetaCodigo(tipo)} pendiente antes de liquidar.`);
       const pagos = [];
       for (const previa of previas) {
         const registro = (await repo.registro(c, previa.id))!;
@@ -399,7 +400,7 @@ export function crearPrestacionesService(db: BaseDatos) {
       const pendiente = new Decimal(componente.monto).minus(pagado);
       if (pendiente.lt(0))
         throw new ErrorConflicto(
-          `El pago anterior de ${tipo} supera el devengado actual. Revisa las fuentes antes de liquidar.`,
+          `El pago anterior de ${etiquetaCodigo(tipo)} supera el devengado actual. Revisa las fuentes antes de liquidar.`,
         );
       const exento = Decimal.min(pendiente, componente.exento);
       componentes.push({
@@ -577,7 +578,7 @@ export function crearPrestacionesService(db: BaseDatos) {
           if (!['CALCULADA', 'APROBADA'].includes(r.estado) || r.tipo === 'INDEMNIZACION')
             throw new ErrorConflicto('Solo puede anularse una prestación anual sin pagar.');
         } else if (r.estado !== esperado)
-          throw new ErrorConflicto(`La operación requiere estado ${esperado}.`);
+          throw new ErrorConflicto(`La operación requiere estado ${etiquetaCodigo(esperado)}.`);
         if (accion !== 'anular' && r.tipo !== 'INDEMNIZACION') {
           const actual = await anual(
             c,
@@ -720,12 +721,12 @@ export function crearPrestacionesService(db: BaseDatos) {
               ],
               ...r.registros.map((v) => [
                 v.empleado,
-                v.tipo,
+                etiquetaCodigo(v.tipo),
                 v.inicio,
                 v.fin,
                 v.promedio,
                 v.total,
-                v.estado,
+                etiquetaCodigo(v.estado),
                 v.fechaPago,
                 v.referencia,
               ]),

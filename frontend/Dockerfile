@@ -8,6 +8,7 @@ COPY frontend frontend
 COPY backend/src/shared/horarios backend/src/shared/horarios
 COPY backend/src/shared/catalogos backend/src/shared/catalogos
 COPY backend/src/shared/empleados backend/src/shared/empleados
+COPY backend/src/shared/presentacion backend/src/shared/presentacion
 RUN npm run build --workspace frontend
 
 FROM nginx:stable-alpine AS runtime

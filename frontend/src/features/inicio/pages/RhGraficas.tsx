@@ -1,3 +1,4 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import {
   ResponsiveContainer,
   BarChart,
@@ -113,7 +114,7 @@ export function RhGraficas({
               <ul>
                 {evolucion.map((p) => (
                   <li key={p.id}>
-                    {fechaHora(p.inicio)} · {p.estado}
+                    {fechaHora(p.inicio)} · <EstadoBadge estado={p.estado} />
                     {p.parcial ? ' · Parcial: solo anticipo' : ''}: bruto{' '}
                     {p.bruto === null ? 'sin calcular' : moneda(p.bruto)}, neto{' '}
                     {p.neto === null ? 'sin calcular' : moneda(p.neto)}

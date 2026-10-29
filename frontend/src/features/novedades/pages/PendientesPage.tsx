@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { pendientes, exportarPendientes } from '../api/parqueo';
 import type { Resumen } from '../api/parqueo';
-import { MonthField } from '../../../components/forms/MonthField';
+import { MonthFieldDatos } from '../../../components/forms/MonthFieldDatos';
 import { TextField } from '../../../components/forms';
 import { ReferenciaNovedad } from './CampoNovedad';
 import { Button } from '../../../components/ui/Button';
@@ -63,7 +63,8 @@ export function PendientesPage() {
           </summary>
           <FormGrid className="my-4">
             <div className="contents">
-              <MonthField
+              <MonthFieldDatos
+                fuente="novedades"
                 name="mes"
                 label="Mes"
                 hint="Incluye pendientes de este mes y anteriores."

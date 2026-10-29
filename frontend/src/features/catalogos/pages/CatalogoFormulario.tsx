@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import { CatalogoAccion } from './CatalogoAccion';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
@@ -50,7 +51,9 @@ export function valorVisible(v: unknown) {
 export function valorCampo(campo: Campo, valor: unknown) {
   return valor != null && valor !== '' && campo.tipo === 'dinero'
     ? `Q ${formatoMoneda(String(valor))}`
-    : valorVisible(valor);
+    : campo.tipo === 'opcion'
+      ? etiquetaCodigo(String(valor ?? ''))
+      : valorVisible(valor);
 }
 export function CatalogoFormulario({
   cat,

@@ -1,3 +1,4 @@
+import { useTituloRegistro } from '../../../app/titulos';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { AvisoEmpresa } from '../../empresa/pages/AvisoEmpresa';
 import { CrearHorarioModal } from '../../horarios/CrearHorarioModal';
@@ -57,6 +58,7 @@ export function EmpleadoFormularioPage() {
     queryFn: ({ signal }) => detalle(Number(id), signal),
     enabled: !!id,
   });
+  useTituloRegistro(d.data?.codigo);
   if (r.isPending || (id && d.isPending)) return <Skeleton lineas={8} />;
   const error = r.error ?? d.error;
   if (error)

@@ -1,3 +1,4 @@
+import { etiquetaCodigo, textoPresentacion } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -200,13 +201,13 @@ export function AuditoriaPage() {
             {
               id: 'usuario',
               titulo: 'Usuario / rol',
-              render: (f) => `${f.idUsuario ?? 'Sistema'} · ${f.rol ?? 'Sistema'}`,
+              render: (f) => `${f.idUsuario ?? 'Sistema'} · ${etiquetaCodigo(f.rol ?? 'Sistema')}`,
             },
-            { id: 'accion', titulo: 'Acción', render: (f) => f.accion },
+            { id: 'accion', titulo: 'Acción', render: (f) => etiquetaCodigo(f.accion) },
             {
               id: 'entidad',
               titulo: 'Entidad',
-              render: (f) => `${f.entidad} · ${f.idEntidad ?? '—'}`,
+              render: (f) => `${etiquetaCodigo(f.entidad)} · ${f.idEntidad ?? '—'}`,
             },
             { id: 'motivo', titulo: 'Motivo', render: (f) => f.motivo ?? '—' },
             {
@@ -230,14 +231,19 @@ export function AuditoriaPage() {
         {detalle && (
           <section data-tour="auditoria-detalle" className="my-5">
             <p>
-              {detalle.accion} · {detalle.entidad} · {fechaHora(detalle.fecha)}
+              {etiquetaCodigo(detalle.accion)} · {etiquetaCodigo(detalle.entidad)} ·{' '}
+              {fechaHora(detalle.fecha)}
             </p>
             <p>IP: {detalle.ip ?? 'No registrada'}</p>
             <p>Motivo: {detalle.motivo ?? 'No aplica'}</p>
             <h3 className="mt-4">Valores anteriores</h3>
-            <pre className="auditoria-json">{JSON.stringify(detalle.antes, null, 2)}</pre>
+            <pre className="auditoria-json">
+              {textoPresentacion(JSON.stringify(detalle.antes, null, 2))}
+            </pre>
             <h3>Valores nuevos</h3>
-            <pre className="auditoria-json">{JSON.stringify(detalle.despues, null, 2)}</pre>
+            <pre className="auditoria-json">
+              {textoPresentacion(JSON.stringify(detalle.despues, null, 2))}
+            </pre>
             <p className="campo-hint">
               La auditoría excluye contraseñas, tokens y datos sensibles.
             </p>

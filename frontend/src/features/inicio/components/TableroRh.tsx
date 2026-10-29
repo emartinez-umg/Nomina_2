@@ -16,7 +16,7 @@ import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Tooltip } from '../../../components/ui/Tooltip';
 import { Field } from '../../../components/forms/Field';
-import { MonthField } from '../../../components/forms/MonthField';
+import { MonthFieldDatos } from '../../../components/forms/MonthFieldDatos';
 import { fechaVisible, hoyGuatemala, moneda } from '../../../lib/validadores';
 import { tokens } from '../../../styles/tokens';
 import { iconos } from '../../../components/ui/icons';
@@ -87,7 +87,8 @@ function TopRemuneraciones() {
             ))}
           </select>
         </Field>
-        <MonthField
+        <MonthFieldDatos
+          fuente="planillas"
           name="rh-mes"
           label="Mes de remuneraciones"
           hint="Elige el mes y año de los pagos confirmados que deseas comparar."

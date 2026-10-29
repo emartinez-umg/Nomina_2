@@ -630,6 +630,55 @@ describe('R2-8: agregaciones protegidas con Oracle/Supertest', () => {
     expect(r.cumpleanos.filter((c: { esHoy: boolean }) => c.esHoy)).toHaveLength(1);
     hoy = '2026-12-31';
   });
+  it('R3-4: años por fuente, huecos, registros inactivos y alcance propio', async () => {
+    const url = '/api/tableros/anios?fuente=';
+    await request(app)
+      .get(url + 'planillas')
+      .expect(401);
+    await temporal.agent.get(url + 'planillas').expect(403);
+    await empleado.agent.get(url + 'comisiones').expect(403);
+    const actual = Number(
+      new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Guatemala' })
+        .format(new Date())
+        .slice(0, 4),
+    );
+    for (const fuente of [
+      'planillas',
+      'calculo-nomina',
+      'comisiones',
+      'ausencias',
+      'vacaciones',
+      'horas-extra',
+      'consumos-tienda',
+      'parqueo',
+      'novedades',
+      'tarifas-parqueo',
+    ]) {
+      const r = await rh.agent.get(url + fuente).expect(200);
+      expect(r.body.data.anios).toContain(actual);
+      expect(r.body.data.anioMin).toBe(Math.min(...r.body.data.anios));
+      expect(r.headers['cache-control']).toBe('private, no-store');
+    }
+    await sql(
+      "INSERT INTO PERIODOS_NOMINA(FECHA_INICIO,FECHA_FIN,QUINCENA) VALUES(DATE '2001-01-01',DATE '2001-01-15',1)",
+    );
+    await sql(
+      "INSERT INTO PERIODOS_NOMINA(FECHA_INICIO,FECHA_FIN,QUINCENA) VALUES(DATE '2003-01-01',DATE '2003-01-15',1)",
+    );
+    await sql(
+      "INSERT INTO PERIODOS_NOMINA(FECHA_INICIO,FECHA_FIN,QUINCENA,ACTIVO) VALUES(DATE '2002-01-01',DATE '2002-01-15',1,0)",
+    );
+    const global = await rh.agent.get(url + 'planillas').expect(200);
+    expect(global.body.data.anios).toEqual(expect.arrayContaining([2001, 2003, actual]));
+    expect(global.body.data.anios).not.toContain(2002);
+    const propio = await empleado.agent.get(url + 'planillas').expect(200);
+    expect(propio.body.data.anios).not.toContain(2001);
+    expect(propio.body.data.anios).not.toContain(2003);
+    await sql(
+      "DELETE FROM PERIODOS_NOMINA WHERE FECHA_INICIO BETWEEN DATE '2001-01-01' AND DATE '2003-12-31'",
+    );
+  });
+
   it('revisa planes y tiempos de las consultas pesadas sin escribir datos operativos', async () => {
     await sql(
       `INSERT INTO AUSENCIAS(ID_EMPLEADO,ID_TIPO_AUSENCIA,FECHA_INICIO,FECHA_FIN,DIAS,ESTADO,MOTIVO,APROBADO_POR)

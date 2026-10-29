@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { reglas as reglasEmpleado } from '../empleados/empleados.repository.js';
 import { digitoNitValido } from '../../shared/empleados/validadores.js';
 import { membrete, firmante } from '../empresa/empresa.service.js';
@@ -425,7 +426,7 @@ export function crearSolicitudesService(db: BaseDatos) {
               s.codigo,
               s.empleado,
               s.nombreTipo,
-              s.estado,
+              etiquetaCodigo(s.estado),
               s.fecha,
               s.motivo,
             ]),

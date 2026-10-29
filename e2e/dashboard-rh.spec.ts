@@ -1,3 +1,4 @@
+import { Decimal } from 'decimal.js';
 import { test, expect, type Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import { prepararDashboard } from './dashboard.fixture.js';
@@ -172,7 +173,11 @@ test('R2-9: móvil, movimiento reducido y vacío de remuneraciones con API real'
   await entrar(page);
   const tablero = page.getByRole('region', { name: 'Estadísticas de Recursos Humanos' });
   const top = tablero.getByRole('region', { name: 'Top 5 de remuneraciones' });
-  await top.getByLabel('Año de mes de remuneraciones').selectOption('1900');
+  await expect(
+    top.getByLabel('Año de mes de remuneraciones').locator('option[value="1900"]'),
+  ).toHaveCount(0);
+  await top.getByLabel('Año de mes de remuneraciones').selectOption('2024');
+  await top.getByLabel('Mes de remuneraciones', { exact: true }).selectOption('01');
   await expect(top.getByRole('heading', { name: 'Sin pagos para esta métrica' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   const rects = await tablero.locator(':scope > section').evaluateAll((es) =>
@@ -195,12 +200,17 @@ test('R3-2: Inicio muestra anticipo parcial y total mensual igual al historial, 
 }) => {
   await entrar(page);
   const tarjeta = (titulo: string) => page.locator('.indicador').filter({ hasText: titulo });
+  const base = (await (await page.request.get('/api/tableros/rh')).json()).data.nominaMes;
+  const monto = (original: string, adicional: string) => {
+    const [entero, centavos] = new Decimal(original).plus(adicional).toFixed(2).split('.');
+    return `Q ${entero!.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${centavos}`;
+  };
   await fixture.registrarMensual('ANTICIPO');
   await page.reload();
   const bruto = tarjeta('Nómina bruta del mes'),
     neto = tarjeta('Nómina neta del mes');
-  await expect(bruto).toContainText('Q 5,250.00');
-  await expect(neto).toContainText('Q 5,250.00');
+  await expect(bruto).toContainText(monto(base.ingresos, '5250.00'));
+  await expect(neto).toContainText(monto(base.neto, '5250.00'));
   await expect(bruto).toContainText('Parcial: solo anticipo');
   await expect(neto).toContainText('Parcial: solo anticipo');
   await bruto.locator('.tooltip').focus();
@@ -208,10 +218,12 @@ test('R3-2: Inicio muestra anticipo parcial y total mensual igual al historial, 
   await page.keyboard.press('Escape');
   await fixture.registrarMensual('PAGO');
   await page.reload();
-  await expect(bruto).toContainText('Q 10,250.00');
-  await expect(neto).toContainText('Q 9,478.65');
-  await expect(bruto).not.toContainText('Parcial');
-  await expect(neto).not.toContainText('Parcial');
+  await expect(bruto).toContainText(monto(base.ingresos, '10250.00'));
+  await expect(neto).toContainText(monto(base.neto, '9478.65'));
+  for (const tarjeta of [bruto, neto]) {
+    if (base.parcial) await expect(tarjeta).toContainText('Parcial: solo anticipo');
+    else await expect(tarjeta).not.toContainText('Parcial');
+  }
   await neto.locator('.tooltip').focus();
   await expect(page.getByRole('tooltip')).toContainText('Suma del neto del anticipo');
   await page.keyboard.press('Escape');

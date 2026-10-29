@@ -7,7 +7,7 @@ import { usePageHelp } from '../../../components/help/HelpProvider';
 import { ayudaTarifas } from '../help/parqueo';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
-import { MonthField } from '../../../components/forms/MonthField';
+import { MonthFieldDatos } from '../../../components/forms/MonthFieldDatos';
 import { MoneyField, SelectField, TextAreaField } from '../../../components/forms';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -84,7 +84,8 @@ export function TarifasParqueoPage() {
               />
             </div>
             <div className="contents">
-              <MonthField
+              <MonthFieldDatos
+                fuente="tarifas-parqueo"
                 name="mes"
                 label="Vigente desde el mes"
                 hint="Comienza el primer día del mes; no altera periodos cerrados."

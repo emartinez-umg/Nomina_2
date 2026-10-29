@@ -1,3 +1,5 @@
+import { textoPresentacion } from '../../../lib/estados';
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import { useState } from 'react';
 import { ConfirmModal } from '../../../components/ui/Modal';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -102,17 +104,18 @@ export function Notificaciones({ abierto, onClick }: { abierto: boolean; onClick
               {q.data.registros.map((n) => (
                 <article key={n.id} className="my-4 border-b border-borde pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <strong>{n.titulo}</strong>
+                    <strong>{textoPresentacion(n.titulo)}</strong>
                     <Button
                       icono="eliminar"
                       variante="texto"
                       soloIcono
-                      aria-label={`Borrar notificación: ${n.titulo}`}
+                      aria-label={`Borrar notificación: ${textoPresentacion(n.titulo)}`}
                       disabled={borrar.isPending || marcar.isPending}
                       onClick={() => borrar.mutate(n.id)}
                     />
                   </div>
-                  <p>{n.mensaje}</p>
+                  <p>{textoPresentacion(n.mensaje)}</p>
+                  <EstadoBadge estado={n.leida ? 'LEIDA' : 'NO_LEIDA'} />
                   <div className="flex flex-wrap gap-2">
                     {n.clave.startsWith('NOMINA:') && (
                       <Button

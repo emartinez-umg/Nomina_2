@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useFormDraft } from '../../../hooks/useFormDraft';
@@ -367,12 +368,12 @@ function Editor({
                 {destinatarios.map((d) => (
                   <li key={`${d.tipo}:${d.id}`} className="flex items-center gap-2">
                     <span>
-                      {d.tipo} · {d.nombre ?? d.id}
+                      {etiquetaCodigo(d.tipo)} · {d.nombre ?? d.id}
                     </span>
                     <Button
                       icono="cancelar"
                       variante="texto"
-                      aria-label={`Quitar ${d.tipo} ${d.nombre ?? d.id}`}
+                      aria-label={`Quitar ${etiquetaCodigo(d.tipo)} ${d.nombre ?? d.id}`}
                       onClick={() =>
                         f.setValue(
                           'destinatarios',

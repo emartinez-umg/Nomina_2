@@ -10,6 +10,7 @@ export function crearTablerosRouter(s: ReturnType<typeof crearTablerosService>) 
     res.set('Cache-Control', 'private, no-store');
     next();
   });
+  r.get('/anios', c.anios);
   r.get('/rh/remuneraciones', roles, c.remuneraciones);
   r.get('/rh/inasistencias', roles, c.inasistencias);
   r.get('/rh/vacaciones', roles, c.vacaciones);

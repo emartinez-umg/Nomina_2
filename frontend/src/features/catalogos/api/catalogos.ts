@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import type {
   BloqueHorario,
   LimitesHorario,
@@ -112,7 +113,11 @@ export function csv(cat: Catalogo, filas: Fila[]) {
       ['ID', ...cat.campos.map((f) => f.etiqueta), 'Estado', 'En uso'],
       ...filas.map((r) => [
         r.id,
-        ...cat.campos.map((f) => r[f.nombre + 'Etiqueta'] ?? r[f.nombre]),
+        ...cat.campos.map((f) =>
+          f.tipo === 'opcion'
+            ? etiquetaCodigo(String(r[f.nombre] ?? ''))
+            : (r[f.nombre + 'Etiqueta'] ?? r[f.nombre]),
+        ),
         r.activo ? 'Activo' : 'Inactivo',
         r.usos,
       ]),

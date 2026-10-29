@@ -1,3 +1,6 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
+import { AnioFieldDatos } from '../../../components/forms/MonthFieldDatos';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { useDraftValues } from '../../../hooks/useFormDraft';
@@ -22,7 +25,6 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 import { useToast } from '../../../components/ui/Toast';
 import {
   DateField,
-  NumberField,
   TextField,
   SelectField,
   TextAreaField,
@@ -86,7 +88,7 @@ export function AccionesPeriodo({
                   ? bloqueoFirma
                   : api.alertasDe(p).length && !['calcular', 'reabrir', 'devolver'].includes(a)
                     ? 'Resuelve las alertas y recalcula.'
-                    : `Acción disponible en: ${estados.join(', ')}.`
+                    : `Acción disponible en: ${estados.map(etiquetaCodigo).join(', ')}.`
               }
               onClick={() => onAccion(a)}
             >
@@ -214,13 +216,12 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
             Crear periodo
           </Button>
         </div>
-        <NumberField
+        <AnioFieldDatos
+          fuente="planillas"
           name="anio"
           label="Año"
           hint="Filtra el año, por ejemplo 2026."
           value={q.anio ?? ''}
-          min="2000"
-          max="9999"
           onValueChange={(v) => setQ((p) => ({ ...p, anio: v, pagina: '1' }))}
         />
         <SelectField
@@ -239,7 +240,7 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
           onValueChange={(v) => setQ((p) => ({ ...p, estado: v, pagina: '1' }))}
           opciones={['ABIERTO', 'CALCULADO', 'REVISADO', 'APROBADO', 'CERRADO'].map((v) => ({
             value: v,
-            label: v,
+            label: etiquetaCodigo(v),
           }))}
         />
       </FormGrid>
@@ -271,7 +272,7 @@ function Periodos({ onAbrir }: { onAbrir: (id: number) => void }) {
             render: (p) =>
               `${p.motor === 'V1' ? (p.inicio.endsWith('-01') ? 'Anticipo · ' : 'Pago · ') : ''}${fechaVisible(p.inicio)} al ${fechaVisible(p.fin)}`,
           },
-          { id: 'estado', titulo: 'Estado', render: (p) => <Badge>{p.estado}</Badge> },
+          { id: 'estado', titulo: 'Estado', render: (p) => <EstadoBadge estado={p.estado} /> },
           { id: 'version', titulo: 'Versión', render: (p) => p.version },
           { id: 'empleados', titulo: 'Empleados calculados', render: (p) => p.empleados },
           { id: 'alertas', titulo: 'Alertas', render: (p) => api.alertasDe(p).length },
@@ -396,7 +397,8 @@ function Planilla({
             p.data && (
               <>
                 <h2>
-                  {fechaVisible(p.data.inicio)} al {fechaVisible(p.data.fin)} · {p.data.estado}
+                  {fechaVisible(p.data.inicio)} al {fechaVisible(p.data.fin)} ·{' '}
+                  <EstadoBadge estado={p.data.estado} />
                 </h2>
                 <p className="campo-hint mb-4">
                   Versión {p.data.version} · {p.data.empleados} empleados calculados. Cada recálculo
@@ -504,13 +506,12 @@ function Planilla({
         <section data-tour="nomina-filtros">
           {filtros && (
             <FormGrid className="my-4">
-              <NumberField
+              <AnioFieldDatos
+                fuente="planillas"
                 name="anio"
                 label="Año"
                 hint="Año del periodo de pago."
                 value={q.anio ?? ''}
-                min="2000"
-                max="9999"
                 onValueChange={(v) => cambiar('anio', v)}
               />
               <SelectField
@@ -583,7 +584,7 @@ function Planilla({
                     onValueChange={(v) => cambiar('estado', v)}
                     opciones={['CALCULADO', 'REVISADO', 'APROBADO', 'CERRADO'].map((v) => ({
                       value: v,
-                      label: v,
+                      label: etiquetaCodigo(v),
                     }))}
                   />
                 </>
@@ -718,8 +719,8 @@ function Planilla({
                     <>
                       {fechaVisible(f.inicio)} al {fechaVisible(f.fin)}
                       <p className="campo-hint">
-                        {f.tipoPago ? `${f.tipoPago} · ` : ''}
-                        {f.estado} · v{f.version}
+                        {f.tipoPago ? `${etiquetaCodigo(f.tipoPago)} · ` : ''}
+                        <EstadoBadge estado={f.estado} /> · v{f.version}
                       </p>
                     </>
                   ),
@@ -859,8 +860,8 @@ function DetalleBoleta({
             <>
               <h3 className="my-4">{d.data.empleado}</h3>
               <p>
-                {fechaVisible(d.data.inicio)} al {fechaVisible(d.data.fin)} · {d.data.estado} · v
-                {d.data.version}
+                {fechaVisible(d.data.inicio)} al {fechaVisible(d.data.fin)} ·{' '}
+                <EstadoBadge estado={d.data.estado} /> · v{d.data.version}
               </p>
               <p>
                 Salario mensual {moneda(d.data.resultado.salario)} · Días pagados{' '}
@@ -973,8 +974,8 @@ export function BoletaMovil({
         {fechaVisible(f.inicio)} al {fechaVisible(f.fin)}
       </h3>
       <p className="campo-hint">
-        {f.tipoPago ? `${f.tipoPago} · ` : ''}
-        {f.estado} · Versión {f.version}
+        {f.tipoPago ? `${etiquetaCodigo(f.tipoPago)} · ` : ''}
+        <EstadoBadge estado={f.estado} /> · Versión {f.version}
       </p>
       <p className="my-3">
         <strong>Neto: {moneda(f.neto)}</strong>

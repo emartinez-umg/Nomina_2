@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import type { Connection } from 'oracledb';
 import type { ActorAuditoria } from '../auth/auth.types.js';
 import { guardarFirma } from '../empresa/empresa.repository.js';
@@ -42,7 +43,7 @@ export function resultadoPrestacion(e: EntradaPago): ResultadoPago {
           isr: 0,
           prestaciones: 0,
         },
-        descripcion: `${e.tipoPago.replace('_', ' ')} · ${l.formula}`,
+        descripcion: `${etiquetaCodigo(e.tipoPago)} · ${l.formula}`,
         base: l.promedio,
         cantidad: l.tiempo,
         tasa: valor(

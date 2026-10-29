@@ -49,6 +49,20 @@ export function pasosVisibles(
       'Retomar formularios con borradores',
       'Mientras escribes, el formulario guarda un borrador en este navegador después de medio segundo. Puedes cerrar la pestaña o volver a abrir el mismo formulario y registro; pulsa Continuar para recuperar los datos y la sección. Descartar borrador pide confirmación, devuelve los valores iniciales y cancela cualquier autoguardado pendiente. Al cancelar con datos, elige Conservar borrador y salir o Descartar y salir; sin cambios se cierra directamente. Tras descartar no se crea otro borrador hasta que escribas de nuevo. Guardar con éxito elimina el borrador; un error lo conserva. Cerrar sesión explícitamente elimina todos tus borradores; entrar con otro usuario purga los ajenos. La expiración por inactividad permite recuperarlos al volver a entrar con la misma cuenta. Nunca se guardan contraseñas, tokens ni archivos: vuelve a seleccionar los adjuntos. Si el navegador bloquea el almacenamiento o se llena, verás el aviso y podrás seguir editando y guardar en el servidor.',
     );
+  const insignia = alcance.querySelector('[data-estado]');
+  if (insignia)
+    agregar(
+      insignia,
+      'Leer el estado del registro',
+      'La etiqueta indica la situación actual con texto, color e icono. En proceso espera revisión; Aprobada confirma la autorización; Rechazada o Cancelada conserva su historial. Los filtros y los archivos descargados usan las mismas etiquetas. Consulta los motivos y las acciones disponibles antes de continuar.',
+    );
+  const meses = alcance.querySelector('[data-anios-datos]');
+  if (meses)
+    agregar(
+      meses,
+      'Elegir un año con datos',
+      'La lista consulta la fuente de esta pantalla y ofrece solo años con registros, además del año actual aunque todavía esté vacío. No enumera años intermedios vacíos. Cambiar mes o año actualiza la consulta; si falla la carga de años puedes reintentar. Las fechas personales mantienen sus límites propios.',
+    );
   // Complementa las secciones declarativas de cada módulo con todos los campos realmente visibles.
   for (const campo of alcance.querySelectorAll('[data-campo]')) {
     if (!visible(campo)) continue;
@@ -92,8 +106,8 @@ export function pasosVisibles(
         'navegacion',
         'Navegación según tu rol',
         rol === 'EMPLEADO'
-          ? 'La barra azul agrupa tus gestiones personales. Inicio abre tu tablero directamente, sin desplegable. Abre una categoría con clic, Enter o Espacio; usa flechas para recorrer categorías y opciones. Escape cierra el grupo y devuelve el foco. En móvil pulsa Menú para desplegar los acordeones; la opción activa se resalta con fondo y subrayado. Solo aparecen secciones de tu rol.'
-          : 'La barra azul agrupa los módulos permitidos por tu rol. Inicio abre tu tablero directamente, sin desplegable. Abre categorías con clic, Enter o Espacio; flechas izquierda/derecha recorren categorías y arriba/abajo sus opciones. Inicio y Fin van a los extremos. Escape o clic fuera cierra el panel. En móvil pulsa Menú y abre los acordeones. Usuarios y Bitácora corresponden a ADMIN; el fondo y el subrayado identifican la sección activa.',
+          ? 'El título de la pestaña identifica esta pantalla; en detalles muestra solo el código del registro. La barra azul agrupa tus gestiones personales. Inicio abre tu tablero directamente, sin desplegable. Abre una categoría con clic, Enter o Espacio; usa flechas para recorrer categorías y opciones. Escape cierra el grupo y devuelve el foco. En móvil pulsa Menú para desplegar los acordeones; la opción activa se resalta con fondo y subrayado. Solo aparecen secciones de tu rol.'
+          : 'El título de la pestaña identifica esta pantalla; en detalles muestra solo el código del registro. La barra azul agrupa los módulos permitidos por tu rol. Inicio abre tu tablero directamente, sin desplegable. Abre categorías con clic, Enter o Espacio; flechas izquierda/derecha recorren categorías y arriba/abajo sus opciones. Inicio y Fin van a los extremos. Escape o clic fuera cierra el panel. En móvil pulsa Menú y abre los acordeones. Usuarios y Bitácora corresponden a ADMIN; el fondo y el subrayado identifican la sección activa.',
       ],
       [
         'buscador',

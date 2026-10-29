@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { horasDiariasEnFecha } from '../../shared/horarios/horas.js';
 import { Decimal } from 'decimal.js';
 import { dinero } from '../../shared/utils/dinero.js';
@@ -54,7 +55,7 @@ export function validarTransicion(estado: Estado, accion: string, rol: string, m
   };
   if (!permitidos[accion]?.includes(estado))
     throw new ErrorConflicto(
-      `No se puede ${accion} un periodo ${estado}. Sigue calcular → revisar → aprobar → cerrar.`,
+      `No se puede ${accion} un periodo ${etiquetaCodigo(estado)}. Sigue calcular → revisar → aprobar → cerrar.`,
     );
   if (accion === 'reabrir' && rol !== 'ADMIN')
     throw new ErrorNegocio('Solo ADMIN puede reabrir un periodo.', 403, 'PROHIBIDO');

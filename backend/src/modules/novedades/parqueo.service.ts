@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { escribirCsv } from '../empleados/empleados.csv.js';
 import type { Connection } from 'oracledb';
 import type { BaseDatos } from '../../shared/db/pool.js';
@@ -96,15 +97,15 @@ export function crearParqueoService(db: BaseDatos) {
           for (const s of r.registros)
             out.push([
               s.empleado,
-              s.vehiculo,
+              etiquetaCodigo(s.vehiculo),
               s.placa,
               s.inicio,
               s.fin,
-              s.estado,
+              etiquetaCodigo(s.estado),
               s.bajaSolicitada,
               q.mes,
               s.tarifa,
-              s.estadoAplicacion,
+              etiquetaCodigo(s.estadoAplicacion),
               s.idPago,
             ]);
           if (pagina * 100 >= r.total) return escribirCsv(out);

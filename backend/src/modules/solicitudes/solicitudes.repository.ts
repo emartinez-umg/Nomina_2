@@ -1,3 +1,4 @@
+import { etiquetaEstado } from '../../shared/presentacion/estados.js';
 import { nombrePersonaSql, nombreUsuarioSql } from '../../shared/utils/nombre.js';
 import oracledb from 'oracledb';
 import type { FirmaDocumento } from '../../shared/pdf/documento.js';
@@ -238,7 +239,7 @@ export async function notificar(c: Connection, s: Solicitud, estado: string, act
             : estado === 'ENTREGADA' && s.generaPdf
               ? 'DOCUMENTO_ENTREGADO'
               : 'CAMBIO_ESTADO',
-        titulo: `${s.nombreTipo} · ${estado.replace(/_/g, ' ')}`,
+        titulo: `${s.nombreTipo} · ${etiquetaEstado(estado)}`,
         mensaje:
           estado === 'EN_PROCESO'
             ? `${s.empleado} envió la solicitud ${s.id}. Revisa la bandeja.`

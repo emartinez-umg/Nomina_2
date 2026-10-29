@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { nitValido } from './empleados.schemas.js';
 import {
   normalizarNit,
@@ -408,7 +409,7 @@ export function crearEmpleadosService(db: BaseDatos) {
               d.puesto,
               d.fechaIngreso,
               d.salarioBase,
-              d.estado,
+              etiquetaCodigo(String(d.estado)),
               d.perfilIncompleto ? 'Perfil incompleto' : 'Completo',
               (d.faltantes as string[]).join(', '),
             ]);
@@ -656,7 +657,7 @@ export function crearEmpleadosService(db: BaseDatos) {
           ...filas.map((f) => [
             f.numero,
             `${String(f.datos.nombres ?? '')} ${String(f.datos.apellidos ?? '')}`,
-            f.estado,
+            etiquetaCodigo(f.estado),
             f.idEmpleado,
             f.codigo,
             f.usuario,

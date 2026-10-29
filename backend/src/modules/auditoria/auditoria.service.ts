@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { escribirCsv } from '../empleados/empleados.csv.js';
 import { ErrorConflicto } from '../../shared/errors/errors.js';
 import type { Connection } from 'oracledb';
@@ -47,9 +48,9 @@ export const crearAuditoriaService = (db: BaseDatos) => ({
           ...filas.map((f) => [
             f.fecha,
             f.idUsuario,
-            f.rol,
-            f.accion,
-            f.entidad,
+            etiquetaCodigo(f.rol),
+            etiquetaCodigo(f.accion),
+            etiquetaCodigo(f.entidad),
             f.idEntidad,
             f.motivo,
             f.ip,

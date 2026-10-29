@@ -1862,8 +1862,10 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
       expect(r.body.data.importadas).toBe(1);
       expect(r.body.data.credenciales).toHaveLength(1);
       const rep = await agent.get(`/api/empleados/cargas/${id}/reporte`).expect(200);
-      expect(rep.body.data).toContain('IMPORTADA');
-      expect(rep.body.data).toContain('INVALIDA');
+      expect(rep.body.data).toContain('Importada');
+      expect(rep.body.data).not.toContain('IMPORTADA');
+      expect(rep.body.data).toContain('Inválida');
+      expect(rep.body.data).not.toContain('INVALIDA');
       expect(rep.body.data).not.toContain(r.body.data.credenciales[0].contrasenaTemporal);
       await agent
         .post(`/api/empleados/cargas/${id}/confirmar`)
@@ -2063,7 +2065,8 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         const csv = await a.agent
           .get(`/api/vacaciones/exportar?idEmpleado=${idEmpleado}`)
           .expect(200);
-        expect(csv.body.data).toContain('EN_PROCESO');
+        expect(csv.body.data).toContain('En proceso');
+        expect(csv.body.data).not.toContain('EN_PROCESO');
       });
       it('bloquea traslapes, fechas pasadas y saldo insuficiente', async () => {
         const e = await empleado();

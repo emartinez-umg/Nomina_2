@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import {
   formatoNitValido,
   mensajeNit,
@@ -243,7 +244,7 @@ function DatosForm({
                       {...props}
                       hint="Selecciona tu estado civil actual para revisión de RRHH."
                       opciones={['SOLTERO', 'CASADO', 'UNIDO', 'DIVORCIADO', 'VIUDO'].map(
-                        (value) => ({ value, label: value }),
+                        (value) => ({ value, label: etiquetaCodigo(value) }),
                       )}
                     />
                   );

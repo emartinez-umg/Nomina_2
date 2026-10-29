@@ -117,7 +117,7 @@ test('R2-6: asistente, borrador, alta mínima, credenciales y edición con grupo
   await page.getByLabel('Salario base mensual', { exact: true }).fill('5000');
   await elegirEmpleadoCampo(page, 'Banco', 'Banco E2E');
   await page.getByLabel('Cuenta bancaria', { exact: true }).fill('12345678');
-  await elegirEmpleadoCampo(page, 'Tipo de cuenta', 'AHORRO');
+  await elegirEmpleadoCampo(page, 'Tipo de cuenta', 'Ahorro');
   await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
   await page.getByLabel('Nombre del contacto', { exact: true }).fill('Persona Contacto');
   await elegirEmpleadoCampo(page, 'Parentesco', 'Madre');

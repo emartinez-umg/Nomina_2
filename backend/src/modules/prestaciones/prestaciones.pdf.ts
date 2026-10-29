@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { generarPdf, bloqueFirma } from '../../shared/pdf/documento.js';
 import type { IdentidadEmpresa, FirmaDocumento } from '../../shared/pdf/documento.js';
 import { Decimal } from 'decimal.js';
@@ -31,7 +32,7 @@ export function prestacionPdf(
       doc
         .text(s.empleado)
         .text(`${visible(s.inicio)} al ${visible(s.fin)}`)
-        .text(`Registro ${r.id} - Estado: ${r.estado}`)
+        .text(`Registro ${r.id} - Estado: ${etiquetaCodigo(r.estado)}`)
         .moveDown();
     };
     header();
@@ -62,7 +63,7 @@ export function prestacionPdf(
         .font('Helvetica-Bold')
         .fontSize(12)
         .fillColor('#213F60')
-        .text(l.concepto.replace(/_/g, ' '))
+        .text(etiquetaCodigo(l.concepto))
         .moveDown(0.3);
       doc
         .font('Helvetica')

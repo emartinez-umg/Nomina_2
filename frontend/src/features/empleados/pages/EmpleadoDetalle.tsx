@@ -1,3 +1,6 @@
+import { etiquetaCodigo } from '../../../lib/estados';
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { useTituloRegistro } from '../../../app/titulos';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { nombreEmpleado } from '../../../lib/nombre';
 import { RestablecerEmpleadoModal } from './RestablecerEmpleadoModal';
@@ -49,6 +52,7 @@ export function EmpleadoDetallePage() {
     queryKey: ['empleados', 'reglas'],
     queryFn: ({ signal }) => reglas(signal),
   });
+  useTituloRegistro(d.data?.codigo);
   const [restableciendo, setRestableciendo] = useState(false);
   const [tab, setTab] = useState('resumen');
   if (d.isPending || r.isPending) return <Skeleton lineas={8} />;
@@ -76,7 +80,7 @@ export function EmpleadoDetallePage() {
     <>
       <h1>{nombreEmpleado(empleado.nombres, empleado.apellidos)}</h1>
       <p className="my-3">
-        {empleado.codigo} · {empleado.estado} ·{' '}
+        {empleado.codigo} · <EstadoBadge estado={empleado.estado} /> ·{' '}
         {empleado.usuario ? 'Acceso al portal habilitado' : 'Sin usuario generado'}
       </p>
 
@@ -193,15 +197,17 @@ function Resumen({ empleado: e }: { empleado: Empleado }) {
                       ? e[f.nombre] === 'F'
                         ? 'Femenino'
                         : 'Masculino'
-                      : f.tipo === 'dinero'
-                        ? `Q ${formatoMoneda(String(e[f.nombre]))}`
-                        : f.tipo === 'fecha'
-                          ? fechaVisible(String(e[f.nombre]))
-                          : f.nombre === 'idDepartamento'
-                            ? String(e.departamento)
-                            : f.nombre === 'idPuesto'
-                              ? String(e.puesto)
-                              : String(e[f.nombre + 'Etiqueta'] ?? e[f.nombre])}
+                      : f.tipo === 'opcion'
+                        ? etiquetaCodigo(String(e[f.nombre]))
+                        : f.tipo === 'dinero'
+                          ? `Q ${formatoMoneda(String(e[f.nombre]))}`
+                          : f.tipo === 'fecha'
+                            ? fechaVisible(String(e[f.nombre]))
+                            : f.nombre === 'idDepartamento'
+                              ? String(e.departamento)
+                              : f.nombre === 'idPuesto'
+                                ? String(e.puesto)
+                                : String(e[f.nombre + 'Etiqueta'] ?? e[f.nombre])}
                 </dd>
               </div>
             ))}
@@ -235,7 +241,15 @@ function Registros({ id, tipo }: { id: number; tipo: string }) {
           id: k,
           titulo: k,
           render: (r: Record<string, string | null>) =>
-            r[k] && /^\d{4}-\d{2}-\d{2}$/.test(r[k]!) ? fechaVisible(r[k]!) : (r[k] ?? '—'),
+            k === 'Estado' ? (
+              <EstadoBadge estado={r[k]} />
+            ) : ['Tipo', 'Modalidad', 'Acción'].includes(k) ? (
+              etiquetaCodigo(r[k])
+            ) : r[k] && /^\d{4}-\d{2}-\d{2}$/.test(r[k]!) ? (
+              fechaVisible(r[k]!)
+            ) : (
+              (r[k] ?? '—')
+            ),
         }))}
         filas={q.data?.registros ?? []}
         clave={(_r) => q.data!.registros.indexOf(_r)}

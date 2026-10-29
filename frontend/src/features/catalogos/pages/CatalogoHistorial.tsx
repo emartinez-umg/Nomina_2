@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import { HelpProvider, usePageHelp } from '../../../components/help/HelpProvider';
 import { ayudaHistorialCatalogo } from '../help/pasos';
 import { useQuery } from '@tanstack/react-query';
@@ -31,7 +32,7 @@ function Historial({ cat, fila, onCerrar }: { cat: Catalogo; fila: Fila; onCerra
           {q.data.map((r) => (
             <li key={r.id}>
               <strong>
-                {r.fecha} · {r.accion.replace(/_/g, ' ')}
+                {r.fecha} · {etiquetaCodigo(r.accion)}
               </strong>
               <p>{r.motivo ?? 'Sin motivo adicional.'}</p>
             </li>

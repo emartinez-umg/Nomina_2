@@ -403,3 +403,34 @@ La API revalida todos los valores y permisos. No se escriben borradores de estos
 
 Detalles de cortes, paginación, estados, actualización, enlaces y pruebas en
 [DASHBOARD_RH.md](DASHBOARD_RH.md). Las fixtures E2E son exclusivas de Oracle desechable.
+
+### R3-4 — Títulos, años disponibles y estados
+
+El árbol de `app/router.tsx` declara `handle.titulo` para todas las rutas públicas y de los tres
+roles. `useTituloPagina` actualiza la pestaña al navegar. El HTML inicial usa solo `nomina2`.
+Los detalles/ediciones registran únicamente el código público obtenido de la API mediante
+`useTituloRegistro`; al salir se elimina la referencia anterior. Las novedades sin código
+asignado muestran su ID numérico. No se incluyen nombres, salarios ni identificadores fiscales.
+
+`MonthField` admite `anioMin`, `anioMax` y una lista opcional `anios` para omitir huecos. Sin
+esas props conserva el rango previo; `DateField` y los calendarios personales no cambian.
+`MonthFieldDatos` y `AnioFieldDatos` consultan `GET /api/tableros/anios?fuente=…` mediante
+`useRangoAnios`. Devuelve fuente, año actual de Guatemala, extremos y años únicos ordenados.
+Siempre incluye el actual, incluso sin filas. Un fallo conserva el año actual y ofrece reintentar.
+
+Fuentes: planillas (periodos activos), comisiones/horas extra (libro mensual e historia v0),
+ausencias y vacaciones (años cubiertos por sus rangos), tienda, parqueo, novedades y tarifas.
+La fuente adicional `calculo-nomina` usa las vigencias salariales dentro del contrato hasta hoy:
+permite el primer cálculo y las prestaciones atrasadas sin exigir una planilla previa.
+Simular pago/Prestaciones usa esa fuente; Inicio e Historial consultan planillas. Las capturas
+y filtros de novedades usan su propia fuente. Solo RH/ADMIN acceden a las fuentes generales;
+EMPLEADO solo puede consultar planillas, vacaciones y parqueo propios, delimitados desde la sesión.
+No se admiten filtros que permitan ampliar ese alcance. No hay escrituras ni cambios de esquema.
+
+`backend/src/shared/presentacion/estados.ts` es el único registro de código, etiqueta, tono e
+icono. React lo consume con `EstadoBadge` y las exportaciones/PDF con sus funciones de etiqueta.
+Los códigos que se envían al servidor, estados guardados y comprobantes archivados permanecen
+intactos. Un estado desconocido se presenta de forma neutral sin exponer su código.
+`etiquetaCodigo` traduce otras enumeraciones; `textoPresentacion` adapta mensajes históricos
+sin reescribirlos. Los códigos públicos de registros conservan su escritura original.
+La ayuda compartida explica la pestaña, el selector acotado y las insignias cuando están presentes.

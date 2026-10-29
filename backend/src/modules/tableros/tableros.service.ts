@@ -1,3 +1,5 @@
+import { textoPresentacion } from '../../shared/presentacion/codigos.js';
+import { crearCalendarioService } from '../calendario/calendario.service.js';
 import { crearEstadisticasService } from './estadisticas.service.js';
 import type { BaseDatos } from '../../shared/db/pool.js';
 import type { Autenticacion } from '../auth/auth.types.js';
@@ -12,6 +14,7 @@ import { querySchema } from '../nomina/nomina.schemas.js';
 export function crearTablerosService(db: BaseDatos) {
   return {
     estadisticas: crearEstadisticasService(db),
+    calendario: crearCalendarioService(db),
     consultar: (auth: Autenticacion, rol: 'rh' | 'admin' | 'empleado') =>
       db.conConexion(async (c) => {
         if (
@@ -77,7 +80,10 @@ export function crearTablerosService(db: BaseDatos) {
               departamentos: await repo.departamentos(c),
               evolucion,
               celebraciones: await repo.celebraciones(c),
-              alertas: await repo.alertas(c),
+              alertas: (await repo.alertas(c)).map((a) => ({
+                ...a,
+                mensaje: a.tipo === 'PERIODO' ? textoPresentacion(a.mensaje) : a.mensaje,
+              })),
             };
           }
           if (rol === 'admin')

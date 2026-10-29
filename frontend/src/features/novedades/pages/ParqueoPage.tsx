@@ -1,3 +1,5 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { descargar } from '../../empleados/api/empleados';
 import { useToast } from '../../../components/ui/Toast';
@@ -9,7 +11,7 @@ import { usePageHelp } from '../../../components/help/HelpProvider';
 import { ayudaParqueo } from '../help/parqueo';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
-import { MonthField } from '../../../components/forms/MonthField';
+import { MonthFieldDatos } from '../../../components/forms/MonthFieldDatos';
 import { TextField, TextAreaField, SelectField } from '../../../components/forms';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -81,7 +83,8 @@ export function ParqueoPage() {
           <summary className="cursor-pointer text-primario">Filtros de parqueo</summary>
           <FormGrid className="my-4">
             <div className="contents">
-              <MonthField
+              <MonthFieldDatos
+                fuente="parqueo"
                 name="mes"
                 label="Mes"
                 hint="Consulta tarifa y estado del cargo de este mes."
@@ -119,7 +122,7 @@ export function ParqueoPage() {
                 }}
                 opciones={['ACTIVA', 'BAJA', 'SUSPENDIDA'].map((value) => ({
                   value,
-                  label: value,
+                  label: etiquetaCodigo(value),
                 }))}
               />
             </div>
@@ -159,7 +162,7 @@ export function ParqueoPage() {
                 setPagina(1);
               }}
             >
-              Estado: {estado}
+              Estado: {etiquetaCodigo(estado)}
             </Button>
           )}
         </div>
@@ -227,7 +230,12 @@ export function ParqueoPage() {
                 id: 'estado',
                 titulo: 'Estado',
                 ordenable: true,
-                render: (r) => `${r.estado}${r.bajaSolicitada ? ' · Baja solicitada' : ''}`,
+                render: (r) => (
+                  <>
+                    <EstadoBadge estado={r.estado} />
+                    {r.bajaSolicitada ? ' · Baja solicitada' : ''}
+                  </>
+                ),
               },
               {
                 id: 'tarifa',
@@ -237,7 +245,7 @@ export function ParqueoPage() {
                     'No corresponde'
                   ) : (
                     <>
-                      {moneda(r.tarifa)} · {r.estadoAplicacion}
+                      {moneda(r.tarifa)} · <EstadoBadge estado={r.estadoAplicacion} />
                       {r.idPago ? ` · Pago #${r.idPago}` : ''}
                       {!r.tarifa && <p>Completar vehículo/tarifa</p>}
                     </>

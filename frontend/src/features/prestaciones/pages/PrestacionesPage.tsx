@@ -1,3 +1,5 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { AvisoEmpresa, useBloqueoFirma } from '../../empresa/pages/AvisoEmpresa';
 import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
@@ -18,7 +20,6 @@ import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Table } from '../../../components/ui/Table';
 import { Modal, ConfirmModal } from '../../../components/ui/Modal';
-import { Badge } from '../../../components/ui/Badge';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { useToast } from '../../../components/ui/Toast';
 import {
@@ -69,7 +70,7 @@ export function DetalleCalculo({ v }: { v: Vista }) {
                 {v.componentes.map((l) => (
                   <tr key={l.concepto}>
                     <td>
-                      {l.concepto.replace(/_/g, ' ')}
+                      {etiquetaCodigo(l.concepto)}
                       {l.formula && <p className="campo-hint">{l.formula}</p>}
                       <br />
                       {fechaVisible(l.inicio)} al {fechaVisible(l.fin)}
@@ -687,7 +688,7 @@ function Historial({
               onValueChange={(v) => set('tipo', v)}
               opciones={['', 'AGUINALDO', 'BONO_14', 'INDEMNIZACION'].map((value) => ({
                 value,
-                label: value.replace(/_/g, ' ') || 'Todos',
+                label: value ? etiquetaCodigo(value) : 'Todos',
               }))}
             />
             <SelectField
@@ -698,7 +699,7 @@ function Historial({
               onValueChange={(v) => set('estado', v)}
               opciones={['', 'CALCULADA', 'APROBADA', 'PAGADA', 'ANULADA'].map((value) => ({
                 value,
-                label: value || 'Todos',
+                label: value ? etiquetaCodigo(value) : 'Todos',
               }))}
             />
             <DateField
@@ -753,7 +754,7 @@ function Historial({
               id: 'tipo',
               titulo: 'Tipo',
               ordenable: true,
-              render: (r) => r.tipo.replace(/_/g, ' '),
+              render: (r) => etiquetaCodigo(r.tipo),
             },
             {
               id: 'fin',
@@ -766,7 +767,7 @@ function Historial({
               id: 'estado',
               titulo: 'Estado',
               ordenable: true,
-              render: (r) => <Badge>{r.estado}</Badge>,
+              render: (r) => <EstadoBadge estado={r.estado} />,
             },
             {
               id: 'acciones',
@@ -841,7 +842,7 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
       ) : r.data ? (
         <>
           <p className="my-3">
-            Estado: {r.data.estado}{' '}
+            Estado: <EstadoBadge estado={r.data.estado} />{' '}
             {r.data.fechaPago && `- Pago ${fechaVisible(r.data.fechaPago)} - ${r.data.referencia}`}
           </p>
           {r.data.snapshot ? (

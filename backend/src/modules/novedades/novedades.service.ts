@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../shared/presentacion/codigos.js';
 import { prepararNovedadesParaPago } from './consumo.service.js';
 import { crearParqueoService } from './parqueo.service.js';
 import { empleadosResumen } from './pendientes.repository.js';
@@ -402,7 +403,9 @@ export function crearNovedadesService(db: BaseDatos) {
           e.pendientes,
           e.retroactivas,
           e.alertas,
-          e.novedades.map((n) => `${n.tipo} ${n.mes}: ${n.monto ?? 'Sin monto'}`).join(' | '),
+          e.novedades
+            .map((n) => `${etiquetaCodigo(n.tipo)} ${n.mes}: ${n.monto ?? 'Sin monto'}`)
+            .join(' | '),
         ]),
       ]);
     },
@@ -520,10 +523,10 @@ export function crearNovedadesService(db: BaseDatos) {
             filas.push([
               f.codigo,
               f.empleado,
-              f.tipoNombre ?? tipo,
+              f.tipoNombre ?? etiquetaCodigo(tipo),
               f.fechaInicio,
               f.fechaFin,
-              f.estado,
+              etiquetaCodigo(f.estado),
               f.mes,
               f.idPago,
               f.referencia,

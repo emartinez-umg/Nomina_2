@@ -11,7 +11,7 @@ import { ConfirmModal } from '../../../components/ui/Modal';
 import { SelectField, TextAreaField, FormErrorSummary } from '../../../components/forms';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
-import { MonthField } from '../../../components/forms/MonthField';
+import { MonthFieldDatos } from '../../../components/forms/MonthFieldDatos';
 import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { moneda } from '../../novedades/pages/NovedadesPage';
 import { hoyGuatemala, fechaVisible } from '../../../lib/validadores';
@@ -170,7 +170,8 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
               required
             />
             <div className="contents">
-              <MonthField
+              <MonthFieldDatos
+                fuente="calculo-nomina"
                 name="mes"
                 label="Mes del pago"
                 hint={

@@ -23,7 +23,7 @@ export async function personalesEmpleado(
   await page.getByLabel('NIT', { exact: true }).fill(nit);
   await page.getByLabel('Fecha de nacimiento', { exact: true }).fill('01/01/1995');
   await elegirEmpleadoCampo(page, 'Sexo', 'Femenino');
-  await elegirEmpleadoCampo(page, 'Estado civil', 'SOLTERO');
+  await elegirEmpleadoCampo(page, 'Estado civil', 'Soltero');
   await elegirEmpleadoCampo(page, 'Zona', 'Zona 1');
   await page.getByLabel('Dirección', { exact: true }).fill('Colonia Peña, calle #12-A / 3°');
   await page.getByLabel('Teléfono', { exact: true }).fill('55551234');

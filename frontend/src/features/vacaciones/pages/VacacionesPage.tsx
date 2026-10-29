@@ -1,3 +1,5 @@
+import { EstadoBadge } from '../../../components/ui/EstadoBadge';
+import { etiquetaCodigo } from '../../../lib/estados';
 import { FormGrid } from '../../../components/forms/FormGrid';
 import { CampoCodigo } from '../../../components/forms/CampoCodigo';
 import { useDraftValues, useFormDraft } from '../../../hooks/useFormDraft';
@@ -23,7 +25,6 @@ import { useSession } from '../../../app/session';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Table } from '../../../components/ui/Table';
-import { Badge } from '../../../components/ui/Badge';
 import { Modal, ConfirmModal } from '../../../components/ui/Modal';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
@@ -111,7 +112,7 @@ export function SaldoCard({ s }: { s: Saldo }) {
               {s.kardex.map((m) => (
                 <tr key={m.id}>
                   <td>{fechaVisible(m.fecha)}</td>
-                  <td>{m.tipo.replace(/_/g, ' ')}</td>
+                  <td>{etiquetaCodigo(m.tipo)}</td>
                   <td>{m.dias}</td>
                   <td>{m.motivo}</td>
                 </tr>
@@ -440,7 +441,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
               value={q.estado ?? ''}
               onValueChange={(v) => cambiar('estado', v)}
               opciones={['EN_PROCESO', 'APROBADA', 'RECHAZADA', 'CANCELADA', 'TOMADA'].map(
-                (value) => ({ value, label: value.replace(/_/g, ' ') }),
+                (value) => ({ value, label: etiquetaCodigo(value) }),
               )}
             />
             <DateField
@@ -474,7 +475,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
                   } as Record<string, string>
                 )[k]
               }
-              : {v}
+              : {k === 'estado' ? etiquetaCodigo(v) : v}
             </Button>
           ))}
           {activos.length > 0 && (
@@ -525,17 +526,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
             ordenable: true,
             render: (f) => (
               <>
-                <Badge
-                  tono={
-                    f.estado === 'APROBADA'
-                      ? 'correcto'
-                      : f.estado === 'RECHAZADA'
-                        ? 'peligro'
-                        : 'informacion'
-                  }
-                >
-                  {f.estado.replace(/_/g, ' ')}
-                </Badge>
+                <EstadoBadge estado={f.estado} />
                 {f.motivo && <p>{f.motivo}</p>}
               </>
             ),

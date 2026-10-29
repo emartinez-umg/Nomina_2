@@ -14,7 +14,8 @@ import { ayudaSolicitudes } from '../help/pasos';
 import * as api from '../api/solicitudes';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { Badge } from '../../../components/ui/Badge';
+import { EstadoBadge as Estado } from '../../../components/ui/EstadoBadge';
+export { EstadoBadge as Estado } from '../../../components/ui/EstadoBadge';
 import { Table } from '../../../components/ui/Table';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Skeleton } from '../../../components/ui/Skeleton';
@@ -33,15 +34,6 @@ import { fechaVisible } from '../../../lib/validadores';
 import { descargar } from '../../empleados/api/empleados';
 import { SolicitudDetalle } from './SolicitudDetalle';
 import { Plantillas } from './Plantillas';
-export function Estado({ estado }: { estado: string }) {
-  return (
-    <Badge
-      tono={estado === 'RECHAZADA' ? 'peligro' : estado === 'EN_PROCESO' ? 'aviso' : 'correcto'}
-    >
-      {api.nombresEstado[estado] ?? estado}
-    </Badge>
-  );
-}
 const etiquetasFiltro: Record<string, string> = {
   tipo: 'Tipo',
   estado: 'Estado',

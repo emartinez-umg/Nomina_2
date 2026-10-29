@@ -1,3 +1,4 @@
+import { etiquetaCodigo } from '../../../lib/estados';
 import { InputField } from '../../../components/forms/Field';
 import {
   validarCodigoPostal,
@@ -168,7 +169,7 @@ export function CampoEditor({
       return (
         <SelectField
           {...props}
-          opciones={campo.opciones?.map((v) => ({ value: v, label: v.replace(/_/g, ' ') })) ?? []}
+          opciones={campo.opciones?.map((v) => ({ value: v, label: etiquetaCodigo(v) })) ?? []}
         />
       );
     case 'booleano':
