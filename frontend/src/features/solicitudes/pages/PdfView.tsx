@@ -5,7 +5,15 @@ import type { Documento } from '../api/solicitudes';
 import { Button } from '../../../components/ui/Button';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { iconos } from '../../../components/ui/icons';
-export function PdfView({ documento, onListo }: { documento: Documento; onListo: () => void }) {
+export function PdfView({
+  documento,
+  onListo,
+  onDescargar,
+}: {
+  documento: Pick<Documento, 'nombre' | 'base64'>;
+  onListo: () => void;
+  onDescargar?: () => void;
+}) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [pagina, setPagina] = useState(1),
     [paginas, setPaginas] = useState(0),
@@ -106,6 +114,10 @@ export function PdfView({ documento, onListo }: { documento: Documento; onListo:
         icono="exportar"
         className="mt-3"
         onClick={() => {
+          if (onDescargar) {
+            onDescargar();
+            return;
+          }
           const bytes = Uint8Array.from(atob(documento.base64), (c) => c.charCodeAt(0));
           const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
           const a = document.createElement('a');

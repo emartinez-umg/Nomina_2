@@ -469,3 +469,52 @@ Aplicar V039 con el runner y reconstruir API/web; no modifica movimientos ni pag
 Pruebas: `npm run verify:vacaciones`, `npm run verify:tableros` (añadir `-- --docker` con imagen
 Node 20 actualizada), `npm run test:e2e -- --production vacaciones-saldos.spec.ts`.
 El alcance de equipo queda preparado para R3-8 y continúa denegado al empleado.
+
+### Expediente digital (R3-11)
+
+V042 agrega tipos y versiones del expediente; no altera documentos generados previamente.
+RH/ADMIN: Empleados → ficha → Documentos → **Generados por el sistema / Expediente**.
+Carga PDF/JPG/PNG, vista previa, reemplazo con historial y baja motivada. El indicador
+**Expediente X de Y** y el filtro **Expediente incompleto** cuentan tipos obligatorios vigentes.
+Inicio de RH avisa vencimientos. El empleado entra por Mis datos → **Consultar mi expediente**;
+los permisos de jefe no permiten acceder a los archivos de su equipo.
+
+El volumen **`nomina2-expedientes`** (normalmente `nomina2_nomina2-expedientes`) se monta
+**solo en la API**, en `/var/lib/nomina2/expedientes`. No se monta en nginx ni se sirve como
+ruta estática. Directorio 0700, archivos 0600 y nombres aleatorios; acceso solo mediante
+endpoint autenticado con propiedad/RBAC y bitácora. Para desarrollo local, `EXPEDIENTE_DIR`
+es una ruta absoluta privada; el valor de ejemplo en `/tmp` es temporal: **cámbialo por una
+ruta persistente privada antes de guardar documentos reales fuera de Docker**.
+
+Parámetros legales: `EXPEDIENTE_MAX_MB` (10 MiB, entero 1–50, unidad Cantidad) y
+`EXPEDIENTE_AVISO_DIAS` (30, entero 0–365, unidad Días). **Configurar tipo** permite a RH/ADMIN
+cambiar obligatoriedad y vencimiento con motivo/confirmación; no se calculan fechas legales.
+
+**Respaldo:** Oracle y el volumen son una sola unidad lógica; `db:export` es una exportación
+compartible de estructura/configuración, **no** un respaldo de expedientes. Excluye las filas
+de `EXPEDIENTE_DOCUMENTOS` y nunca lee/copia el volumen. No lo uses para recuperar archivos.
+Detén las escrituras (`docker compose stop nomina2-api`), toma un respaldo completo de Oracle
+con el procedimiento operativo de la instalación y respalda el volumen en el mismo corte.
+Guarda ambos cifrados fuera del repositorio, con permisos restringidos y claves bajo custodia.
+Ejemplo de copia cifrada del volumen (requiere GnuPG y la ruta privada de destino existente):
+
+```sh
+docker run --rm -v nomina2_nomina2-expedientes:/origen:ro node:20-bookworm-slim \
+  tar -C /origen -czf - . | gpg --symmetric --cipher-algo AES256 \
+  --output /ruta/privada/respaldo/expedientes.tar.gz.gpg
+```
+
+Comprueba el nombre real con `docker volume ls` si cambiaste el proyecto Compose. No incluyas
+la contraseña de cifrado en comandos, archivos versionados o logs. Reinicia la API al terminar
+el corte con `docker compose start nomina2-api`; no ejecutes `docker compose down -v`.
+
+**Restauración:** en una instalación aislada, restaura Oracle y el volumen del mismo corte,
+preserva propietario UID/GID de `node` (1000:1000) y permisos 0700/0600, aplica únicamente las
+migraciones posteriores y prueba login, acceso propio/403 ajeno, SHA-256 y versiones antes de
+habilitar escrituras. La API comprueba tamaño/hash en cada lectura. No restaura un documento
+confirmado si falta su archivo: recupéralo del respaldo. Tras caída/commit incierto conserva
+posibles archivos huérfanos para conciliación manual, sin borrarlos automáticamente.
+
+Pruebas: `npm run verify:expedientes -- --docker` (con la imagen de pruebas actualizada),
+`npm run test:e2e -- --production expediente.spec.ts`, `npm test` y `npm run lint`.
+Contrato, decisiones y revisión de dependencias en [docs/EXPEDIENTE.md](docs/EXPEDIENTE.md).

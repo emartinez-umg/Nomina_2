@@ -26,7 +26,7 @@ export default defineConfig({
       url: 'http://127.0.0.1:3018/api/salud',
       timeout: 120000,
       reuseExistingServer: false,
-      stdout: 'ignore',
+      stdout: 'pipe',
     },
     {
       command: produccion

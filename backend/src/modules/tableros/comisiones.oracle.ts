@@ -251,7 +251,9 @@ describe('R3-9: datos de ventas protegidos con Oracle/Supertest', () => {
     );
     const firma = "SELECT COUNT(*)||':'||TO_CHAR(SUM(MONTO),'TM9') FROM NOVEDADES_MENSUALES";
     const antes = await scalar(firma);
-    expect(await ejecutarMigraciones(db, logger)).toBe(1);
+    expect(await ejecutarMigraciones(db, logger)).toBe(
+      migraciones.filter((m) => m.version > 40).length,
+    );
     expect(await scalar(firma)).toBe(antes);
   });
   afterAll(async () => {

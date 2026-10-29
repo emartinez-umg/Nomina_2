@@ -36,6 +36,8 @@ export const empleadoSchema = z
   .catchall(z.union([z.string(), z.number(), z.boolean(), z.null()]));
 export type Empleado = z.infer<typeof empleadoSchema>;
 const filaSchema = z.object({
+  expedienteCompletos: z.number().optional(),
+  expedienteRequeridos: z.number().optional(),
   id: z.number(),
   codigo: z.string(),
   nombre: z.string(),

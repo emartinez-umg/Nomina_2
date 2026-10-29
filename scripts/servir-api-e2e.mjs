@@ -25,7 +25,7 @@ const variables = {
   PORT: '3000',
   DB_CONNECT_STRING: 'nomina2-db:1521/XEPDB1',
   LOGIN_RATE_LIMIT: '1000',
-  LOG_LEVEL: 'silent',
+  LOG_LEVEL: 'error',
 };
 const proceso = spawn(
   'docker',
@@ -38,6 +38,10 @@ const proceso = spawn(
     'nomina2_default',
     '-p',
     '127.0.0.1:3018:3000',
+    '--mount',
+    `type=volume,source=${nombre}-expedientes,target=/var/lib/nomina2/expedientes`,
+    '--env',
+    'EXPEDIENTE_DIR=/var/lib/nomina2/expedientes',
     ...[
       'NODE_ENV',
       'HOST',

@@ -1,3 +1,4 @@
+import { ExpedientePanel } from '../../expedientes/ExpedientePanel';
 import { etiquetaCodigo } from '../../../lib/estados';
 import { EstadoBadge } from '../../../components/ui/EstadoBadge';
 import { useTituloRegistro } from '../../../app/titulos';
@@ -7,7 +8,7 @@ import { RestablecerEmpleadoModal } from './RestablecerEmpleadoModal';
 import { useDraftValues } from '../../../hooks/useFormDraft';
 import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Decimal } from 'decimal.js';
 import { detalle, reglas, pestana, salario, baja } from '../api/empleados';
@@ -54,7 +55,8 @@ export function EmpleadoDetallePage() {
   });
   useTituloRegistro(d.data?.codigo);
   const [restableciendo, setRestableciendo] = useState(false);
-  const [tab, setTab] = useState('resumen');
+  const [url] = useSearchParams();
+  const [tab, setTab] = useState(url.get('tab') === 'documentos' ? 'documentos' : 'resumen');
   if (d.isPending || r.isPending) return <Skeleton lineas={8} />;
   const error = d.error ?? r.error;
   if (error)
@@ -160,6 +162,12 @@ export function EmpleadoDetallePage() {
                 tab === t.id ? (
                   t.id === 'resumen' ? (
                     <Resumen empleado={empleado} />
+                  ) : t.id === 'documentos' ? (
+                    <>
+                      <h2 className="mt-5">Generados por el sistema</h2>
+                      <Registros id={id} tipo={t.id} />
+                      <ExpedientePanel id={id} />
+                    </>
                   ) : (
                     <Registros key={t.id} id={id} tipo={t.id} />
                   )
@@ -228,11 +236,24 @@ function Resumen({ empleado: e }: { empleado: Empleado }) {
   );
 }
 function Registros({ id, tipo }: { id: number; tipo: string }) {
+  const nav = useNavigate();
   const [pagina, setPagina] = useState(1);
   const q = useQuery({
     queryKey: ['empleados', 'pestana', id, tipo, pagina],
     queryFn: ({ signal }) => pestana(id, tipo, pagina, signal),
   });
+  if (tipo === 'documentos' && q.data?.total === 0 && !q.isFetching && !q.error)
+    return (
+      <EmptyState
+        titulo="Todavía no hay documentos generados"
+        descripcion="Las constancias y certificados aparecerán cuando se aprueben en Solicitudes."
+        accion={
+          <Button icono="documento" onClick={() => nav('/solicitudes')}>
+            Abrir solicitudes
+          </Button>
+        }
+      />
+    );
   return (
     <div className="mt-5">
       {tipo === 'vacaciones' && (

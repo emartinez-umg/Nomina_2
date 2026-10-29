@@ -1,3 +1,8 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { crearExpedientesService } from '../src/modules/expedientes/expedientes.service.js';
+import { crearAlmacenPrivado } from '../src/shared/archivos/almacen.js';
 import { crearEquipoService } from '../src/modules/equipo/equipo.service.js';
 import { prepararFirmantePrueba } from '../src/shared/pdf/empresa.fixture.js';
 import { crearEmpresaService } from '../src/modules/empresa/empresa.service.js';
@@ -162,8 +167,10 @@ for (const [id] of idsFirmantes) await prepararFirmantePrueba(db, id!);
 if (process.env.E2E_PREPARE_ONLY === '1') {
   await db.cerrar();
 } else {
+  const directorioExpedientes = await mkdtemp(join(tmpdir(), 'n2e2e-expedientes-'));
   const salud = crearSaludService(crearSaludRepository(db), logger);
   const app = crearApp(salud, logger, {
+    expedientes: crearExpedientesService(db, crearAlmacenPrivado(directorioExpedientes)),
     empresa: crearEmpresaService(db),
     auth: await crearAuthService(db, config),
     usuarios: crearUsuariosService(db),
@@ -185,7 +192,10 @@ if (process.env.E2E_PREPARE_ONLY === '1') {
   const server = app.listen(3018, '127.0.0.1');
   const cerrar = () =>
     server.close(() => {
-      void db.cerrar().then(() => process.exit(0));
+      void db
+        .cerrar()
+        .then(() => rm(directorioExpedientes, { recursive: true, force: true }))
+        .then(() => process.exit(0));
     });
   process.on('SIGINT', cerrar);
   process.on('SIGTERM', cerrar);

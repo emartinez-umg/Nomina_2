@@ -79,7 +79,10 @@ export function EmpleadosPage() {
   const nav = useNavigate(),
     toast = useToast();
   const [url] = useSearchParams();
-  const inicial = url.get('sinJefatura') === '1' ? { sinJefatura: '1', estado: 'ACTIVO' } : {};
+  const inicial = {
+    ...(url.get('sinJefatura') === '1' ? { sinJefatura: '1', estado: 'ACTIVO' } : {}),
+    ...(url.get('expedienteIncompleto') === '1' ? { expedienteIncompleto: '1' } : {}),
+  };
   const [borrador, setBorrador] = useState<Record<string, string>>(inicial),
     [q, setQ] = useState<Record<string, string>>(inicial),
     [pagina, setPagina] = useState(1),
@@ -168,6 +171,17 @@ export function EmpleadosPage() {
           </div>
           <details>
             <summary className="cursor-pointer text-primario">Filtros avanzados</summary>
+            <label
+              className="flex items-center gap-2 my-4"
+              title="Falta algún documento obligatorio vigente, o se dio de baja."
+            >
+              <input
+                type="checkbox"
+                checked={borrador.expedienteIncompleto === '1'}
+                onChange={(e) => set('expedienteIncompleto', e.target.checked ? '1' : '')}
+              />
+              Expediente incompleto
+            </label>
             <FormGrid className="my-4">
               {filtros
                 .filter((f) => f.nombre !== 'nombre')
@@ -236,9 +250,11 @@ export function EmpleadosPage() {
                   setPagina(1);
                 }}
               >
-                {k === 'sinJefatura'
-                  ? 'Sin jefatura activa'
-                  : filtros.find((f) => f.nombre === k)?.label}
+                {k === 'expedienteIncompleto'
+                  ? 'Expediente incompleto'
+                  : k === 'sinJefatura'
+                    ? 'Sin jefatura activa'
+                    : filtros.find((f) => f.nombre === k)?.label}
                 : {k.startsWith('ingreso') ? fechaVisible(v) : v}
               </Button>
             ))}
@@ -261,6 +277,21 @@ export function EmpleadosPage() {
                       </p>
                     )}
                   </div>
+                ),
+              },
+              {
+                id: 'expediente',
+                titulo: 'Expediente',
+                render: (r) => (
+                  <Button
+                    icono="documento"
+                    variante="texto"
+                    onClick={() => nav(`/empleados/${r.id}?tab=documentos`)}
+                  >
+                    {r.expedienteCompletos === undefined
+                      ? 'Consultar expediente'
+                      : `Expediente ${r.expedienteCompletos} de ${r.expedienteRequeridos}`}
+                  </Button>
                 ),
               },
               { id: 'dpi', titulo: 'DPI', render: (r) => r.dpi },

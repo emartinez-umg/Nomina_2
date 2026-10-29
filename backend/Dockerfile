@@ -19,6 +19,7 @@ COPY --from=build /app/backend/dist backend/dist
 COPY backend/scripts backend/scripts
 COPY db/migrations db/migrations
 COPY db/seeds db/seeds
+RUN mkdir -p /var/lib/nomina2/expedientes && chown node:node /var/lib/nomina2/expedientes && chmod 700 /var/lib/nomina2/expedientes
 USER node
 EXPOSE 3000
 CMD ["sh", "-c", "node backend/dist/shared/db/migrate-cli.js && node backend/dist/shared/db/seed-cli.js && exec node backend/dist/server.js"]

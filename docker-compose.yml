@@ -35,7 +35,10 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
+      EXPEDIENTE_DIR: /var/lib/nomina2/expedientes
       DB_CONNECT_STRING: nomina2-db:1521/XEPDB1
+    volumes:
+      - nomina2-expedientes:/var/lib/nomina2/expedientes
     ports:
       - '127.0.0.1:${API_PORT:-3000}:3000'
     depends_on:
@@ -75,5 +78,6 @@ services:
       retries: 3
 
 volumes:
+  nomina2-expedientes:
   nomina2-tls:
   nomina2-oradata:

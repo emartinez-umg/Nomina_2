@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isAbsolute } from 'node:path';
 import { isIP } from 'node:net';
 
 const entero = (min: number, max: number, valor: number) =>
@@ -7,6 +8,10 @@ const entero = (min: number, max: number, valor: number) =>
 const esquemaEntorno = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    EXPEDIENTE_DIR: z
+      .string()
+      .refine(isAbsolute, 'Usa una ruta privada absoluta.')
+      .default('/tmp/nomina2-expedientes'),
     HOST: z.string().trim().min(1).default('0.0.0.0'),
     PORT: entero(1, 65535, 3000),
     LOG_LEVEL: z

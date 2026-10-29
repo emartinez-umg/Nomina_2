@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { consultar, identificador, literal } from './exportar-bd-oracle.mjs';
 
+// Únicamente configuración compartible. EXPEDIENTE_DOCUMENTOS y su volumen nunca se exportan.
+export const tablasPrivadas = ['EXPEDIENTE_DOCUMENTOS'];
 export const catalogos = [
+  [
+    'TIPOS_DOCUMENTO_EXPEDIENTE',
+    ['CODIGO'],
+    'CODIGO,NOMBRE,OBLIGATORIO,REQUIERE_VENCIMIENTO,ACTIVO',
+  ],
   ['ROLES', ['CODIGO'], 'CODIGO,NOMBRE,DESCRIPCION,ACTIVO'],
   ['CONFIG_CODIGOS', ['ENTIDAD'], 'ENTIDAD,PREFIJO,LONGITUD_MAXIMA,PATRON,ACTIVO'],
   ['DEPARTAMENTOS_GT', ['CODIGO_INE'], 'CODIGO_INE,NOMBRE,ACTIVO'],
@@ -473,6 +480,13 @@ ALTER SESSION SET TIME_ZONE='America/Guatemala';
 
 export function auditarSeguridad(archivos, hashAdmin, valoresPrivados = []) {
   const contenido = Object.values(archivos).join('\n');
+  for (const tabla of tablasPrivadas)
+    assert.ok(
+      !new RegExp('(?:INSERT\\s+INTO|MERGE\\s+INTO)\\s+"?' + tabla + '"?(?:\\s|\\()', 'i').test(
+        contenido,
+      ),
+      'La exportación no admite registros del expediente privado.',
+    );
   const hashes = contenido.match(/\$argon2(?:id|i|d)\$v=\d+\$[^'\s]+/g) ?? [];
   assert.ok(
     hashes.length === 1 && hashes[0] === hashAdmin,

@@ -396,6 +396,7 @@ export function crearEmpleadosService(db: BaseDatos) {
             'Estado',
             'Perfil',
             'Datos pendientes',
+            'Expediente vigente',
           ],
         ];
         let pagina = 1;
@@ -416,6 +417,7 @@ export function crearEmpleadosService(db: BaseDatos) {
               etiquetaCodigo(String(d.estado)),
               d.perfilIncompleto ? 'Perfil incompleto' : 'Completo',
               (d.faltantes as string[]).join(', '),
+              `${String(d.expedienteCompletos)} de ${String(d.expedienteRequeridos)}`,
             ]);
           if (pagina * 100 >= r.total) break;
           pagina++;

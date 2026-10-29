@@ -68,6 +68,7 @@ try {
     spawnSync('docker', ['rm', '-f', `${imagen}-web`], { stdio: 'ignore' });
     spawnSync('docker', ['rm', '-f', `${imagen}-api`], { stdio: 'ignore' });
     spawnSync('docker', ['image', 'rm', imagen, `${imagen}-api`], { stdio: 'ignore' });
+    spawnSync('docker', ['volume', 'rm', `${imagen}-api-expedientes`], { stdio: 'ignore' });
   }
   if (creado) {
     administrar(`DROP USER ${usuario} CASCADE;`);

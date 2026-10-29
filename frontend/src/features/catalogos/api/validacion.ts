@@ -126,6 +126,19 @@ export function schemaFormulario(
           .replace(/[^A-Z0-9 ]/g, '')
           .trim()
           .replace(/ +/g, '_');
+      if (
+        clave === 'EXPEDIENTE_MAX_MB' &&
+        (!valor.isInteger() || valor.lt(1) || valor.gt(50) || d.unidad !== 'CANTIDAD')
+      )
+        error(
+          'valor',
+          'El límite del expediente debe ser un entero de 1 a 50 MB, unidad Cantidad.',
+        );
+      if (
+        clave === 'EXPEDIENTE_AVISO_DIAS' &&
+        (!valor.isInteger() || valor.lt(0) || valor.gt(365) || d.unidad !== 'DIAS')
+      )
+        error('valor', 'El aviso del expediente debe ser un entero de 0 a 365 días.');
       if (clave === 'VACACIONES_ALERTA_DIAS' && (valor.lte(0) || d.unidad !== 'DIAS'))
         error('valor', 'El umbral de vacaciones debe ser mayor que cero y usar la unidad Días.');
       const max = clave?.endsWith('_DIA') ? 31 : clave?.endsWith('_MES') ? 12 : null;

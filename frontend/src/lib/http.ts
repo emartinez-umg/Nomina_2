@@ -183,3 +183,76 @@ export function mapearErrores<T extends FieldValues>(
     }
   }
 }
+
+// XHR permite informar los bytes transferidos; comparte sesión/CSRF con las demás mutaciones.
+export async function enviarArchivo<T>(
+  ruta: string,
+  archivo: File,
+  schema: z.ZodType<T>,
+  progreso: (porcentaje: number) => void,
+): Promise<T> {
+  if (!csrf) await recuperarCsrf();
+  const generacion = generacionSesion;
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api${ruta}`);
+    xhr.withCredentials = true;
+    xhr.timeout = 120000;
+    xhr.setRequestHeader('X-CSRF-Token', csrf ?? '');
+    xhr.setRequestHeader('Content-Type', archivo.type || 'application/octet-stream');
+    xhr.setRequestHeader('X-Nombre-Archivo', encodeURIComponent(archivo.name));
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) progreso(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onerror = xhr.ontimeout = () =>
+      reject(
+        new ErrorApi(
+          0,
+          'SIN_CONEXION',
+          'No se pudo cargar el archivo. Revisa tu conexión y vuelve a intentar.',
+        ),
+      );
+    xhr.onload = () => {
+      let cuerpo: unknown;
+      try {
+        cuerpo = JSON.parse(xhr.responseText);
+      } catch {
+        reject(
+          new ErrorApi(
+            xhr.status,
+            'RESPUESTA_INVALIDA',
+            'No se pudo cargar el archivo. Revisa el tamaño y vuelve a intentar.',
+          ),
+        );
+        return;
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const r = errorSchema.safeParse(cuerpo);
+        const e = r.success
+          ? new ErrorApi(xhr.status, r.data.error.codigo, r.data.error.mensaje, r.data.error.campos)
+          : new ErrorApi(xhr.status, 'ERROR_HTTP', 'No se pudo cargar el archivo.');
+        if (generacion === generacionSesion && e.codigo === 'CSRF_INVALIDO') guardarCsrf();
+        if (generacion === generacionSesion && xhr.status === 401) {
+          guardarCsrf();
+          window.dispatchEvent(new Event('nomina2:sesion-expirada'));
+        }
+        if (e.codigo === 'CAMBIO_CONTRASENA_OBLIGATORIO')
+          window.dispatchEvent(new Event('nomina2:cambio-obligatorio'));
+        reject(e);
+        return;
+      }
+      const r = z.object({ ok: z.literal(true), data: schema }).safeParse(cuerpo);
+      if (r.success) resolve(r.data.data as T);
+      else
+        reject(
+          new ErrorApi(
+            502,
+            'RESPUESTA_INVALIDA',
+            'El servidor devolvió una respuesta inválida. Actualiza el expediente.',
+          ),
+        );
+    };
+    xhr.send(archivo);
+  });
+}

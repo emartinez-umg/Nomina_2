@@ -4072,3 +4072,126 @@ Estado: implementada el 29/10/2026 en `v1.2`. Alcance C6: interfaz, exportación
    ramas; al revocar, la siguiente consulta/descarga se deniega y la sesión actualiza el menú.
 5. No quedan pendientes técnicos R3-10. Despliegue operativo no solicitado; conserva V041 como
    migración mínima. C7/C8 y validación contable previa se mantienen en sus fases correspondientes.
+
+## Ronda 3 — FASE R3-11: expediente digital seguro (C7)
+
+Estado: implementada el 29/10/2026 en `v1.2`. Solo expediente C7; sin actas C8 ni despliegue operativo.
+
+### Causa y alcance
+
+- Leídos AGENTS.md con adendos v1/v1.1/v1.2 y el progreso de la ronda. Árbol limpio al iniciar.
+  La ficha solo tenía una tabla de documentos generados; faltaban archivos de expediente,
+  almacenamiento privado, versiones, completitud, alertas y sus controles de acceso.
+- Revisados mockup página 6 y tokens existentes: tarjetas blancas, azul de marca, acciones verdes,
+  radios/sombras/tipografía compartidos. Las nuevas vistas consumen API/Oracle reales.
+
+### Hecho y decisiones
+
+- V042 aditiva crea TIPOS_DOCUMENTO_EXPEDIENTE y EXPEDIENTE_DOCUMENTOS: siete tipos, banderas de
+  obligatoriedad/vencimiento, versiones, nombre original, clave opaca, MIME, tamaño, SHA-256,
+  vencimiento, autoría y baja lógica con motivo/actor/fecha. UNIQUE por empleado/tipo/versión
+  y UNIQUE condicional para una sola versión actual activa. Sin cambios a migraciones previas.
+- Servicio compartido de archivos con nombres aleatorios de 256 bits, directorio 0700 y archivos
+  0600, creación exclusiva y sincronización antes del commit. Rechaza rutas públicas conocidas,
+  traversal, referencias inválidas y symlinks. Lectura comprueba tamaño y hash; no ejecuta ni
+  interpreta el contenido. Mensajes operativos depurados para disco lleno, permisos o falta de
+  respaldo. En commit incierto conserva bytes para conciliación, nunca borra una posible carga
+  confirmada; rollback comprobado elimina el archivo nuevo.
+- Carga binaria con límite aplicado al stream después de autenticación/CSRF/rol/ficha/reglas;
+  verifica concordancia de extensión, MIME y firma/delimitadores PDF/JPEG/PNG. Rechaza compresión,
+  archivos vacíos y exceso de tamaño. XHR mantiene sesión/CSRF y muestra transferencia/validación.
+  No introduce multipart, archivos temporales ni base64 en las cargas.
+- Volumen Compose dedicado nomina2-expedientes, montado solo en API fuera de rutas públicas.
+  Docker prepara propietario node y permisos. nginx no guarda uploads en disco y omite el access
+  log del expediente; la bitácora registra los accesos. Descarga autenticada con attachment,
+  nosniff, no-store y CSP restrictiva. Ninguna respuesta expone clave/ruta del volumen.
+- Rol/propiedad desde la sesión y EMPLEADOS.ID_USUARIO en cada operación. RH/ADMIN administran;
+  EMPLEADO lee/descarga solo sus propios archivos. Los tres permisos de jefe no autorizan ningún
+  expediente del equipo. Cambio obligatorio, CSRF y roles globales conservan sus protecciones.
+- Cada consulta de metadatos, vista, descarga, carga, baja y configuración queda auditada. La
+  auditoría se confirma antes de entregar bytes; si falla, no se descarga. Cargas/reemplazos/bajas
+  y lecturas se serializan bloqueando la ficha. El cliente debe enviar la versión actual que
+  reemplaza: una carga simultánea obsoleta recibe 409 y no sobrescribe el documento anterior.
+- Documentos de la ficha separa Generados por el sistema y Expediente; vacío de generados enlaza
+  Solicitudes. Expediente con tarjetas por tipo, arrastrar/soltar, progreso, vencimiento, vista de
+  imágenes/PDF.js sin eval, descarga mediante nueva petición auditada, historial paginado por tipo,
+  SHA-256 consultable y baja motivada/confirmada. Baja no borra bytes ni reactiva versiones viejas.
+- Configurar tipo permite a RH/ADMIN cambiar banderas con comparación, confirmación, motivo y
+  bitácora. EXPEDIENTE_MAX_MB (10 inicial, entero 1–50, Cantidad) y EXPEDIENTE_AVISO_DIAS (30,
+  entero 0–365, Días) se leen por vigencia en cada operación. Validación/hints/ayuda duplicados.
+- Indicador Expediente X de Y en ficha/listado y CSV; filtro expedienteIncompleto=1 en Oracle,
+  chips y limpieza. Cuenta tipos obligatorios activos y vigentes, con fecha si es requerida;
+  hoy todavía está vigente. Dashboard RH alerta vencidos/por vencer y abre Documentos de la ficha.
+- El empleado consulta desde Mis datos → Consultar mi expediente, sin acciones de administración.
+  Vista previa solo en memoria, URL blob revocada y bytes fuera de Query cache/localStorage.
+  Borradores versionados guardan vencimiento, banderas y motivos por registro; excluyen archivos, nombres
+  y contenido, y se limpian al guardar. Confirmaciones no se restauran de borradores.
+- README documenta volumen, corte conjunto con Oracle, respaldo cifrado, restauración aislada,
+  integridad y conciliación tras caída. Exportador conserva solo DDL/configuración compartible;
+  nunca lee el volumen ni incluye registros privados. Aserción/test impiden INSERT/MERGE de
+  EXPEDIENTE_DOCUMENTOS. Tipos de documento sí se pueden compartir como catálogo.
+- db:verify dejó de fijar V035 y cuenta el manifiesto actual; diagnósticos muestran tabla/campos.
+  Detectó cuatro FKs de actor de PERMISOS_EQUIPO/JEFATURA de V040 sin índice: V042 los completa sin
+  alterar permisos. La expectativa de migraciones pendientes de comisiones ahora usa el manifiesto.
+- Se actualizaron únicamente body-parser 2.4.0 y qs 6.17.1 en package-lock, dentro de rangos
+  compatibles, por avisos de disponibilidad HTTP detectados durante la revisión de seguridad.
+  No se cambiaron reglas de nómina, jefaturas ni tablas de pagos.
+
+### Supuestos y límites
+
+- Inicialmente obligatorios DPI, penales, policiacos y contrato; los tres primeros requieren
+  vencimiento. RH ajusta estas banderas según la política real. No se inventa un plazo legal.
+- Un archivo actual por tipo; varios títulos se pueden reunir en un PDF. Historial de 20 versiones
+  por página. Se admiten antecedentes vencidos con advertencia, sin contar para completar.
+- Un jefe puede consultar sus propios documentos como empleado; sus permisos nunca amplían ese
+  derecho al equipo. Archivos dados de baja no se entregan tampoco a RH/ADMIN. Sin borrado físico.
+- Verificar formato no equivale a antivirus. El servidor comprueba contenedores sin decodificarlos;
+  PDF.js solo dibuja la vista. El registro de descarga acredita la autorización/entrega desde el
+  servidor, no que el navegador haya terminado de recibir cada byte.
+- Alertas comparten el límite previo de 50 del dashboard y usan empleados activos y versiones
+  actuales. No se añaden scheduler ni notificaciones externas. Bajar el límite de carga no impide
+  leer archivos históricos mayores, dentro del techo técnico de 50 MiB.
+
+### Validación
+
+- **942 pruebas del repositorio aprobadas**: 536 backend, 398 frontend y ocho del exportador.
+  Nuevas regresiones: contenido falso/extensión/MIME, truncados/tamaño, hash/corrupción, permisos
+  0700/0600, traversal/symlinks, fechas/baja, mensajes sin rutas, roles visibles, progreso/carga
+  binaria/CSRF, historial/páginas, confirmación/motivo, descarga auditada desde vista y retiro de
+  datos tras fallo de autorización. Se mantiene la regresión existente del ERP.
+- **11 Oracle/Supertest Node 20 aprobadas**: 401/403/CSRF/cambio obligatorio, jefe con los tres
+  permisos sin acceso, archivo falso y mayor a 10 MiB, expediente completo, hash/clave aleatoria,
+  acceso propio/ajeno, cabeceras/auditoría, reemplazos concurrentes, historial, vencimientos,
+  filtro/alertas, baja motivada sin borrar bytes, parámetros/catálogo e integridad. Triggers de
+  fallo prueban que una auditoría fallida impide descargar y revierte carga/baja con sus archivos.
+- **Dos E2E de producción aprobados**: Chromium + API/nginx Node 20 + TLS + Oracle y volumen
+  Docker de expediente aislado. RH completa cuatro tipos → imagen/PDF real → descarga → reemplazo
+  e historial → ayuda → baja → filtro; empleado consulta lo propio sin acciones de escritura,
+  otra cuenta recibe 403. Axe A/AA sin infracciones, 390 px sin desbordamiento y sin errores JS.
+  Capturas revisadas en tmp/pdfs/r3-11-*, ignoradas por Git. Volumen/esquemas E2E retirados al acabar.
+- Regresiones Node 20 aprobadas: doce de comisiones (incluido volumen de 24,000 registros) y tres
+  de empleados; la nueva migración no rompe planes, filtros, códigos ni contratos previos.
+- db:verify aprobó V000–V042 desde cero, idempotencia, índices/FKs/CHECK/identity, seeds y objetos
+  válidos, sin tocar la instalación operativa. Lint, TypeScript strict, builds, formato, secretos
+  y diff aprobados. Se conserva el aviso previo de Vite de chunks mayores de 500 kB.
+- El primer ensayo de producción encontró ENOSPC en Docker, también al crear un esquema temporal.
+  Se retiró solo caché de compilación y 26 imágenes sin etiqueta cuyo package.json confirmó
+  nomina2, sin contenedores en uso. Se conservaron imágenes etiquetadas de respaldo, los servicios
+  operativos y todos sus volúmenes. La repetición aprobó y el caso tiene mensajes operativos claros.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`;
+   `npm run db:verify`. Imagen Node 20 de pruebas según README → `npm run verify:expedientes -- --docker`.
+2. `npm run test:e2e -- --production expediente.spec.ts`. Regresiones relacionadas:
+   `npm run verify:empleados -- --docker` y `npm run verify:comisiones -- --docker`.
+3. Al desplegar, `docker compose up --build` aplica V042 y crea el volumen privado. RH abre
+   Documentos, completa tipos/vencimientos, prueba reemplazo/historial/baja y revisa bitácora.
+   Usar sesiones propias/ajenas y jefe para confirmar 200/403; probar archivo falso o > límite.
+4. No quedan pendientes técnicos C7. Despliegue y ensayo con respaldo real de la empresa no se
+   ejecutaron; el README describe el procedimiento. C8 permanece fuera del alcance.
+5. **Pendiente previo transversal de seguridad:** `npm audit --omit=dev` conserva un aviso alto
+   de Zod (GHSA-mrhx-c7xc-m3w5) por validación de colecciones enormes. Migrar el ERP a Zod 4.6.6+
+   requiere una fase de compatibilidad; no se elude el aviso cambiando solo el identificador de
+   versión. C7 no acepta colecciones de entrada: metadatos escalares estrictos y stream acotado.
+   Detalle y enlace al aviso en docs/EXPEDIENTE.md. Body-parser/qs ya no figuran en la auditoría.

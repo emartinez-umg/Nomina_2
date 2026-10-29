@@ -2037,3 +2037,45 @@ incluidas las migradas por V027; `COMISIONES` y `NOVEDADES_ORIGEN` conservan sus
 Las consultas generales filtran por mes; vendedor y equipo intersectan IDs con binds CLOB.
 Los agregados solo incluyen activas y autorizadas; el alcance usa PERMISOS_JEFATURA V040.
 Contrato y planes en [COMISIONES_ESTADISTICAS.md](COMISIONES_ESTADISTICAS.md).
+
+## R3-11 — Expediente digital (V042)
+
+Los bytes viven en el volumen privado; Oracle conserva claves opacas, integridad y trazabilidad.
+Las versiones no se sobrescriben. UNIQUE de empleado/tipo/versión y un índice único condicional
+permiten solo una versión actual activa por tipo. La baja no reactiva versiones antiguas.
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ EXPEDIENTE_DOCUMENTOS : posee
+  TIPOS_DOCUMENTO_EXPEDIENTE ||--o{ EXPEDIENTE_DOCUMENTOS : clasifica
+  USUARIOS ||--o{ EXPEDIENTE_DOCUMENTOS : carga_o_da_baja
+  TIPOS_DOCUMENTO_EXPEDIENTE {
+    NUMBER ID_TIPO_DOCUMENTO_EXPEDIENTE PK
+    VARCHAR2 CODIGO UK
+    VARCHAR2 NOMBRE UK
+    NUMBER OBLIGATORIO
+    NUMBER REQUIERE_VENCIMIENTO
+    NUMBER ACTIVO
+  }
+  EXPEDIENTE_DOCUMENTOS {
+    NUMBER ID_EXPEDIENTE_DOCUMENTO PK
+    NUMBER ID_EMPLEADO FK
+    NUMBER ID_TIPO_DOCUMENTO_EXPEDIENTE FK
+    NUMBER VERSION
+    NUMBER ES_ACTUAL
+    VARCHAR2 NOMBRE_ARCHIVO
+    VARCHAR2 CLAVE_ARCHIVO UK
+    VARCHAR2 TIPO_CONTENIDO
+    NUMBER TAMANO_BYTES
+    VARCHAR2 HASH_SHA256
+    DATE VENCIMIENTO
+    NUMBER ACTIVO
+    VARCHAR2 MOTIVO_BAJA
+    NUMBER BAJA_POR FK
+    TIMESTAMP BAJA_EN
+  }
+```
+
+Auditoría estándar de creación/modificación en ambas tablas y FKs indexadas. V042 completa
+además los cuatro índices de actor de PERMISOS_EQUIPO/PERMISOS_JEFATURA que faltaban en V040.
+Parámetros vigentes EXPEDIENTE_MAX_MB y EXPEDIENTE_AVISO_DIAS; contrato en EXPEDIENTE.md.

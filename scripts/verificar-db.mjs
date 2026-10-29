@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 const requireBackend = createRequire(new URL('../backend/package.json', import.meta.url));
 const oracledb = requireBackend('oracledb');
@@ -44,6 +45,10 @@ const { crearBaseDatos } = await import('../backend/src/shared/db/pool.ts');
 const { validarEntorno } = await import('../backend/src/config/env.schema.ts');
 const { crearLogger } = await import('../backend/src/config/logger.ts');
 const { ejecutarMigraciones } = await import('../backend/src/shared/db/migraciones.ts');
+const { cargarMigraciones } = await import('../backend/src/shared/db/migraciones.archivos.ts');
+const migracionesActuales = await cargarMigraciones(
+  fileURLToPath(new URL('../db/migrations/', import.meta.url)),
+);
 const { ejecutarSeeds, aplicarSeeds } = await import('../backend/src/shared/db/seeds.ts');
 const { crearSeedsRepository } = await import('../backend/src/shared/db/seeds.repository.ts');
 const logger = crearLogger('silent');
@@ -65,7 +70,11 @@ try {
       DB_POOL_MAX: '1',
     }),
   );
-  assert.equal(await ejecutarMigraciones(db, logger), 36, 'Deben aplicar V000–V035 desde cero.');
+  assert.equal(
+    await ejecutarMigraciones(db, logger),
+    migracionesActuales.length,
+    'Deben aplicar todas las migraciones desde cero.',
+  );
   assert.equal(
     await ejecutarMigraciones(db, logger),
     0,
@@ -83,7 +92,7 @@ try {
     );
     assert.equal(
       await escalar("SELECT COUNT(*) FROM VERSION_ESQUEMA WHERE ESTADO = 'APLICADA'"),
-      36,
+      migracionesActuales.length,
     );
     assert.equal(
       await escalar(`SELECT COUNT(*) FROM USER_CONSTRAINTS
@@ -138,7 +147,7 @@ try {
       const campos = foraneas.filter(([t, n]) => t === tabla && n === nombre).map(([, , c]) => c);
       assert.ok(
         indexados(tabla, campos),
-        `${nombre}: FK sin índice con todas sus columnas iniciales.`,
+        `${nombre}: ${tabla}(${campos.join(',')}) FK sin índice con todas sus columnas iniciales.`,
       );
     }
     const cuentaAdmin = await consulta(
@@ -216,7 +225,7 @@ try {
     'Seeds idempotentes: conservar filas, valores, hash y fechas.',
   );
   console.log(
-    '✓ V000–V035 desde cero; tablas del manifiesto, identities, auditoría, CHECK y FKs indexadas.',
+    '✓ V000–V042 desde cero; tablas del manifiesto, identities, auditoría, CHECK y FKs indexadas.',
   );
   console.log('✓ Seeds repetibles; parámetros, feriados, plantillas y ADMIN argon2id verificados.');
 

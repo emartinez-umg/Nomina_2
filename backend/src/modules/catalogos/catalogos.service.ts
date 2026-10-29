@@ -154,6 +154,19 @@ export function crearCatalogosService(db: BaseDatos) {
     if (cat.slug === 'parametros-legales') {
       const clave = String(d.claveInterna);
       const valor = Number(d.valor);
+      if (
+        clave === 'EXPEDIENTE_MAX_MB' &&
+        (!Number.isInteger(valor) || valor < 1 || valor > 50 || d.unidad !== 'CANTIDAD')
+      )
+        conflicto(
+          'valor',
+          'El límite del expediente debe ser un entero de 1 a 50 MB, unidad Cantidad.',
+        );
+      if (
+        clave === 'EXPEDIENTE_AVISO_DIAS' &&
+        (!Number.isInteger(valor) || valor < 0 || valor > 365 || d.unidad !== 'DIAS')
+      )
+        conflicto('valor', 'El aviso del expediente debe ser un entero de 0 a 365 días.');
       if (clave === 'VACACIONES_ALERTA_DIAS' && (valor <= 0 || d.unidad !== 'DIAS'))
         conflicto(
           'valor',

@@ -1,3 +1,5 @@
+import { ayudaExpediente } from '../../expedientes/help';
+import { MiExpediente } from '../../expedientes/ExpedientePanel';
 import { etiquetaCodigo } from '../../../lib/estados';
 import {
   formatoNitValido,
@@ -77,9 +79,15 @@ const etiquetas: Record<string, string> = {
   nit: 'NIT',
   estadoCivil: 'Estado civil',
 };
+const ayudaDatosConExpediente = {
+  ...ayudaDatos,
+  id: 'mis-datos-expediente',
+  pasos: [...ayudaDatos.pasos, ...ayudaExpediente.pasos],
+};
 export function MisDatosPage() {
+  const [verExpediente, setVerExpediente] = useState(false);
   const { usuario } = useSession();
-  usePageHelp(ayudaDatos, usuario?.rol);
+  usePageHelp(ayudaDatosConExpediente, usuario?.rol);
   const q = useQuery({
     queryKey: ['solicitudes', 'mis-datos'],
     queryFn: ({ signal }) => api.misDatos(signal),
@@ -116,6 +124,16 @@ export function MisDatosPage() {
           </>
         )
       )}
+      <Card>
+        <h2>Mis documentos de expediente</h2>
+        <p className="campo-hint my-3">
+          Consulta tus archivos personales. Cada visualización y descarga queda registrada.
+        </p>
+        <Button icono="documento" variante="secundario" onClick={() => setVerExpediente((v) => !v)}>
+          {verExpediente ? 'Ocultar expediente' : 'Consultar mi expediente'}
+        </Button>
+        {verExpediente && <MiExpediente />}
+      </Card>
     </>
   );
 }

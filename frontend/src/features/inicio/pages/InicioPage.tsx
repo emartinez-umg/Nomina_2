@@ -342,7 +342,10 @@ export function InicioPage() {
                       )}
                       {d.alertas.length ? (
                         d.alertas.map((a) => (
-                          <article className="alerta-tablero" key={`${a.tipo}:${a.id}`}>
+                          <article
+                            className="alerta-tablero"
+                            key={`${a.tipo}:${a.id}:${a.mensaje}`}
+                          >
                             <iconos.error aria-hidden="true" />
                             <div>
                               <strong>{a.mensaje}</strong>
@@ -354,11 +357,13 @@ export function InicioPage() {
                                   nav(
                                     a.tipo === 'PERIODO'
                                       ? '/planilla'
-                                      : a.tipo === 'SIN_JEFE'
-                                        ? '/catalogos/jefaturas'
-                                        : a.tipo === 'SIN_JEFATURA'
-                                          ? '/empleados?sinJefatura=1'
-                                          : `/empleados/${a.id}`,
+                                      : a.tipo === 'EXPEDIENTE'
+                                        ? `/empleados/${a.id}?tab=documentos`
+                                        : a.tipo === 'SIN_JEFE'
+                                          ? '/catalogos/jefaturas'
+                                          : a.tipo === 'SIN_JEFATURA'
+                                            ? '/empleados?sinJefatura=1'
+                                            : `/empleados/${a.id}`,
                                   )
                                 }
                               >
@@ -369,12 +374,14 @@ export function InicioPage() {
                         ))
                       ) : (
                         <p className="my-4 text-secundario">
-                          Sin alertas de periodos, contratos, perfiles incompletos o jefaturas.
+                          Sin alertas de periodos, contratos, expedientes, perfiles incompletos o
+                          jefaturas.
                         </p>
                       )}
                       <p className="campo-hint">
-                        Hasta 50 alertas: periodos abiertos, contratos por vencer o vencidos y
-                        empleados sin salario, sin jefatura activa y jefaturas sin jefe activo.
+                        Hasta 50 alertas: documentos y contratos por vencer o vencidos, periodos
+                        abiertos y empleados sin salario, sin jefatura activa y jefaturas sin jefe
+                        activo.
                       </p>
                     </Card>
                   </div>

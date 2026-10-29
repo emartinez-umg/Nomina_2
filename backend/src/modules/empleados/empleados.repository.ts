@@ -1,3 +1,8 @@
+import {
+  faltaExpedienteSql,
+  completosExpedienteSql,
+  requeridosExpedienteSql,
+} from '../expedientes/expedientes.repository.js';
 import { nombrePersonaSql, nombreUsuarioSql } from '../../shared/utils/nombre.js';
 import oracledb from 'oracledb';
 import type { Connection } from 'oracledb';
@@ -174,6 +179,7 @@ export async function listar(c: Connection, q: QueryEmpleados) {
     'estado',
   ] as const)
     add(key, q[key], `E.${campos[key]}=:${key}`);
+  if (q.expedienteIncompleto) where.push(faltaExpedienteSql('E'));
   if (q.sinJefatura)
     where.push(
       'NOT EXISTS (SELECT 1 FROM JEFATURAS J WHERE J.ID_JEFATURA=E.ID_JEFATURA AND J.ACTIVO=1)',
@@ -196,7 +202,7 @@ export async function listar(c: Connection, q: QueryEmpleados) {
   }[q.ordenarPor];
   const dir = q.direccion === 'asc' ? 'ASC' : 'DESC';
   const r = await c.execute<Record<string, unknown>>(
-    `SELECT E.ID_EMPLEADO "id",E.ID_DEPARTAMENTO "idDepartamento",E.ID_JEFATURA "idJefatura",${jefeInmediatoSql} "jefeInmediato",(SELECT NOMBRE FROM JEFATURAS J WHERE J.ID_JEFATURA=E.ID_JEFATURA) "jefatura",E.CODIGO "codigo",${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "nombre",'*********'||SUBSTR(E.DPI,-4) "dpi",'****-'||SUBSTR(E.NIT,-1) "nit",E.DEPARTAMENTO "departamento",E.PUESTO "puesto",${fecha('E.FECHA_INGRESO')} "fechaIngreso",${monto('E.SALARIO')} "salarioBase",E.ESTADO "estado",E.ID_BANCO "idBanco",(SELECT C.NOMBRE FROM EMPLEADO_CONTACTOS_EMERGENCIA C WHERE C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1) "contactoNombre" ${from} ORDER BY E.${orden} ${dir},E.ID_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+    `SELECT ${completosExpedienteSql('E')} "expedienteCompletos",${requeridosExpedienteSql} "expedienteRequeridos",E.ID_EMPLEADO "id",E.ID_DEPARTAMENTO "idDepartamento",E.ID_JEFATURA "idJefatura",${jefeInmediatoSql} "jefeInmediato",(SELECT NOMBRE FROM JEFATURAS J WHERE J.ID_JEFATURA=E.ID_JEFATURA) "jefatura",E.CODIGO "codigo",${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "nombre",'*********'||SUBSTR(E.DPI,-4) "dpi",'****-'||SUBSTR(E.NIT,-1) "nit",E.DEPARTAMENTO "departamento",E.PUESTO "puesto",${fecha('E.FECHA_INGRESO')} "fechaIngreso",${monto('E.SALARIO')} "salarioBase",E.ESTADO "estado",E.ID_BANCO "idBanco",(SELECT C.NOMBRE FROM EMPLEADO_CONTACTOS_EMERGENCIA C WHERE C.ID_EMPLEADO=E.ID_EMPLEADO AND C.PRIORIDAD=1 AND C.ACTIVO=1) "contactoNombre" ${from} ORDER BY E.${orden} ${dir},E.ID_EMPLEADO ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
     { ...binds, offset: (q.pagina - 1) * q.limite, limite: q.limite },
     opts,
   );

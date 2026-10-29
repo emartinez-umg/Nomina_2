@@ -3,6 +3,8 @@ import test from 'node:test';
 import { literal, identificador } from './exportar-bd-oracle.mjs';
 import {
   auditarSeguridad,
+  catalogos,
+  tablasPrivadas,
   ordenarDependencias,
   normalizarDdl,
   diferencias,
@@ -150,4 +152,13 @@ test('instalador único contiene todas las partes y preserva delimitadores SQL/P
   assert.ok(sql.includes('PACKAGE EJEMPLO_P AS PROCEDURE P; END;\n/'));
   assert.ok(sql.includes('BEGIN NULL; END;\n/'));
   assert.throws(() => generarScriptCompleto({ ...archivos, '02_catalogos.sql': undefined }));
+});
+
+test('exportación excluye registros y almacenamiento del expediente, conserva solo tipos', () => {
+  assert.ok(tablasPrivadas.includes('EXPEDIENTE_DOCUMENTOS'));
+  assert.ok(!catalogos.some((c) => c.tabla === 'EXPEDIENTE_DOCUMENTOS'));
+  assert.ok(catalogos.some((c) => c.tabla === 'TIPOS_DOCUMENTO_EXPEDIENTE'));
+  assert.throws(() =>
+    auditarSeguridad({ sql: 'INSERT INTO EXPEDIENTE_DOCUMENTOS (ID_EMPLEADO) VALUES (1)' }, 'hash'),
+  );
 });

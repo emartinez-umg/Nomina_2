@@ -221,6 +221,7 @@ export const querySchema = z
     idDepartamento: qid,
     idCentroTrabajo: qid,
     sinJefatura: z.enum(['1']).optional(),
+    expedienteIncompleto: z.enum(['1']).optional(),
     idPuesto: qid,
     idJefatura: qid,
     idTipoContrato: qid,
