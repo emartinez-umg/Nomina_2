@@ -1721,6 +1721,14 @@ test('FASE V1-11: Bono 14 automático, confirmación, boleta y precálculo propi
   await page.getByRole('button', { name: 'Simular', exact: true }).click();
   await expect(page.getByRole('table')).toContainText('2,479.45');
   await expect(page.getByRole('table')).toContainText('181 / 365');
+  const motivoExtemporaneo = page.getByRole('textbox', { name: 'Motivo del pago extemporáneo' });
+  if (await motivoExtemporaneo.isVisible()) {
+    await expect(
+      page.getByRole('button', { name: 'Confirmar y pagar', exact: true }),
+    ).toBeDisabled();
+    await motivoExtemporaneo.fill('Regularización anual documentada en la prueba E2E');
+    await expect(page.getByRole('table')).toContainText('Pendiente de pago (atrasado desde');
+  }
   await page.setViewportSize({ width: 390, height: 844 });
   await revisarUi(page);
   await mkdir('tmp/pdfs', { recursive: true });

@@ -21,7 +21,13 @@ export const ayudaPrestaciones: DefinicionAyuda = {
       elemento: 'pago-objetivo',
       titulo: 'Ciclos y vista previa',
       descripcion:
-        'Bono 14 usa julio a junio; aguinaldo diciembre a noviembre. El mes de pago identifica julio o diciembre del año. La pantalla precalcula automáticamente la última prestación disponible al entrar. Filtra un empleado o departamento, revisa importes por persona y los errores antes de confirmar y pagar. El promedio incluye los conceptos afectos y comisiones reales; la bonificación incentivo conserva su bandera. Una fuente faltante o novedad pendiente bloquea el cálculo.',
+        'Bono 14 usa julio a junio; aguinaldo diciembre a noviembre. El mes identifica julio o diciembre del año del ciclo; el desembolso usa hoy de Guatemala. Las prestaciones atrasadas aparecen Pendiente de pago y Extemporáneo: exige motivo de 10 a 500 caracteres, conservado en bitácora y PDF. Las planillas posteriores no impiden pagar ni revertir la prestación por ADMIN. La quincena cerrada conserva su estado. La pantalla precalcula al entrar; filtra el objetivo y revisa el ciclo, promedio y exención antes de confirmar. Datos faltantes, novedades pendientes y duplicados siguen bloqueando.',
+    },
+    {
+      elemento: 'pago-extemporaneo',
+      titulo: 'Motivo del pago fuera de plazo',
+      descripcion:
+        'El límite procede de los parámetros del ciclo original. Si la fecha real lo supera, explica el atraso con 10 a 500 caracteres. Se guarda como borrador y se exige antes de confirmar; quedará en bitácora y PDF junto con fecha real y límite. La etiqueta Pendiente de pago indica el primer día de atraso. No necesitas revertir planillas para pagar; los datos faltantes y pagos duplicados siguen bloqueando.',
     },
     {
       elemento: 'prestaciones-finiquito',

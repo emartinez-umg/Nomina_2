@@ -3257,3 +3257,99 @@ Estado: implementada el 28/10/2026 en `v1.2`. Alcance C1.3 y C1.4.
    Excel/PDF. Con solo Anticipo debe aparecer la marca parcial; IGSS requiere el mes cerrado.
 5. Sin pendientes de implementación R3-2. No se reinició ni escribió en la instalación operativa.
    C1.5 y C2–C8 quedan para sus fases; continúa la validación operativa del supuesto R3-1.
+
+## Ronda 3 — FASE R3-3: prestaciones atrasadas independientes
+
+Estado: implementada el 28/10/2026 en `v1.2`. Alcance C1.5.
+
+### Causa y reproducción
+
+- Leídos AGENTS.md con los adendos v1/v1.1/v1.2 y el progreso v1; rama `v1.2`, árbol limpio.
+- `preparar` aplicaba a toda prestación la dependencia de pagos posteriores y otro bloqueo por
+  Pago del mismo mes. La consulta también trataba prestaciones como dependencias salariales.
+  La fecha guardada siempre era el límite legal, ocultando el atraso real.
+- Regresión Oracle antes del cambio: tras pagar julio–octubre, Bono 14 devuelve el rechazo
+  «El pago mensual ya incorporó sus bases fiscales…». Evidencia: `/private/tmp/nomina2-r33-rojo.log`.
+  El caso cubre ambos rechazos: quitar únicamente el del mismo mes sigue dejando el de posteriores.
+
+### Hecho y decisiones
+
+- Dependencias cronológicas limitadas a Anticipo/Pago, tanto al pagar como al revertir, y excluidas
+  las prestaciones como causas de bloqueo de esa cadena. Se conservan los mensajes de orden,
+  duplicados, perfil incompleto, fuentes faltantes y finiquitos que usan una prestación.
+- Bono 14/Aguinaldo mantienen año y periodo legal originales, salarios/parametrización al corte
+  e historia dentro de ese intervalo. Se valida salario del ciclo, sin exigir vigencia en el mes
+  del desembolso. No se incorporan las planillas posteriores a su promedio.
+- Fecha real de la confirmación anual = hoy de Oracle en America/Guatemala. Si supera el límite
+  configurado, exige motivo de 10–500 caracteres. Fecha, límite, marca y motivo quedan en ambos
+  snapshots, auditoría de pago y boleta inmutable; vista previa indica la condición pendiente.
+  El mismo criterio y leyenda se aplican al registro histórico de pago anual.
+- Simular pago muestra «Extemporáneo» y «Pendiente de pago (atrasado desde dd/mm/aaaa)» para filas
+  habilitadas; los duplicados y errores reales siguen bloqueados. Motivo con borrador, hint,
+  validación, confirmación final y protección frente a doble envío. Ayuda manual actualizada en
+  Simular, Prestaciones y Planilla; el control de reversión anual también está disponible al cerrar.
+- La prestación es independiente del estado de la quincena compartida: puede pagarse/revertirse
+  aunque esté aprobada/cerrada, sin reabrirla ni reiniciar su estado, versión o pagos salariales.
+  Solo se lleva a Calculado un contenedor abierto al registrar su primer pago. Las prestaciones
+  no llaman a la aplicación de novedades salariales, que correctamente protege periodos cerrados.
+- V036 agrega un índice UNIQUE de empleado/tipo/año del ciclo para pagos anuales vigentes,
+  incluyendo el caso de cambiar el mes configurado. Revertir libera la identidad; repagar conserva
+  versiones y comprobantes anteriores. No se modifican migraciones anteriores ni datos existentes.
+- Revisados historial, resumen mensual, exportaciones, constancias, bases fiscales y PDF: conservan
+  prestaciones separadas del salario y consultan fecha real cuando corresponde. NOMINA_V1,
+  PRESTACIONES y ERD documentan la regla. No hay recálculos ni reversiones automáticas.
+
+### Supuestos y compatibilidad
+
+- «Atrasado desde» empieza el día siguiente al límite; pagar en el propio límite no es extemporáneo.
+  El mes seleccionado sigue identificando julio/diciembre del año del ciclo, aunque hoy sea otro
+  mes/año. Fecha/límite participan en el hash: al cambiar de día se exige simular otra vez.
+- La confirmación integrada usa la fecha del servidor, sin permitir antedatar el desembolso.
+  Anticipo/Pago mantienen su fecha informativa anterior. Se sustituyen expresamente las reglas
+  A12 de dependencia salarial y de reversión antes del cierre para prestaciones anuales.
+- Los snapshots/PDF confirmados antes de esta fase conservan fecha e importes originales.
+  Las bases fiscales futuras leen la fecha real de la nueva prestación; los pagos confirmados
+  permanecen intactos. No se corrigen ni se inventan vigencias históricas en la instalación.
+- Indemnización verificada: utiliza el flujo individual, sin consultar la cadena PAGOS_NOMINA.
+  Mantiene los controles propios de baja que impiden invalidar trabajo aprobado/cerrado y el
+  registro en la quincena final antes del cierre para incorporar las bases fiscales del finiquito.
+- Las fixtures de Aguinaldo 2025 completan explícitamente parámetros, conceptos, salario y horario
+  de ese año exclusivamente en N2SEC. El verificador Docker monta scripts de diagnóstico de solo
+  lectura y la suite crea su carpeta temporal, eliminando dependencias del estado previo del host.
+
+### Validación
+
+- Suite completa: **832 pruebas aprobadas** (480 backend, 345 frontend y siete del exportador)
+  con Node 24.13.1. Nueva prueba de límite inclusivo/configurable y dos regresiones de interfaz.
+  Supertest requirió habilitar puertos locales; la repetición autorizada pasó completa.
+- **24 pruebas Oracle/API de pagos** y **10 de prestaciones/finiquito** aprobadas en esquemas
+  desechables. Dos escenarios nuevos: Bono 14 julio 2026 con pagos julio–octubre; Aguinaldo 2025
+  con planillas 2026. Pago/repetición/reversión/nueva versión, motivo ausente/vacío/corto,
+  auditoría y PDF. Los snapshots, SHA y estados de las cuatro planillas permanecen idénticos.
+- Se mantiene la prueba concurrente (una respuesta 201 y otra 409), rollback de auditoría,
+  acceso propio, ZIP y bloqueo de Anticipo/Pago por orden. Se verifica la unicidad anual también
+  directamente en Oracle intentando un segundo mes del mismo año y revirtiendo esa fixture.
+- Ambas suites Oracle repetidas con **Node 20.20.2**: 24 pagos y 10 prestaciones aprobados,
+  incluida V036 y el rechazo directo por `UQ_PAGO_PRESTACION_ANIO`. Los esquemas N2SEC se
+  eliminaron al finalizar. Lint, TypeScript strict, build, formato, secretos y diff aprobados;
+  se conserva el aviso previo de Vite por tamaño de chunk. Sin dependencias nuevas.
+- **Dos E2E de prestaciones aprobados en producción**, con imágenes Node 20, nginx/TLS,
+  Chromium y Oracle reales: Bono 14 con motivo obligatorio/pendiente y finiquito con baja/PDF.
+  Ayuda, móvil y accesibilidad incluidos. Esquema N2E2E eliminado al finalizar.
+- Comprobante anual Oracle renderizado con Poppler e inspeccionado: una página, leyenda con
+  fecha real/límite/motivo, desglose, firma y pie legibles, sin cortes ni solapamientos.
+  Fontconfig usa configuración/caché temporal escribible. Artefactos de QA en tmp, ignorados.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run format:check`; `npm run build`.
+2. `npm run verify:pagos`; `npm run verify:prestaciones` (Oracle desechable). Con host distinto
+   de Node 20: construir `nomina2-security-tests` según README y añadir `-- --docker`.
+3. `npm run test:e2e -- --production cierre.spec.ts --grep 'FASE V1-11'`.
+4. Aplicar V036 mediante `npm run db:migrate` o el arranque de API. Reconstruir API/web con
+   `docker compose up --build -d nomina2-api nomina2-web` y recargar. No se desplegó en la nómina local.
+5. RH → Simular pago → Bono 14 → julio 2026: revisar ciclo y atraso, escribir motivo, confirmar
+   historia completa y pagar. Descargar comprobante; repetir debe bloquearse. ADMIN → historial
+   → Revertir con motivo: las planillas posteriores conservan datos/estado; puede simularse de nuevo.
+6. Sin pendientes de implementación R3-3. C2–C8 permanecen fuera de esta fase; continúa el supuesto
+   operativo de R3-1 pendiente de validación contable.

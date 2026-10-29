@@ -8,7 +8,9 @@ import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Table } from '../../../components/ui/Table';
 import { ConfirmModal } from '../../../components/ui/Modal';
-import { SelectField, FormErrorSummary } from '../../../components/forms';
+import { SelectField, TextAreaField, FormErrorSummary } from '../../../components/forms';
+import { useDraftValues } from '../../../hooks/useFormDraft';
+import { FormDraftNotice } from '../../../components/forms/FormDraftNotice';
 import { MonthField } from '../../../components/forms/MonthField';
 import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { moneda } from '../../novedades/pages/NovedadesPage';
@@ -50,6 +52,14 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
     [pagina, setPagina] = useState(1),
     [pagados, setPagados] = useState<number[]>([]);
   const anual = tipo === 'BONO_14' || tipo === 'AGUINALDO';
+  const borrador = useDraftValues(
+    'pago-extemporaneo',
+    `${tipo}:${mes}:${objetivo}:${id}`,
+    { motivo: '' },
+    !!r?.extemporaneo,
+  );
+  const [motivo, setMotivo] = borrador.campo('motivo');
+  const faltaMotivo = !!r?.extemporaneo && motivo.trim().length < 10;
   const nombreTipo = {
     ANTICIPO: 'Anticipo quincenal',
     PAGO: 'Pago del mes',
@@ -89,9 +99,10 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const pago = useMutation({
-    mutationFn: () => api.pagar(body, r!.hash),
+    mutationFn: () => api.pagar(body, r!.hash, r!.extemporaneo ? motivo.trim() : undefined),
     onSuccess: (data) => {
       setPagados(data.pagados);
+      borrador.draft.limpiar();
       setR(undefined);
       setConfirmado(false);
       setDialogo(false);
@@ -162,7 +173,11 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
               <MonthField
                 name="mes"
                 label="Mes del pago"
-                hint="Mes actual o anterior. La fecha de pago no cambia por fines de semana."
+                hint={
+                  anual
+                    ? 'Selecciona el mes legal del ciclo: julio para Bono 14 o diciembre para Aguinaldo. Se pagará en la fecha de hoy, aunque el ciclo esté atrasado.'
+                    : 'Mes actual o anterior. La fecha de pago no cambia por fines de semana.'
+                }
                 value={mes}
                 max={hoyGuatemala().slice(0, 7)}
                 disabled={ocupado}
@@ -230,7 +245,7 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
           </FormGrid>
           <p className="campo-hint">
             {anual
-              ? 'Cálculo desde contratación: promedio mensual × días / 365, máximo 100 %. Exención hasta el límite vigente; excedente incorporado al ISR del pago mensual. Revisa la historia completa antes de confirmar.'
+              ? 'Se conserva el ciclo legal original aunque existan planillas posteriores: Bono 14 del 1 de julio al 30 de junio; Aguinaldo del 1 de diciembre al 30 de noviembre. El atraso requiere motivo y queda en bitácora y comprobante. Revisa la historia completa antes de confirmar.'
               : 'Selecciona empleado, departamento o todos y revisa los importes antes de pagar.'}
           </p>
         </section>
@@ -256,8 +271,15 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
         <Card>
           <section data-tour="pago-resultados">
             <p>
-              SIMULACIÓN · {nombreTipo} · Fecha informativa: {fechaVisible(r.fechaPago)}
+              SIMULACIÓN · {nombreTipo} · {anual ? 'Fecha de pago' : 'Fecha informativa'}:{' '}
+              {fechaVisible(r.fechaPago)}
             </p>
+            {r.extemporaneo && (
+              <p role="status" className="campo-hint">
+                Extemporáneo · Límite legal configurado: {fechaVisible(r.limitePago!)}. Exige motivo
+                antes de pagar.
+              </p>
+            )}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 my-4">
               {(['ingresos', 'descuentos', 'neto', 'patronal'] as const).map((k) => (
                 <div key={k} className="banda-informativa">
@@ -323,6 +345,11 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
                         : f.informacion
                           ? 'No corresponde'
                           : 'Bloqueado'}
+                      {f.resultado && !f.pagado && r.atrasadoDesde && (
+                        <span className="block whitespace-normal campo-hint">
+                          Pendiente de pago (atrasado desde {fechaVisible(r.atrasadoDesde)})
+                        </span>
+                      )}
                     </span>
                   ),
                 },
@@ -406,14 +433,39 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
               sus novedades pendientes.
             </p>
           </section>
+          {r.extemporaneo && (
+            <section data-tour="pago-extemporaneo" className="my-5">
+              <FormDraftNotice draft={borrador.draft} />
+              <FormGrid>
+                <TextAreaField
+                  name="motivo"
+                  label="Motivo del pago extemporáneo"
+                  hint="Explica por qué se paga después del límite legal; de 10 a 500 caracteres. Se conservará en la bitácora y el comprobante PDF."
+                  placeholder="Ej. Regularización de la prestación pendiente del ciclo"
+                  value={motivo}
+                  onValueChange={setMotivo}
+                  required
+                  maxLength={500}
+                  disabled={ocupado}
+                />
+              </FormGrid>
+            </section>
+          )}
           <div data-tour="pago-confirmar">
             <Button
               icono="aprobar"
               disabled={
-                !confirmado || ocupado || !r.registros.some((f) => f.resultado) || !!bloqueo
+                !confirmado ||
+                ocupado ||
+                !r.registros.some((f) => f.resultado) ||
+                !!bloqueo ||
+                faltaMotivo
               }
               motivoDeshabilitado={
                 bloqueo ||
+                (faltaMotivo
+                  ? 'Explica el motivo del pago extemporáneo con al menos 10 caracteres.'
+                  : '') ||
                 (r.registros.every((f) => f.informacion)
                   ? 'No hay empleados con días activos del 1 al 15; no corresponde registrar un anticipo.'
                   : 'Simula, resuelve los bloqueos y confirma que las novedades están completas.')
@@ -468,13 +520,13 @@ export function SimuladorPago({ prestaciones = false }: { prestaciones?: boolean
       <ConfirmModal
         abierto={dialogo}
         titulo="Confirmar pago de nómina"
-        descripcion={`Se pagará ${nombreTipo} ${mes}, objetivo ${objetivo.toLowerCase()}. Neto total ${moneda(r?.totales.neto ?? '0')}. ${anual ? 'Se registrará la prestación y su exención' : 'Se aplicarán novedades y cuotas'}, se archivarán boletas y se notificará a los empleados. ADMIN puede revertir con motivo antes del cierre.`}
+        descripcion={`Se pagará ${nombreTipo} ${mes}, objetivo ${objetivo.toLowerCase()}. Neto total ${moneda(r?.totales.neto ?? '0')}. ${anual ? 'Se registrará la prestación y su exención' : 'Se aplicarán novedades y cuotas'}, se archivarán boletas y se notificará a los empleados. ${r?.extemporaneo ? `Extemporáneo. Motivo: ${motivo.trim()}. ` : ''}ADMIN puede revertir con motivo${anual ? ' sin revertir planillas' : ' antes del cierre'}.`}
         cargando={pago.isPending}
         onCancelar={() => {
           if (!pago.isPending) setDialogo(false);
         }}
         onConfirmar={() => {
-          if (confirmado && r && !pago.isPending) pago.mutate();
+          if (confirmado && r && !faltaMotivo && !pago.isPending) pago.mutate();
         }}
       />
     </>

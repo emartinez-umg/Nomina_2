@@ -14,6 +14,7 @@ export function resultadoPrestacion(e: EntradaPago): ResultadoPago {
     l = v.componentes[0]!;
   const salario = vigente(e.salarios, l.fin, 'salario');
   return {
+    ...(v.pagoExtemporaneo ? { pagoExtemporaneo: v.pagoExtemporaneo } : {}),
     tipoPago: e.tipoPago,
     mes: e.mes,
     devengado: v.total,
@@ -99,7 +100,8 @@ export async function registrarPrestacionPagada(
         seleccion: { tipo: e.tipoPago, anio: Number(e.mes.slice(0, 4)), idEmpleado: e.empleado.id },
         empresa: await nomina.empresa(c),
       },
-      motivo: 'Revisión y confirmación de prestaciones en Simular pago',
+      motivo:
+        v.pagoExtemporaneo?.motivo ?? 'Revisión y confirmación de prestaciones en Simular pago',
       componentes: v.componentes,
     },
     a.idUsuario,
@@ -113,7 +115,14 @@ export async function registrarPrestacionPagada(
     accion: 'PAGAR_PRESTACION',
     entidad: 'PRESTACIONES',
     idEntidad: id,
-    despues: { idNomina, fechaPago, total: v.total, hash: v.hash },
-    motivo: 'Confirmación del cálculo automático A12',
+    despues: {
+      idNomina,
+      fechaPago,
+      total: v.total,
+      hash: v.hash,
+      extemporaneo: !!v.pagoExtemporaneo,
+      limitePago: v.pagoExtemporaneo?.limitePago,
+    },
+    motivo: v.pagoExtemporaneo?.motivo ?? 'Confirmación del cálculo automático A12',
   });
 }

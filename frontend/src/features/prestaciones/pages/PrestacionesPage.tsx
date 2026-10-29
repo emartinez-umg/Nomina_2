@@ -874,7 +874,11 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
                   <DateField
                     name="fechaPago"
                     label="Fecha de pago"
-                    hint="Pago real, no futuro, posterior al último cierre."
+                    hint={
+                      r.data.tipo === 'INDEMNIZACION'
+                        ? 'Pago real, no futuro, en la quincena final y posterior al último cierre fiscal.'
+                        : 'Pago real, no futuro. Si supera el límite legal configurado queda como Extemporáneo con motivo en bitácora y PDF; no depende del cierre de planillas.'
+                    }
                     required
                     min={r.data.fin}
                     max={hoyGuatemala()}
@@ -895,7 +899,7 @@ function Detalle({ id, cerrar }: { id: number; cerrar: () => void }) {
               <TextAreaField
                 name="motivo"
                 label="Motivo"
-                hint="Justifica la operación con al menos diez caracteres."
+                hint="Justifica la operación con al menos diez caracteres. Si el pago anual es extemporáneo, explica el atraso; el motivo se incluye en el comprobante."
                 required
                 maxLength={500}
                 value={motivo}

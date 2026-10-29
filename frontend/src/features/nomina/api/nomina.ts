@@ -243,6 +243,9 @@ const simulacion = z.object({
   mes: z.string(),
   tipoPago: z.enum(['ANTICIPO', 'PAGO', 'BONO_14', 'AGUINALDO']),
   fechaPago: z.string(),
+  limitePago: z.string().nullable(),
+  extemporaneo: z.boolean(),
+  atrasadoDesde: z.string().nullable(),
   hash: z.string(),
   registros: z.array(filaSimulada),
   totales,
@@ -265,7 +268,7 @@ export const previewPago = (body: ObjetivoPago, id: number) =>
     timeoutMs: 120000,
     archivo: true,
   });
-export const pagar = (body: ObjetivoPago, hash: string) =>
+export const pagar = (body: ObjetivoPago, hash: string, motivo?: string) =>
   solicitar(
     '/nomina/pagar',
     z.object({
@@ -276,7 +279,13 @@ export const pagar = (body: ObjetivoPago, hash: string) =>
     }),
     {
       method: 'POST',
-      body: { ...body, hash, confirmado: true, novedadesCompletas: true },
+      body: {
+        ...body,
+        hash,
+        confirmado: true,
+        novedadesCompletas: true,
+        ...(motivo ? { motivo } : {}),
+      },
       timeoutMs: 120000,
     },
   );

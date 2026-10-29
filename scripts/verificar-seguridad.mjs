@@ -96,6 +96,8 @@ try {
           '/app/backend',
           '--mount',
           `type=bind,source=${fileURLToPath(new URL('../db', import.meta.url))},target=/app/db,readonly`,
+          '--mount',
+          `type=bind,source=${fileURLToPath(new URL('../scripts', import.meta.url))},target=/app/scripts,readonly`,
           ...[
             'NODE_ENV',
             'TZ',

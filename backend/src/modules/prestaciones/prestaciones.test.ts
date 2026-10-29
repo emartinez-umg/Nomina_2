@@ -3,6 +3,7 @@ import { entradaPrueba } from '../nomina/nomina.fixture.js';
 import { calcularNomina } from '../nomina/nomina.calculo.js';
 import {
   calcularAnual,
+  atrasoPago,
   calcularIndemnizacion,
   ciclo,
   mesesEquivalentes,
@@ -29,6 +30,24 @@ const meses = (desde: number, hasta: number, valor = '3000', anio = 2026) =>
     };
   });
 describe('Fase 9: cálculos con Decimal y casos borde', () => {
+  it('R3-3: solo exceder el límite configurado marca atraso, sin mover el ciclo legal', () => {
+    for (const tipo of ['BONO_14', 'AGUINALDO'] as const) {
+      const legal = ciclo(tipo, 2026, ps);
+      expect(atrasoPago(legal.limitePago, legal.limitePago)).toBeUndefined();
+      expect(atrasoPago('2026-01-01', legal.limitePago)).toBeUndefined();
+      expect(atrasoPago('2027-01-10', legal.limitePago)).toEqual({
+        fechaPago: '2027-01-10',
+        limitePago: legal.limitePago,
+      });
+    }
+    const modificados = ps.map((p) => (p.codigo === 'BONO14_PAGO_DIA' ? { ...p, valor: '10' } : p));
+    const legal = ciclo('BONO_14', 2026, modificados);
+    expect(legal).toEqual({ inicio: '2025-07-01', fin: '2026-06-30', limitePago: '2026-07-10' });
+    expect(atrasoPago('2026-07-11', legal.limitePago)).toEqual({
+      fechaPago: '2026-07-11',
+      limitePago: '2026-07-10',
+    });
+  });
   it('ciclos exactos y fecha límite parametrizada', () => {
     expect(ciclo('BONO_14', 2026, ps)).toEqual({
       inicio: '2025-07-01',

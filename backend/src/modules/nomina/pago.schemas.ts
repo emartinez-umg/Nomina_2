@@ -26,6 +26,12 @@ export const pagarSchema = objetivoPagoSchema
     hash: z.string().regex(/^[a-f0-9]{64}$/),
     confirmado: z.literal(true),
     novedadesCompletas: z.literal(true),
+    motivo: z
+      .string()
+      .trim()
+      .min(10, 'Explica el motivo con al menos 10 caracteres.')
+      .max(500)
+      .optional(),
   })
   .refine(validarObjetivo, 'Selecciona el objetivo completo.');
 export const revertirPagoSchema = z

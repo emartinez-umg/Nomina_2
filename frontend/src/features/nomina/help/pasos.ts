@@ -6,9 +6,9 @@ export const ayudaNomina: DefinicionAyuda = {
     pasoSelectorEmpleado,
     {
       elemento: 'nomina-revertir',
-      titulo: 'Reversión antes del cierre',
+      titulo: 'Reversión de pagos y prestaciones',
       descripcion:
-        'Solo ADMIN: explica el motivo con al menos diez caracteres y confirma. Devuelve las cuotas exactamente y libera novedades, conserva el cálculo y PDF históricos y retira la boleta del portal. No se permite si el periodo está cerrado o existe un pago posterior dependiente; revierte primero ese pago. Simula nuevamente para volver a pagar.',
+        'Solo ADMIN: explica el motivo con al menos diez caracteres y confirma. Devuelve cuotas y novedades, conserva cálculo y PDF históricos y retira la boleta del portal. Anticipo y Pago del mes requieren periodo abierto y orden inverso de sus pagos salariales. Bono 14 y Aguinaldo se revierten sin revertir planillas, incluso con su quincena cerrada. Un finiquito que utiliza la prestación sigue protegido. Simula nuevamente para volver a pagar.',
       roles: ['ADMIN'],
     },
     {

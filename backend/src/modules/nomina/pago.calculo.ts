@@ -1,5 +1,5 @@
 import type { Vista } from '../prestaciones/prestaciones.service.js';
-import type { Componente } from '../prestaciones/prestaciones.calculo.js';
+import type { Componente, PagoExtemporaneo } from '../prestaciones/prestaciones.calculo.js';
 import { horasDiariasEnFecha } from '../../shared/horarios/horas.js';
 import { Decimal } from 'decimal.js';
 import { dinero } from '../../shared/utils/dinero.js';
@@ -18,6 +18,7 @@ export interface EntradaPago extends Entrada {
   novedades: (Pendiente & { advertencia?: string | null })[];
 }
 export interface ResultadoPago extends Resultado {
+  pagoExtemporaneo?: PagoExtemporaneo;
   tipoPago: TipoPago;
   mes: string;
   devengado: string;

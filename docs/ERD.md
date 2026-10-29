@@ -1871,6 +1871,9 @@ erDiagram
 ```
 
 PAGOS_NOMINA admite ANTICIPO, PAGO, BONO_14 y AGUINALDO conservando UNIQUE empleado/mes/tipo.
+V036 refuerza Bono 14/Aguinaldo con `UQ_PAGO_PRESTACION_ANIO`: empleado, tipo y año
+del mes del ciclo legal para pagos vigentes. Ignora reversiones; no modifica datos existentes.
+La fecha real, límite y motivo extemporáneo se conservan en los snapshots JSON y en bitácora.
 Las prestaciones anuales conservan fuente/detalle/exención y enlazan su boleta BLOB inmutable.
 PRESTACIONES_DIAS_ANIO parametriza el divisor de proporcionalidad. No se modifica V000–V029.
 

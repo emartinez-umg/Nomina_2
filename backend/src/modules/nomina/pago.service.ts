@@ -1,6 +1,6 @@
 import { nombrePersona } from '../../shared/utils/nombre.js';
 import { anual } from '../prestaciones/prestaciones.service.js';
-import { ciclo } from '../prestaciones/prestaciones.calculo.js';
+import { atrasoPago, ciclo, siguiente } from '../prestaciones/prestaciones.calculo.js';
 import {
   resultadoPrestacion,
   registrarPrestacionPagada,
@@ -20,6 +20,7 @@ import {
   ErrorNegocio,
   ErrorNoEncontrado,
   ErrorProhibido,
+  ErrorValidacion,
 } from '../../shared/errors/errors.js';
 import type { ActorAuditoria, Autenticacion } from '../auth/auth.types.js';
 import { revalidarActor } from '../auth/auth.service.js';
@@ -54,13 +55,17 @@ interface FilaSimulacion {
   informacion?: string;
 }
 async function preparar(c: Connection, d: ObjetivoPago) {
-  const rango = validarMes(d.mes, await hoy(c)),
+  const actual = await hoy(c),
+    esAnual = d.tipoPago === 'BONO_14' || d.tipoPago === 'AGUINALDO',
+    rango = validarMes(d.mes, actual),
     periodo = await pago.periodoMes(c, d.mes, d.tipoPago);
-  if (periodo && (periodo.motor !== 'V1' || ['APROBADO', 'CERRADO'].includes(periodo.estado)))
+  if (
+    periodo &&
+    (periodo.motor !== 'V1' || (!esAnual && ['APROBADO', 'CERRADO'].includes(periodo.estado)))
+  )
     throw new ErrorConflicto(
       'El periodo está aprobado/cerrado o conserva un cálculo v0. Abre el periodo y revisa su estado antes de simular.',
     );
-  const esAnual = d.tipoPago === 'BONO_14' || d.tipoPago === 'AGUINALDO';
   const cicloAnual = esAnual
     ? ciclo(
         d.tipoPago as 'BONO_14' | 'AGUINALDO',
@@ -72,6 +77,11 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     throw new ErrorConflicto(
       'Selecciona julio para Bono 14 o diciembre para Aguinaldo según la fecha de pago configurada.',
     );
+  const fechaPago = esAnual ? actual : d.tipoPago === 'ANTICIPO' ? `${d.mes}-15` : rango.fin,
+    limitePago = cicloAnual?.limitePago ?? null,
+    atraso = limitePago ? atrasoPago(fechaPago, limitePago) : undefined,
+    extemporaneo = !!atraso,
+    rangoSalario = cicloAnual ?? rango;
   const fuentes = await repo.fuentes(
     c,
     {
@@ -104,7 +114,7 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     registros: FilaSimulacion[] = [];
   for (const e of objetivo) {
     const conSalario = e.salarios.some(
-      (s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio),
+      (s) => s.desde <= rangoSalario.fin && (!s.hasta || s.hasta >= rangoSalario.inicio),
     );
     const sinAnticipo = motivoSinAnticipo({ ...e, mes: d.mes, tipoPago: d.tipoPago });
     const novedades =
@@ -137,7 +147,7 @@ async function preparar(c: Connection, d: ObjetivoPago) {
         registros.push(fila);
         continue;
       }
-      if (!e.salarios.some((s) => s.desde <= rango.fin && (!s.hasta || s.hasta >= rango.inicio)))
+      if (!conSalario)
         throw new ErrorConflicto(
           'Perfil incompleto: falta salario vigente. Empleado excluido de este pago; completa el salario en su ficha y vuelve a simular.',
         );
@@ -152,11 +162,7 @@ async function preparar(c: Connection, d: ObjetivoPago) {
         throw new ErrorConflicto(
           'El pago del mes ya está registrado. No puedes añadir un anticipo después.',
         );
-      if (esAnual && pagos.some((p) => p.empleado === e.empleado.id && p.tipo === 'PAGO'))
-        throw new ErrorConflicto(
-          'El pago mensual ya incorporó sus bases fiscales. Revierte ese pago antes de registrar la prestación.',
-        );
-      if (await pago.dependenciaPosterior(c, e.empleado.id, d.mes, 'PAGO'))
+      if (!esAnual && (await pago.dependenciaPosterior(c, e.empleado.id, d.mes, 'PAGO')))
         throw new ErrorConflicto(
           'Hay pagos posteriores de este empleado. Reviértelos en orden inverso antes de pagar este mes.',
         );
@@ -176,6 +182,7 @@ async function preparar(c: Connection, d: ObjetivoPago) {
           entrada.prestacion.componentes[0]!.inicio,
           entrada.prestacion.componentes[0]!.fin,
         );
+        if (atraso) entrada.prestacion.pagoExtemporaneo = { ...atraso };
         fila.resultado = resultadoPrestacion(entrada);
         registros.push(fila);
         continue;
@@ -221,11 +228,22 @@ async function preparar(c: Connection, d: ObjetivoPago) {
     periodo,
     mes: d.mes,
     tipoPago: d.tipoPago,
-    fechaPago: cicloAnual?.limitePago ?? (d.tipoPago === 'ANTICIPO' ? `${d.mes}-15` : rango.fin),
+    fechaPago,
+    limitePago,
+    extemporaneo,
+    atrasadoDesde: extemporaneo ? siguiente(limitePago!) : null,
     registros,
     totales,
     verificacion,
-    hash: hashDe({ criterio: 'R3-1', d, entradas, periodo: periodo ?? null, pagos }),
+    hash: hashDe({
+      criterio: 'R3-3',
+      d,
+      entradas,
+      fechaPago,
+      limitePago,
+      periodo: periodo ?? null,
+      pagos,
+    }),
   };
 }
 function publica(r: Awaited<ReturnType<typeof preparar>>) {
@@ -233,6 +251,9 @@ function publica(r: Awaited<ReturnType<typeof preparar>>) {
     mes: r.mes,
     tipoPago: r.tipoPago,
     fechaPago: r.fechaPago,
+    limitePago: r.limitePago,
+    extemporaneo: r.extemporaneo,
+    atrasadoDesde: r.atrasadoDesde,
     registros: r.registros,
     totales: r.totales,
     verificacion: r.verificacion,
@@ -302,6 +323,10 @@ export function crearPagosService(db: BaseDatos) {
           throw new ErrorConflicto(
             'Cambiaron los datos, novedades o pagos desde la simulación. Simula y revisa nuevamente antes de confirmar.',
           );
+        if (r.extemporaneo && !d.motivo)
+          throw new ErrorValidacion({
+            motivo: ['Explica el motivo del pago extemporáneo con al menos 10 caracteres.'],
+          });
         const elegibles = r.registros.filter((f) => f.resultado && !f.pagado);
         if (!elegibles.length)
           throw new ErrorConflicto(
@@ -320,6 +345,10 @@ export function crearPagosService(db: BaseDatos) {
         for (const f of elegibles) {
           const e = r.entradas.find((e) => e.empleado.id === f.idEmpleado)!,
             resultado = f.resultado!;
+          if (e.prestacion?.pagoExtemporaneo) {
+            e.prestacion.pagoExtemporaneo.motivo = d.motivo!;
+            resultado.pagoExtemporaneo = e.prestacion.pagoExtemporaneo;
+          }
           const version = await pago.siguienteVersion(c, p.id, e.empleado.id);
           const id = await repo.guardarResultado(
             c,
@@ -342,7 +371,7 @@ export function crearPagosService(db: BaseDatos) {
               ['HORAS_EXTRA', 'AUSENCIA_SIN_GOCE'].includes(l.concepto.codigo)
             )
               await pago.actualizarValorAplicado(c, l.novedad, l.monto, a.idUsuario);
-          await aplicarNovedades(c, a, id, pendientes);
+          if (!e.prestacion) await aplicarNovedades(c, a, id, pendientes);
           for (const [i, l] of resultado.lineas.entries())
             if (l.descuento) {
               if (l.descuento.cuota)
@@ -390,10 +419,7 @@ export function crearPagosService(db: BaseDatos) {
             createHash('sha256').update(pdf).digest('hex'),
             a.idUsuario,
           );
-          await c.execute(
-            "UPDATE NOMINA_EMPLEADO SET FECHA_PAGO=TO_DATE(:fecha,'YYYY-MM-DD'),MODIFICADO_POR=:actor WHERE ID_NOMINA_EMPLEADO=:id",
-            { id, fecha: r.fechaPago, actor: a.idUsuario },
-          );
+          await pago.fechaPago(c, id, r.fechaPago, a.idUsuario);
           await pago.notificar(c, id, e.empleado.usuario!, a.idUsuario);
           await registrarAuditoria(c, {
             actor: a,
@@ -401,21 +427,30 @@ export function crearPagosService(db: BaseDatos) {
             entidad: 'NOMINA_EMPLEADO',
             idEntidad: id,
             antes: null,
-            despues: { mes: d.mes, tipoPago: d.tipoPago, neto: resultado.neto, hash },
-            motivo: 'Confirmación de novedades completas y pago mensual',
+            despues: {
+              mes: d.mes,
+              tipoPago: d.tipoPago,
+              neto: resultado.neto,
+              hash,
+              fechaPago: r.fechaPago,
+              limitePago: r.limitePago,
+              extemporaneo: r.extemporaneo,
+            },
+            motivo: d.motivo ?? 'Confirmación de novedades completas y pago mensual',
           });
           ids.push(id);
         }
-        await repo.estado(
-          c,
-          p.id,
-          'CALCULADO',
-          a.idUsuario,
-          Math.max(1, p.version),
-          null,
-          [],
-          'Pago confirmado; pendiente revisión y cierre',
-        );
+        if (!['BONO_14', 'AGUINALDO'].includes(d.tipoPago) || p.estado === 'ABIERTO')
+          await repo.estado(
+            c,
+            p.id,
+            'CALCULADO',
+            a.idUsuario,
+            Math.max(1, p.version),
+            null,
+            [],
+            'Pago confirmado; pendiente revisión y cierre',
+          );
         return {
           idPeriodo: p.id,
           pagados: ids,
@@ -431,7 +466,8 @@ export function crearPagosService(db: BaseDatos) {
         if (!pagoActual || pagoActual.estado !== 'PAGADO')
           throw new ErrorConflicto('El pago no existe o ya fue revertido.');
         const p = (await repo.periodo(c, pagoActual.periodo))!;
-        if (p.estado === 'CERRADO')
+        const esAnual = ['BONO_14', 'AGUINALDO'].includes(pagoActual.tipo);
+        if (!esAnual && p.estado === 'CERRADO')
           throw new ErrorConflicto(
             'El periodo está cerrado. La reversión solo está disponible antes del cierre.',
           );
@@ -448,7 +484,8 @@ export function crearPagosService(db: BaseDatos) {
         await repo.revertir(c, p, a.idUsuario, id);
         await pago.revertir(c, id, a.idUsuario, d.motivo);
         await prestaciones.anularPorBoleta(c, id, a.idUsuario);
-        await repo.estado(c, p.id, 'CALCULADO', a.idUsuario, p.version, null, [], d.motivo);
+        if (!esAnual)
+          await repo.estado(c, p.id, 'CALCULADO', a.idUsuario, p.version, null, [], d.motivo);
         const n = await repo.resultado(c, id);
         if (n?.usuario) await pago.notificar(c, id, n.usuario, a.idUsuario, true);
         await registrarAuditoria(c, {

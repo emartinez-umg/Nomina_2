@@ -121,14 +121,21 @@ export async function dependenciaPosterior(
   mes: string,
   tipo: TipoPago,
 ) {
+  if (!['ANTICIPO', 'PAGO'].includes(tipo)) return false;
   return (
     (
       await filas(
         c,
-        `SELECT 1 FROM PAGOS_NOMINA WHERE ID_EMPLEADO=:empleado AND ESTADO='PAGADO' AND (MES>TO_DATE(:mes||'-01','YYYY-MM-DD') OR (MES=TO_DATE(:mes||'-01','YYYY-MM-DD') AND TIPO_PAGO='PAGO' AND :tipo IN ('ANTICIPO','BONO_14','AGUINALDO')))`,
+        `SELECT 1 FROM PAGOS_NOMINA WHERE ID_EMPLEADO=:empleado AND ESTADO='PAGADO' AND TIPO_PAGO IN ('ANTICIPO','PAGO') AND (MES>TO_DATE(:mes||'-01','YYYY-MM-DD') OR (MES=TO_DATE(:mes||'-01','YYYY-MM-DD') AND TIPO_PAGO='PAGO' AND :tipo='ANTICIPO'))`,
         { empleado, mes, tipo },
       )
     ).length > 0
+  );
+}
+export async function fechaPago(c: Connection, id: number, fecha: string, actor: number) {
+  await c.execute(
+    "UPDATE NOMINA_EMPLEADO SET FECHA_PAGO=TO_DATE(:fecha,'YYYY-MM-DD'),MODIFICADO_POR=:actor WHERE ID_NOMINA_EMPLEADO=:id",
+    { id, fecha, actor },
   );
 }
 export async function revertir(c: Connection, id: number, actor: number, motivo: string) {

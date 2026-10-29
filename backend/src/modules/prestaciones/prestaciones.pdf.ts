@@ -3,6 +3,7 @@ import type { IdentidadEmpresa, FirmaDocumento } from '../../shared/pdf/document
 import { Decimal } from 'decimal.js';
 import type { Registro, Empleado } from './prestaciones.repository.js';
 import type { Snapshot } from './prestaciones.service.js';
+import { leyendaPagoExtemporaneo } from './prestaciones.calculo.js';
 const visible = (s: string) => s.split('-').reverse().join('/');
 const q = (s: string) => `Q ${new Decimal(s).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 function cabecera(doc: PDFKit.PDFDocument, titulo: string, empresa: string) {
@@ -34,6 +35,12 @@ export function prestacionPdf(
         .moveDown();
     };
     header();
+    if (s.pagoExtemporaneo)
+      doc
+        .fillColor('#8A4617')
+        .text(leyendaPagoExtemporaneo(s.pagoExtemporaneo))
+        .moveDown()
+        .fillColor('#25303B');
     if (r.estado === 'SIMULACION')
       doc
         .fillColor('#8A4617')

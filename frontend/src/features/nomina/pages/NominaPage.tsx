@@ -744,9 +744,12 @@ function Planilla({
                   titulo: 'Boleta',
                   render: (f) => (
                     <div className="flex flex-wrap gap-2">
-                      {admin && f.tipoPago && f.estado !== 'CERRADO' && (
-                        <RevertirPagoControl id={f.id} />
-                      )}
+                      {admin &&
+                        f.tipoPago &&
+                        (f.estado !== 'CERRADO' ||
+                          ['BONO_14', 'AGUINALDO'].includes(f.tipoPago)) && (
+                          <RevertirPagoControl id={f.id} />
+                        )}
                       <Button icono="ver" variante="secundario" onClick={() => setVer(f.id)}>
                         Detalle
                       </Button>
@@ -1022,15 +1025,16 @@ function RevertirPagoControl({ id }: { id: number }) {
         <section data-tour="nomina-revertir">
           <p className="my-4">
             Se retirará esta boleta del portal y se devolverán sus cuotas y novedades. El PDF
-            original se conserva. Primero deben revertirse los pagos posteriores que dependan de
-            este.
+            original se conserva. Anticipo y Pago del mes exigen revertir primero sus pagos
+            salariales posteriores. Bono 14 y Aguinaldo se revierten sin tocar planillas, incluso si
+            su quincena está cerrada. Los finiquitos que usaron la prestación siguen protegidos.
           </p>
           <FormDraftNotice draft={draft} />
           <FormGrid>
             <TextAreaField
               name="motivoReversion"
               label="Motivo de reversión"
-              hint="Explica qué debe corregirse; al menos 10 caracteres. Solo ADMIN, antes del cierre."
+              hint="Solo ADMIN. Explica qué debe corregirse; al menos 10 caracteres. Anticipo y Pago solo antes del cierre; las prestaciones anuales son independientes."
               value={motivo}
               required
               maxLength={500}

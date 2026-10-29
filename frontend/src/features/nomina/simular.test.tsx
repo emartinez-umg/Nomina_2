@@ -94,6 +94,69 @@ beforeEach(() => {
   vi.mocked(api.simular).mockResolvedValue(resultado as api.Simulacion);
 });
 describe('A11: simulación guiada y confirmación', () => {
+  it('R3-3: prestación atrasada queda pendiente y exige motivo antes de confirmar', async () => {
+    const datos = {
+      ...structuredClone(resultado),
+      tipoPago: 'BONO_14',
+      fechaPago: '2026-10-28',
+      limitePago: '2026-07-15',
+      extemporaneo: true,
+      atrasadoDesde: '2026-07-16',
+    };
+    datos.registros = [datos.registros[0]!];
+    vi.mocked(api.simular).mockResolvedValue(datos as api.Simulacion);
+    vi.mocked(api.pagar).mockResolvedValue({
+      idPeriodo: 1,
+      pagados: [1],
+      bloqueados: [],
+      mensaje: 'Prestación pagada',
+    });
+    montar();
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Tipo de pago' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Bono 14' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Simular' }));
+    expect(await screen.findByText('Pendiente de pago (atrasado desde 16/07/2026)')).toBeVisible();
+    expect(screen.getByText(/^Extemporáneo · Límite legal/)).toBeVisible();
+    expect(screen.queryByText('Bloqueado')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox'));
+    const confirmar = screen.getByRole('button', { name: 'Confirmar y pagar' });
+    expect(confirmar).toBeDisabled();
+    const campo = screen.getByRole('textbox', { name: 'Motivo del pago extemporáneo' });
+    fireEvent.change(campo, { target: { value: 'corto' } });
+    expect(confirmar).toBeDisabled();
+    const motivo = 'Regularización de prestación pendiente de julio';
+    fireEvent.change(campo, { target: { value: motivo } });
+    expect(confirmar).toBeEnabled();
+    fireEvent.click(confirmar);
+    expect(screen.getByRole('dialog')).toHaveTextContent(motivo);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await waitFor(() =>
+      expect(api.pagar).toHaveBeenCalledWith(
+        expect.objectContaining({ tipoPago: 'BONO_14', mes: '2026-07' }),
+        datos.hash,
+        motivo,
+      ),
+    );
+  });
+  it('R3-3: Anticipo y Pago mantienen el bloqueo por orden y una prestación duplicada no queda pendiente', async () => {
+    const datos = {
+      ...structuredClone(resultado),
+      extemporaneo: true,
+      atrasadoDesde: '2026-07-16',
+      limitePago: '2026-07-15',
+    };
+    datos.registros = datos.registros.slice(1);
+    Object.assign(datos.registros[0]!, {
+      pagado: true,
+      alertas: ['Este empleado ya tiene este pago registrado. No se permite pagarlo dos veces.'],
+    });
+    vi.mocked(api.simular).mockResolvedValue(datos as api.Simulacion);
+    montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Simular' }));
+    expect(await screen.findByText('Bloqueado')).toBeVisible();
+    expect(screen.queryByText(/Pendiente de pago/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar y pagar' })).toBeDisabled();
+  });
   it('sin días al 15 informa sin bloqueo, conserva los demás pagos y deshabilita su boleta', async () => {
     const datos = structuredClone(resultado);
     datos.registros[1]!.alertas = [];

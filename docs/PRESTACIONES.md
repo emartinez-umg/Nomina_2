@@ -47,10 +47,12 @@ Indemnización/finiquito es individual; **Liquidar y dar de baja** abre el emple
    previenen duplicados. Se conservan las filas bloqueadas sin cobrar.
 4. Boletas individuales y ZIP por departamento; publicación inmediata en el portal propio.
    El PDF archivado también se devuelve desde el historial de Prestaciones. No transfiere dinero.
-5. ADMIN puede revertir con motivo antes del cierre, después de resolver pagos/finiquitos dependientes.
-   La prestación queda ANULADA, el PDF anterior se conserva y volver a pagar crea otra versión.
-   Un pago mensual del mismo mes consume sus bases fiscales: hay que revertirlo antes de añadir
-   o revertir una prestación anual. Si hay anticipos salariales, cerrar exige completar todos. Un periodo que contiene solo prestaciones anuales se cierra sin forzar anticipos; las novedades del salario se revisan en su pago mensual.
+5. Bono 14 y Aguinaldo se pagan y revierten de forma independiente de las planillas anteriores,
+   del mismo mes o posteriores. ADMIN revierte con motivo, incluso con su quincena cerrada,
+   conservando su estado y los pagos salariales. Un finiquito que utiliza la prestación conserva
+   su protección. La prestación queda ANULADA; el PDF anterior se conserva y volver a pagar crea
+   otra versión. Si hay anticipos salariales, cerrar exige completarlos; un periodo que contiene
+   solo prestaciones anuales se cierra sin forzar anticipos.
 6. Finiquito se calcula automáticamente al elegir empleado/fecha/causa, por defecto hoy de Guatemala.
    PDF de simulación disponible antes de confirmar. Fecha no futura y no anterior al ingreso;
    reservas posteriores, prestaciones pendientes y ciclos anteriores sin registrar pago bloquean la baja.
@@ -65,6 +67,26 @@ PRESTACION_DETALLE, una sola vez. IGSS excluye boletas anuales y anticipos.
 
 Las operaciones históricas calcular → aprobar → registrar pago siguen disponibles para registros
 v0 y su regularización; las nuevas pantallas anuales usan la confirmación integrada de A11.
+
+### Pago extemporáneo (R3-3 / C1.5)
+
+El mes seleccionado identifica el ciclo original (julio/diciembre según parámetros); no es el mes
+del desembolso. La confirmación integrada usa hoy de Guatemala como fecha real. Si supera el límite
+configurado, indica **Extemporáneo** y **Pendiente de pago (atrasado desde dd/mm/aaaa)**, desde el día
+siguiente al límite. Exige motivo de 10 a 500 caracteres, guardado en snapshot, bitácora y comprobante
+inmutable. El motivo admite borrador del navegador y se elimina al pagar. Cambiar de día exige simular
+otra vez. Pagar en el límite no es extemporáneo. El flujo histórico también conserva la leyenda y el
+motivo al registrar un pago anual fuera de plazo.
+
+El cálculo mantiene el periodo legal y sus vigencias originales; las planillas posteriores quedan
+intactas. Las bases fiscales futuras consultan la fecha real del pago; los cálculos ya confirmados
+conservan sus importes. Se mantienen los bloqueos por duplicado, fuentes faltantes y finiquitos
+dependientes. V036 refuerza en Oracle la unicidad empleado/tipo/año del ciclo, incluso si cambia el
+mes configurado. Las reversiones permiten otra versión. No se alteran migraciones anteriores ni PDFs.
+
+La indemnización usa el flujo individual de baja y pago, sin consultar la cadena de PAGOS_NOMINA.
+Conserva sus controles propios: egreso que no invalide nóminas aprobadas/cerradas, ciclos anteriores
+liquidados y pago en la quincena final antes de su cierre para incorporar vacaciones y bases fiscales.
 
 ## API y documentos
 

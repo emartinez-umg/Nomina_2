@@ -266,6 +266,22 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
       409,
     );
     const pdf = await agent.get(`/api/prestaciones/${prestacion}/pdf`).expect(200);
+    const snapshot = JSON.parse(
+      String(
+        await escalar(
+          "SELECT JSON_QUERY(SNAPSHOT,'$.pagoExtemporaneo') FROM PRESTACIONES WHERE ID_PRESTACION=:id",
+          {
+            id: prestacion,
+          },
+        ),
+      ),
+    );
+    if (hoy > '2026-07-15')
+      expect(snapshot).toEqual({
+        fechaPago: hoy,
+        limitePago: '2026-07-15',
+        motivo,
+      });
     expect(Buffer.from(pdf.body.data.base64, 'base64').subarray(0, 5).toString()).toBe('%PDF-');
     await mkdir('../tmp/pdfs', { recursive: true });
     await writeFile(

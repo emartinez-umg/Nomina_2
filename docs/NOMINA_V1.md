@@ -87,15 +87,19 @@ Las pruebas usan literales derivados de esa aritmética, sin llamar al motor par
 simulación no duplican dinero. Un neto negativo o una fuente inválida bloquea exclusivamente al
 empleado; los habilitados se guardan todos en una transacción, con novedades, cuotas, PDF BLOB,
 SHA-256, firma de la ficha de quien confirma, aviso y auditoría. Fallar cualquiera revierte todo el lote.
-No se realizan transferencias bancarias. La fecha guardada es la fecha informativa del tipo de pago.
+No se realizan transferencias bancarias. Anticipo/Pago conservan la fecha informativa del tipo;
+Bono 14/Aguinaldo guardan la fecha real de confirmación en Guatemala, conservando el mes del ciclo.
 
 `BOLETAS_PAGO` conserva cada PDF emitido; descargarlo después no cambia membrete, firma ni cálculo.
 La descarga individual valida propiedad; el ZIP de RH/ADMIN respeta mes/objetivo y agrupa por
 ID de departamento. Boletas masivas desde Planilla también usa ZIP si incluye pagos v1.
 El portal, campana e Inicio muestran el pago desde la confirmación, sin esperar el cierre.
 
-ADMIN revierte un pago vigente con motivo de al menos diez caracteres y confirmación, antes del cierre.
-Primero se revierten los posteriores dependientes (incluido Pago antes de Anticipo del mismo mes).
+ADMIN revierte un pago vigente con motivo de al menos diez caracteres y confirmación.
+Anticipo/Pago requieren hacerlo antes del cierre y en orden inverso de pagos salariales
+(incluido Pago antes de Anticipo del mismo mes). Bono 14/Aguinaldo son independientes: pueden
+pagarse o revertirse con planillas posteriores y la quincena cerrada conserva su estado.
+El atraso exige motivo y leyenda en PDF/bitácora; ver [Prestaciones](PRESTACIONES.md).
 Se restauran exactamente saldo/cuotas y novedades, se retira la boleta del portal y se notifica.
 Resultados/PDF/auditoría anteriores permanecen. Volver a pagar reutiliza la identidad UNIQUE del pago
 con un nuevo NOMINA_EMPLEADO/version individual; ningún otro empleado pierde su versión vigente.

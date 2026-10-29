@@ -4,6 +4,18 @@ import { ErrorConflicto } from '../../shared/errors/errors.js';
 import { vigente } from '../nomina/nomina.calculo.js';
 import type { Parametro } from '../nomina/nomina.types.js';
 export type TipoAnual = 'AGUINALDO' | 'BONO_14';
+export interface PagoExtemporaneo {
+  fechaPago: string;
+  limitePago: string;
+  motivo?: string;
+}
+export function atrasoPago(fechaPago: string, limitePago: string): PagoExtemporaneo | undefined {
+  return fechaPago > limitePago ? { fechaPago, limitePago } : undefined;
+}
+export function leyendaPagoExtemporaneo(p: PagoExtemporaneo) {
+  const visible = (s: string) => s.split('-').reverse().join('/');
+  return `Extemporáneo · Fecha de pago: ${visible(p.fechaPago)} · Límite legal configurado: ${visible(p.limitePago)}${p.motivo ? ` · Motivo: ${p.motivo}` : ' · Requiere motivo al confirmar.'}`;
+}
 export interface Devengado {
   inicio: string;
   fin: string;

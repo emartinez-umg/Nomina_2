@@ -315,6 +315,23 @@ export async function vincularBoleta(c: Connection, prestacion: number, nomina: 
     { prestacion, nomina },
   );
 }
+export async function guardarAtraso(
+  c: Connection,
+  id: number,
+  snapshot: unknown,
+  motivo: string,
+  actor: number,
+) {
+  await c.execute(
+    'UPDATE PRESTACIONES SET SNAPSHOT=:snapshot,MOTIVO=:motivo,MODIFICADO_POR=:actor WHERE ID_PRESTACION=:id',
+    {
+      id,
+      snapshot: { val: JSON.stringify(snapshot), type: oracledb.CLOB },
+      motivo,
+      actor,
+    },
+  );
+}
 export async function anularPorBoleta(c: Connection, nomina: number, actor: number) {
   await c.execute(
     "UPDATE PRESTACIONES SET ESTADO='ANULADA',MODIFICADO_POR=:actor WHERE ID_NOMINA_EMPLEADO=:nomina",

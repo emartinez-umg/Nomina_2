@@ -1,4 +1,5 @@
 import type { Componente } from '../prestaciones/prestaciones.calculo.js';
+import { leyendaPagoExtemporaneo } from '../prestaciones/prestaciones.calculo.js';
 import { fechas, vigente } from './nomina.calculo.js';
 import { generarPdf, bloqueFirma } from '../../shared/pdf/documento.js';
 import type { IdentidadEmpresa, FirmaDocumento } from '../../shared/pdf/documento.js';
@@ -71,6 +72,13 @@ export function boletasPdf(
         doc.moveDown();
       };
       cabecera();
+      const atraso = (r as ResultadoPago).pagoExtemporaneo;
+      if (atraso)
+        doc
+          .fillColor('#8A4617')
+          .text(leyendaPagoExtemporaneo(atraso))
+          .moveDown()
+          .fillColor('#25303B');
       if (!['CERRADO', 'PAGADO'].includes(fila.estado))
         doc
           .fillColor('#8A4617')

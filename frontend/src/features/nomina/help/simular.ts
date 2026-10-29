@@ -1,7 +1,7 @@
 import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaSimular: DefinicionAyuda = {
-  id: 'simular-pago-acumulados-automaticos',
+  id: 'simular-pago-extemporaneo-r33',
   pasos: [
     pasoSelectorEmpleado,
     {
@@ -14,7 +14,7 @@ export const ayudaSimular: DefinicionAyuda = {
       elemento: 'pago-simular',
       titulo: 'Simular no guarda ni aplica novedades',
       descripcion:
-        'Selecciona mes y empleado, departamento o todos. Simular consulta salarios, horarios, parámetros y novedades reales. Puedes corregir fuentes y simular cuantas veces necesites. Cambiar objetivo descarta los resultados y su confirmación. Un pago ya registrado aparece bloqueado; no se duplica.',
+        'Selecciona mes y empleado, departamento o todos. Para Bono 14 elige julio y para Aguinaldo diciembre del año del ciclo, aunque se pague hoy. Se conserva el periodo legal original; las planillas posteriores no cambian el promedio ni impiden pagar. Anticipo y Pago del mes mantienen el bloqueo por orden cronológico. Simular consulta fuentes reales sin guardarlas. Cambiar objetivo descarta resultados y confirmación. Un pago ya registrado permanece bloqueado; no se duplica.',
     },
     {
       elemento: 'pago-resultados',
@@ -35,6 +35,12 @@ export const ayudaSimular: DefinicionAyuda = {
         'Los contadores indican empleados con horas extra, comisiones, consumo, ausencias, retroactivas y alertas. Revisa también los acumulados automáticos si aparecen; abre el desglose para ver importes por empleado. No necesitas capturar una apertura individual para esta simulación académica. Para prestaciones, revisa la historia salarial completa del ciclo y las bases exenta y gravada. Marca que las fuentes están completas. Cambiar datos o simular de nuevo retira esa confirmación.',
     },
     {
+      elemento: 'pago-extemporaneo',
+      titulo: 'Regularizar una prestación atrasada',
+      descripcion:
+        'Si hoy supera el límite legal configurado, aparece Extemporáneo y Pendiente de pago con el primer día de atraso. Escribe el motivo con 10 a 500 caracteres; se guarda como borrador y se exige al confirmar. Fecha real, límite y motivo quedan en bitácora y comprobante PDF. No se modifican las planillas pagadas. Si cambia el día, vuelve a simular. ADMIN puede revertir esta prestación con motivo sin revertir planillas, incluso con la quincena cerrada; se conservan documentos y versiones anteriores.',
+    },
+    {
       elemento: 'pago-confirmar',
       titulo: 'Confirmar y pagar',
       descripcion:
@@ -44,7 +50,7 @@ export const ayudaSimular: DefinicionAyuda = {
       elemento: 'pago-descargas',
       titulo: 'Boletas, cierre y reversión',
       descripcion:
-        'La vista previa lleva SIMULACIÓN en ambas copias. Las boletas regulares tienen dos copias idénticas en una hoja carta y se nombran con las fechas reales del periodo; el anticipo agrega Anticipo al inicio del nombre. En el ZIP cada archivo añade el código del empleado. Tras pagar, las boletas archivadas se descargan individualmente desde Planilla o juntas en ZIP con carpetas por departamento. Ya están disponibles en el portal. Revisa, aprueba y cierra el periodo desde Planilla. Solo ADMIN puede revertir con motivo antes del cierre; primero debe revertir los pagos posteriores dependientes. La reversión devuelve cuotas y novedades, conserva el PDF histórico y retira la boleta del portal.',
+        'La vista previa lleva SIMULACIÓN. Las boletas regulares tienen dos copias en una hoja carta; las prestaciones muestran su ciclo y, si corresponde, la leyenda Extemporáneo con fecha, límite y motivo. En el ZIP cada archivo añade el código del empleado. Tras pagar, descarga desde Planilla o el portal. Solo ADMIN revierte con motivo. Anticipo y Pago requieren hacerlo antes del cierre y en orden inverso. Bono 14 y Aguinaldo son independientes de las planillas, incluso cerradas; un finiquito que usa la prestación conserva su protección. Se mantiene el PDF histórico y se retira la boleta del portal.',
     },
   ],
 };

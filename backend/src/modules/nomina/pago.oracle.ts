@@ -46,7 +46,15 @@ const seed = validarEntornoSeeds(process.env),
 const ejecutar = (sql: string, binds: BindParameters = {}) =>
   enTransaccion(db, (c) => c.execute(sql, binds));
 const escalar = (sql: string, binds: BindParameters = {}) =>
-  db.conConexion(async (c) => (await c.execute<unknown[]>(sql, binds)).rows?.[0]?.[0]);
+  db.conConexion(
+    async (c) =>
+      (
+        await c.execute<unknown[]>(sql, binds, {
+          fetchTypeHandler: (m) =>
+            m.dbType === oracledb.DB_TYPE_CLOB ? { type: oracledb.STRING } : undefined,
+        })
+      ).rows?.[0]?.[0],
+  );
 async function entrar(usuario: string, contrasena: string) {
   const agent = request.agent(app),
     inicio = await agent.get('/api/auth/csrf').expect(200);
@@ -58,7 +66,17 @@ async function entrar(usuario: string, contrasena: string) {
   return { agent, csrf: r.body.data.csrfToken as string };
 }
 const post = (s: typeof admin, ruta: string, body: object, status = 200) =>
-  s.agent.post(`/api/nomina${ruta}`).set('X-CSRF-Token', s.csrf).send(body).expect(status);
+  s.agent
+    .post(`/api/nomina${ruta}`)
+    .set('X-CSRF-Token', s.csrf)
+    .send(body)
+    .expect((r) => {
+      if (r.status !== status)
+        throw new Error(
+          `${ruta}: HTTP ${r.status}; ${r.body.error?.mensaje ?? 'respuesta inesperada'}`,
+        );
+    })
+    .expect(status);
 const objetivo = (tipoPago: 'ANTICIPO' | 'PAGO', id = empleado): ObjetivoPago => ({
   mes: '2026-01',
   tipoPago,
@@ -67,7 +85,20 @@ const objetivo = (tipoPago: 'ANTICIPO' | 'PAGO', id = empleado): ObjetivoPago =>
 });
 const simular = async (d: ObjetivoPago) => (await post(rh, '/simular', d)).body.data;
 const pagar = async (d: ObjetivoPago, hash: string, status = 201) =>
-  post(rh, '/pagar', { ...d, hash, confirmado: true, novedadesCompletas: true }, status);
+  post(
+    rh,
+    '/pagar',
+    {
+      ...d,
+      hash,
+      confirmado: true,
+      novedadesCompletas: true,
+      ...(['BONO_14', 'AGUINALDO'].includes(d.tipoPago)
+        ? { motivo: 'Regularización anual documentada de prueba' }
+        : {}),
+    },
+    status,
+  );
 async function nov(tipo: string, monto: string, cantidad = '1', mes = '2026-01', id = empleado) {
   await ejecutar(
     "INSERT INTO NOVEDADES_MENSUALES(ID_EMPLEADO,TIPO,MES,CANTIDAD,MONTO,DESCRIPCION) VALUES(:id,:tipo,TO_DATE(:mes||'-01','YYYY-MM-DD'),TO_NUMBER(:cantidad),TO_NUMBER(:monto),'Respaldo de prueba')",
@@ -78,6 +109,7 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
   beforeAll(async () => {
     if (!/^N2SEC_[A-F0-9]{12}$/.test(process.env.DB_USER ?? ''))
       throw new Error('Solo esquema desechable.');
+    await mkdir('../tmp/pdfs', { recursive: true });
     db = await crearBaseDatos(validarEntorno(process.env));
     const migraciones = await cargarMigraciones(
       fileURLToPath(new URL('../../../../db/migrations', import.meta.url)),
@@ -831,6 +863,7 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
           .send({
             ...anualObjetivo(),
             hash: actual.hash,
+            motivo: 'Regularización anual documentada de prueba',
             confirmado: true,
             novedadesCompletas: true,
           }),
@@ -1151,5 +1184,230 @@ describe('V1-10: pagos reales, integridad, reversión y publicación', () => {
         (l: { concepto: { codigo: string } }) => l.concepto.codigo === 'BONIFICACION_INCENTIVO',
       ).monto,
     ).toBe('133.33');
+  });
+  it('R3-3: paga Bono 14 atrasado con planillas de julio a octubre y revierte sin tocarlas', async () => {
+    // Reactiva solo el objetivo y su contenedor tras las regresiones que aíslan empleados/v0.
+    await ejecutar('UPDATE EMPLEADOS SET ACTIVO=1 WHERE ID_EMPLEADO=:id', { id: anualEmpleado });
+    await ejecutar(
+      "UPDATE PERIODOS_NOMINA SET ACTIVO=1 WHERE FECHA_INICIO IN (DATE '2026-07-01',DATE '2026-07-16',DATE '2026-08-16',DATE '2026-09-16',DATE '2026-10-16')",
+    );
+    const vigente = Number(
+      await escalar(
+        "SELECT ID_NOMINA_EMPLEADO FROM PAGOS_NOMINA WHERE ID_EMPLEADO=:id AND TIPO_PAGO='BONO_14' AND ESTADO='PAGADO'",
+        { id: anualEmpleado },
+      ),
+    );
+    await post(admin, `/pagos/${vigente}/revertir`, {
+      motivo: 'Verificar pago anual extemporáneo independiente',
+      confirmado: true,
+    });
+    const planillas: number[] = [];
+    for (const mes of ['2026-07', '2026-08', '2026-09', '2026-10']) {
+      const d: ObjetivoPago = { ...anualObjetivo(), mes, tipoPago: 'PAGO' };
+      const s = await simular(d);
+      expect(s.registros[0].alertas).toEqual([]);
+      const confirmado = await rh.agent
+        .post('/api/nomina/pagar')
+        .set('X-CSRF-Token', rh.csrf)
+        .send({ ...d, hash: s.hash, confirmado: true, novedadesCompletas: true });
+      expect(confirmado.body.error, mes).toBeUndefined();
+      expect(confirmado.status).toBe(201);
+      planillas.push(confirmado.body.data.pagados[0]);
+    }
+    const sinCerrar = await simular(anualObjetivo());
+    expect(sinCerrar.registros[0].alertas).toEqual([]);
+    expect(sinCerrar.registros[0].resultado.componentes[0]).toMatchObject({
+      inicio: '2026-01-01',
+      fin: '2026-06-30',
+      monto: '2063.73',
+    });
+    // C1.5: el cierre de la quincena compartida no vuelve dependiente el desembolso anual.
+    await ejecutar(
+      "UPDATE PERIODOS_NOMINA SET ESTADO='CERRADO',APROBADO_POR=:actor,APROBADO_EN=SYSDATE,CERRADO_POR=:actor,CERRADO_EN=SYSDATE WHERE FECHA_INICIO=DATE '2026-07-01'",
+      { actor: actor.idUsuario },
+    );
+    const s = await simular(anualObjetivo());
+    expect(s).toMatchObject({
+      limitePago: '2026-07-15',
+      extemporaneo: true,
+      atrasadoDesde: '2026-07-16',
+    });
+    const fecha = String(
+      await escalar(
+        "SELECT TO_CHAR(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala','YYYY-MM-DD') FROM DUAL",
+      ),
+    );
+    expect(s.fechaPago).toBe(fecha);
+    const enviado = {
+      ...anualObjetivo(),
+      hash: s.hash,
+      confirmado: true,
+      novedadesCompletas: true,
+    };
+    await post(rh, '/pagar', enviado, 400);
+    for (const motivo of ['', '   ', 'corto'])
+      await post(rh, '/pagar', { ...enviado, motivo }, 400);
+    const motivo = 'Regularización del Bono 14 pendiente del ciclo legal 2026';
+    const capturarPlanillas = () =>
+      db.conConexion(
+        async (c) =>
+          (
+            await c.execute(
+              "SELECT PN.ID_NOMINA_EMPLEADO,PN.ESTADO,N.DATOS_EMPLEADO,B.SHA256,P.ESTADO FROM PAGOS_NOMINA PN JOIN NOMINA_EMPLEADO N ON N.ID_NOMINA_EMPLEADO=PN.ID_NOMINA_EMPLEADO JOIN BOLETAS_PAGO B ON B.ID_NOMINA_EMPLEADO=N.ID_NOMINA_EMPLEADO JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=N.ID_PERIODO_NOMINA WHERE PN.ID_EMPLEADO=:id AND PN.TIPO_PAGO='PAGO' ORDER BY PN.MES",
+              { id: anualEmpleado },
+              {
+                fetchTypeHandler: (m) =>
+                  m.dbType === oracledb.DB_TYPE_CLOB ? { type: oracledb.STRING } : undefined,
+              },
+            )
+          ).rows,
+      );
+    const antes = await capturarPlanillas();
+    const pagado = (await post(rh, '/pagar', { ...enviado, motivo }, 201)).body.data;
+    const id = pagado.pagados[0] as number;
+    // Otra fecha del mismo año también debe chocar en Oracle, sin confiar en el servicio.
+    await db.conConexion(async (c) => {
+      try {
+        await c.execute(
+          'INSERT INTO NOMINA_EMPLEADO(ID_PERIODO_NOMINA,ID_EMPLEADO,ID_HISTORIAL_SALARIAL,VERSION_CALCULO,DIAS_PAGADOS,SALARIO_BASE,TOTAL_INGRESOS,TOTAL_DESCUENTOS,NETO,COSTO_PATRONAL,DATOS_EMPLEADO,CREADO_POR) SELECT ID_PERIODO_NOMINA,ID_EMPLEADO,ID_HISTORIAL_SALARIAL,99999,DIAS_PAGADOS,SALARIO_BASE,TOTAL_INGRESOS,TOTAL_DESCUENTOS,NETO,COSTO_PATRONAL,DATOS_EMPLEADO,CREADO_POR FROM NOMINA_EMPLEADO WHERE ID_NOMINA_EMPLEADO=:id',
+          { id },
+        );
+        const copia = (
+          await c.execute<number[]>(
+            'SELECT ID_NOMINA_EMPLEADO FROM NOMINA_EMPLEADO WHERE ID_EMPLEADO=:empleado AND VERSION_CALCULO=99999',
+            { empleado: anualEmpleado },
+          )
+        ).rows![0]![0]!;
+        await expect(
+          c.execute(
+            "INSERT INTO PAGOS_NOMINA(ID_EMPLEADO,MES,TIPO_PAGO,ID_NOMINA_EMPLEADO) VALUES(:empleado,DATE '2026-08-01','BONO_14',:copia)",
+            { empleado: anualEmpleado, copia },
+          ),
+        ).rejects.toMatchObject({
+          errorNum: 1,
+          message: expect.stringContaining('UQ_PAGO_PRESTACION_ANIO'),
+        });
+      } finally {
+        await c.rollback();
+      }
+    });
+    expect(
+      await escalar(
+        "SELECT TO_CHAR(FECHA_PAGO,'YYYY-MM-DD') FROM PRESTACIONES WHERE ID_NOMINA_EMPLEADO=:id",
+        { id },
+      ),
+    ).toBe(fecha);
+    const registro = JSON.parse(
+      String(
+        await escalar('SELECT DATOS_EMPLEADO FROM NOMINA_EMPLEADO WHERE ID_NOMINA_EMPLEADO=:id', {
+          id,
+        }),
+      ),
+    );
+    expect(registro.resultado.pagoExtemporaneo).toEqual({
+      fechaPago: fecha,
+      limitePago: '2026-07-15',
+      motivo,
+    });
+    expect(registro.entrada.prestacion).toMatchObject({
+      inicio: '2025-07-01',
+      fin: '2026-06-30',
+      total: '2063.73',
+    });
+    expect(
+      await escalar(
+        "SELECT COUNT(*) FROM BITACORA_AUDITORIA WHERE ACCION='PAGAR_PRESTACION' AND MOTIVO=:motivo AND JSON_VALUE(VALORES_NUEVOS,'$.extemporaneo')='true'",
+        { motivo },
+      ),
+    ).toBe(1);
+    await post(rh, '/pagar', { ...enviado, motivo }, 409);
+    await pagar(anualObjetivo(), (await simular(anualObjetivo())).hash, 409);
+    const pdf = await anualSesion.agent.get(`/api/nomina/boletas/${id}/pdf`).expect(200);
+    const bytes = Buffer.from(pdf.body.data.base64, 'base64');
+    await writeFile('../tmp/pdfs/bono14-r33-extemporaneo.pdf', bytes);
+    const texto = [...bytes.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)]
+      .flatMap((m) => {
+        try {
+          return [
+            ...inflateSync(Buffer.from(m[1]!, 'latin1'))
+              .toString('latin1')
+              .matchAll(/<([a-f\d]+)>/gi),
+          ].map((x) => Buffer.from(x[1]!, 'hex').toString('latin1'));
+        } catch {
+          return [];
+        }
+      })
+      .join('');
+    expect(texto).toContain('Extemporáneo');
+    expect(texto).toContain('15/07/2026');
+    expect(texto).toContain(motivo);
+    await post(rh, `/pagos/${id}/revertir`, { motivo, confirmado: true }, 403);
+    await post(admin, `/pagos/${id}/revertir`, { motivo: 'corto', confirmado: true }, 400);
+    await post(admin, `/pagos/${id}/revertir`, { motivo, confirmado: true });
+    expect(
+      await escalar('SELECT ESTADO FROM PRESTACIONES WHERE ID_NOMINA_EMPLEADO=:id', { id }),
+    ).toBe('ANULADA');
+    expect(await capturarPlanillas()).toEqual(antes);
+    expect(planillas).toHaveLength(4);
+    expect(
+      await escalar("SELECT ESTADO FROM PERIODOS_NOMINA WHERE FECHA_INICIO=DATE '2026-07-01'"),
+    ).toBe('CERRADO');
+    const deNuevo = await simular(anualObjetivo());
+    expect(deNuevo.registros[0].resultado.neto).toBe('2063.73');
+    await pagar(anualObjetivo(), deNuevo.hash);
+    for (const tipoPago of ['ANTICIPO', 'PAGO'] as const) {
+      const d = { ...anualObjetivo(), mes: '2026-06', tipoPago };
+      const orden = await simular(d);
+      expect(orden.registros[0].resultado).toBeNull();
+      expect(orden.registros[0].alertas.join(' ')).toContain('Reviértelos en orden inverso');
+      await pagar(d, orden.hash, 409);
+    }
+    await post(admin, `/pagos/${planillas[1]}/revertir`, { motivo, confirmado: true }, 409);
+  });
+  it('R3-3: Aguinaldo de 2025 se paga y revierte con planillas de 2026 sin alterar su ciclo', async () => {
+    // Completa vigencias históricas explícitas solo en el esquema desechable.
+    await ejecutar(
+      "UPDATE PARAMETROS_LEGALES P SET VIGENTE_DESDE=DATE '2024-01-01' WHERE VIGENTE_DESDE=DATE '2026-01-01' AND NOT EXISTS(SELECT 1 FROM PARAMETROS_LEGALES A WHERE A.CLAVE_INTERNA=P.CLAVE_INTERNA AND A.VIGENTE_DESDE<P.VIGENTE_DESDE)",
+    );
+    await ejecutar(
+      "UPDATE CONCEPTOS_NOMINA P SET VIGENTE_DESDE=DATE '2024-01-01' WHERE VIGENTE_DESDE=DATE '2026-01-01' AND NOT EXISTS(SELECT 1 FROM CONCEPTOS_NOMINA A WHERE A.CODIGO=P.CODIGO AND A.VIGENTE_DESDE<P.VIGENTE_DESDE)",
+    );
+    await ejecutar("UPDATE EMPLEADOS SET FECHA_INGRESO=DATE '2025-01-01' WHERE ID_EMPLEADO=:id", {
+      id: anualEmpleado,
+    });
+    await ejecutar(
+      "INSERT INTO HISTORIAL_SALARIAL(ID_EMPLEADO,SALARIO_BASE,VIGENTE_DESDE,MOTIVO) VALUES(:id,3000,DATE '2025-01-01','Historia legal del Aguinaldo anterior')",
+      { id: anualEmpleado },
+    );
+    await ejecutar(
+      "INSERT INTO EMPLEADO_HORARIO(ID_EMPLEADO,ID_HORARIO,VIGENTE_DESDE,MOTIVO) SELECT :id,MIN(ID_HORARIO),DATE '2025-01-01','Historia legal del Aguinaldo anterior' FROM HORARIOS",
+      { id: anualEmpleado },
+    );
+    const d: ObjetivoPago = { ...anualObjetivo(), mes: '2025-12', tipoPago: 'AGUINALDO' };
+    const s = await simular(d);
+    expect(s.registros[0].alertas).toEqual([]);
+    expect(s).toMatchObject({
+      extemporaneo: true,
+      limitePago: '2025-12-15',
+      atrasadoDesde: '2025-12-16',
+    });
+    expect(s.registros[0].resultado.componentes[0]).toMatchObject({
+      inicio: '2025-01-01',
+      fin: '2025-11-30',
+      monto: '2745.21',
+    });
+    const p = (await pagar(d, s.hash)).body.data.pagados[0];
+    await pagar(d, (await simular(d)).hash, 409);
+    await post(admin, `/pagos/${p}/revertir`, {
+      motivo: 'Verificar reversión del Aguinaldo independiente',
+      confirmado: true,
+    });
+    expect((await simular(d)).registros[0].resultado.neto).toBe('2745.21');
+    expect(
+      await escalar(
+        "SELECT COUNT(*) FROM PAGOS_NOMINA WHERE ID_EMPLEADO=:id AND TIPO_PAGO='PAGO' AND ESTADO='PAGADO'",
+        { id: anualEmpleado },
+      ),
+    ).toBe(4);
   });
 });

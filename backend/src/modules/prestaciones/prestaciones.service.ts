@@ -36,6 +36,7 @@ import type { Entrada, Resultado } from '../nomina/nomina.types.js';
 import { archivo } from '../nomina/nomina.exportar.js';
 import {
   ciclo,
+  atrasoPago,
   calcularAnual,
   calcularIndemnizacion,
   ventanaIndemnizacion,
@@ -43,7 +44,7 @@ import {
   totalizar,
   siguiente,
 } from './prestaciones.calculo.js';
-import type { Componente, Devengado, TipoAnual } from './prestaciones.calculo.js';
+import type { Componente, Devengado, TipoAnual, PagoExtemporaneo } from './prestaciones.calculo.js';
 import {
   anualSchema,
   finiquitoSchema,
@@ -65,6 +66,7 @@ interface Historia {
   nominas: number[];
 }
 export interface Vista {
+  pagoExtemporaneo?: PagoExtemporaneo;
   idEmpleado: number;
   empleado: string;
   inicio: string;
@@ -631,7 +633,7 @@ export function crearPrestacionesService(db: BaseDatos) {
 
           if (!d.fechaPago || !d.referencia)
             throw new ErrorConflicto('Ingresa fecha y referencia del pago realizado.');
-          const ultimo = await repo.ultimoCierre(c);
+          const ultimo = r.tipo === 'INDEMNIZACION' ? await repo.ultimoCierre(c) : null;
           if (
             d.fechaPago < r.fin ||
             d.fechaPago > (await hoy(c)) ||
@@ -640,6 +642,18 @@ export function crearPrestacionesService(db: BaseDatos) {
             throw new ErrorConflicto(
               'El pago debe ser no futuro, desde el corte y posterior al último cierre fiscal.',
             );
+          if (r.tipo !== 'INDEMNIZACION') {
+            const limitePago = ciclo(
+              r.tipo as TipoAnual,
+              (s.seleccion as Seleccion).anio,
+              await repo.parametros(c),
+            ).limitePago;
+            const atraso = atrasoPago(d.fechaPago, limitePago);
+            if (atraso) {
+              s.pagoExtemporaneo = { ...atraso, motivo: d.motivo };
+              await repo.guardarAtraso(c, id, s, d.motivo, a.idUsuario);
+            }
+          }
         }
         if (accion === 'aprobar') {
           await membrete(c);
@@ -651,7 +665,13 @@ export function crearPrestacionesService(db: BaseDatos) {
           a,
           id,
           `PRESTACION_${estado}`,
-          { estado, fechaPago: d.fechaPago, referencia: d.referencia },
+          {
+            estado,
+            fechaPago: d.fechaPago,
+            referencia: d.referencia,
+            extemporaneo: !!s.pagoExtemporaneo,
+            limitePago: s.pagoExtemporaneo?.limitePago,
+          },
           d.motivo,
           { estado: r.estado },
         );
