@@ -2027,3 +2027,13 @@ Los filtros se intersectan con esa lista, incluidos los indicadores, opciones y 
 El servidor vuelve a consultar las concesiones en cada petición, sin guardarlas en SESIONES.
 La edición bloquea la jefatura y comprueba la revisión SHA-256 del estado consultado;
 cambio y bitácora anterior/nuevo se confirman o revierten juntos.
+
+## Ronda 3: estadísticas de comisiones (V041)
+
+No agrega entidades ni modifica datos. `NOVEDADES_MENSUALES` es la fuente canónica de comisiones,
+incluidas las migradas por V027; `COMISIONES` y `NOVEDADES_ORIGEN` conservan sus respaldos.
+`IX_NOV_COM_MES` cubre TIPO/ACTIVO/AUTORIZACION/MES/ID_EMPLEADO/ESTADO/MONTO y
+`IX_NOV_COM_EMP_MES` cubre ID_EMPLEADO/TIPO/ACTIVO/AUTORIZACION/MES/ESTADO/MONTO.
+Las consultas generales filtran por mes; vendedor y equipo intersectan IDs con binds CLOB.
+Los agregados solo incluyen activas y autorizadas; el alcance usa PERMISOS_JEFATURA V040.
+Contrato y planes en [COMISIONES_ESTADISTICAS.md](COMISIONES_ESTADISTICAS.md).

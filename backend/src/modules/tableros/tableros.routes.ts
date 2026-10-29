@@ -1,11 +1,13 @@
 import { permitirRoles } from '../../shared/security/rbac.js';
 import { Router } from 'express';
+import { crearComisionesRouter } from './comisiones.routes.js';
 import { crearTablerosController, crearEstadisticasController } from './tableros.controller.js';
 import type { crearTablerosService } from './tableros.service.js';
 export function crearTablerosRouter(s: ReturnType<typeof crearTablerosService>) {
   const r = Router();
   const c = crearEstadisticasController(s);
   const roles = permitirRoles('RH', 'ADMIN');
+  r.use('/comisiones', crearComisionesRouter(s.comisiones));
   r.use('/rh/', (_req, res, next) => {
     res.set('Cache-Control', 'private, no-store');
     next();

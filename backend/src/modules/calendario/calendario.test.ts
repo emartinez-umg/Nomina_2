@@ -72,7 +72,8 @@ describe('R3-4: años por fuente', () => {
   it('el empleado consulta solo años propios y no accede a fuentes de RH', async () => {
     const { app, execute, conConexion } = escenario([], 'EMPLEADO');
     await request(app).get('/api/tableros/anios?fuente=comisiones').expect(403);
-    expect(conConexion).not.toHaveBeenCalled();
+    // R3-9: comisiones permite jefes y comprueba su ficha/permiso vigente en Oracle.
+    expect(conConexion).toHaveBeenCalledOnce();
     for (const fuente of ['planillas', 'vacaciones', 'parqueo']) {
       await request(app).get(`/api/tableros/anios?fuente=${fuente}`).expect(200);
       expect(execute).toHaveBeenCalledWith(

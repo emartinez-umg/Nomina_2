@@ -4,6 +4,7 @@ import {
 } from '../vacaciones/vacaciones.saldos.service.js';
 import { textoPresentacion } from '../../shared/presentacion/codigos.js';
 import { crearCalendarioService } from '../calendario/calendario.service.js';
+import { crearComisionesService } from './comisiones.service.js';
 import { crearEstadisticasService } from './estadisticas.service.js';
 import type { BaseDatos } from '../../shared/db/pool.js';
 import type { Autenticacion } from '../auth/auth.types.js';
@@ -17,6 +18,7 @@ import { consultarResumenMensual } from '../nomina/nomina.resumen.service.js';
 import { querySchema } from '../nomina/nomina.schemas.js';
 export function crearTablerosService(db: BaseDatos) {
   return {
+    comisiones: crearComisionesService(db),
     estadisticas: crearEstadisticasService(db),
     calendario: crearCalendarioService(db),
     consultar: (auth: Autenticacion, rol: 'rh' | 'admin' | 'empleado') =>

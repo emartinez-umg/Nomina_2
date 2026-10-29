@@ -13,7 +13,7 @@ const fuentes: Record<FuenteAnios, string> = {
       CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE)) fin
     FROM HISTORIAL_SALARIAL H JOIN EMPLEADOS E ON E.ID_EMPLEADO=H.ID_EMPLEADO WHERE H.ACTIVO=1`,
   comisiones:
-    "SELECT MES inicio,MES fin FROM NOVEDADES_MENSUALES WHERE ACTIVO=1 AND TIPO='COMISION' UNION ALL SELECT P.FECHA_INICIO,P.FECHA_FIN FROM COMISIONES C JOIN PERIODOS_NOMINA P ON P.ID_PERIODO_NOMINA=C.ID_PERIODO_NOMINA WHERE C.ACTIVO=1",
+    "SELECT M.MES inicio,M.MES fin FROM NOVEDADES_MENSUALES M WHERE M.ACTIVO=1 AND M.TIPO='COMISION' AND M.AUTORIZACION='APROBADA'",
   'horas-extra':
     "SELECT MES inicio,MES fin FROM NOVEDADES_MENSUALES WHERE ACTIVO=1 AND TIPO='HORAS_EXTRA' UNION ALL SELECT FECHA,FECHA FROM HORAS_EXTRA WHERE ACTIVO=1",
   'consumos-tienda':
@@ -28,15 +28,29 @@ const fuentes: Record<FuenteAnios, string> = {
   'tarifas-parqueo':
     'SELECT VIGENTE_DESDE inicio,NVL(VIGENTE_HASTA,VIGENTE_DESDE) fin FROM PARQUEO_TARIFAS WHERE ACTIVO=1',
 };
-export async function aniosConDatos(c: Connection, fuente: FuenteAnios, usuario: number | null) {
-  const sql = fuentes[fuente];
+export async function aniosConDatos(
+  c: Connection,
+  fuente: FuenteAnios,
+  usuario: number | null,
+  alcance?: readonly number[],
+) {
+  const limitado = fuente === 'comisiones' && alcance !== undefined;
+  const sql =
+    fuentes[fuente] +
+    (limitado
+      ? " AND M.ID_EMPLEADO IN (SELECT ID FROM JSON_TABLE(:alcance,'$[*]' COLUMNS(ID NUMBER PATH '$')))"
+      : '');
   const r = await c.execute<{ anio: number }>(
     `WITH rangos AS (${sql}),
     limites AS (SELECT MIN(EXTRACT(YEAR FROM inicio)) minimo,MAX(EXTRACT(YEAR FROM fin)) maximo FROM rangos),
     anios AS (SELECT minimo+LEVEL-1 anio FROM limites CONNECT BY LEVEL<=maximo-minimo+1)
     SELECT DISTINCT A.anio "anio" FROM anios A JOIN rangos R
       ON A.anio BETWEEN EXTRACT(YEAR FROM R.inicio) AND EXTRACT(YEAR FROM R.fin) ORDER BY A.anio`,
-    sql.includes(':usuario') ? { usuario } : {},
+    limitado
+      ? { alcance: { val: JSON.stringify(alcance), type: oracledb.CLOB } }
+      : sql.includes(':usuario')
+        ? { usuario }
+        : {},
     { outFormat: oracledb.OUT_FORMAT_OBJECT },
   );
   return (r.rows ?? []).map((r) => r.anio);

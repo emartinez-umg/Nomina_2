@@ -3852,3 +3852,117 @@ Estado: implementada el 29/10/2026 en `v1.2`. Alcance C4.
    Mi equipo solo muestra las personas de sus ramas autorizadas. Revocar y repetir consulta.
 5. El despliegue operativo no fue solicitado. C6–C8 y la validación contable de R3-1 siguen
    pendientes de sus fases; no hay concesiones automáticas a los datos existentes.
+
+## Ronda 3 — FASE R3-9: capa de datos del dashboard de ventas
+
+Estado: implementada el 29/10/2026 en `v1.2`. Alcance C6: backend, índices y pruebas.
+
+### Causa y alcance
+
+- Revisados AGENTS.md con los adendos v1/v1.1/v1.2, el progreso y los contratos de R3-4/R3-8.
+  Árbol limpio al iniciar. Las estadísticas disponibles eran Top 5 de remuneraciones de pagos
+  confirmados; no existían series del libro de comisiones, matriz ni historial estadístico.
+- V027 ya migró COMISIONES v0 a NOVEDADES_MENSUALES y conservó sus orígenes. Sumar ambos
+  duplicaría importes; C6 consulta exclusivamente el libro mensual, por MES de origen.
+  No se cambia cálculo, aplicación/reversión de novedades, pagos ni estados de planilla.
+
+### Hecho y decisiones
+
+- GET `/api/tableros/comisiones/resumen`, `/tendencia`, `/ranking`, `/tabla`,
+  `/vendedores/:id/historial`, `/opciones` y `/anios`. Capas routes/controller/service/repository,
+  Zod estricto, respuestas uniformes y no-store. Contrato completo y ejemplos en
+  `docs/COMISIONES_ESTADISTICAS.md`; README y ERD actualizados.
+- Filtros combinables: desde/hasta aaaa-mm inclusivos, departamento, 1–500 vendedores únicos,
+  estado todas/pendientes/aplicadas y comparar. Rechaza desde posterior, más de 60 meses,
+  meses futuros con reloj Oracle en Guatemala, IDs inválidos, booleanos ambiguos, campos
+  adicionales e intentos de enviar propietarios/raíces/alcances.
+- Indicadores con Decimal/half-up: total, promedio de todos los meses, mejor mes, personas
+  con comisión y variación frente al intervalo inmediato anterior de igual longitud.
+  Tendencia continua y comparación anterior alineada; ranking con reparto porcentual y
+  matriz con ceros, totales por persona, columna y conjunto completo antes de paginar.
+- Historial individual con evolución, mejor/peor mes, promedio, comparación anterior y
+  promedio del equipo filtrado, más registros individuales paginados en Oracle. Ranking
+  y matriz permiten orden de lista blanca, desempate estable por ID y páginas en servidor.
+  Opciones de vendedores/departamentos consultan exactamente el rango/estado/alcance.
+- RH/ADMIN ven toda la historia, incluidas fichas deshabilitadas. EMPLEADO requiere
+  VER_COMISIONES_EQUIPO vigente; `resolverAlcanceEquipo` obtiene la identidad desde sesión y
+  las raíces concedidas en servidor, dentro del mismo snapshot READ ONLY que los datos.
+  Revalida en cada petición; permisos falsificados/caducados no conceden acceso. Excluye
+  al jefe, inactivos y ramas ajenas. Un equipo vacío conserva ceros sin abrir alcance general.
+- IDs de vendedores ajenos, incluso mezclados con propios, y departamentos fuera del equipo
+  devuelven 403; IDs inexistentes para RH/ADMIN devuelven 404. Historial vuelve a verificar
+  identidad/alcance y pertenencia al departamento filtrado. DTO explícitos omiten salario,
+  banco, DPI/NIT, contacto, expediente, actas y credenciales. Las opciones y años también
+  están protegidos, sin necesitar permiso para el directorio ni catálogos generales de RH.
+- `/api/tableros/anios?fuente=comisiones` reutiliza la misma lectura autorizada de C6;
+  conserva año actual, extremos y años únicos con datos sin inventar los huecos. Excluye
+  anuladas/rechazadas y respaldos antiguos. Las demás fuentes mantienen sus permisos.
+  La prueba previa de años ahora espera consultar ficha/permiso antes del 403 de comisiones:
+  es el cambio intencional de C4/C6, sin relajar las aserciones de propiedad o de otros roles.
+- V041 aditiva crea IX_NOV_COM_MES e IX_NOV_COM_EMP_MES, índices compuestos por mes y
+  empleado con tipo/activo/autorización/estado e importe para cubrir las sumas. SQL agrega
+  una vez por persona/mes, sin funciones sobre MES en el filtro ni N+1. Una persona usa
+  igualdad con bind; listas/equipo usan JSON_TABLE con binds CLOB. Ceros, Decimal y páginas
+  se calculan en la aplicación sobre agregados, no sobre cada comisión original.
+- `verify:comisiones` usa el verificador de esquemas N2SEC, admite Node 20 con `-- --docker`
+  y se incluye en `verify:all`. Sin dependencias nuevas ni cambios de frontend.
+
+### Supuestos y compatibilidad
+
+- Una comisión válida está activa y autorizada como APROBADA; Pendiente/Aplicada describe
+  su consumo en nómina. Autorizaciones pendientes/rechazadas no cuentan como ventas.
+  Un vendedor tiene al menos un registro válido en el rango/estado, sin exigir cierto puesto
+  ni un importe positivo. Un vendedor solo del intervalo anterior no aparece en ranking/matriz;
+  su importe sí participa en la comparación global con los mismos filtros.
+- El periodo anterior se consulta con idénticos filtros y alcance actual. Departamento/puesto/
+  centro proceden de la ficha actual; no se inventa una organización histórica de ventas.
+  Una comisión retroactiva conserva el mes al que pertenece, aunque se pague después.
+- Variación con anterior cero y actual positivo: null y sinBaseComparacion=true; ambos cero:
+  0.00; actual cero y anterior positivo: -100.00. Sin comparar, anterior/variación son null.
+  Promedios incluyen meses vacíos; empates de mejor/peor mes eligen el primero. Sin registros
+  actuales, mejor/peor son null. Los importes/porcentajes viajan como strings con dos decimales.
+- El promedio mensual del equipo usa los vendedores del rango, sus meses vacíos y los filtros
+  explícitos. El ID de la ruta de historial no reduce ese conjunto a una sola persona.
+  La respuesta indica el denominador; una persona autorizada sin comisiones devuelve ceros.
+  El conteo de alcance indica todo el equipo autorizado antes de filtros, no solo vendedores.
+
+### Validación
+
+- **912 pruebas del repositorio aprobadas**: 529 backend, 376 frontend y siete del exportador.
+  Doce nuevas backend cubren rangos, centavos y cifras mayores que la precisión float, ceros,
+  comparación sin base, empates, personas solo anteriores, promedio del equipo, páginas con
+  totales globales, DTO sin campos sensibles, binds, permiso vigente, alcance, reloj y HTTP.
+  Backend completo repetido tras optimizar el filtro individual: 529/529. Supertest necesitó
+  habilitar los puertos locales del entorno; la repetición pasó sin cambiar producción.
+- **38 Oracle/Supertest aprobadas con Node 20**: once nuevas de comisiones, doce de dashboard/
+  años y quince de jefaturas/permisos. Cubren los cinco conjuntos de datos, estados, departamento,
+  vendedores múltiples, historial/páginas, periodos previos vacíos, rangos inválidos, 401/403/404,
+  contraseña temporal, descendientes, exclusión del jefe/inactivos, revocación en la misma
+  sesión, opciones/años limitados, equipo vacío y privacidad. Se conserva la regresión R3-4/C4.
+- La nueva suite comienza con V000–V040, carga registros reales y respaldos v0 enlazados,
+  aplica V041 y compara cantidad/suma intactas; repetir el runner no aplica nada. Índices y
+  objetos válidos. La comisión aplicada de un mes distinto al pago se agrupa por su origen;
+  el respaldo COMISIONES no duplica la copia mensual. No se reescriben migraciones previas.
+- Planes revisados con 24,000 comisiones históricas adicionales y estadísticas Oracle:
+  consultas general/equipo usan INDEX RANGE SCAN de IX_NOV_COM_MES; individual usa
+  IX_NOV_COM_EMP_MES. Sin full scan de NOVEDADES_MENSUALES en estos rangos selectivos.
+  Ejecución local final: **7.09 / 41.33 / 8.33 ms**, respectivamente; no es una prueba de
+  carga operativa. Planes/tiempos completos en `tmp/comisiones-planes.json`, ignorado por Git.
+  El primer ensayo seleccionó el índice mensual previo; cubrir MONTO y usar igualdad para
+  un vendedor evitó lecturas de tabla y mejoró la estimación sin forzar hints de ejecución.
+- Lint, TypeScript strict, builds, formato, secretos y diff aprobados; build backend también
+  con Node 20. Vite conserva el aviso previo de tamaño de chunk. Solo esquemas N2SEC
+  desechables, retirados al terminar; sin escrituras ni despliegue en la instalación operativa.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
+2. Oracle saludable: `npm run verify:comisiones`; para Node 20 construir la imagen de pruebas
+   según README y ejecutar `npm run verify:comisiones -- --docker`. Regresión relacionada:
+   `npm run verify:tableros -- --docker` y `npm run verify:jefaturas -- --docker`.
+3. Aplicar V041 con el runner habitual y reconstruir API cuando se solicite el despliegue.
+   Con sesión RH/ADMIN: GET `/api/tableros/comisiones/resumen?desde=2026-01&hasta=2026-03&comparar=true`.
+   Repetir tendencia, ranking, tabla e historial con los mismos filtros; comparar totales.
+   Con jefe autorizado, solo su equipo; al revocar, la siguiente petición devuelve 403.
+4. Sin pendientes de backend R3-9. Interfaz, atajos, gráficas, exportaciones y ayuda de C6
+   corresponden a su fase siguiente; C7/C8 y validación contable de R3-1 siguen fuera del alcance.

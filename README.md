@@ -180,10 +180,18 @@ RH/ADMIN → Organización → Jefaturas → Permisos → elegir jefatura → ha
 motivo y confirmación. El responsable conserva el rol EMPLEADO y recibe el menú Mi equipo
 al actualizar la sesión o volver a la pestaña. Directorio y saldos solo muestran las ramas
 autorizadas, sin acceso a salarios, banco, DPI/NIT, expedientes, actas ni aprobaciones.
-El permiso de comisiones queda preparado para C6. No hay concesiones automáticas.
+El permiso de comisiones permite consultar la API de C6 (R3-9). No hay concesiones automáticas.
 Pruebas: `npm run verify:jefaturas -- --docker` incluye aislamiento, revocación en la misma
 sesión, privacidad y rollback de auditoría; `npm run test:e2e -- --production equipo.spec.ts`
 comprueba la administración y la consulta reales en un esquema desechable.
+
+Estadísticas de comisiones (R3-9): V041 añade índices para mes y vendedor, sin modificar datos.
+API `/api/tableros/comisiones`: resumen, tendencia, ranking/reparto, tabla vendedor × mes,
+historial individual, opciones limitadas al alcance y años con datos (compatible con R3-4).
+Rangos de hasta 60 meses, sin futuros; RH/ADMIN generales, jefe con permiso solo su equipo.
+Contrato y criterios de comparación en [COMISIONES_ESTADISTICAS.md](docs/COMISIONES_ESTADISTICAS.md).
+Pruebas Oracle: `npm run verify:comisiones -- --docker`, con la imagen Node 20 anterior actualizada.
+Esta fase entrega la capa de datos; la interfaz de C6 corresponde a su fase siguiente.
 
 ## Migraciones, operación y respaldo
 
