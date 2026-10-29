@@ -41,6 +41,7 @@ import { ReferenciaNovedad } from '../../novedades/pages/CampoNovedad';
 import { descargar } from '../../empleados/api/empleados';
 import { fechaVisible, hoyGuatemala } from '../../../lib/validadores';
 import { mapearErrores } from '../../../lib/http';
+import { InsigniaColisiones, PanelColisiones } from '../components/PanelColisiones';
 const fechaRegistro = (valor: string) =>
   fechaVisible(valor.slice(0, 10)) + ' ' + valor.slice(11, 19);
 export function VacacionesPage() {
@@ -367,7 +368,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
     direccion: 'desc',
     estado: empleado ? '' : 'EN_PROCESO',
     idEmpleado: empleado ? '' : (params.get('empleado') ?? ''),
-    ...(!empleado ? filtrosEnlace(params, ['estado', 'desde', 'hasta']) : {}),
+    ...(!empleado ? filtrosEnlace(params, ['estado', 'desde', 'hasta', 'conColisiones']) : {}),
   });
   const [filtros, setFiltros] = useState(false),
     [resolucion, setResolucion] = useState<{ fila: Fila; estado: AccionVacaciones }>();
@@ -432,6 +433,14 @@ function Bandeja({ empleado }: { empleado: boolean }) {
                     onValueChange={(v) => cambiar('idEmpleado', v)}
                   />
                 </div>
+                <SelectField
+                  name="conColisiones"
+                  label="Colisiones"
+                  hint="Filtra solicitudes con fechas coincidentes de otros empleados del mismo departamento o centro. Las rechazadas y canceladas no generan colisiones."
+                  value={q.conColisiones ?? ''}
+                  onValueChange={(v) => cambiar('conColisiones', v)}
+                  opciones={[{ value: 'true', label: 'Con colisiones' }]}
+                />
               </>
             )}
             <SelectField
@@ -472,10 +481,11 @@ function Bandeja({ empleado }: { empleado: boolean }) {
                     buscar: 'Búsqueda',
                     desde: 'Desde',
                     hasta: 'Hasta',
+                    conColisiones: 'Colisiones',
                   } as Record<string, string>
                 )[k]
               }
-              : {k === 'estado' ? etiquetaCodigo(v) : v}
+              : {k === 'estado' ? etiquetaCodigo(v) : k === 'conColisiones' ? 'Con colisiones' : v}
             </Button>
           ))}
           {activos.length > 0 && (
@@ -527,6 +537,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
             render: (f) => (
               <>
                 <EstadoBadge estado={f.estado} />
+                {!empleado && <InsigniaColisiones cantidad={f.cantidadColisiones ?? 0} />}
                 {f.motivo && <p>{f.motivo}</p>}
               </>
             ),
@@ -616,7 +627,7 @@ function Bandeja({ empleado }: { empleado: boolean }) {
 const motivoSchema = z.object({
   motivo: z.string().trim().min(10, 'Explica el motivo con al menos 10 caracteres.').max(500),
 });
-function Resolver({
+export function Resolver({
   fila,
   estado,
   cerrar,
@@ -629,6 +640,16 @@ function Resolver({
 }) {
   const toast = useToast(),
     cache = useQueryClient();
+  const { usuario } = useSession();
+  const esRh = usuario?.rol === 'RH' || usuario?.rol === 'ADMIN';
+  const colisiones = useQuery({
+    queryKey: ['vacaciones', 'colisiones', fila.id],
+    queryFn: ({ signal }) => api.colisiones(fila.id, signal),
+    enabled: esRh,
+    refetchOnMount: 'always',
+    refetchInterval: 60000,
+  });
+  const hayColisiones = !!colisiones.data?.colisiones.length;
   const form = useForm<{ motivo: string }>({
     defaultValues: { motivo: '' },
     mode: 'onBlur',
@@ -641,7 +662,12 @@ function Resolver({
     mutationFn: () =>
       estado === 'CANCELADA'
         ? api.cancelar(fila.id, form.getValues('motivo'))
-        : api.resolver(fila.id, estado, form.getValues('motivo')),
+        : api.resolver(
+            fila.id,
+            estado,
+            form.getValues('motivo'),
+            estado === 'APROBADA' && hayColisiones ? colisiones.data?.revision : undefined,
+          ),
     onSuccess: () => {
       draft.limpiar();
       toast(
@@ -668,7 +694,10 @@ function Resolver({
     !!detalle.data &&
     !detalle.error &&
     (estado === 'APROBADA'
-      ? detalle.data.puedeAprobar
+      ? detalle.data.puedeAprobar &&
+        !!colisiones.data &&
+        !colisiones.error &&
+        !colisiones.isFetching
       : estado === 'CANCELADA'
         ? detalle.data.puedeCancelar
         : estado === 'RECHAZADA' && detalle.data.estado === 'EN_PROCESO');
@@ -677,7 +706,9 @@ function Resolver({
       abierto
       titulo={
         estado === 'APROBADA'
-          ? 'Confirmar aprobación'
+          ? hayColisiones
+            ? 'Aprobar de todos modos'
+            : 'Confirmar aprobación'
           : estado === 'CANCELADA'
             ? 'Cancelar vacaciones aprobadas'
             : estado === 'VER'
@@ -710,6 +741,22 @@ function Resolver({
         <>
           {detalle.data.saldo && <SaldoCard s={detalle.data.saldo} />}
           {detalle.data.estado === 'EN_PROCESO' && <Semaforo f={detalle.data} />}
+          {esRh && colisiones.isPending && <Skeleton lineas={3} />}
+          {esRh && colisiones.error && (
+            <EmptyState
+              titulo="No se pudieron revisar las colisiones"
+              descripcion={colisiones.error.message}
+              accion={
+                <Button icono="actualizar" onClick={() => void colisiones.refetch()}>
+                  Reintentar
+                </Button>
+              }
+            />
+          )}
+          {esRh && colisiones.data && <PanelColisiones informe={colisiones.data} />}
+          {esRh && colisiones.data?.aprobacion && (
+            <PanelColisiones informe={colisiones.data.aprobacion} historico />
+          )}
           <p>
             Solicitante: {detalle.data.solicitadoPor ?? 'Histórico'} ·{' '}
             {fechaRegistro(detalle.data.solicitadoEn)}
@@ -766,7 +813,7 @@ function Resolver({
           )}
           <p className="my-4">
             {estado === 'APROBADA'
-              ? `Se descontarán ${detalle.data?.dias ?? fila.dias} días. El servidor volverá a comprobar el saldo y el calendario.`
+              ? `Se descontarán ${detalle.data?.dias ?? fila.dias} días. El servidor volverá a comprobar el saldo, el calendario y las colisiones.${hayColisiones ? ' Al aprobar de todos modos confirmas que revisaste las ausencias coincidentes; se guardará una copia de las colisiones vigentes y quedará en bitácora.' : ''}`
               : estado === 'CANCELADA'
                 ? 'Se devolverá el débito original. La aprobación y el motivo de cancelación se conservan; el servidor revalida que aún no haya iniciado.'
                 : 'El rechazo conserva el historial y no descuenta días.'}
@@ -796,7 +843,7 @@ function Resolver({
               variante={estado === 'APROBADA' ? 'primario' : 'peligro'}
               cargando={m.isPending}
             >
-              Confirmar
+              {estado === 'APROBADA' && hayColisiones ? 'Aprobar de todos modos' : 'Confirmar'}
             </Button>
           </div>
         </form>

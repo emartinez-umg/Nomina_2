@@ -16,6 +16,7 @@ const esquema = z.object({
     .regex(/^(?:[1-9]|1[0-2])$/)
     .optional(),
   estado: z.enum(['APROBADA', 'TOMADA', 'EN_PROCESO', '']).optional(),
+  conColisiones: z.literal('true').optional(),
 });
 /** Solo traslada filtros conocidos del enlace; la API revalida permisos y valores. */
 export function filtrosEnlace(params: URLSearchParams, campos: (keyof z.infer<typeof esquema>)[]) {

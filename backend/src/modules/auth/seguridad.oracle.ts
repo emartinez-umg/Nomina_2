@@ -2364,10 +2364,20 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
           "CREATE OR REPLACE TRIGGER F7_FALLAR_AUD BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='VACACIONES_APROBADA' THEN RAISE_APPLICATION_ERROR(-20047,'Fallo de prueba'); END IF; END;",
         );
         try {
+          const colisiones = (
+            await a.agent
+              .get(`/api/vacaciones/solicitudes/${r.body.data.id}/colisiones`)
+              .expect(200)
+          ).body.data;
           await a.agent
             .post(`/api/vacaciones/solicitudes/${r.body.data.id}/resolver`)
             .set('X-CSRF-Token', a.csrf)
-            .send({ estado: 'APROBADA', confirmado: true })
+            .send({
+              estado: 'APROBADA',
+              confirmado: true,
+              confirmarColisiones: true,
+              revisionColisiones: colisiones.revision,
+            })
             .expect(500);
           expect((await e.agent.get('/api/vacaciones/mi-saldo')).body.data.disponible).toBe('3.00');
           expect(
@@ -2415,10 +2425,18 @@ describe('Fase 2: HTTP y transacciones contra Oracle thin real', () => {
         const detalle = (await a.agent.get(`/api/vacaciones/solicitudes/${id}`).expect(200)).body
           .data;
         expect(detalle).toMatchObject({ diasRegistrados: '2', dias: '1.00', solicitables: 3 });
+        const colisiones = (
+          await a.agent.get(`/api/vacaciones/solicitudes/${id}/colisiones`).expect(200)
+        ).body.data;
         await a.agent
           .post(`/api/vacaciones/solicitudes/${id}/resolver`)
           .set('X-CSRF-Token', a.csrf)
-          .send({ estado: 'APROBADA', confirmado: true })
+          .send({
+            estado: 'APROBADA',
+            confirmado: true,
+            confirmarColisiones: true,
+            revisionColisiones: colisiones.revision,
+          })
           .expect(200);
         expect((await e.agent.get('/api/vacaciones/mi-saldo')).body.data).toMatchObject({
           disponible: '2.00',

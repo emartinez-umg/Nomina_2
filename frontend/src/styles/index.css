@@ -710,6 +710,27 @@
 .vacaciones-rojo {
   @apply border border-peligro bg-superficie text-peligro;
 }
+.vacaciones-colisiones {
+  @apply border-aviso bg-amber-50 text-texto;
+  padding: 1rem;
+  border-width: 1px;
+  border-radius: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.colision-pista {
+  @apply border-aviso bg-superficie;
+  height: 0.75rem;
+  border-width: 1px;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+.colision-barra {
+  @apply bg-aviso;
+  height: 100%;
+}
+.colision-pendiente {
+  background-image: repeating-linear-gradient(135deg, transparent 0 3px, #fffbeb 3px 6px);
+}
 @media (max-width: 1100px) {
   .vacaciones-seleccion {
     grid-template-columns: minmax(0, 1fr);

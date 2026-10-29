@@ -27,6 +27,10 @@ export const querySchema = z
     estado: estadoSchema.optional(),
     desde: fechaSchema.optional(),
     hasta: fechaSchema.optional(),
+    conColisiones: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
     pagina: z.coerce.number().int().min(1).max(100000).default(1),
     limite: z.coerce.number().int().min(1).max(100).default(10),
     ordenarPor: z.enum(['id', 'empleado', 'inicio', 'fin', 'dias', 'estado']).default('id'),
@@ -53,6 +57,11 @@ export const resolverSchema = z
     estado: z.enum(['APROBADA', 'RECHAZADA']),
     motivo: z.string().trim().max(500).default(''),
     confirmado: z.literal(true),
+    confirmarColisiones: z.boolean().default(false),
+    revisionColisiones: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
   })
   .strict()
   .refine((d) => d.estado !== 'RECHAZADA' || d.motivo.length >= 10, {

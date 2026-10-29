@@ -47,8 +47,10 @@ import {
   CalendarX2,
   Cake,
   Award,
+  TriangleAlert,
 } from 'lucide-react';
 export const iconos = {
+  advertencia: TriangleAlert,
   copiar: Copy,
   historial: History,
   salud: Activity,

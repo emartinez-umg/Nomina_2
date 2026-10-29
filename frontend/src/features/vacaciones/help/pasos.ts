@@ -1,9 +1,16 @@
 import { pasoSelectorEmpleado } from '../../../components/help/selectorEmpleado';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 export const ayudaVacaciones: DefinicionAyuda = {
-  id: 'vacaciones-v1-8',
+  id: 'vacaciones-r3-6',
   pasos: [
     pasoSelectorEmpleado,
+    {
+      elemento: 'vacaciones-colisiones',
+      titulo: 'Ausencias que coinciden',
+      descripcion:
+        'La advertencia ámbar lista solicitudes aprobadas (también en curso) y en proceso de otros empleados del mismo departamento o centro. Ambos indica que coinciden los dos; un centro vacío no coincide. Rechazadas, canceladas y tomadas se excluyen. La línea de tiempo usa días naturales inclusivos: no modifica los días laborales descontados. El máximo cuenta personas únicas, incluida esta solicitud, sobre la unión del departamento y centro, sin duplicados; las pendientes son ausencias potenciales. Puedes consultar la tabla diaria. Aprobar de todos modos confirma la advertencia y guarda una copia en la aprobación y bitácora; si cambia antes de guardar, revisa y confirma nuevamente. El saldo insuficiente siempre bloquea. Esta información es exclusiva de RRHH y ADMIN y no se envía al empleado.',
+      roles: ['ADMIN', 'RH'],
+    },
     {
       elemento: 'vacaciones-cancelar',
       titulo: 'Cancelar y recuperar días',
@@ -20,7 +27,7 @@ export const ayudaVacaciones: DefinicionAyuda = {
       elemento: 'vacaciones-resolver',
       titulo: 'Resolver con el saldo actual',
       descripcion:
-        'Comprueba empleado, rango y días laborales. Verde indica saldo suficiente; rojo explica el bloqueo y no permite aprobar. Confirmar aprobación vuelve a validar horario, feriados, saldo y traslapes y registra un único débito. Cancelar antes del inicio devuelve el débito original y conserva el aprobador. Rechazar exige un motivo útil para el empleado y conserva el historial sin descontar. Una aprobación simultánea puede cambiar el saldo: actualiza antes de volver a intentar.',
+        'Comprueba empleado, rango y días laborales. Verde indica saldo suficiente; rojo explica el bloqueo y no permite aprobar. Las colisiones de otros empleados generan una advertencia ámbar que permite Aprobar de todos modos con confirmación y copia auditada. Confirmar vuelve a validar horario, feriados, saldo y traslapes propios y registra un único débito. Cancelar antes del inicio devuelve el débito original y conserva el aprobador. Rechazar exige un motivo útil para el empleado y conserva el historial sin descontar. Una aprobación simultánea puede cambiar el saldo: actualiza antes de volver a intentar.',
       roles: ['ADMIN', 'RH'],
     },
     {
@@ -48,6 +55,13 @@ export const ayudaVacaciones: DefinicionAyuda = {
       titulo: 'Historia anterior',
       descripcion:
         'Selecciona un empleado para ver acumulados, tomados/aprobados, disponibles decimales, solicitables enteros y kardex. Se actualizan al abrir, al volver a la ventana, cada minuto y tras operaciones. Carga días ya tomados con referencia y motivo, o un saldo disponible certificado al día de hoy. La apertura se permite una sola vez antes de otros ajustes o disfrutes; sustituye la historia anterior y conserva los aniversarios de contratación.',
+      roles: ['ADMIN', 'RH'],
+    },
+    {
+      elemento: 'vacaciones-filtros',
+      titulo: 'Filtrar colisiones',
+      descripcion:
+        'Con colisiones filtra en el servidor antes de paginar: incluye solo solicitudes con al menos otra solicitud coincidente del mismo departamento o centro. La insignia ⚠ N colisiones cuenta solicitudes, mientras que el resumen del detalle cuenta personas únicas. El filtro también se aplica al CSV. Quita su chip o usa Limpiar filtros para volver al listado general. El empleado no recibe estos conteos ni puede consultar este filtro.',
       roles: ['ADMIN', 'RH'],
     },
     {

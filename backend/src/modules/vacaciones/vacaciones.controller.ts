@@ -21,6 +21,10 @@ export function crearVacacionesController(s: ReturnType<typeof crearVacacionesSe
   const responder = (res: Response, d: unknown, status = 200) =>
     res.status(status).json(respuestaOk(d));
   return {
+    colisiones: async (req: Request, res: Response) => {
+      sinDatos.parse(req.query);
+      responder(res, await s.colisiones(auth(req), ip(req), id(req)));
+    },
     detalle: async (req: Request, res: Response) => {
       sinDatos.parse(req.query);
       responder(res, await s.detalle(auth(req), ip(req), id(req)));

@@ -53,6 +53,7 @@ export const filaSchema = comparacion.extend({
   canceladoPor: z.string().nullable(),
   canceladoEn: z.string().nullable(),
   motivoCancelacion: z.string().nullable(),
+  cantidadColisiones: z.number().int().optional(),
 });
 export type Fila = z.infer<typeof filaSchema>;
 const rango = z.object({ inicio: z.string(), fin: z.string() });
@@ -99,11 +100,61 @@ export const listar = (q: Record<string, string>, signal?: AbortSignal) =>
     }),
     { signal },
   );
-export const resolver = (id: number, estado: string, motivo: string) =>
+export const resolver = (id: number, estado: string, motivo: string, revisionColisiones?: string) =>
   solicitar(`/vacaciones/solicitudes/${id}/resolver`, z.object({ id: z.number() }), {
     method: 'POST',
-    body: { estado, motivo, confirmado: true },
+    body: {
+      estado,
+      motivo,
+      confirmado: true,
+      ...(revisionColisiones ? { confirmarColisiones: true, revisionColisiones } : {}),
+    },
   });
+const informeColisionesSchema = z.object({
+  idSolicitud: z.number(),
+  inicio: z.string(),
+  fin: z.string(),
+  revision: z.string(),
+  colisiones: z.array(
+    z.object({
+      idSolicitud: z.number(),
+      codigoSolicitud: z.string(),
+      idEmpleado: z.number(),
+      empleado: z.string(),
+      codigo: z.string(),
+      departamento: z.string(),
+      centro: z.string().nullable(),
+      inicio: z.string(),
+      fin: z.string(),
+      inicioCoincidencia: z.string(),
+      finCoincidencia: z.string(),
+      diasCoincidentes: z.number().int(),
+      estado: z.enum(['APROBADA', 'EN_PROCESO']),
+      tipoCoincidencia: z.enum(['Mismo departamento', 'Mismo centro de trabajo', 'Ambos']),
+    }),
+  ),
+  ocupacion: z.object({
+    tamanoEquipo: z.number().int(),
+    maximoAusentes: z.number().int(),
+    fechaMaximo: z.string().nullable(),
+  }),
+  lineaTiempo: z.array(
+    z.object({
+      fecha: z.string(),
+      aprobadas: z.number().int(),
+      enProceso: z.number().int(),
+      ausentes: z.number().int(),
+    }),
+  ),
+});
+export type InformeColisiones = z.infer<typeof informeColisionesSchema>;
+export const colisionesSchema = informeColisionesSchema.extend({
+  aprobacion: informeColisionesSchema
+    .extend({ confirmadoPor: z.number(), confirmadoEn: z.string() })
+    .nullable(),
+});
+export const colisiones = (id: number, signal?: AbortSignal) =>
+  solicitar(`/vacaciones/solicitudes/${id}/colisiones`, colisionesSchema, { signal });
 export const detalle = (id: number, signal?: AbortSignal) =>
   solicitar(`/vacaciones/solicitudes/${id}`, filaSchema, { signal });
 export const cancelar = (id: number, motivo: string) =>

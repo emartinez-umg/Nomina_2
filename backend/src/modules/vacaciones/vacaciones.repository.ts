@@ -5,6 +5,8 @@ import type { Connection } from 'oracledb';
 import { ErrorConflicto } from '../../shared/errors/errors.js';
 import type { Query } from './vacaciones.schemas.js';
 import type { Asignacion, Movimiento, Vigencia } from './vacaciones.reglas.js';
+import { contarColisionesSql } from './vacaciones.colisiones.repository.js';
+import type { AprobacionColisiones } from './vacaciones.colisiones.js';
 const opts = { outFormat: oracledb.OUT_FORMAT_OBJECT };
 const fecha = (b: string) => `TO_DATE(:${b},'YYYY-MM-DD')`;
 const num = (b: string) => `TO_NUMBER(:${b},'999999999999D999999','NLS_NUMERIC_CHARACTERS=''.,''')`;
@@ -134,6 +136,7 @@ export interface Solicitud {
   canceladoPor: string | null;
   canceladoEn: string | null;
   motivoCancelacion: string | null;
+  cantidadColisiones?: number;
 }
 const select = `V.ID_VACACIONES_SOLICITUD "id",S.CODIGO "codigo",V.ID_EMPLEADO "idEmpleado",E.CODIGO||' · '||${nombrePersonaSql('E.NOMBRES', 'E.APELLIDOS')} "empleado",TO_CHAR(V.FECHA_INICIO,'YYYY-MM-DD') "inicio",TO_CHAR(V.FECHA_FIN,'YYYY-MM-DD') "fin",${str('V.DIAS_SOLICITADOS')} "dias",${str('V.SALDO_AL_SOLICITAR')} "saldoAlSolicitar",${str('V.SALDO_AL_RESOLVER')} "saldoAlResolver",V.ESTADO "estado",V.MOTIVO_RECHAZO "motivo",${nombreUsuarioSql('U')} "solicitadoPor",TO_CHAR(V.FECHA_CREACION,'YYYY-MM-DD HH24:MI:SS') "solicitadoEn",${nombreUsuarioSql('R')} "aprobadoPor",TO_CHAR(V.RESUELTO_EN,'YYYY-MM-DD HH24:MI:SS') "aprobadoEn",${nombreUsuarioSql('C')} "canceladoPor",TO_CHAR(V.CANCELADO_EN,'YYYY-MM-DD HH24:MI:SS') "canceladoEn",V.MOTIVO_CANCELACION "motivoCancelacion"`;
 const from =
@@ -147,7 +150,7 @@ export async function solicitud(c: Connection, id: number) {
     )
   ).rows?.[0];
 }
-export async function listar(c: Connection, q: Query) {
+export async function listar(c: Connection, q: Query, incluirColisiones = false) {
   const b: Record<string, string | number> = {},
     w = ['V.ACTIVO=1'];
   if (q.idEmpleado) {
@@ -172,6 +175,8 @@ export async function listar(c: Connection, q: Query) {
     w.push(`V.FECHA_INICIO<=${fecha('hasta')}`);
     b.hasta = q.hasta;
   }
+  if (incluirColisiones && q.conColisiones !== undefined)
+    w.push(`${contarColisionesSql}${q.conColisiones ? '>0' : '=0'}`);
   const where = ` WHERE ${w.join(' AND ')}`;
   const total = (await c.execute<{ N: number }>(`SELECT COUNT(*) N FROM ${from}${where}`, b, opts))
     .rows![0]!.N;
@@ -187,7 +192,7 @@ export async function listar(c: Connection, q: Query) {
   const registros =
     (
       await c.execute<Solicitud>(
-        `SELECT ${select} FROM ${from}${where} ORDER BY ${orden} ${dir},V.ID_VACACIONES_SOLICITUD ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
+        `SELECT ${select}${incluirColisiones ? `,${contarColisionesSql} "cantidadColisiones"` : ''} FROM ${from}${where} ORDER BY ${orden} ${dir},V.ID_VACACIONES_SOLICITUD ${dir} OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY`,
         { ...b, offset: (q.pagina - 1) * q.limite, limite: q.limite },
         opts,
       )
@@ -249,10 +254,19 @@ export async function resolver(
   dias: string,
   saldo: string,
   actor: number,
+  colisiones: AprobacionColisiones | null = null,
 ) {
   await c.execute(
-    `UPDATE VACACIONES_SOLICITUDES SET ESTADO=:estado,MOTIVO_RECHAZO=:motivo,DIAS_SOLICITADOS=${num('dias')},SALDO_AL_RESOLVER=${num('saldo')},RESUELTO_POR=:actor,RESUELTO_EN=CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE),MODIFICADO_POR=:actor WHERE ID_VACACIONES_SOLICITUD=:id`,
-    { id, estado, motivo: motivo || null, dias, saldo, actor },
+    `UPDATE VACACIONES_SOLICITUDES SET ESTADO=:estado,MOTIVO_RECHAZO=:motivo,DIAS_SOLICITADOS=${num('dias')},SALDO_AL_RESOLVER=${num('saldo')},RESUELTO_POR=:actor,RESUELTO_EN=CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE),MODIFICADO_POR=:actor,COLISIONES_APROBACION=:colisiones WHERE ID_VACACIONES_SOLICITUD=:id`,
+    {
+      id,
+      estado,
+      motivo: motivo || null,
+      dias,
+      saldo,
+      actor,
+      colisiones: { val: colisiones ? JSON.stringify(colisiones) : null, type: oracledb.CLOB },
+    },
   );
   const tramite = (
     await c.execute<{ ID: number }>(

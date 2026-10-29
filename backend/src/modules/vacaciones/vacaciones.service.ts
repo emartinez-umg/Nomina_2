@@ -28,6 +28,9 @@ import {
 import { cancelarSchema, cargaSchema, rangoSchema, resolverSchema } from './vacaciones.schemas.js';
 import type { Query } from './vacaciones.schemas.js';
 import * as repo from './vacaciones.repository.js';
+import * as colisionesRepo from './vacaciones.colisiones.repository.js';
+import { resumirColisiones } from './vacaciones.colisiones.js';
+import type { AprobacionColisiones } from './vacaciones.colisiones.js';
 const audit = (
   c: Connection,
   actor: ActorAuditoria,
@@ -83,6 +86,16 @@ export function crearVacacionesService(db: BaseDatos) {
   const rh = (a: ActorAuditoria) => {
     if (!['ADMIN', 'RH'].includes(a.rol)) throw new ErrorProhibido();
   };
+  const validarFiltroColisiones = (rol: string, q: Query) => {
+    if (rol === 'EMPLEADO' && q.conColisiones !== undefined) throw new ErrorProhibido();
+  };
+  async function consultarColisiones(c: Connection, s: repo.Solicitud) {
+    return resumirColisiones(
+      s,
+      await colisionesRepo.buscarColisiones(c, s.id),
+      await colisionesRepo.tamanoEquipo(c, s.idEmpleado),
+    );
+  }
   async function obtener(c: Connection, a: ActorAuditoria, id?: number) {
     const identidad = id ?? (await repo.propio(c, a.idUsuario));
     if (!identidad)
@@ -228,8 +241,9 @@ export function crearVacacionesService(db: BaseDatos) {
       }),
     listar: (auth: Autenticacion, ip: string, q: Query) =>
       tx(auth, ip, async (c, a) => {
+        validarFiltroColisiones(a.rol, q);
         const filtro = a.rol === 'EMPLEADO' ? { ...q, idEmpleado: (await obtener(c, a)).id } : q;
-        const r = await repo.listar(c, filtro);
+        const r = await repo.listar(c, filtro, a.rol !== 'EMPLEADO');
         const registros = [];
         for (const s of r.registros) registros.push(await enriquecer(c, a, s));
         return { ...r, registros };
@@ -247,12 +261,27 @@ export function crearVacacionesService(db: BaseDatos) {
           throw new ErrorConflicto('El rango afecta un periodo cerrado; no se puede modificar.');
         let saldo = s.saldoAlSolicitar,
           dias = s.dias;
+        let colisiones: AprobacionColisiones | null = null;
         if (d.estado === 'APROBADA') {
           const actual = await consultarSaldo(c, e, await hoy(c));
           saldo = actual.disponible;
           const p = await comparar(c, e, s.inicio, s.fin, saldo, id);
           if (!p.puedeAprobar) throw new ErrorConflicto(p.bloqueo!);
           exigirSaldo(saldo, p.dias);
+          const informe = await consultarColisiones(c, s);
+          if (informe.colisiones.length) {
+            if (!d.confirmarColisiones || d.revisionColisiones !== informe.revision)
+              throw new ErrorNegocio(
+                'Hay colisiones de vacaciones. Revisa la advertencia actualizada y confirma «Aprobar de todos modos».',
+                409,
+                'COLISIONES_SIN_CONFIRMAR',
+              );
+            colisiones = {
+              ...informe,
+              confirmadoPor: a.idUsuario,
+              confirmadoEn: new Date().toISOString(),
+            };
+          }
           dias = p.dias;
           await repo.mover(
             c,
@@ -268,7 +297,7 @@ export function crearVacacionesService(db: BaseDatos) {
             id,
           );
         }
-        await repo.resolver(c, id, d.estado, d.motivo, dias, saldo, a.idUsuario);
+        await repo.resolver(c, id, d.estado, d.motivo, dias, saldo, a.idUsuario, colisiones);
         await repo.notificar(
           c,
           e,
@@ -282,10 +311,20 @@ export function crearVacacionesService(db: BaseDatos) {
           a,
           id,
           `VACACIONES_${d.estado}`,
-          { estado: d.estado, dias, saldo, motivo: d.motivo },
+          { estado: d.estado, dias, saldo, motivo: d.motivo, colisionesAprobacion: colisiones },
           s,
         );
         return repo.solicitud(c, id);
+      }),
+    colisiones: (auth: Autenticacion, ip: string, id: number) =>
+      tx(auth, ip, async (c, a) => {
+        rh(a);
+        const s = await repo.solicitud(c, id);
+        if (!s) throw new ErrorNoEncontrado();
+        return {
+          ...(await consultarColisiones(c, s)),
+          aprobacion: await colisionesRepo.aprobacionColisiones(c, id),
+        };
       }),
     detalle: (auth: Autenticacion, ip: string, id: number) =>
       tx(auth, ip, async (c, a) => {
@@ -388,15 +427,29 @@ export function crearVacacionesService(db: BaseDatos) {
       }),
     exportar: (auth: Autenticacion, q: Query) =>
       db.conConexion(async (c) => {
+        validarFiltroColisiones(auth.rol, q);
         const filtro =
           auth.rol === 'EMPLEADO'
             ? { ...q, idEmpleado: (await obtener(c, { ...auth, ip: '' })).id }
             : q;
         const filas: unknown[][] = [
-          ['Código', 'Empleado', 'Inicio', 'Fin', 'Días laborales', 'Estado', 'Motivo de rechazo'],
+          [
+            'Código',
+            'Empleado',
+            'Inicio',
+            'Fin',
+            'Días laborales',
+            'Estado',
+            'Motivo de rechazo',
+            ...(auth.rol !== 'EMPLEADO' ? ['Colisiones'] : []),
+          ],
         ];
         for (let pagina = 1; pagina <= 1000; pagina++) {
-          const r = await repo.listar(c, { ...filtro, pagina, limite: 100 });
+          const r = await repo.listar(
+            c,
+            { ...filtro, pagina, limite: 100 },
+            auth.rol !== 'EMPLEADO',
+          );
           for (const s of r.registros)
             filas.push([
               s.codigo,
@@ -406,6 +459,7 @@ export function crearVacacionesService(db: BaseDatos) {
               s.dias,
               etiquetaCodigo(s.estado),
               s.motivo,
+              ...(auth.rol !== 'EMPLEADO' ? [s.cantidadColisiones] : []),
             ]);
           if (pagina * 100 >= r.total) return escribirCsv(filas);
         }

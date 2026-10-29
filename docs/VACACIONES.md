@@ -94,3 +94,39 @@ npm test; npm run verify:vacaciones (migración Oracle); npm run verify:security
 npm run db:verify; npm run test:e2e -- --grep 'vacaciones|FASE V1-8'.
 Cobertura: meses incompletos/bisiestos, cinco meses, fracciones, horarios/feriados, rango obligatorio,
 traslapes, saldo insuficiente/revalidación, propiedad/CSRF, concurrencia, cancelación y rollback.
+
+## R3-6 — Colisiones al revisar (C5, primera parte)
+
+`GET /api/vacaciones/solicitudes/:id/colisiones` es exclusivo de RH/ADMIN. Devuelve otras
+solicitudes activas APROBADA (incluidas en curso) o EN_PROCESO con intersección inclusiva
+de fechas y mismo departamento o centro. Excluye al propio empleado; un centro nulo no coincide.
+Cada fila incluye identidad/código del empleado, código de solicitud, departamento, centro,
+rango original, rango coincidente, días naturales, estado y tipo de coincidencia.
+
+La ocupación cuenta personas únicas por día, incluida la solicitud revisada si está pendiente
+o aprobada. Las pendientes se muestran como potenciales; una persona aprobada y pendiente
+cuenta una vez como aprobada. Tamaño del equipo: unión de fichas activas (`ACTIVO=1`) del
+departamento o centro actuales, sin duplicados. No es el alcance de jefatura de C4. La línea
+de tiempo y la tabla diaria utilizan fechas naturales: no alteran los días laborales ni el saldo.
+
+La bandeja RH incluye `cantidadColisiones` (solicitudes, no personas). `conColisiones=true`
+filtra antes de contar/paginar; `false` permite consultar las que no tienen colisiones.
+El CSV de RH aplica el filtro e incluye el conteo. El empleado no recibe este campo,
+no puede usar el filtro ni acceder al endpoint de colisiones. Su detalle, solicitudes,
+calendario, avisos, saldo, exportación y cancelación no incluyen copias ni identidades ajenas.
+
+Al aprobar con colisiones se exige `confirmarColisiones: true` y `revisionColisiones`, el hash
+devuelto por la consulta vigente. La confirmación habitual `confirmado: true` no basta.
+Si cambian colisiones, estados, nombres, organización o tamaño del equipo, responde 409
+`COLISIONES_SIN_CONFIRMAR` y la interfaz actualiza el panel para revisar otra vez.
+La advertencia permite **Aprobar de todos modos**; el saldo/calendario conservan sus bloqueos.
+
+V038 añade `COLISIONES_APROBACION` (CLOB con CHECK JSON) sin cambiar solicitudes previas.
+Guarda informe, revisión, actor y fecha junto al débito, historial y copia idéntica en bitácora,
+bajo el bloqueo transaccional común. Un fallo revierte todo. `aprobacion` en el endpoint RH
+conserva esa evidencia aunque otras solicitudes cambien o se cancele la aprobación propia.
+Índices: se reutiliza `IX_VAC_TABLERO` de V035 y se añade `IX_VAC_EQUIPO_RANGO`.
+
+Validación específica: `npm run verify:vacaciones` (migración y Oracle/Supertest),
+`npm run test:e2e -- --production vacaciones-colisiones.spec.ts` (navegador, ayuda, móvil y axe).
+El listado general de saldos y la alerta por umbral de C5 quedan para una fase posterior.

@@ -3550,3 +3550,96 @@ Estado: implementada y validada el 29/10/2026 en `v1.2`. Alcance C3.
 5. Sin pendientes de implementación de R3-5. No se desplegó en la instalación operativa ni se
    crearon jefaturas/empleados de ejemplo allí. C4–C8 y la validación contable de R3-1 siguen
    fuera de esta fase. RH completa sus responsables y asignaciones reales usando el flujo nuevo.
+
+## Ronda 3 — FASE R3-6: advertencia de colisiones de vacaciones
+
+Estado: implementada el 29/10/2026 en `v1.2`. Alcance C5, primera parte.
+
+### Causa y alcance
+
+- Revisados AGENTS.md con los adendos v1/v1.1/v1.2 y el progreso v1; árbol limpio al iniciar.
+  La aprobación solo consultaba los bloqueos del propio empleado, sin información del resto
+  del departamento/centro, confirmación específica ni evidencia histórica de las colisiones.
+- Se conserva el bloqueo de traslapes propios, fechas, periodos cerrados y saldo insuficiente.
+  No se implementan el listado general de saldos, su umbral ni los permisos de equipo de C4.
+
+### Hecho y decisiones
+
+- GET `/api/vacaciones/solicitudes/:id/colisiones`: routes/controller/service/repository,
+  Zod estricto y RBAC RH/ADMIN también en servicio. SQL con binds y predicado compartido para
+  consulta, insignia, filtro antes de paginar y CSV. Excluye al propio empleado, solicitudes
+  inactivas y estados distintos de APROBADA/EN_PROCESO; intersección inclusiva de rangos.
+- Devuelve nombre/código del empleado, código de solicitud, departamento, centro, rangos
+  original/coincidente, días naturales, estado y «Mismo departamento», «Mismo centro de
+  trabajo» o «Ambos». Un centro nulo no coincide ni siquiera con otro nulo.
+- Ocupación diaria: personas únicas, aprobadas/pendientes y máximo frente al tamaño del equipo,
+  con primera fecha del máximo. Una persona con varias solicitudes cuenta una vez, primando
+  su aprobación. Incluye la solicitud revisada como ausencia potencial mientras está pendiente.
+- Panel ámbar con icono, lista, resumen, barras por rango con trama para pendientes y tabla
+  diaria accesible. Insignia «⚠ N colisiones» con tooltip, filtro «Con colisiones», chip para
+  quitarlo y conteo en CSV RH. Estados con EstadoBadge, hints y recorrido actualizado por rol.
+- El diálogo muestra «Aprobar de todos modos» y exige el clic explícito. El servidor consulta
+  de nuevo dentro de la transacción común y exige `confirmarColisiones` y la revisión SHA-256
+  del informe consultado. Un cambio de colisiones, estado u organización exige revisar de
+  nuevo (409); la confirmación habitual no lo sustituye. Sin colisiones conserva el flujo previo.
+- V038 agrega `COLISIONES_APROBACION` CLOB con CHECK JSON y `IX_VAC_EQUIPO_RANGO` compuesto.
+  Reutiliza `IX_VAC_TABLERO` de V035 para el rango global, sin duplicar índices. Migraciones
+  anteriores intactas; solicitudes/aprobaciones existentes conservan datos y copia nula.
+- Aprobación, débito único, copia vigente con actor/fecha, historial, notificación y copia
+  idéntica en bitácora comparten transacción. Un fallo revierte todo; cancelar conserva la
+  evidencia y devuelve el débito original. El endpoint RH permite consultar la copia histórica.
+- Privacidad: el SELECT compartido de solicitudes nunca lee la copia. EMPLEADO no recibe
+  conteos ni identidades ajenas en detalle/listado/CSV/saldo/avisos/cancelación, y recibe 403
+  al consultar colisiones o intentar usar su filtro, evitando inferencias por paginación.
+  El portal tampoco solicita ni renderiza el panel. Sin dependencias nuevas.
+
+### Supuestos y compatibilidad
+
+- «Días coincidentes» significa días naturales inclusivos; son una advertencia operativa y
+  no recalculan horarios, feriados ni consumos. «En curso» conserva el estado APROBADA;
+  TOMADA representa vacaciones finalizadas y se excluye del cálculo de colisiones.
+- Equipo: unión de fichas con `ACTIVO=1` del departamento o centro actuales, sin duplicados;
+  no se utiliza la jerarquía de jefaturas. Las pendientes se señalan como ausencias potenciales.
+  El esquema actual exige centro; la defensa para centros nulos se prueba con una proyección
+  Oracle sin cambiar la nulabilidad ni los datos de producción.
+- Se actualizan expresamente dos pruebas antiguas de Oracle para confirmar las colisiones
+  creadas por sus fixtures. Conservan sus expectativas de dinero, feriados, devolución y rollback;
+  no se relajan reglas de producción. El rechazo continúa notificando solo su motivo habitual.
+
+### Validación
+
+- **875 pruebas aprobadas** en el host (Node 24.13.1): 502 backend, 366 frontend y siete del
+  exportador. Once nuevas unitarias/de interfaz: personas únicas, máximo real por día,
+  revisión estable/cambiante, panel/timeline/tooltip, confirmación explícita, error de consulta,
+  saldo insuficiente, flujo sin colisiones y ausencia de consultas/panel en el portal.
+  Supertest requirió habilitar puertos locales tras EPERM del sandbox; la repetición pasó.
+- Backend completo repetido con **Node 20: 502/502 aprobadas**. El primer ensayo de ese
+  contenedor no montaba el dataset demo ni la fixture de catálogos del frontend; se completaron
+  los montajes de solo lectura y pasó sin modificar esas pruebas ni sus datos versionados.
+- **94 Oracle/Supertest aprobadas con Node 20** en contenedores: seguridad 82, vacaciones 12
+  (dos de migración histórica y diez de colisiones). Traslape parcial/total/adyacente, ambos
+  alcances y «Ambos», aprobadas en curso, excluidos/inactivos/propios, centro vacío, filtro
+  antes de paginar/CSV, confirmación ausente/caducada, saldo intacto, rollback de auditoría,
+  copia exacta conservada tras cambios, repetición y privacidad de todas las respuestas propias.
+- **Tres E2E aprobados en producción** con Chromium, API/nginx Node 20, TLS y Oracle real:
+  dos regresiones previas de solicitud/aprobación y solicitables/cancelación, más el nuevo flujo:
+  dos solicitudes reales → filtro/insignia → panel/ocupación/timeline → ayuda → confirmación
+  con copia → detalle propio sin información ajena. Móvil 390 px y axe A/AA sin infracciones.
+  Capturas de escritorio/móvil inspeccionadas: advertencia, rangos, trama y etiquetas legibles,
+  sin desbordamiento horizontal. Datos únicamente en N2SEC/N2E2E, eliminados al terminar;
+  sin cambios en la nómina operativa.
+- Lint, TypeScript strict (incluido E2E), builds backend/frontend, formato, secretos y diff
+  aprobados. Vite conserva el aviso previo por tamaño de chunk. Documentación en README,
+  VACACIONES y ERD. Artefactos de QA en `tmp/pdfs/r3-6-colisiones-*.png`, ignorados por Git.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`.
+2. Oracle saludable: `npm run verify:vacaciones`; `npm run verify:security` (secuenciales).
+   Con imagen de pruebas actualizada, añadir `-- --docker` para usar Node 20.
+3. `npm run test:e2e -- --production vacaciones-colisiones.spec.ts` verifica el criterio completo.
+4. Aplicar V038 con el runner habitual y reconstruir API/web. RH → Vacaciones → filtrar
+   «Con colisiones» → Aprobar/Ver solicitud → revisar panel y timeline → «Aprobar de todos modos».
+   Ver la aprobación conserva la copia; el portal del empleado no muestra el panel ni conteos.
+5. Sin pendientes de implementación R3-6. No se desplegó en la instalación operativa. El listado
+   general de saldos de C5, C4/C6–C8 y la validación contable de R3-1 quedan fuera de esta fase.

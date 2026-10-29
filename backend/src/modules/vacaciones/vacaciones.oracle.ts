@@ -12,6 +12,15 @@ import { validarEntornoSeeds } from '../../shared/db/seeds.env.js';
 import { enTransaccion } from '../../shared/db/transaccion.js';
 import { calcularSaldo } from './vacaciones.reglas.js';
 import * as repo from './vacaciones.repository.js';
+import oracledb from 'oracledb';
+import request from 'supertest';
+import { crearApp } from '../../app.js';
+import { crearAuthService } from '../auth/auth.service.js';
+import { crearUsuarioInterno, crearUsuariosService } from '../usuarios/usuarios.service.js';
+import { crearAuditoriaService } from '../auditoria/auditoria.service.js';
+import { crearVacacionesService } from './vacaciones.service.js';
+import { aprobacionColisiones, contarColisionesSql } from './vacaciones.colisiones.repository.js';
+import type { ActorAuditoria } from '../auth/auth.types.js';
 
 let db: BaseDatos, empleado: number;
 let antes: unknown[];
@@ -136,5 +145,394 @@ describe('FASE V1-8: migración de vacaciones sin alterar aprobaciones', () => {
     expect(s.disponible).toBe('11.00');
     expect(await ejecutarMigraciones(db, logger)).toBe(0);
     expect(await scalar("SELECT COUNT(*) FROM USER_OBJECTS WHERE STATUS<>'VALID'")).toBe(0);
+  });
+  describe('R3-6: colisiones, confirmación y privacidad con Oracle/API real', () => {
+    let rh: ReturnType<typeof request.agent>, e: typeof rh, csrf: string, csrfEmpleado: string;
+    let actor: ActorAuditoria, objetivo: number;
+    const personas: number[] = [],
+      solicitudes: number[] = [];
+    const inicio = '2095-02-07',
+      fin = '2095-02-11';
+    const ejecutar = (sql: string, binds: oracledb.BindParameters = {}) =>
+      enTransaccion(db, (c) => c.execute(sql, binds));
+    const numero = (sql: string, binds: oracledb.BindParameters = {}) =>
+      db.conConexion(async (c) => Number((await c.execute<unknown[]>(sql, binds)).rows![0]![0]));
+    const crearSolicitud = (persona: number, desde = inicio, hasta = fin, estado = 'EN_PROCESO') =>
+      enTransaccion(db, async (c) => {
+        const id = await repo.crear(c, persona, desde, hasta, '1', '100', actor.idUsuario);
+        if (estado === 'APROBADA' || estado === 'RECHAZADA')
+          await repo.resolver(
+            c,
+            id,
+            estado,
+            estado === 'RECHAZADA' ? 'Rechazo de prueba' : '',
+            '1',
+            '100',
+            actor.idUsuario,
+          );
+        else if (estado !== 'EN_PROCESO')
+          await c.execute(
+            'UPDATE VACACIONES_SOLICITUDES SET ESTADO=:estado WHERE ID_VACACIONES_SOLICITUD=:id',
+            { id, estado },
+          );
+        return id;
+      });
+    const informe = async () =>
+      (await rh.get(`/api/vacaciones/solicitudes/${objetivo}/colisiones`).expect(200)).body.data;
+    const resolver = (extra: Record<string, unknown> = {}) =>
+      rh
+        .post(`/api/vacaciones/solicitudes/${objetivo}/resolver`)
+        .set('X-CSRF-Token', csrf)
+        .send({ estado: 'APROBADA', confirmado: true, ...extra });
+    beforeAll(async () => {
+      const config = {
+        NODE_ENV: 'test' as const,
+        SESSION_IDLE_MINUTES: 30,
+        LOGIN_RATE_LIMIT: 1000,
+        LOGIN_RATE_WINDOW_MINUTES: 15,
+        TRUST_PROXY_CIDRS: '',
+      };
+      const app = crearApp(
+        {
+          consultar: async () => ({
+            estado: 'OK',
+            baseDatos: 'CONECTADA',
+            modo: 'thin',
+            fecha: new Date().toISOString(),
+          }),
+        },
+        logger,
+        {
+          auth: await crearAuthService(db, config),
+          usuarios: crearUsuariosService(db),
+          auditoria: crearAuditoriaService(db),
+          vacaciones: crearVacacionesService(db),
+          config,
+        },
+      );
+      const seed = validarEntornoSeeds(process.env);
+      actor = {
+        idUsuario: await numero('SELECT ID_USUARIO FROM USUARIOS WHERE USUARIO=:u', {
+          u: seed.ADMIN_USER,
+        }),
+        idRol: await numero("SELECT ID_ROL FROM ROLES WHERE CODIGO='ADMIN'"),
+        rol: 'ADMIN',
+        ip: '127.0.0.1',
+      };
+      for (const rol of ['RH', 'EMPLEADO'] as const) {
+        const cuenta = await enTransaccion(db, (c) =>
+          crearUsuarioInterno(c, actor, {
+            nombre: rol === 'RH' ? 'Gestora' : 'Titular',
+            apellido: 'Colisiones',
+            correo: `${rol}.colisiones@example.test`,
+            rol,
+          }),
+        );
+        await ejecutar('UPDATE USUARIOS SET CAMBIO_OBLIGATORIO=0 WHERE ID_USUARIO=:id', {
+          id: cuenta.idUsuario,
+        });
+        const agent = request.agent(app),
+          token = (await agent.get('/api/auth/csrf')).body.data.csrfToken;
+        const login = await agent
+          .post('/api/auth/login')
+          .set('X-CSRF-Token', token)
+          .send({ usuario: cuenta.usuario, contrasena: cuenta.contrasenaTemporal })
+          .expect(200);
+        if (rol === 'RH') {
+          rh = agent;
+          csrf = login.body.data.csrfToken;
+        } else {
+          e = agent;
+          csrfEmpleado = login.body.data.csrfToken;
+        }
+      }
+      for (const nombre of ['Departamento Colisiones', 'Otro Colisiones']) {
+        await ejecutar('INSERT INTO DEPARTAMENTOS(NOMBRE) VALUES(:nombre)', { nombre });
+        await ejecutar(
+          'INSERT INTO PUESTOS(NOMBRE,ID_DEPARTAMENTO) SELECT :nombre,ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NOMBRE=:nombre',
+          { nombre },
+        );
+        await ejecutar(
+          "INSERT INTO CENTROS_TRABAJO(NOMBRE,LOCALIDAD) VALUES(:nombre,'GUATEMALA_CIUDAD')",
+          { nombre },
+        );
+      }
+      for (let i = 0; i < 6; i++) {
+        const dep = [0, 0, 1, 0, 1, 0][i] ? 'Otro Colisiones' : 'Departamento Colisiones';
+        const centro = [0, 1, 0, 0, 1, 0][i] ? 'Otro Colisiones' : 'Departamento Colisiones';
+        await ejecutar(
+          `INSERT INTO EMPLEADOS(NOMBRES,APELLIDOS,DPI,NIT,FECHA_NACIMIENTO,SEXO,ESTADO_CIVIL,DIRECCION,TELEFONO,CORREO,ID_PUESTO,ID_DEPARTAMENTO,ID_TIPO_CONTRATO,ID_CENTRO_TRABAJO,FECHA_INGRESO)
+          SELECT :nombre,'Colisiones',:dpi,:nit,DATE '1990-01-01','F','SOLTERO','Calle 1','55551234',:correo,ID_PUESTO,ID_DEPARTAMENTO,(SELECT MIN(ID_TIPO_CONTRATO) FROM TIPOS_CONTRATO),(SELECT ID_CENTRO_TRABAJO FROM CENTROS_TRABAJO WHERE NOMBRE=:centro),DATE '2020-01-01' FROM PUESTOS WHERE NOMBRE=:dep`,
+          {
+            nombre: ['Titular', 'Ana', 'Bea', 'Carla', 'Diana', 'Eva'][i]!,
+            dpi: `777777777777${i}`,
+            nit: `777777${i}-1`,
+            correo: `colision${i}@example.test`,
+            centro,
+            dep,
+          },
+        );
+        personas.push(
+          await numero('SELECT ID_EMPLEADO FROM EMPLEADOS WHERE CORREO=:correo', {
+            correo: `colision${i}@example.test`,
+          }),
+        );
+      }
+      await ejecutar(
+        "UPDATE EMPLEADOS SET ID_USUARIO=(SELECT ID_USUARIO FROM USUARIOS WHERE USUARIO='titular.colisiones') WHERE ID_EMPLEADO=:id",
+        { id: personas[0]! },
+      );
+      await ejecutar("INSERT INTO HORARIOS(NOMBRE,JORNADA) VALUES('Horario Colisiones','DIURNA')");
+      await ejecutar(
+        "INSERT INTO HORARIO_BLOQUES(ID_HORARIO,MINUTO_ENTRADA,MINUTO_SALIDA,MINUTOS_DESCANSO) SELECT ID_HORARIO,480,1020,60 FROM HORARIOS WHERE NOMBRE='Horario Colisiones'",
+      );
+      for (const dia of [1, 2, 3, 4, 5])
+        await ejecutar(
+          "INSERT INTO HORARIO_BLOQUE_DIAS(ID_HORARIO_BLOQUE,DIA_SEMANA) SELECT ID_HORARIO_BLOQUE,:dia FROM HORARIO_BLOQUES WHERE ID_HORARIO=(SELECT ID_HORARIO FROM HORARIOS WHERE NOMBRE='Horario Colisiones')",
+          { dia },
+        );
+      await ejecutar(
+        `INSERT INTO EMPLEADO_HORARIO(ID_EMPLEADO,ID_HORARIO,VIGENTE_DESDE,MOTIVO) SELECT :id,ID_HORARIO,DATE '2020-01-01','Horario de prueba' FROM HORARIOS WHERE NOMBRE='Horario Colisiones'`,
+        { id: personas[0]! },
+      );
+      objetivo = await crearSolicitud(personas[0]!);
+      solicitudes.push(await crearSolicitud(personas[1]!, '2095-02-05', '2095-02-08', 'APROBADA'));
+      solicitudes.push(await crearSolicitud(personas[2]!, '2095-02-06', '2095-02-15'));
+      solicitudes.push(await crearSolicitud(personas[3]!, '2095-02-09', '2095-02-10', 'APROBADA'));
+      solicitudes.push(await crearSolicitud(personas[4]!)); // Sin departamento ni centro en común.
+      solicitudes.push(await crearSolicitud(personas[5]!, '2095-02-12', '2095-02-15')); // Adyacente.
+      for (const estado of ['RECHAZADA', 'CANCELADA', 'TOMADA'])
+        solicitudes.push(
+          await crearSolicitud(
+            personas[5]!,
+            inicio,
+            fin,
+            estado === 'TOMADA' ? 'APROBADA' : estado,
+          ),
+        );
+      await ejecutar(
+        "UPDATE VACACIONES_SOLICITUDES SET ESTADO='TOMADA' WHERE ID_VACACIONES_SOLICITUD=:id",
+        { id: solicitudes.at(-1)! },
+      );
+      const inactiva = await crearSolicitud(personas[5]!);
+      await ejecutar(
+        'UPDATE VACACIONES_SOLICITUDES SET ACTIVO=0 WHERE ID_VACACIONES_SOLICITUD=:id',
+        { id: inactiva },
+      );
+      await crearSolicitud(personas[0]!, '2095-02-08', '2095-02-09'); // El propio nunca es colisión de equipo.
+    });
+    it('detecta traslape parcial, total, ambos alcances y excluye rangos/estados ajenos', async () => {
+      const r = await informe();
+      expect(r.colisiones).toHaveLength(3);
+      expect(
+        r.colisiones.map((s: { tipoCoincidencia: string; diasCoincidentes: number }) => [
+          s.tipoCoincidencia,
+          s.diasCoincidentes,
+        ]),
+      ).toEqual([
+        ['Mismo departamento', 2],
+        ['Mismo centro de trabajo', 5],
+        ['Ambos', 2],
+      ]);
+      expect(r.ocupacion).toEqual({ tamanoEquipo: 5, maximoAusentes: 3, fechaMaximo: inicio });
+      expect(r.lineaTiempo).toHaveLength(5);
+      expect(r.colisiones[0]).toMatchObject({
+        estado: 'APROBADA',
+        departamento: 'Departamento Colisiones',
+        centro: 'Otro Colisiones',
+        inicioCoincidencia: inicio,
+        finCoincidencia: '2095-02-08',
+      });
+      expect(r.colisiones[0].codigo).toMatch(/^EMP_/);
+      // Quita el traslape propio de la fixture para las validaciones reales de aprobación.
+      await ejecutar(
+        'UPDATE VACACIONES_SOLICITUDES SET ACTIVO=0 WHERE ID_EMPLEADO=:id AND ID_VACACIONES_SOLICITUD<>:objetivo',
+        { id: personas[0]!, objetivo },
+      );
+    });
+    it('incluye aprobadas en curso y resuelve límites inclusivos', async () => {
+      const fecha = await db.conConexion(
+        async (c) =>
+          (
+            await c.execute<string[]>(
+              "SELECT TO_CHAR(CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE),'YYYY-MM-DD') FROM DUAL",
+            )
+          ).rows![0]![0]!,
+      );
+      const actual = await crearSolicitud(personas[0]!, fecha, fecha);
+      const otra = await crearSolicitud(personas[1]!, fecha, fecha, 'APROBADA');
+      const r = (await rh.get(`/api/vacaciones/solicitudes/${actual}/colisiones`).expect(200)).body
+        .data;
+      expect(r.colisiones).toHaveLength(1);
+      expect(r.colisiones[0]).toMatchObject({
+        idSolicitud: otra,
+        diasCoincidentes: 1,
+        estado: 'APROBADA',
+      });
+    });
+    it('un centro vacío no coincide con otro centro vacío ni con ningún centro', async () => {
+      const esquema = process.env.DB_USER!;
+      expect(esquema).toMatch(/^N2SEC_[A-F0-9]{12}$/);
+      // El esquema actual exige centro; esta proyección ensaya también la futura ausencia sin alterar su nulabilidad.
+      const total = await numero(
+        `WITH EMPLEADOS AS (SELECT ID_EMPLEADO,ID_DEPARTAMENTO,CAST(NULL AS NUMBER) ID_CENTRO_TRABAJO FROM ${esquema}.EMPLEADOS)
+        SELECT ${contarColisionesSql} FROM VACACIONES_SOLICITUDES V JOIN EMPLEADOS E ON E.ID_EMPLEADO=V.ID_EMPLEADO WHERE V.ID_VACACIONES_SOLICITUD=:id`,
+        { id: objetivo },
+      );
+      expect(total).toBe(2); // Solo departamento, nunca la persona de otro departamento.
+    });
+    it('la insignia, el filtro paginado y CSV usan la misma consulta', async () => {
+      const r = (
+        await rh
+          .get(`/api/vacaciones/solicitudes?idEmpleado=${personas[0]}&conColisiones=true&limite=1`)
+          .expect(200)
+      ).body.data;
+      expect(r.total).toBe(2);
+      expect(r.registros).toHaveLength(1);
+      expect(r.registros[0].cantidadColisiones).toBeGreaterThan(0);
+      const csv = (
+        await rh
+          .get(`/api/vacaciones/exportar?idEmpleado=${personas[0]}&conColisiones=true`)
+          .expect(200)
+      ).body.data;
+      expect(csv).toContain('Colisiones');
+    });
+    it('exige confirmación específica y revisión actual sin descontar ni auditar al fallar', async () => {
+      await resolver().expect(409);
+      await resolver({ confirmarColisiones: true }).expect(409);
+      const r = await resolver({
+        confirmarColisiones: true,
+        revisionColisiones: '0'.repeat(64),
+      }).expect(409);
+      expect(r.body.error.codigo).toBe('COLISIONES_SIN_CONFIRMAR');
+      expect(
+        await numero(
+          'SELECT COUNT(*) FROM VACACIONES_MOVIMIENTOS WHERE ID_VACACIONES_SOLICITUD=:id',
+          { id: objetivo },
+        ),
+      ).toBe(0);
+      expect(
+        await numero(
+          "SELECT COUNT(*) FROM BITACORA_AUDITORIA WHERE ID_ENTIDAD=:id AND ACCION='VACACIONES_APROBADA'",
+          { id: objetivo },
+        ),
+      ).toBe(0);
+    });
+    it('mantiene el bloqueo de saldo insuficiente incluso confirmando colisiones', async () => {
+      await ejecutar(
+        "INSERT INTO VACACIONES_MOVIMIENTOS(ID_EMPLEADO,TIPO,FECHA,DIAS,CLAVE_ORIGEN,MOTIVO) VALUES(:id,'SALDO_INICIAL',TRUNC(CAST(SYSTIMESTAMP AT TIME ZONE 'America/Guatemala' AS DATE)),0,'R36_APERTURA','Saldo de prueba')",
+        { id: personas[0]! },
+      );
+      const r = await informe();
+      const fallo = await resolver({
+        confirmarColisiones: true,
+        revisionColisiones: r.revision,
+      }).expect(409);
+      expect(fallo.body.error.mensaje).toMatch(/Puedes solicitar 0/);
+      expect(
+        await numero(
+          'SELECT COUNT(*) FROM VACACIONES_MOVIMIENTOS WHERE ID_VACACIONES_SOLICITUD=:id',
+          { id: objetivo },
+        ),
+      ).toBe(0);
+      await ejecutar(
+        "UPDATE VACACIONES_MOVIMIENTOS SET DIAS=20 WHERE ID_EMPLEADO=:id AND CLAVE_ORIGEN='R36_APERTURA'",
+        { id: personas[0]! },
+      );
+    });
+    it('revalida cambios entre lectura y confirmación', async () => {
+      const r = await informe();
+      const nueva = await crearSolicitud(personas[5]!, '2095-02-10', '2095-02-11');
+      await resolver({ confirmarColisiones: true, revisionColisiones: r.revision }).expect(409);
+      await ejecutar(
+        'UPDATE VACACIONES_SOLICITUDES SET ACTIVO=0 WHERE ID_VACACIONES_SOLICITUD=:id',
+        { id: nueva },
+      );
+    });
+    it('revierte aprobación, copia y débito si falla la auditoría', async () => {
+      const r = await informe();
+      await ejecutar(
+        "CREATE OR REPLACE TRIGGER R36_AUDITORIA BEFORE INSERT ON BITACORA_AUDITORIA FOR EACH ROW BEGIN IF :NEW.ACCION='VACACIONES_APROBADA' THEN RAISE_APPLICATION_ERROR(-20001,'Fallo de prueba'); END IF; END;",
+      );
+      try {
+        await resolver({ confirmarColisiones: true, revisionColisiones: r.revision }).expect(500);
+        expect(await db.conConexion((c) => aprobacionColisiones(c, objetivo))).toBeNull();
+        expect(
+          await numero(
+            'SELECT COUNT(*) FROM VACACIONES_MOVIMIENTOS WHERE ID_VACACIONES_SOLICITUD=:id',
+            { id: objetivo },
+          ),
+        ).toBe(0);
+      } finally {
+        await ejecutar('DROP TRIGGER R36_AUDITORIA');
+      }
+    });
+    it('aprueba con colisiones, conserva copia exacta y bitácora transaccional', async () => {
+      const r = await informe();
+      await resolver({ confirmarColisiones: true, revisionColisiones: r.revision }).expect(200);
+      const copia = await db.conConexion((c) => aprobacionColisiones(c, objetivo));
+      expect(copia).toMatchObject({
+        revision: r.revision,
+        colisiones: r.colisiones,
+        ocupacion: r.ocupacion,
+      });
+      const bitacora = await db.conConexion(
+        async (c) =>
+          (
+            await c.execute<{ despues: string }>(
+              'SELECT VALORES_NUEVOS "despues" FROM BITACORA_AUDITORIA WHERE ID_ENTIDAD=:id AND ACCION=\'VACACIONES_APROBADA\'',
+              { id: objetivo },
+              {
+                outFormat: oracledb.OUT_FORMAT_OBJECT,
+                fetchInfo: { despues: { type: oracledb.STRING } },
+              },
+            )
+          ).rows![0]!.despues,
+      );
+      expect(JSON.parse(bitacora).colisionesAprobacion).toEqual(copia);
+      expect(
+        await numero(
+          'SELECT COUNT(*) FROM VACACIONES_MOVIMIENTOS WHERE ID_VACACIONES_SOLICITUD=:id',
+          { id: objetivo },
+        ),
+      ).toBe(1);
+      await ejecutar(
+        'UPDATE VACACIONES_SOLICITUDES SET ACTIVO=0 WHERE ID_VACACIONES_SOLICITUD=:id',
+        { id: solicitudes[0]! },
+      );
+      expect((await informe()).aprobacion).toEqual(copia);
+      expect((await informe()).colisiones).toHaveLength(2);
+      await resolver({ confirmarColisiones: true, revisionColisiones: r.revision }).expect(409);
+    });
+    it('el empleado no ve colisiones, copias, conteos ni filtros en ningún endpoint propio', async () => {
+      await e.get(`/api/vacaciones/solicitudes/${objetivo}/colisiones`).expect(403);
+      await e.get('/api/vacaciones/solicitudes?conColisiones=true').expect(403);
+      await e.get('/api/vacaciones/exportar?conColisiones=true').expect(403);
+      await e
+        .post(`/api/vacaciones/solicitudes/${objetivo}/resolver`)
+        .set('X-CSRF-Token', csrfEmpleado)
+        .send({ estado: 'APROBADA', confirmado: true })
+        .expect(403);
+      for (const path of [
+        `/api/vacaciones/solicitudes/${objetivo}`,
+        '/api/vacaciones/solicitudes',
+        '/api/vacaciones/mi-saldo',
+        '/api/vacaciones/exportar',
+        '/api/vacaciones/notificaciones',
+      ]) {
+        const r = await e.get(path).expect(200);
+        expect(JSON.stringify(r.body)).not.toMatch(
+          /"(?:colisiones|colisionesAprobacion|COLISIONES_APROBACION|cantidadColisiones|revision|tamanoEquipo)"\s*:|Ana Colisiones|Bea Colisiones|Carla Colisiones/i,
+        );
+      }
+      const cancelacion = await e
+        .post(`/api/vacaciones/solicitudes/${objetivo}/cancelar`)
+        .set('X-CSRF-Token', csrfEmpleado)
+        .send({ confirmado: true, motivo: 'Cambio de planes personal' })
+        .expect(200);
+      expect(JSON.stringify(cancelacion.body)).not.toMatch(
+        /"(?:colisiones|colisionesAprobacion|COLISIONES_APROBACION|cantidadColisiones|revision|tamanoEquipo)"\s*:|Ana Colisiones|Bea Colisiones|Carla Colisiones/i,
+      );
+    });
   });
 });

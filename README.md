@@ -424,3 +424,14 @@ consulta el jefe inmediato también en la ficha y CSV. Se aplica V037 con el run
 - Con imagen de pruebas actualizada, `npm run verify:jefaturas -- --docker` usa Node 20.
 - `npm run test:e2e -- --production jefaturas.spec.ts` recorre el alta y asignación con
   Chromium, API/nginx, ayuda, móvil y accesibilidad; no escribe en la nómina operativa.
+
+### Colisiones de vacaciones (R3-6)
+
+RH/ADMIN → Vacaciones: insignia y filtro **Con colisiones**; al abrir una solicitud se muestran
+otras ausencias coincidentes por departamento o centro, ocupación y línea de tiempo.
+**Aprobar de todos modos** permite confirmar la advertencia con copia en la aprobación y
+bitácora; el saldo insuficiente sigue bloqueando. El empleado no recibe esta información.
+Aplicar V038 mediante el runner habitual y reconstruir API/web para cargar la versión.
+Pruebas: `npm run verify:vacaciones` y
+`npm run test:e2e -- --production vacaciones-colisiones.spec.ts`.
+Contrato y supuestos: [VACACIONES.md](docs/VACACIONES.md).

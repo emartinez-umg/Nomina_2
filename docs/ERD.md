@@ -1983,3 +1983,14 @@ La asignación masiva cambia cada FK y registra antes/después, actor y motivo e
 transacción; una fila inválida o un fallo de auditoría revierte el lote. `obtenerEquipoDeJefe`
 retorna IDs únicos de empleados activos en sus jefaturas activas y descendientes activas,
 excluye al propio jefe y corta ramas inactivas. No publica datos ni permisos de C4.
+
+## Ronda 3: colisiones de vacaciones (V038)
+
+`VACACIONES_SOLICITUDES.COLISIONES_APROBACION` es un CLOB JSON opcional con la copia vigente
+confirmada por RH/ADMIN: solicitudes coincidentes, rangos, ocupación, revisión, actor y fecha.
+Las aprobaciones previas permanecen sin copia; no se reconstruye evidencia histórica.
+La columna solo se consulta desde el endpoint de colisiones con RBAC RH/ADMIN; no forma parte
+del SELECT de solicitudes usado por el empleado. La aprobación y su bitácora se guardan
+en la misma transacción que el débito del kardex. Cancelar conserva la copia.
+El índice compuesto nuevo `IX_VAC_EQUIPO_RANGO` cubre empleado/activo/estado/fin/inicio;
+la búsqueda global de rangos reutiliza `IX_VAC_TABLERO` de V035. No se agregan relaciones.
