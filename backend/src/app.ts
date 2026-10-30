@@ -1,3 +1,5 @@
+import { crearActasRouter } from './modules/actas/actas.routes.js';
+import type { crearActasService } from './modules/actas/actas.service.js';
 import { crearExpedientesRouter } from './modules/expedientes/expedientes.routes.js';
 import type { crearExpedientesService } from './modules/expedientes/expedientes.service.js';
 import { crearEquipoRouter } from './modules/equipo/equipo.routes.js';
@@ -52,6 +54,7 @@ import { crearVacacionesRouter } from './modules/vacaciones/vacaciones.routes.js
 import type { crearVacacionesService } from './modules/vacaciones/vacaciones.service.js';
 
 interface SeguridadApp {
+  actas?: ReturnType<typeof crearActasService>;
   expedientes?: ReturnType<typeof crearExpedientesService>;
   equipo?: ReturnType<typeof crearEquipoService>;
   empresa?: ReturnType<typeof crearEmpresaService>;
@@ -98,6 +101,7 @@ export function crearApp(service: SaludService, logger: Logger, seguridad?: Segu
       permitirRoles('ADMIN', 'RH', 'EMPLEADO'),
       exigirCambioCompletado,
     );
+    if (seguridad.actas) app.use('/api/actas', crearActasRouter(seguridad.actas));
     if (seguridad.expedientes)
       app.use('/api/expedientes', crearExpedientesRouter(seguridad.expedientes));
     if (seguridad.equipo) app.use('/api/equipo', crearEquipoRouter(seguridad.equipo));

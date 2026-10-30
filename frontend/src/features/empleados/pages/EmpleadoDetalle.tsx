@@ -1,3 +1,4 @@
+import { ActasListado } from '../../actas/ActasListado';
 import { ExpedientePanel } from '../../expedientes/ExpedientePanel';
 import { etiquetaCodigo } from '../../../lib/estados';
 import { EstadoBadge } from '../../../components/ui/EstadoBadge';
@@ -36,6 +37,7 @@ const tabs = [
   { id: 'descuentos', titulo: 'Descuentos', icono: 'planilla' as const },
   { id: 'vacaciones', titulo: 'Vacaciones', icono: 'calendario' as const },
   { id: 'documentos', titulo: 'Documentos', icono: 'documento' as const },
+  { id: 'actas', titulo: 'Actas', icono: 'documento' as const },
   { id: 'historial', titulo: 'Historial', icono: 'tiempo' as const },
 ];
 export function EmpleadoDetallePage() {
@@ -56,7 +58,9 @@ export function EmpleadoDetallePage() {
   useTituloRegistro(d.data?.codigo);
   const [restableciendo, setRestableciendo] = useState(false);
   const [url] = useSearchParams();
-  const [tab, setTab] = useState(url.get('tab') === 'documentos' ? 'documentos' : 'resumen');
+  const [tab, setTab] = useState(
+    ['documentos', 'actas'].includes(url.get('tab') ?? '') ? url.get('tab')! : 'resumen',
+  );
   if (d.isPending || r.isPending) return <Skeleton lineas={8} />;
   const error = d.error ?? r.error;
   if (error)
@@ -162,6 +166,8 @@ export function EmpleadoDetallePage() {
                 tab === t.id ? (
                   t.id === 'resumen' ? (
                     <Resumen empleado={empleado} />
+                  ) : t.id === 'actas' ? (
+                    <ActasListado idEmpleado={id} />
                   ) : t.id === 'documentos' ? (
                     <>
                       <h2 className="mt-5">Generados por el sistema</h2>

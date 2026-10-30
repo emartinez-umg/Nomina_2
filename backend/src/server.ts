@@ -1,3 +1,4 @@
+import { crearActasService } from './modules/actas/actas.service.js';
 import { crearExpedientesService } from './modules/expedientes/expedientes.service.js';
 import { crearAlmacenPrivado } from './shared/archivos/almacen.js';
 import { crearEquipoService } from './modules/equipo/equipo.service.js';
@@ -38,6 +39,7 @@ try {
   const auth = await crearAuthService(baseDatos, config);
   const server = crearApp(service, logger, {
     auth,
+    actas: crearActasService(baseDatos, crearAlmacenPrivado(config.EXPEDIENTE_DIR)),
     expedientes: crearExpedientesService(baseDatos, crearAlmacenPrivado(config.EXPEDIENTE_DIR)),
     equipo: crearEquipoService(baseDatos),
     empresa: crearEmpresaService(baseDatos),

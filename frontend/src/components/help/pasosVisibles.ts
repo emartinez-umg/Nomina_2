@@ -117,7 +117,7 @@ export function pasosVisibles(
       [
         'notificaciones',
         'Avisos y seguimiento',
-        'Abre la campana para leer tus avisos y el contador pendiente. Ver abre el recurso autorizado; marcar leído no elimina la solicitud ni su historial. El ícono de papelera borra ese aviso de tu cuenta. Borrar todas requiere confirmación e incluye los avisos anteriores a los 30 visibles; actualiza el contador sin afectar a otros destinatarios ni los documentos. Si el recurso cambió de audiencia puede dejar de estar disponible.',
+        'Abre la campana para leer tus avisos y el contador pendiente. Ver abre el recurso autorizado; Ver acta lleva al documento propio emitido y su seguimiento, sin habilitar actas del equipo. Marcar leído no elimina la solicitud ni su historial. El ícono de papelera borra ese aviso de tu cuenta. Borrar todas requiere confirmación e incluye los avisos anteriores a los 30 visibles; actualiza el contador sin afectar a otros destinatarios ni los documentos. Si el recurso cambió de audiencia puede dejar de estar disponible.',
       ],
       [
         'usuario-menu',

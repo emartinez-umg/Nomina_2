@@ -5,6 +5,7 @@ COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
 RUN npm ci --workspace frontend --include-workspace-root
 COPY frontend frontend
+COPY backend/src/shared/actas backend/src/shared/actas
 COPY backend/src/shared/horarios backend/src/shared/horarios
 COPY backend/src/shared/catalogos backend/src/shared/catalogos
 COPY backend/src/shared/empleados backend/src/shared/empleados

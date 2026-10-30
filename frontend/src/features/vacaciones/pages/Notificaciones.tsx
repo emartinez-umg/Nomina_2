@@ -117,6 +117,20 @@ export function Notificaciones({ abierto, onClick }: { abierto: boolean; onClick
                   <p>{textoPresentacion(n.mensaje)}</p>
                   <EstadoBadge estado={n.leida ? 'LEIDA' : 'NO_LEIDA'} />
                   <div className="flex flex-wrap gap-2">
+                    {/^ACTA:[0-9]+:/.test(n.clave) && (
+                      <Button
+                        icono="ver"
+                        variante="texto"
+                        onClick={() => {
+                          nav(
+                            `${usuario?.rol === 'EMPLEADO' ? '/mis-gestiones/actas' : '/actas'}/${n.clave.split(':')[1]}`,
+                          );
+                          onClick();
+                        }}
+                      >
+                        Ver acta
+                      </Button>
+                    )}
                     {n.clave.startsWith('NOMINA:') && (
                       <Button
                         icono="ver"

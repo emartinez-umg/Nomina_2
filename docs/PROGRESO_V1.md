@@ -4195,3 +4195,124 @@ Estado: implementada el 29/10/2026 en `v1.2`. Solo expediente C7; sin actas C8 n
    requiere una fase de compatibilidad; no se elude el aviso cambiando solo el identificador de
    versión. C7 no acepta colecciones de entrada: metadatos escalares estrictos y stream acotado.
    Detalle y enlace al aviso en docs/EXPEDIENTE.md. Body-parser/qs ya no figuran en la auditoría.
+
+## Ronda 3 — FASE R3-12: actas administrativas y amonestaciones (C8)
+
+Estado: implementada el 29/10/2026 en `v1.2`. Alcance C8; sin despliegue operativo.
+
+### Causa y alcance
+
+- Leídos AGENTS.md con adendos v1/v1.1/v1.2 y el progreso de la ronda. Árbol limpio al iniciar.
+  R3-11 ya resolvía archivos privados; faltaban modelo, gestión disciplinaria, firma y trazabilidad.
+  Revisados mockup página 6 y tokens existentes; se reutilizan tarjetas, colores y campos compartidos.
+- Se reutilizan almacén R3-11, motor de sustitución, PDF membretado, perfil de firmante, borradores,
+  SelectorEmpleado, catálogos, notificaciones, estados y Novedades. Ninguna pantalla usa datos mock.
+
+### Hecho y decisiones
+
+- V043 aditiva crea TIPOS_ACTA, ACTAS_ADMINISTRATIVAS, ACTA_HISTORIAL y ACTA_ADJUNTOS. Incluye los
+  cuatro tipos iniciales con gravedad y bandera de suspensión, índices de filtros/FKs/actores,
+  código permanente ACT_<AÑO>_<####> mediante N2_CODIGOS y contador bloqueado, UNIQUE y versión.
+  No se alteraron migraciones anteriores ni se renumeraron registros existentes.
+- Catálogo Tipos de acta reutiliza CRUD genérico, validadores, duplicados normalizados, inactivación,
+  referencias en uso, código automático e historial. Inventario de QA actualizado desde la fuente.
+- Alta/edición guiadas: departamento → empleado buscable, fecha entre ingreso y hoy de Guatemala,
+  lugar, descripción 30–4,000, testigos, norma, medida, descargos y días cuando es suspensión.
+  Zod puro compartido; backend revalida al guardar y al emitir. Empleado fijo tras guardar.
+  Antecedentes paginados de los últimos doce meses antes de guardar; sin datos inventados.
+- Borrador → Emitida → Firmada o Se negó a firmar → Anulada. Solo Borrador se edita; negativa
+  exige testigos, anulación exige motivo y ambas confirmación. Firma requiere un escaneo válido:
+  carga, auditoría y cambio de estado son atómicos. Un índice impide dos firmas del mismo acta.
+  La versión y el bloqueo rechazan escrituras simultáneas obsoletas. Sin endpoint de borrado físico.
+- Evidencias solo en Borrador; tras emitir solo se carga firma. Máximo 19 evidencias más firma.
+  Comparte volumen, claves aleatorias, permisos, límites por stream, MIME/extensión/contenido y
+  SHA-256 de C7. Rollback confirmado retira bytes nuevos; commit incierto los conserva para
+  conciliación. Descargar/ver revalida acceso y confirma auditoría antes de entregar los bytes.
+- ACTAS_MAX_DIAS_SUSPENSION (8 inicial, entero 1–366, Días) se lee por vigencia en cada operación;
+  se advierte siempre y se bloquea superar el máximo. Al emitir se ofrece una casilla independiente
+  y confirmación para crear una ausencia aprobada sin goce, con inicio y fin visible calculado.
+  Llama al mismo servicio de Novedades dentro de la conexión/transacción: salario por día, traslapes,
+  fechas laborales, periodos cerrados y desglose mensual. Acta, ausencia, novedades, notificación y
+  auditoría se confirman juntas. No hay una segunda implementación del descuento.
+- Emisión guarda PDF inmutable, SHA-256, FK de plantilla y nombre/cargo/usuario/fecha del emisor.
+  Exige empresa completa y ficha/puesto activo del emisor. Plantilla editable con variables
+  obligatorias, motivo, confirmación y nueva versión; línea Recibí conforme fuera del texto editable.
+  PLANTILLAS_DOCUMENTO admite tipo de solicitud nulo para esta categoría; las consultas de
+  solicitudes la excluyen, manteniendo sus tres plantillas. PDFs previos permanecen idénticos.
+- RH imprime/descarga y visualiza con PDF.js sin eval. La impresión dibuja todas las páginas del
+  PDF original en una ventana con CSS A4 y abre el diálogo nativo; ventana bloqueada ofrece descarga.
+  La aceptación detectó navegación a PDF blob vacía en Chromium y se corrigió la causa usando el
+  renderizador compartido. No se insertan textos del acta como HTML ni se ejecutan adjuntos.
+- Listado paginado/ordenado en Oracle: búsqueda por código/nombre y filtros de empleado, tipo,
+  estado, departamento y fecha del hecho; URL, chips, limpiar, estados vacíos/error y CSV completo
+  (hasta 100,000 filas, solo metadatos, sin descripción). Tipos inactivos siguen filtrables en RH.
+  Pestaña Actas de la ficha, navegación/buscador por rol, títulos por código y alerta RH pendiente
+  de firma; notificación de emisión/anulación abre el documento propio desde la campana.
+- EMPLEADO solo consulta sus actas ya emitidas y sus archivos; los permisos de jefe no amplían
+  el alcance. Todas las lecturas y operaciones quedan en bitácora. Pino omite el contenido incluso
+  ante errores inesperados; nginx desactiva access log y buffering a disco para actas. DTO sin
+  claves/rutas; bytes fuera de Query cache/localStorage. Respuestas privadas sin caché y nosniff.
+- Borradores versionados por usuario/registro, limpieza al éxito/logout, cancelar conservando o
+  descartando y saneamiento común. Archivos y confirmaciones se eligen de nuevo. Ayuda manual,
+  hints y recorridos actualizados en actas, ficha, Inicio y notificaciones; responsive y estados
+  legibles con EstadoBadge compartido. Sin cambios al cálculo de nómina o permisos de equipo.
+- README, ACTAS y ERD documentan modelo, API, operación y respaldo conjunto Oracle/volumen C7.
+  Exportador comparte tipos/plantillas y excluye actas, historial y adjuntos; prueba impide incluirlos.
+  db:verify conserva tres plantillas de solicitudes y verifica separadamente la de actas; muestra
+  la versión actual del manifiesto. Aceptación C7 cuenta migraciones pendientes dinámicamente.
+
+### Supuestos y límites
+
+- Tope inicial de ocho días es política de referencia por validar con RH; no se presenta como
+  aprobación legal de una medida. Días calendario inclusivos conservan la convención de AUSENCIAS.
+  La fecha de inicio de suspensión no puede ser anterior al hecho; puede ser posterior a hoy.
+- Antecedentes usan la fecha del hecho entre hoy menos doce meses y hoy, con todos los estados
+  identificados para RH. El empleado ve actas alguna vez emitidas, incluidas las anuladas como
+  antecedentes con motivo, y nunca borradores ni antecedentes de terceros.
+- La anulación conserva ausencia vinculada y pagos existentes: el detalle lo advierte y enlaza
+  Novedades para su revisión autorizada. No revierte novedades aplicadas ni pagos automáticamente.
+  El PDF original se conserva también al anular, con estado/motivo e historial visibles en pantalla.
+- Los adjuntos se cargan después de guardar el borrador del servidor, antes de emitir; así nunca
+  quedan ligados a un identificador del cliente ni se incluyen en borradores del navegador.
+  Baja/reemplazo del expediente C7 no afecta los archivos propios de actas.
+- La auditoría de impresión acredita entrega autorizada del PDF al navegador, no una impresión
+  física. El membrete puede omitir logo si la empresa todavía no lo configuró, igual que el resto
+  de documentos. El nombre y cargo del emisor son obligatorios.
+
+### Validación
+
+- Lint, TypeScript estricto (backend, frontend y E2E), builds de producción, formato, revisión de
+  secretos y `git diff --check`: correctos. Permanece la advertencia conocida de tamaño del bundle
+  Vite; no se agregaron dependencias.
+- Regresión completa: **958 pruebas** (543 backend, 406 frontend, 9 exportador). Se ejecutaron los
+  workspaces con `--maxWorkers=2` tras timeouts transitorios del pool durante carga del equipo;
+  no se ampliaron tiempos ni se redujeron aserciones. Comandos del cierre:
+  `npm run test --workspaces -- --maxWorkers=2` y `npm run test:export`.
+- Oracle/Supertest sobre esquemas desechables e imagen Node 20: **43 pruebas** (12 actas, 11
+  expedientes, 20 solicitudes). Actas cubre concurrencia, estados, fechas/topes, edición bloqueada,
+  archivos, acceso propio/ajeno/jefe, PDF inmutable, plantilla versionada, ausencia sin goce,
+  periodos cerrados/traslapes y rollback de emisión/archivos/notificaciones/auditoría.
+- `db:verify`: V000–V043 desde cero, seeds repetibles, constraints e índices/FKs correctos;
+  esquemas temporales eliminados y datos operativos conservados.
+- **2 E2E de producción** (API Node 20, Oracle y nginx TLS): RH registra/emite/imprime/firma y
+  empleado consulta su acta/notificación en móvil, con rechazo de lectura ajena. Sin errores de
+  JavaScript, desbordamiento móvil ni infracciones axe A/AA en las vistas comprobadas.
+- PDF A4 generado y revisado visualmente, incluido documento de dos páginas con descripción de
+  4,000 caracteres: membrete, pie, firma del emisor y Recibí conforme legibles, sin recortes ni
+  solapamientos. Revisadas también las capturas desktop/móvil. Artefactos QA excluidos de Git.
+
+### Cómo probar y pendientes
+
+1. `npm run lint`; `npm test`; `npm run typecheck`; `npm run build`; `npm run format:check`;
+   `npm run verify:secrets`; `npm run db:verify`.
+2. Imagen Node 20 de pruebas según README: `npm run verify:actas -- --docker`.
+   Regresiones relacionadas: `npm run verify:expedientes -- --docker` y
+   `npm run verify:solicitudes -- --docker`.
+3. `npm run test:e2e -- --production actas.spec.ts`. RH → Personal → Actas: registrar, revisar
+   antecedentes, adjuntar evidencia, emitir, imprimir y adjuntar escaneo; probar negativa/anulación.
+   Suspensión: confirmar ausencia y contrastar Novedades. Revisar ficha, Inicio y campana.
+4. Con cuenta EMPLEADO propia y ajena/jefe, comprobar lectura propia emitida y 403 para otros IDs,
+   archivos y operaciones de gestión. Cambiar plantilla y comprobar que el PDF anterior no cambia.
+5. Despliegue operativo no solicitado: V043 se aplica con el runner habitual al reconstruir API.
+   RH debe validar el tope y el texto de la plantilla antes del uso real. Se mantiene el pendiente
+   transversal de actualización mayor de Zod documentado en R3-11; no corresponde a esta fase.

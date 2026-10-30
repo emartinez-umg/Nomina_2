@@ -49,7 +49,12 @@ export function manejarErrores(logger: Logger): ErrorRequestHandler {
     const esperado = normalizado instanceof ErrorNegocio ? normalizado : undefined;
     const estado = esperado?.estado ?? 500;
     if (estado >= 500) {
-      logger.error({ err: normalizado, requestId: res.locals.requestId }, 'La petición falló');
+      logger.error(
+        _req.originalUrl.startsWith('/api/actas')
+          ? { requestId: res.locals.requestId, codigo: 'ERROR_ACTAS' }
+          : { err: normalizado, requestId: res.locals.requestId },
+        'La petición falló',
+      );
     }
     const respuesta: RespuestaApi<never> = {
       ok: false,

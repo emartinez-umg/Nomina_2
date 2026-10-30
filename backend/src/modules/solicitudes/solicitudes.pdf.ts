@@ -2,9 +2,13 @@ import { generarPdf, bloqueFirma } from '../../shared/pdf/documento.js';
 import type { IdentidadEmpresa, FirmaDocumento } from '../../shared/pdf/documento.js';
 import { ErrorConflicto } from '../../shared/errors/errors.js';
 import { variables } from './solicitudes.schemas.js';
-export function rellenarPlantilla(contenido: string, datos: Record<string, string | null>) {
+export function rellenarPlantilla(
+  contenido: string,
+  datos: Record<string, string | null>,
+  permitidas: readonly string[] = variables,
+) {
   return contenido.replace(/\{\{([a-z_]+)\}\}/g, (_, key: string) => {
-    if (!variables.includes(key as (typeof variables)[number]) || !datos[key]?.trim())
+    if (!permitidas.includes(key) || !datos[key]?.trim())
       throw new ErrorConflicto(`Falta completar el dato «${key}» antes de generar el documento.`);
     return datos[key]!;
   });

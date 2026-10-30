@@ -1,3 +1,7 @@
+import { ActasPage } from '../features/actas/ActasListado';
+import { ActaDetallePage } from '../features/actas/ActaDetalle';
+import { ActaFormularioPage } from '../features/actas/ActaFormulario';
+import { ActaPlantillaPage } from '../features/actas/ActaPlantilla';
 import { MiEquipoPage } from '../features/equipo/MiEquipoPage';
 import { SaldosVacacionesPage } from '../features/vacaciones/pages/SaldosVacacionesPage';
 import { TituloPagina, type TituloRuta } from './titulos';
@@ -171,6 +175,8 @@ const paginas: RouteObject[] = [
                         </RequireEquipo>
                       ),
                     },
+                    { path: '/mis-gestiones/actas', element: <ActasPage /> },
+                    { path: '/mis-gestiones/actas/:id', element: <ActaDetallePage /> },
                     { path: '/mis-gestiones/anuncios', element: comunicacionPage },
                     { path: '/mis-gestiones/eventos', element: comunicacionPage },
                     { path: '/mis-gestiones/vacaciones', element: <VacacionesPage /> },
@@ -209,11 +215,16 @@ const paginas: RouteObject[] = [
           {
             element: <AppLayout />,
             children: [
+              { path: '/actas', element: <ActasPage /> },
+              { path: '/actas/:id', element: <ActaDetallePage /> },
               { path: '/comunicacion/:tipo', element: comunicacionPage },
               { path: '/planilla', element: <NominaPage /> },
               {
                 element: <FormPageContainer />,
                 children: [
+                  { path: '/actas/nueva', element: <ActaFormularioPage /> },
+                  { path: '/actas/:id/editar', element: <ActaFormularioPage /> },
+                  { path: '/actas/plantilla', element: <ActaPlantillaPage /> },
                   { path: '/nomina/simular', element: <SimularPagoPage /> },
                   {
                     path: '/configuracion/parqueo',
@@ -284,6 +295,13 @@ const paginas: RouteObject[] = [
 // Cada ruta declara su título en el árbol que consume React Router.
 const destinos = opcionesNavegacion('ADMIN');
 const fijos: Record<string, TituloRuta> = {
+  '/actas': 'Actas administrativas',
+  '/actas/nueva': 'Nueva acta',
+  '/actas/:id': ({ codigo }) => (codigo ? `Acta ${codigo}` : 'Detalle de acta'),
+  '/actas/:id/editar': ({ codigo }) => (codigo ? `Editar acta ${codigo}` : 'Editar acta'),
+  '/actas/plantilla': 'Plantilla de actas',
+  '/mis-gestiones/actas': 'Mis actas',
+  '/mis-gestiones/actas/:id': ({ codigo }) => (codigo ? `Acta ${codigo}` : 'Mi acta'),
   '/mi-equipo': 'Mi equipo',
   '/mi-equipo/comisiones': 'Estadísticas de comisiones',
   '/estadisticas/comisiones': 'Estadísticas de comisiones',

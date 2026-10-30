@@ -195,7 +195,9 @@ describe('R3-11: aceptación del expediente privado en Oracle y HTTP real', () =
         codigo,
       });
     const antes = await scalar('SELECT COUNT(*) FROM EMPLEADOS');
-    expect(await ejecutarMigraciones(db, logger)).toBe(1);
+    expect(await ejecutarMigraciones(db, logger)).toBe(
+      migraciones.filter((m) => m.version > 41).length,
+    );
     expect(await ejecutarMigraciones(db, logger)).toBe(0);
     expect(await scalar('SELECT COUNT(*) FROM EMPLEADOS')).toBe(antes);
     expect(await scalar("SELECT COUNT(*) FROM USER_OBJECTS WHERE STATUS<>'VALID'")).toBe(0);

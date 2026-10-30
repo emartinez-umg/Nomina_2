@@ -161,7 +161,16 @@ try {
     assert.equal(cuentaAdmin[0]?.[1], 1, 'El primer inicio requiere cambio de contraseña.');
     assert.equal(await escalar('SELECT COUNT(*) FROM ROLES'), 3);
     assert.equal(await escalar('SELECT COUNT(*) FROM TRAMOS_ISR'), 2);
-    assert.equal(await escalar('SELECT COUNT(*) FROM PLANTILLAS_DOCUMENTO'), 3);
+    assert.equal(
+      await escalar(
+        'SELECT COUNT(*) FROM PLANTILLAS_DOCUMENTO WHERE ID_TIPO_SOLICITUD IS NOT NULL',
+      ),
+      3,
+    );
+    assert.equal(
+      await escalar("SELECT COUNT(*) FROM PLANTILLAS_DOCUMENTO WHERE CODIGO='ACTA_ADMINISTRATIVA'"),
+      1,
+    );
     assert.equal(await escalar('SELECT COUNT(*) FROM FERIADOS'), 13);
     assert.equal(
       await escalar(
@@ -225,7 +234,7 @@ try {
     'Seeds idempotentes: conservar filas, valores, hash y fechas.',
   );
   console.log(
-    '✓ V000–V042 desde cero; tablas del manifiesto, identities, auditoría, CHECK y FKs indexadas.',
+    `✓ V000–V${String(migracionesActuales.at(-1).version).padStart(3, '0')} desde cero; tablas del manifiesto, identities, auditoría, CHECK y FKs indexadas.`,
   );
   console.log('✓ Seeds repetibles; parámetros, feriados, plantillas y ADMIN argon2id verificados.');
 

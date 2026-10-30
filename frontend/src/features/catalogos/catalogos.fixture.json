@@ -1,5 +1,57 @@
 [
   {
+    "slug": "tipos-acta",
+    "singular": "tipo de acta",
+    "titulo": "Tipos de acta",
+    "tabla": "TIPOS_ACTA",
+    "pk": "ID_TIPO_ACTA",
+    "campos": [
+      {
+        "nombre": "codigo",
+        "columna": "CODIGO",
+        "etiqueta": "Código",
+        "tipo": "codigo",
+        "hint": "Se genera automáticamente a partir del nombre. La vista previa puede cambiar al guardar; después será permanente.",
+        "requerido": true,
+        "max": 80
+      },
+      {
+        "nombre": "nombre",
+        "columna": "NOMBRE",
+        "etiqueta": "Nombre",
+        "tipo": "texto",
+        "hint": "Usa al menos 2 caracteres y una letra. Se permiten letras con acentos, ñ/ü, dígitos, espacios y . , - / & ( ) '. Se recortan espacios al guardar; nombres equivalentes por acentos o mayúsculas son duplicados.",
+        "requerido": true,
+        "max": 120
+      },
+      {
+        "nombre": "descripcion",
+        "columna": "DESCRIPCION",
+        "etiqueta": "Descripción",
+        "tipo": "area",
+        "hint": "Explica el propósito del registro (opcional).",
+        "max": 500
+      },
+      {
+        "nombre": "gravedad",
+        "columna": "GRAVEDAD",
+        "etiqueta": "Gravedad",
+        "tipo": "opcion",
+        "hint": "Clasificación interna de la medida; no sustituye la revisión de RH.",
+        "requerido": true,
+        "opciones": ["LEVE", "MODERADA", "GRAVE"]
+      },
+      {
+        "nombre": "esSuspension",
+        "columna": "ES_SUSPENSION",
+        "etiqueta": "Es suspensión sin goce",
+        "tipo": "booleano",
+        "hint": "Exige días al registrar el acta y ofrece crear la ausencia al emitir.",
+        "requerido": true
+      }
+    ]
+  },
+  {
     "slug": "motivos-baja",
     "singular": "motivo de baja",
     "titulo": "Motivos de baja",

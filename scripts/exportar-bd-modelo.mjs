@@ -2,8 +2,18 @@ import assert from 'node:assert/strict';
 import { consultar, identificador, literal } from './exportar-bd-oracle.mjs';
 
 // Únicamente configuración compartible. EXPEDIENTE_DOCUMENTOS y su volumen nunca se exportan.
-export const tablasPrivadas = ['EXPEDIENTE_DOCUMENTOS'];
+export const tablasPrivadas = [
+  'EXPEDIENTE_DOCUMENTOS',
+  'ACTAS_ADMINISTRATIVAS',
+  'ACTA_HISTORIAL',
+  'ACTA_ADJUNTOS',
+];
 export const catalogos = [
+  [
+    'TIPOS_ACTA',
+    ['CODIGO'],
+    'CODIGO,CODIGO_ANTERIOR,NOMBRE,DESCRIPCION,GRAVEDAD,ES_SUSPENSION,ACTIVO',
+  ],
   [
     'TIPOS_DOCUMENTO_EXPEDIENTE',
     ['CODIGO'],
@@ -459,6 +469,7 @@ ALTER SESSION SET TIME_ZONE='America/Guatemala';
   // Reconstruir exclusivamente reservas de catálogos exportados; nunca contadores/legados de empleados.
   bloques.push('\n-- Reservas de los catálogos importados para evitar futuras colisiones.\n');
   const entidades = {
+    TIPOS_ACTA: 'tipos-acta',
     TIPOS_CONTRATO: 'tipos-contrato',
     TIPOS_DESCUENTO: 'tipos-descuento',
     TIPOS_AUSENCIA: 'tipos-ausencia',

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 export const entidades = [
+  'actas',
+  'tipos-acta',
   'motivos-baja',
   'zonas',
   'paises',

@@ -389,6 +389,9 @@ export function crearNovedadesService(db: BaseDatos) {
       return { ...empleados, registros, departamentos: [...resumen.values()] };
     });
   return {
+    // Permite emitir un acta y su ausencia con las mismas reglas y un único commit.
+    registrarAusenciaEnTransaccion: (c: Connection, actor: ActorAuditoria, raw: unknown) =>
+      guardar(c, actor, 'ausencias', schemas.ausencias.parse(raw)),
     parqueo: crearParqueoService(db),
     pendientes: resumenPendientes,
     exportarPendientes: async (q: Parameters<typeof resumenPendientes>[0]) => {

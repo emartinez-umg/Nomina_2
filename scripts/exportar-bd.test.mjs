@@ -162,3 +162,14 @@ test('exportación excluye registros y almacenamiento del expediente, conserva s
     auditarSeguridad({ sql: 'INSERT INTO EXPEDIENTE_DOCUMENTOS (ID_EMPLEADO) VALUES (1)' }, 'hash'),
   );
 });
+
+test('exportación excluye textos, PDFs e historial privados de actas', () => {
+  for (const tabla of ['ACTAS_ADMINISTRATIVAS', 'ACTA_HISTORIAL', 'ACTA_ADJUNTOS']) {
+    assert.ok(tablasPrivadas.includes(tabla));
+    assert.ok(!catalogos.some((c) => c.tabla === tabla));
+    assert.throws(() =>
+      auditarSeguridad({ sql: `INSERT INTO ${tabla} (ID_ACTA) VALUES (1)` }, 'hash'),
+    );
+  }
+  assert.ok(catalogos.some((c) => c.tabla === 'TIPOS_ACTA'));
+});

@@ -35,6 +35,15 @@ const compartidos: GrupoNavegacion[] = [
     icono: 'empleados',
     items: [
       acceso(
+        'actas',
+        'Actas administrativas',
+        '/actas',
+        'documento',
+        'Gestiona amonestaciones, firmas y antecedentes.',
+        ['amonestaciones', 'suspensión', 'disciplina'],
+      ),
+      catalogo('tipos-acta', 'Tipos de acta', 'Configura gravedad y medidas administrativas.'),
+      acceso(
         'empleados',
         'Empleados',
         '/empleados',
@@ -413,6 +422,14 @@ export const navigation: Record<Rol, GrupoNavegacion[]> = {
       titulo: 'Mis gestiones',
       icono: 'documento',
       items: [
+        acceso(
+          'mis-actas',
+          'Mis actas',
+          '/mis-gestiones/actas',
+          'documento',
+          'Consulta tus actas emitidas y su seguimiento.',
+          ['amonestaciones', 'firmas'],
+        ),
         acceso(
           'mi-parqueo',
           'Mi parqueo',

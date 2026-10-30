@@ -2079,3 +2079,66 @@ erDiagram
 Auditoría estándar de creación/modificación en ambas tablas y FKs indexadas. V042 completa
 además los cuatro índices de actor de PERMISOS_EQUIPO/PERMISOS_JEFATURA que faltaban en V040.
 Parámetros vigentes EXPEDIENTE_MAX_MB y EXPEDIENTE_AVISO_DIAS; contrato en EXPEDIENTE.md.
+
+## R3-12 — Actas administrativas (V043)
+
+```mermaid
+erDiagram
+  EMPLEADOS ||--o{ ACTAS_ADMINISTRATIVAS : recibe
+  TIPOS_ACTA ||--o{ ACTAS_ADMINISTRATIVAS : clasifica
+  USUARIOS ||--o{ ACTAS_ADMINISTRATIVAS : emite_anula
+  ACTAS_ADMINISTRATIVAS ||--|{ ACTA_HISTORIAL : transiciones
+  ACTAS_ADMINISTRATIVAS ||--o{ ACTA_ADJUNTOS : evidencias_firma
+  PLANTILLAS_DOCUMENTO ||--o{ ACTAS_ADMINISTRATIVAS : version_inmutable
+  AUSENCIAS o|--o| ACTAS_ADMINISTRATIVAS : suspension_opcional
+  ACTAS_ADMINISTRATIVAS ||--o{ NOTIFICACIONES : estado
+  TIPOS_ACTA {
+    NUMBER ID_TIPO_ACTA PK
+    VARCHAR CODIGO UK
+    VARCHAR NOMBRE_NORMALIZADO UK
+    VARCHAR GRAVEDAD
+    NUMBER ES_SUSPENSION
+  }
+  ACTAS_ADMINISTRATIVAS {
+    NUMBER ID_ACTA PK
+    VARCHAR CODIGO UK
+    NUMBER ID_EMPLEADO FK
+    NUMBER ID_TIPO_ACTA FK
+    DATE FECHA_HECHO
+    CLOB DESCRIPCION
+    VARCHAR ESTADO
+    NUMBER VERSION
+    NUMBER DIAS_SUSPENSION
+    NUMBER EMITIDA_POR FK
+    DATE EMITIDA_EN
+    VARCHAR EMISOR_NOMBRE
+    VARCHAR EMISOR_CARGO
+    BLOB CONTENIDO_PDF
+    VARCHAR PDF_SHA256
+    NUMBER ID_AUSENCIA FK,UK
+    VARCHAR MOTIVO_ANULACION
+  }
+  ACTA_ADJUNTOS {
+    NUMBER ID_ACTA_ADJUNTO PK
+    NUMBER ID_ACTA FK
+    VARCHAR CLASE
+    VARCHAR CLAVE_ARCHIVO UK
+    VARCHAR HASH_SHA256
+  }
+  ACTA_HISTORIAL {
+    NUMBER ID_ACTA_HISTORIAL PK
+    NUMBER ID_ACTA FK
+    VARCHAR ESTADO_ANTERIOR
+    VARCHAR ESTADO_NUEVO
+    VARCHAR MOTIVO
+    VARCHAR TESTIGOS
+    NUMBER CREADO_POR FK
+    DATE FECHA_CREACION
+  }
+```
+
+PLANTILLAS_DOCUMENTO admite ID_TIPO_SOLICITUD nulo para la categoría ACTA_ADMINISTRATIVA.
+Cada emisión guarda su PDF y la FK de la versión; el bloque del emisor se conserva en la misma fila.
+Las claves opacas de ACTA_ADJUNTOS apuntan al volumen R3-11; no forman parte de las respuestas públicas
+ni de la exportación compartible. Estado firmado tiene un único adjunto FIRMA por índice condicional.
+Detalles de campos, acceso, suspensión y conservación en [ACTAS.md](ACTAS.md).

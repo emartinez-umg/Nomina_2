@@ -1,3 +1,4 @@
+import { crearActasService } from '../src/modules/actas/actas.service.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -170,6 +171,7 @@ if (process.env.E2E_PREPARE_ONLY === '1') {
   const directorioExpedientes = await mkdtemp(join(tmpdir(), 'n2e2e-expedientes-'));
   const salud = crearSaludService(crearSaludRepository(db), logger);
   const app = crearApp(salud, logger, {
+    actas: crearActasService(db, crearAlmacenPrivado(directorioExpedientes)),
     expedientes: crearExpedientesService(db, crearAlmacenPrivado(directorioExpedientes)),
     empresa: crearEmpresaService(db),
     auth: await crearAuthService(db, config),

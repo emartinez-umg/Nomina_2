@@ -357,13 +357,15 @@ export function InicioPage() {
                                   nav(
                                     a.tipo === 'PERIODO'
                                       ? '/planilla'
-                                      : a.tipo === 'EXPEDIENTE'
-                                        ? `/empleados/${a.id}?tab=documentos`
-                                        : a.tipo === 'SIN_JEFE'
-                                          ? '/catalogos/jefaturas'
-                                          : a.tipo === 'SIN_JEFATURA'
-                                            ? '/empleados?sinJefatura=1'
-                                            : `/empleados/${a.id}`,
+                                      : a.tipo === 'ACTA'
+                                        ? `/actas/${a.id}`
+                                        : a.tipo === 'EXPEDIENTE'
+                                          ? `/empleados/${a.id}?tab=documentos`
+                                          : a.tipo === 'SIN_JEFE'
+                                            ? '/catalogos/jefaturas'
+                                            : a.tipo === 'SIN_JEFATURA'
+                                              ? '/empleados?sinJefatura=1'
+                                              : `/empleados/${a.id}`,
                                   )
                                 }
                               >

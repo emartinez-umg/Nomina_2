@@ -167,6 +167,11 @@ export function crearCatalogosService(db: BaseDatos) {
         (!Number.isInteger(valor) || valor < 0 || valor > 365 || d.unidad !== 'DIAS')
       )
         conflicto('valor', 'El aviso del expediente debe ser un entero de 0 a 365 días.');
+      if (
+        clave === 'ACTAS_MAX_DIAS_SUSPENSION' &&
+        (!Number.isInteger(valor) || valor < 1 || valor > 366 || d.unidad !== 'DIAS')
+      )
+        throw new ErrorValidacion({ valor: ['Usa entre 1 y 366 días enteros de suspensión.'] });
       if (clave === 'VACACIONES_ALERTA_DIAS' && (valor <= 0 || d.unidad !== 'DIAS'))
         conflicto(
           'valor',

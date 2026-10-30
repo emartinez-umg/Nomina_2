@@ -518,3 +518,16 @@ posibles archivos huérfanos para conciliación manual, sin borrarlos automátic
 Pruebas: `npm run verify:expedientes -- --docker` (con la imagen de pruebas actualizada),
 `npm run test:e2e -- --production expediente.spec.ts`, `npm test` y `npm run lint`.
 Contrato, decisiones y revisión de dependencias en [docs/EXPEDIENTE.md](docs/EXPEDIENTE.md).
+
+### Actas administrativas (R3-12)
+
+RH/ADMIN → Personal → Actas administrativas: registrar borrador y evidencias, emitir PDF membretado,
+imprimir, adjuntar firma o documentar negativa con testigos y anular con motivo. Consulta desde la
+pestaña Actas de la ficha; el empleado ve solo sus documentos ya emitidos en Mis gestiones → Mis actas.
+Plantilla editable y máximo de suspensión parametrizable. La ausencia sin goce es opcional, confirmada
+al emitir y creada en la misma transacción con las reglas de Novedades. No modifica pagos anteriores.
+
+V043 usa el mismo volumen privado y respaldo conjunto de R3-11 para sus adjuntos. Los PDF emitidos
+quedan en Oracle. La exportación compartible excluye registros, historial y adjuntos de actas.
+Ver [operación, API y decisiones C8](docs/ACTAS.md). Pruebas: `npm run verify:actas -- --docker`
+y `npm run test:e2e -- --production actas.spec.ts`, además de lint/suite habituales.

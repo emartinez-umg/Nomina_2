@@ -1,3 +1,4 @@
+import { ayudaActas } from '../../actas/help/pasos';
 import { ayudaExpediente } from '../../expedientes/help';
 import type { DefinicionAyuda } from '../../../components/help/HelpProvider';
 import { secciones } from '../api/formulario';
@@ -81,6 +82,7 @@ export function ayudaEmpleados(
     ],
     detalle: [
       ...ayudaExpediente.pasos,
+      ...ayudaActas().pasos,
       {
         elemento: 'empleado-restablecer',
         titulo: 'Restablecer acceso',

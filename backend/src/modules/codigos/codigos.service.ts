@@ -7,9 +7,15 @@ export function crearCodigosService(db: BaseDatos) {
   return {
     async vistaPrevia(q: VistaPrevia) {
       if (
-        !['empleados', 'solicitudes', 'prestamos', 'descuentos', 'eventos', 'anuncios'].includes(
-          q.entidad,
-        ) &&
+        ![
+          'empleados',
+          'solicitudes',
+          'prestamos',
+          'descuentos',
+          'eventos',
+          'anuncios',
+          'actas',
+        ].includes(q.entidad) &&
         !generarCodigoGenerico(q.palabra ?? '')
       )
         throw new ErrorValidacion({

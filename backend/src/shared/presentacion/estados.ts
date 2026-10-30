@@ -1,5 +1,8 @@
 /** Presentación compartida por pantallas, notificaciones y documentos; no cambia los códigos. */
 export const estados = {
+  EMITIDA: { etiqueta: 'Emitida', color: 'informacion', icono: 'documento' },
+  FIRMADA: { etiqueta: 'Firmada', color: 'correcto', icono: 'aprobar' },
+  SE_NEGO_A_FIRMAR: { etiqueta: 'Se negó a firmar', color: 'aviso', icono: 'advertencia' },
   EN_PROCESO: { etiqueta: 'En proceso', color: 'aviso', icono: 'tiempo' },
   PENDIENTE: { etiqueta: 'Pendiente', color: 'aviso', icono: 'tiempo' },
   APROBADA: { etiqueta: 'Aprobada', color: 'correcto', icono: 'aprobar' },

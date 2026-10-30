@@ -108,6 +108,34 @@ const dinero = (nombre: string, columna: string, etiqueta: string, requerido = t
   );
 export const catalogos: Catalogo[] = [
   {
+    slug: 'tipos-acta',
+    singular: 'tipo de acta',
+    titulo: 'Tipos de acta',
+    tabla: 'TIPOS_ACTA',
+    pk: 'ID_TIPO_ACTA',
+    campos: [
+      codigo(80),
+      nombre(),
+      descripcion,
+      campo(
+        'gravedad',
+        'GRAVEDAD',
+        'Gravedad',
+        'opcion',
+        'Clasificación interna de la medida; no sustituye la revisión de RH.',
+        { requerido: true, opciones: ['LEVE', 'MODERADA', 'GRAVE'] },
+      ),
+      campo(
+        'esSuspension',
+        'ES_SUSPENSION',
+        'Es suspensión sin goce',
+        'booleano',
+        'Exige días al registrar el acta y ofrece crear la ausencia al emitir.',
+        { requerido: true },
+      ),
+    ],
+  },
+  {
     slug: 'motivos-baja',
     singular: 'motivo de baja',
     titulo: 'Motivos de baja',
