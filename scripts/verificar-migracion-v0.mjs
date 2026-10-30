@@ -7,6 +7,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { fileURLToPath, URL } from 'node:url';
 import { join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import oracledb from 'oracledb';
 import { crearBaseDatos } from '../backend/src/shared/db/pool.ts';
 import { validarEntorno } from '../backend/src/config/env.schema.ts';
@@ -15,9 +16,12 @@ import { ejecutarMigraciones } from '../backend/src/shared/db/migraciones.ts';
 import { ejecutarSeeds } from '../backend/src/shared/db/seeds.ts';
 
 // Reconstruye una copia aislada del corte Git. Nunca conecta con el esquema de aplicación.
-const desdeV1 = process.argv.includes('--from-v1');
-const origen = desdeV1 ? 'v1' : 'v0.0';
-const versionOrigen = desdeV1 ? 30 : 20;
+const desdeV11 = process.argv.includes('--from-v1.1');
+const copiaInstalada = process.argv.includes('--copy-installed');
+assert.ok(!copiaInstalada || desdeV11, 'La copia instalada solo admite el corte v1.1.');
+const desdeV1 = desdeV11 || process.argv.includes('--from-v1');
+const origen = desdeV11 ? 'v1.1' : desdeV1 ? 'v1' : 'v0.0';
+const versionOrigen = desdeV11 ? 35 : desdeV1 ? 30 : 20;
 const raiz = fileURLToPath(new URL('../', import.meta.url));
 const versiones = (await readdir(join(raiz, 'db/migrations')))
   .map((n) => /^V(\d+)__.*\.sql$/.exec(n))
@@ -42,6 +46,7 @@ const entorno = {
   ADMIN_EMAIL: 'admin@example.test',
   ADMIN_PASSWORD: `Aa!${randomBytes(16).toString('hex')}`,
   E2E_PASSWORD: `Aa!${randomBytes(16).toString('hex')}`,
+  E2E_PREPARE_ONLY: '1',
 };
 const admin = Object.fromEntries(
   ['ADMIN_USER', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'].map((k) => [k, entorno[k]]),
@@ -49,108 +54,202 @@ const admin = Object.fromEntries(
 const logger = crearLogger('silent');
 oracledb.fetchAsString = [oracledb.CLOB];
 oracledb.fetchAsBuffer = [oracledb.BLOB];
-function administrar(sql) {
+function administrar(sql, timeout = 120000) {
   const r = spawnSync(
     'docker',
     ['compose', 'exec', '-T', 'nomina2-db', 'sqlplus', '-s', '/', 'as', 'sysdba'],
     {
       input: `WHENEVER SQLERROR EXIT FAILURE\nALTER SESSION SET CONTAINER=XEPDB1;\n${sql}\nEXIT;\n`,
       encoding: 'utf8',
-      timeout: 120000,
+      timeout,
     },
   );
-  assert.ok(!r.error && r.status === 0, 'No se pudo administrar el esquema de migración temporal.');
+  const codigos = [...new Set((r.stdout ?? '').match(/ORA-\d+/g) ?? [])].join(', ');
+  assert.ok(
+    !r.error && r.status === 0,
+    `No se pudo administrar el esquema de migración temporal (${r.error?.code ?? codigos ?? r.status}).`,
+  );
 }
 let creado = false,
-  db;
+  db,
+  fuenteDb,
+  scn;
 try {
-  const archivo = join(carpeta, 'origen.tar');
-  execFileSync(
-    'git',
-    ['archive', '--format=tar', '--output', archivo, origen, 'backend', 'db', 'package.json'],
-    { cwd: raiz },
-  );
-  execFileSync('tar', ['-xf', archivo, '-C', carpeta]);
-  await symlink(join(raiz, 'node_modules'), join(carpeta, 'node_modules'), 'dir');
-  await symlink(join(raiz, 'backend/node_modules'), join(carpeta, 'backend/node_modules'), 'dir');
-  const servidor = join(carpeta, 'backend/e2e/server.ts');
-  const fuente = await readFile(servidor, 'utf8');
-  assert.ok(fuente.includes('const salud = crearSaludService'));
-  // Utiliza los servicios, seeds y fixtures originales, sin abrir puertos ni iniciar la API v0.
-  await writeFile(
-    servidor,
-    fuente.split('const salud = crearSaludService')[0] + '\nawait db.cerrar();\n',
-  );
-  administrar(
-    `CREATE USER ${usuario} IDENTIFIED BY "${entorno.DB_PASSWORD}" DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;\nGRANT CONNECT, RESOURCE TO ${usuario};`,
-  );
-  creado = true;
-  // La fixture v0 exige este prefijo; el identificador sigue siendo exclusivamente temporal.
-  const fixture = (await readFile(servidor, 'utf8')).replace('N2E2E_', 'N2MIG_');
-  await writeFile(servidor, fixture);
-  const r = spawnSync(process.execPath, ['--import', 'tsx', servidor], {
-    cwd: raiz,
-    env: entorno,
-    encoding: 'utf8',
-    timeout: 120000,
-  });
-  if (r.status !== 0) throw new Error(`No se pudo preparar la copia ${origen}: ${r.stderr}`);
-  db = await crearBaseDatos(validarEntorno(entorno));
-  await db.conConexion(async (c) => {
-    for (const sql of (
-      await readFile(new URL('../db/fixtures/migracion_v0.sql', import.meta.url), 'utf8')
-    )
-      .split(/\n\/\s*(?:\n|$)/)
-      .map((s) => s.trim())
-      .filter(Boolean))
-      await c.execute(
-        (desdeV1
-          ? sql.replace(
-              /FROM TIPOS_(DESCUENTO|SOLICITUD) WHERE CODIGO=/g,
-              'FROM TIPOS_$1 WHERE CODIGO_ANTERIOR=',
-            )
-          : sql
-        ).replace(/;\s*$/, ''),
+  if (copiaInstalada) {
+    assert.match(
+      process.env.DB_CONNECT_STRING ?? 'localhost:1521/XEPDB1',
+      /^(?:localhost|127\.0\.0\.1):\d+\/XEPDB1$/i,
+      'La copia instalada exige Oracle local del Compose.',
+    );
+    const fuente = process.env.DB_USER.toUpperCase();
+    assert.match(fuente, /^[A-Z][A-Z0-9_]{0,29}$/);
+    fuenteDb = await crearBaseDatos(validarEntorno({ ...process.env, NODE_ENV: 'test' }));
+    await fuenteDb.conConexion(async (c) => {
+      assert.equal(
+        (await c.execute('SELECT MAX(VERSION) FROM VERSION_ESQUEMA')).rows[0][0],
+        35,
+        'Solo se copia una instalación v1.1 (V035), sin modificarla.',
       );
-    if (desdeV1) {
-      // Reproduce equivalencias, sufijo ocupado y colisión del UNIQUE exacto antiguo.
-      for (const nombre of [
-        'Ingeniería migrada',
-        ' ingenieria   migrada ',
-        'INGENIERÍA MIGRADA',
-        'Ingeniería migrada (duplicado 2)',
-      ])
-        await c.execute('INSERT INTO DEPARTAMENTOS(NOMBRE) VALUES(:nombre)', { nombre });
-      for (const nombre of [' Parentesco migrado ', 'Parentesco migrado'])
-        await c.execute('INSERT INTO PARENTESCOS(NOMBRE) VALUES(:nombre)', { nombre });
-      await c.execute(
-        "INSERT INTO PUESTOS(NOMBRE,ID_DEPARTAMENTO) SELECT 'Puesto de referencia migrada',ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NOMBRE=' ingenieria   migrada '",
+    });
+    administrar(
+      `CREATE USER ${usuario} IDENTIFIED BY "${entorno.DB_PASSWORD}" DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;\nGRANT CONNECT, RESOURCE TO ${usuario};`,
+    );
+    creado = true;
+    const sufijo = usuario.slice(6);
+    const directorio = `N2DP_${sufijo}`;
+    const ruta = `/tmp/nomina2-migracion-${sufijo.toLowerCase()}`;
+    execFileSync('docker', ['compose', 'exec', '-T', 'nomina2-db', 'mkdir', '-m', '700', ruta]);
+    let directorioCreado = false;
+    try {
+      administrar(`CREATE DIRECTORY ${directorio} AS '${ruta}';`);
+      directorioCreado = true;
+      // Una sola SCN para copia y comparación; nunca se bloquea ni escribe el origen.
+      const consultaScn = spawnSync(
+        'docker',
+        ['compose', 'exec', '-T', 'nomina2-db', 'sqlplus', '-s', '/', 'as', 'sysdba'],
+        {
+          input:
+            'SET HEADING OFF FEEDBACK OFF PAGESIZE 0\nSELECT CURRENT_SCN FROM V$DATABASE;\nEXIT;\n',
+          encoding: 'utf8',
+        },
       );
-      await c.execute(
-        "UPDATE EMPLEADOS SET (ID_PUESTO,ID_DEPARTAMENTO)=(SELECT ID_PUESTO,ID_DEPARTAMENTO FROM PUESTOS WHERE NOMBRE='Puesto de referencia migrada') WHERE ID_EMPLEADO=1",
+      assert.equal(consultaScn.status, 0);
+      scn = Number(consultaScn.stdout.trim());
+      assert.ok(Number.isSafeInteger(scn) && scn > 0);
+      administrar(
+        `DECLARE h NUMBER; estado VARCHAR2(30); BEGIN
+        h:=DBMS_DATAPUMP.OPEN('EXPORT','SCHEMA',job_name=>'N2EX_${sufijo}');
+        DBMS_DATAPUMP.ADD_FILE(h,'copia.dmp','${directorio}');
+        DBMS_DATAPUMP.ADD_FILE(h,'export.log','${directorio}',filetype=>DBMS_DATAPUMP.KU$_FILE_TYPE_LOG_FILE);
+        DBMS_DATAPUMP.METADATA_FILTER(h,'SCHEMA_EXPR','IN (''${fuente}'')');
+        DBMS_DATAPUMP.METADATA_FILTER(h,'EXCLUDE_PATH_EXPR','IN (''USER'')');
+        DBMS_DATAPUMP.SET_PARAMETER(h,'FLASHBACK_SCN',${scn});
+        DBMS_DATAPUMP.START_JOB(h); DBMS_DATAPUMP.WAIT_FOR_JOB(h,estado);
+        IF estado<>'COMPLETED' THEN RAISE_APPLICATION_ERROR(-20099,'Exportación incompleta'); END IF;
+        h:=DBMS_DATAPUMP.OPEN('IMPORT','SCHEMA',job_name=>'N2IM_${sufijo}');
+        DBMS_DATAPUMP.ADD_FILE(h,'copia.dmp','${directorio}');
+        DBMS_DATAPUMP.ADD_FILE(h,'import.log','${directorio}',filetype=>DBMS_DATAPUMP.KU$_FILE_TYPE_LOG_FILE);
+        DBMS_DATAPUMP.METADATA_REMAP(h,'REMAP_SCHEMA','${fuente}','${usuario}');
+        DBMS_DATAPUMP.START_JOB(h); DBMS_DATAPUMP.WAIT_FOR_JOB(h,estado);
+        IF estado<>'COMPLETED' THEN RAISE_APPLICATION_ERROR(-20099,'Importación incompleta'); END IF;
+      END;\n/`,
+        300000,
       );
-      await c.execute(
-        "UPDATE EMPLEADOS SET NUMERO_CASA='Casa-17',DIRECCION_ANTERIOR='Dirección original conservada' WHERE ID_EMPLEADO=1",
-      );
-      await c.execute(
-        "INSERT INTO PAGOS_NOMINA(ID_EMPLEADO,MES,TIPO_PAGO,ID_NOMINA_EMPLEADO) VALUES(1,DATE '2026-01-01','ANTICIPO',1)",
-      );
-      await c.execute(
-        "INSERT INTO BOLETAS_PAGO(ID_NOMINA_EMPLEADO,CONTENIDO_PDF,SHA256) VALUES(1,TO_BLOB(UTL_RAW.CAST_TO_RAW('%PDF-1.4')),RPAD('ab',64,'ab'))",
-      );
-      await c.execute(
-        "INSERT INTO NOVEDADES_MENSUALES(ID_EMPLEADO,TIPO,MES,MONTO,DESCRIPCION,REFERENCIA) VALUES(1,'COMISION',DATE '2026-02-01',125.25,'Novedad pendiente v1','MIGRACION_V1')",
-      );
+    } finally {
+      administrar(`DECLARE h NUMBER; BEGIN
+        FOR j IN (SELECT JOB_NAME,STATE FROM DBA_DATAPUMP_JOBS WHERE OWNER_NAME='SYS' AND JOB_NAME IN ('N2EX_${sufijo}','N2IM_${sufijo}')) LOOP
+          IF j.STATE='NOT RUNNING' THEN
+            EXECUTE IMMEDIATE 'DROP TABLE SYS.'||DBMS_ASSERT.SIMPLE_SQL_NAME(j.JOB_NAME)||' PURGE';
+          ELSE
+            h:=DBMS_DATAPUMP.ATTACH(j.JOB_NAME,'SYS'); DBMS_DATAPUMP.STOP_JOB(h,1,0);
+          END IF;
+        END LOOP;
+      END;\n/`);
+      if (directorioCreado) administrar(`DROP DIRECTORY ${directorio};`);
+      execFileSync('docker', ['compose', 'exec', '-T', 'nomina2-db', 'rm', '-rf', ruta]);
     }
-    await c.commit();
-  });
+    db = await crearBaseDatos(validarEntorno(entorno));
+  } else {
+    const archivo = join(carpeta, 'origen.tar');
+    execFileSync(
+      'git',
+      ['archive', '--format=tar', '--output', archivo, origen, 'backend', 'db', 'package.json'],
+      { cwd: raiz },
+    );
+    execFileSync('tar', ['-xf', archivo, '-C', carpeta]);
+    await symlink(join(raiz, 'node_modules'), join(carpeta, 'node_modules'), 'dir');
+    await symlink(join(raiz, 'backend/node_modules'), join(carpeta, 'backend/node_modules'), 'dir');
+    const servidor = join(carpeta, 'backend/e2e/server.ts');
+    const fuente = await readFile(servidor, 'utf8');
+    assert.ok(fuente.includes('const salud = crearSaludService'));
+    // v1.1 ya permite preparar sin abrir la API; los cortes anteriores requieren retirar el arranque.
+    await writeFile(
+      servidor,
+      desdeV11
+        ? fuente
+        : fuente.split('const salud = crearSaludService')[0] + '\nawait db.cerrar();\n',
+    );
+    administrar(
+      `CREATE USER ${usuario} IDENTIFIED BY "${entorno.DB_PASSWORD}" DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;\nGRANT CONNECT, RESOURCE TO ${usuario};`,
+    );
+    creado = true;
+    // La fixture v0 exige este prefijo; el identificador sigue siendo exclusivamente temporal.
+    const fixture = (await readFile(servidor, 'utf8')).replace('N2E2E_', 'N2MIG_');
+    await writeFile(servidor, fixture);
+    const r = spawnSync(process.execPath, ['--import', 'tsx', servidor], {
+      cwd: raiz,
+      env: entorno,
+      encoding: 'utf8',
+      timeout: 120000,
+    });
+    if (r.status !== 0) throw new Error(`No se pudo preparar la copia ${origen}: ${r.stderr}`);
+    db = await crearBaseDatos(validarEntorno(entorno));
+    await db.conConexion(async (c) => {
+      for (const sql of (
+        await readFile(new URL('../db/fixtures/migracion_v0.sql', import.meta.url), 'utf8')
+      )
+        .split(/\n\/\s*(?:\n|$)/)
+        .map((s) => s.trim())
+        .filter(Boolean))
+        await c.execute(
+          (desdeV1
+            ? sql.replace(
+                /FROM TIPOS_(DESCUENTO|SOLICITUD) WHERE CODIGO=/g,
+                'FROM TIPOS_$1 WHERE CODIGO_ANTERIOR=',
+              )
+            : sql
+          ).replace(/;\s*$/, ''),
+        );
+      if (desdeV1 && !desdeV11) {
+        // Reproduce equivalencias, sufijo ocupado y colisión del UNIQUE exacto antiguo.
+        for (const nombre of [
+          'Ingeniería migrada',
+          ' ingenieria   migrada ',
+          'INGENIERÍA MIGRADA',
+          'Ingeniería migrada (duplicado 2)',
+        ])
+          await c.execute('INSERT INTO DEPARTAMENTOS(NOMBRE) VALUES(:nombre)', { nombre });
+        for (const nombre of [' Parentesco migrado ', 'Parentesco migrado'])
+          await c.execute('INSERT INTO PARENTESCOS(NOMBRE) VALUES(:nombre)', { nombre });
+        await c.execute(
+          "INSERT INTO PUESTOS(NOMBRE,ID_DEPARTAMENTO) SELECT 'Puesto de referencia migrada',ID_DEPARTAMENTO FROM DEPARTAMENTOS WHERE NOMBRE=' ingenieria   migrada '",
+        );
+        await c.execute(
+          "UPDATE EMPLEADOS SET (ID_PUESTO,ID_DEPARTAMENTO)=(SELECT ID_PUESTO,ID_DEPARTAMENTO FROM PUESTOS WHERE NOMBRE='Puesto de referencia migrada') WHERE ID_EMPLEADO=1",
+        );
+        await c.execute(
+          "UPDATE EMPLEADOS SET NUMERO_CASA='Casa-17',DIRECCION_ANTERIOR='Dirección original conservada' WHERE ID_EMPLEADO=1",
+        );
+      }
+      if (desdeV11) {
+        // Una corrección archivada no obliga a conservar su nombre tras una edición posterior.
+        await c.execute(
+          "INSERT INTO DEPARTAMENTOS(NOMBRE) VALUES('Catálogo revisado posteriormente')",
+        );
+        await c.execute(`INSERT INTO CATALOGOS_NOMBRES_CORREGIDOS(TABLA,ID_REGISTRO,NOMBRE_ANTERIOR,NOMBRE_NUEVO)
+          SELECT 'DEPARTAMENTOS',ID_DEPARTAMENTO,'Catálogo anterior','Catálogo anterior (duplicado 2)' FROM DEPARTAMENTOS WHERE NOMBRE='Catálogo revisado posteriormente'`);
+      }
+      if (desdeV1) {
+        await c.execute(
+          "INSERT INTO PAGOS_NOMINA(ID_EMPLEADO,MES,TIPO_PAGO,ID_NOMINA_EMPLEADO) VALUES(1,DATE '2026-01-01','ANTICIPO',1)",
+        );
+        await c.execute(
+          "INSERT INTO BOLETAS_PAGO(ID_NOMINA_EMPLEADO,CONTENIDO_PDF,SHA256) VALUES(1,TO_BLOB(UTL_RAW.CAST_TO_RAW('%PDF-1.4')),RPAD('ab',64,'ab'))",
+        );
+        await c.execute(
+          "INSERT INTO NOVEDADES_MENSUALES(ID_EMPLEADO,TIPO,MES,MONTO,DESCRIPCION,REFERENCIA) VALUES(1,'COMISION',DATE '2026-02-01',125.25,'Novedad pendiente v1','MIGRACION_V1')",
+        );
+      }
+      await c.commit();
+    });
+  }
   // Oracle no admite binds de identificadores; se validan los nombres del diccionario.
   const identificador = (nombre) => {
     assert.match(nombre, /^[A-Z][A-Z0-9_]*$/);
     return nombre;
   };
-  const fotografia = () =>
-    db.conConexion(async (c) => {
+  const fotografia = (base = db, corte) =>
+    base.conConexion(async (c) => {
       const tablas = (await c.execute('SELECT TABLE_NAME FROM USER_TABLES ORDER BY TABLE_NAME'))
         .rows;
       const resultado = {};
@@ -170,7 +269,10 @@ try {
         ).rows.map(([n]) => n);
         assert.equal(pk.length, 1, `${tabla}: PK única conocida.`);
         const filas = (
-          await c.execute(`SELECT * FROM ${identificador(tabla)} ORDER BY ${identificador(pk[0])}`)
+          await c.execute(
+            `SELECT * FROM ${identificador(tabla)}${corte ? ' AS OF SCN :corte' : ''} ORDER BY ${identificador(pk[0])}`,
+            corte ? { corte } : {},
+          )
         ).rows;
         resultado[tabla] = {
           columnas,
@@ -185,6 +287,14 @@ try {
       return resultado;
     });
   const antes = await fotografia();
+  if (copiaInstalada) {
+    assert.ok(
+      isDeepStrictEqual(antes, await fotografia(fuenteDb, scn)),
+      'La copia debe ser idéntica al origen en la SCN exportada.',
+    );
+    await fuenteDb.cerrar();
+    fuenteDb = undefined;
+  }
   assert.equal(
     await db.conConexion(
       async (c) => (await c.execute('SELECT MAX(VERSION) FROM VERSION_ESQUEMA')).rows[0][0],
@@ -197,7 +307,12 @@ try {
   );
   await ejecutarSeeds(db, logger, admin);
   const despues = await fotografia();
-  const correcciones = despues.CATALOGOS_NOMBRES_CORREGIDOS.filas;
+  const correcciones = despues.CATALOGOS_NOMBRES_CORREGIDOS.filas.filter(
+    (f) =>
+      !(antes.CATALOGOS_NOMBRES_CORREGIDOS?.filas ?? []).some(
+        (a) => a.ID_CATALOGO_NOMBRE_CORREGIDO === f.ID_CATALOGO_NOMBRE_CORREGIDO,
+      ),
+  );
   const informe = [];
   // Únicos cambios intencionales: códigos archivados, sexo O archivado, contratos,
   // fechas de cuotas archivadas, inactivación de plantilla versionada y fechas de auditoría.
@@ -234,7 +349,7 @@ try {
           destino = 'CODIGO_ANTERIOR';
         if (tabla === 'EMPLEADOS') {
           if (!desdeV1 && columna === 'SEXO') destino = 'SEXO_ANTERIOR';
-          if (columna === 'DIRECCION') destino = 'DIRECCION_COMPLETA';
+          if (!desdeV11 && columna === 'DIRECCION') destino = 'DIRECCION_COMPLETA';
           if (columna === 'NUMERO_CASA') destino = 'DIRECCION';
         }
         const correccion = correcciones.find(
@@ -294,9 +409,8 @@ try {
           );
           continue;
         }
-        assert.deepEqual(
-          actual[destino],
-          original[columna],
+        assert.ok(
+          isDeepStrictEqual(actual[destino], original[columna]),
           `${tabla}.${columna}: valor original perdido.`,
         );
       }
@@ -310,12 +424,11 @@ try {
   }
   assert.equal(await ejecutarMigraciones(db, logger), 0);
   await ejecutarSeeds(db, logger, admin);
-  assert.deepEqual(
-    await fotografia(),
-    despues,
+  assert.ok(
+    isDeepStrictEqual(await fotografia(), despues),
     'Reejecución debe conservar exactamente todos los datos.',
   );
-  if (desdeV1) {
+  if (desdeV1 && !desdeV11) {
     assert.equal(
       correcciones.length,
       3,
@@ -353,6 +466,7 @@ try {
   });
   const resumen = {
     origen,
+    copiaInstalada,
     destino,
     tablas: informe,
     duplicadosCorregidos: correcciones.map(
@@ -366,7 +480,16 @@ try {
     huellaOrigen: createHash('sha256').update(JSON.stringify(antes)).digest('hex'),
   };
   await writeFile(
-    join(raiz, desdeV1 ? 'tmp/migracion-v1-v1.1.json' : 'tmp/migracion-v0-v1.json'),
+    join(
+      raiz,
+      copiaInstalada
+        ? 'tmp/migracion-instalada-v1.1-v1.2.json'
+        : desdeV11
+          ? 'tmp/migracion-v1.1-v1.2.json'
+          : desdeV1
+            ? 'tmp/migracion-v1-v1.1.json'
+            : 'tmp/migracion-v0-v1.json',
+    ),
     JSON.stringify(resumen, null, 2),
   );
   console.table(informe);
@@ -374,6 +497,7 @@ try {
     `✓ ${origen} → ${destino}: PK, valores, snapshots, documentos y saldos conservados; seeds y migración repetibles.`,
   );
 } finally {
+  await fuenteDb?.cerrar();
   await db?.cerrar();
   if (creado) administrar(`DROP USER ${usuario} CASCADE;`);
   await rm(carpeta, { recursive: true, force: true });

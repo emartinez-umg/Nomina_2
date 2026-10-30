@@ -6,7 +6,7 @@ export const ayudaExpediente: DefinicionAyuda = {
       elemento: 'expediente-resumen',
       titulo: 'Expediente X de Y',
       descripcion:
-        'Cuenta los tipos obligatorios con una versión actual activa y vigente. Un documento vencido, dado de baja o sin fecha cuando se exige no completa el expediente. Las versiones reemplazadas se conservan en Historial. El empleado solo consulta sus propios documentos; los permisos de jefatura no autorizan consultar expedientes del equipo.',
+        'Cuenta los tipos obligatorios con una versión actual activa y vigente. Un documento vencido, dado de baja o sin fecha cuando se exige no completa el expediente. Las versiones reemplazadas se conservan en Historial. Busca «expediente digital» con Ctrl/⌘ K: RH y ADMIN acceden por Empleados → ficha → Documentos; el empleado por Mis datos → Consultar mi expediente. Los permisos de jefatura no autorizan consultar expedientes del equipo.',
     },
     {
       elemento: 'expediente-tipos',

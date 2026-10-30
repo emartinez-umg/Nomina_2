@@ -201,7 +201,7 @@ describe('Fase 9: Oracle real, permisos, snapshots y liquidación atómica', () 
       ),
     );
     const r = await post('/simular', { idEmpleado: empleado, corte, causa: 'RENUNCIA' }, 409);
-    expect(r.body.error.mensaje).toContain('Falta registrar el pago de BONO_14');
+    expect(r.body.error.mensaje).toContain('Falta registrar el pago de Bono 14');
   });
   it('vista masiva con aumento, comisión variable y proporcionalidad', async () => {
     const p = await preview();

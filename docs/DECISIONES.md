@@ -452,3 +452,48 @@ referencias y resultados por fase están en [PROGRESO_V1.md](PROGRESO_V1.md).
 - Los hallazgos históricos requieren diagnóstico de solo lectura y reversión explícita por ADMIN,
   seguida de simulación y confirmación nuevas. Procedimiento en `docs/NOMINA_V1.md`; no se corrigen
   pagos automáticamente ni se editan migraciones anteriores.
+
+## Ronda 3 — cierre R3-13
+
+- La aceptación ejecuta la aplicación compilada en imágenes Node 20/nginx con TLS y Oracle;
+  Playwright no intercepta las respuestas de negocio de los escenarios nuevos. Las fixtures,
+  cuentas y archivos viven exclusivamente en esquemas/volúmenes aleatorios y se retiran.
+- La migración reproducible parte del código/SQL original `v1.1` V035, conserva las 76 tablas
+  existentes y verifica PK, columnas, importes, BLOB/CLOB, restricciones e idempotencia hasta
+  V043. La modalidad `--copy-installed` usa además Data Pump con SCN única: la copia debe ser
+  idéntica al origen antes de migrar. Solo administra el clon y sus objetos temporales.
+  No modifica migraciones previas, pagos, PDFs ni el esquema operativo.
+- La identidad del jefe y las ramas autorizadas se resuelven desde la sesión en cada consulta.
+  Los permisos son independientes: directorio, comisiones y vacaciones. DTO, filtros, opciones,
+  años y exportaciones se intersectan con ese alcance; no conceden ficha salarial, banco,
+  DPI/NIT, documentos o actas de otra persona. El jefe conserva el derecho de empleado a sus
+  propios documentos. Colisiones de vacaciones permanecen exclusivas de RH/ADMIN.
+- Las lecturas/descargas de expediente y actas requieren autorización vigente y auditoría
+  confirmada antes de entregar bytes; un fallo de bitácora impide el acceso. El volumen privado
+  no se monta en nginx y la API no publica rutas estáticas para sus archivos. Las pruebas
+  verifican también solicitudes anónimas contra archivos existentes a través de nginx.
+- El buscador no indexaba «expediente digital»: se añaden sinónimos a Empleados (RH/ADMIN) y
+  Mis datos (EMPLEADO, incluido jefe). La ayuda explica la ruta hasta Documentos y la consulta
+  propia; se conservan menú, guard y alcance. Regresión por los tres roles y Ctrl/⌘ K.
+
+### Supuestos pendientes de validar con el contador y RH
+
+- Bonificación incentivo proporcional por ingreso/egreso y ausencias, anticipo adelantado con
+  tope mensual, divisor de 30 y convención de días parciales. Son los criterios C1 solicitados,
+  pendientes de aceptación contable; se prueban con importes independientes de la implementación.
+- Una sola consolidación mensual: devengado del Pago, deducciones sin neteo del anticipo y
+  neto como suma de desembolsos. El periodo solo con Anticipo es parcial; prestaciones se
+  informan aparte. Contrastar esa presentación y la conciliación fiscal con el contador.
+- Bono 14/Aguinaldo atrasados mantienen el ciclo legal original, fecha real de desembolso y
+  motivo auditado. Validar tratamiento fiscal y documentación del atraso; el sistema no
+  convierte un pago tardío en oportuno ni cambia comprobantes históricos.
+- Montos, tasas IGSS/ISR, exenciones, proyección anual, comisiones/horas del promedio de
+  prestaciones y política de apertura fiscal estimada necesitan aprobación contable previa
+  al uso real. El cierre técnico no certifica cumplimiento legal ni historia no acreditada.
+- RH debe validar el umbral de vacaciones de 15 días, la política inicial de suspensión de
+  ocho días y la plantilla de actas. Anular un acta conserva la ausencia vinculada y pagos:
+  requiere revisión autorizada en Novedades; no se revierten cobros automáticamente.
+- Se mantiene el pendiente transversal ya documentado en R3-11: actualización mayor de Zod
+  por GHSA-mrhx-c7xc-m3w5. No se cambia de versión sin una fase de compatibilidad de esquemas.
+  Los archivos nuevos usan stream acotado y los filtros restringen tamaño/cantidad de entradas;
+  estas defensas no equivalen a declarar resuelto el aviso de la dependencia.

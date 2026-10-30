@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
+import { sinCodigosInternos } from './presentacion.helpers.js';
 test('R3-8: jefatura concede y revoca acceso al equipo manteniendo el rol Empleado', async ({
   page,
   browser,
@@ -79,6 +80,8 @@ test('R3-8: jefatura concede y revoca acceso al equipo manteniendo el rol Emplea
     await empleada.getByRole('button', { name: 'Mi equipo', exact: true }).click();
     await empleada.getByRole('link', { name: /^Mi equipo/ }).click();
     await expect(empleada.getByRole('cell', { name: 'Ajeno E2E', exact: true })).toBeVisible();
+    await expect(empleada).toHaveTitle('Mi equipo | nomina2');
+    await sinCodigosInternos(empleada);
     await expect(empleada.getByRole('cell', { name: 'Destinatario E2E', exact: true })).toHaveCount(
       0,
     );
@@ -89,6 +92,15 @@ test('R3-8: jefatura concede y revoca acceso al equipo manteniendo el rol Emplea
       'EMPLEADO',
     );
     expect((await empleada.request.get(`/api/empleados/${miembro.id}`)).status()).toBe(403);
+    expect((await empleada.request.get(`/api/expedientes/empleados/${miembro.id}`)).status()).toBe(
+      403,
+    );
+    expect((await empleada.request.get(`/api/actas/antecedentes/${miembro.id}`)).status()).toBe(
+      403,
+    );
+    const actas = await empleada.request.get(`/api/actas?idEmpleado=${miembro.id}`);
+    expect(actas.status()).toBe(200);
+    expect((await actas.json()).data.total).toBe(0);
     await empleada.screenshot({ path: 'tmp/pdfs/r3-8-directorio.png', fullPage: true });
     await empleada.bringToFront();
     await empleada.getByRole('button', { name: 'Buscar sección o acción', exact: true }).focus();
@@ -101,7 +113,9 @@ test('R3-8: jefatura concede y revoca acceso al equipo manteniendo el rol Emplea
     ).toBeVisible();
     await empleada.keyboard.press('Escape');
     await empleada.getByRole('link', { name: 'Saldos de vacaciones del equipo' }).click();
+    await expect(empleada).toHaveTitle('Vacaciones de mi equipo | nomina2');
     await expect(empleada.getByRole('cell', { name: 'Ajeno E2E', exact: true })).toBeVisible();
+    await sinCodigosInternos(empleada);
     await expect(empleada.getByRole('button', { name: 'Configurar umbral' })).toHaveCount(0);
     await empleada.getByRole('button', { name: 'Filtros', exact: true }).click();
     await expect(

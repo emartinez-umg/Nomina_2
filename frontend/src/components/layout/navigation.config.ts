@@ -49,7 +49,7 @@ const compartidos: GrupoNavegacion[] = [
         '/empleados',
         'empleados',
         'Consulta y gestiona los expedientes del personal.',
-        ['personal', 'colaboradores'],
+        ['personal', 'colaboradores', 'expediente digital', 'documentos'],
       ),
       acceso(
         'carga-masiva',
@@ -513,7 +513,7 @@ export const navigation: Record<Rol, GrupoNavegacion[]> = {
           '/mis-gestiones/datos',
           'usuario',
           'Revisa y actualiza tu información personal.',
-          ['teléfono', 'correo', 'dirección', 'perfil'],
+          ['teléfono', 'correo', 'dirección', 'perfil', 'expediente digital', 'documentos'],
         ),
       ],
       acciones: [

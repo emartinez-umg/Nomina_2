@@ -153,9 +153,10 @@ test('R2-9: cuatro recuadros primero, alternancias y enlaces filtrados con Oracl
   await page.screenshot({ path: 'tmp/pdfs/r2-9-dashboard-escritorio.png', fullPage: true });
   await page.getByRole('button', { name: 'Ayuda de esta página', exact: true }).click();
   await expect(page.locator('.driver-popover-title')).toHaveText(
-    'Comparar remuneraciones confirmadas',
+    'Personal con saldo de vacaciones en alerta',
   );
   for (const titulo of [
+    'Comparar remuneraciones confirmadas',
     'Distinguir días de inasistencia',
     'Organizar las vacaciones del equipo',
     'Celebrar cumpleaños y aniversarios',

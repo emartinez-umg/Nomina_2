@@ -23,7 +23,10 @@ const pdf = () =>
   });
 let empleado: number, documento: number;
 test.describe.serial('R3-11: expediente privado de extremo a extremo', () => {
-  test('RH completa, visualiza, reemplaza y da de baja con trazabilidad', async ({ page }) => {
+  test('RH completa, visualiza, reemplaza y da de baja con trazabilidad', async ({
+    page,
+    request,
+  }) => {
     const errores: string[] = [];
     page.on('pageerror', (e) => errores.push(e.message));
     await entrar(page, 'revisor.pruebas');
@@ -115,6 +118,13 @@ test.describe.serial('R3-11: expediente privado de extremo a extremo', () => {
     const ficha = (await (await page.request.get(`/api/expedientes/empleados/${empleado}`)).json())
       .data;
     documento = ficha.actuales.find((x: { idTipo: number }) => x.idTipo === tipos[0]!.id).id;
+    for (const archivo of ficha.actuales as { id: number }[]) {
+      for (const sufijo of ['', '?vista=1']) {
+        const privado = await request.get(`/api/expedientes/documentos/${archivo.id}${sufijo}`);
+        expect(privado.status()).toBe(401);
+        expect(privado.headers()['content-type']).toContain('application/json');
+      }
+    }
     await dpi.getByRole('button', { name: 'Dar de baja' }).click();
     await page
       .getByRole('dialog')

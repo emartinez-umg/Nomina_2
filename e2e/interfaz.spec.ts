@@ -1,4 +1,4 @@
-import { estados } from '../backend/src/shared/presentacion/estados.js';
+import { sinCodigosInternos } from './presentacion.helpers.js';
 import { mkdir } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
 const cuentas = {
@@ -15,19 +15,6 @@ async function entrar(page: Page, rol: keyof typeof cuentas) {
     .fill(rol === 'ADMIN' ? process.env.ADMIN_PASSWORD! : process.env.E2E_PASSWORD!);
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
   await expect(page).toHaveURL(cuentas[rol][1]);
-}
-/** Se admiten únicamente identificadores públicos del registro, que C2 exige mantener visibles. */
-async function sinCodigosInternos(page: Page) {
-  const texto = await page.locator('body').innerText();
-  const tokens = texto.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b/g) ?? [];
-  expect(
-    tokens.filter(
-      (c) =>
-        (c.includes('_') || Object.hasOwn(estados, c)) &&
-        !/^(?:EMP_[A-Z0-9]+_\d+|(?:SOL|PRE|DES|EVT|ANU|ACT)_\d{4}_\d+)$/.test(c),
-    ),
-    `Códigos visibles en ${page.url()}`,
-  ).toEqual([]);
 }
 const rutas = {
   ADMIN: [
@@ -46,6 +33,11 @@ const rutas = {
     ['/nomina/simular', 'Simular pago'],
     ['/planilla', 'Planilla'],
     ['/vacaciones', 'Vacaciones'],
+    ['/vacaciones/saldos', 'Saldos de vacaciones'],
+    ['/estadisticas/comisiones', 'Estadísticas de comisiones'],
+    ['/actas', 'Actas administrativas'],
+    ['/actas/nueva', 'Nueva acta'],
+    ['/catalogos/jefaturas', 'Jefaturas'],
     ['/solicitudes', 'Solicitudes'],
     ['/prestaciones', 'Prestaciones'],
     ['/comunicacion/eventos', 'Eventos'],
@@ -53,6 +45,7 @@ const rutas = {
   EMPLEADO: [
     ['/mis-gestiones', 'Mis gestiones'],
     ['/mis-gestiones/boletas', 'Mis boletas'],
+    ['/mis-gestiones/actas', 'Mis actas'],
     ['/mis-gestiones/vacaciones', 'Mis vacaciones'],
     ['/mis-gestiones/solicitudes', 'Mis solicitudes'],
     ['/mis-gestiones/datos', 'Mis datos'],
@@ -63,6 +56,18 @@ for (const rol of ['ADMIN', 'RH', 'EMPLEADO'] as const) {
   test(`R3-4: títulos y texto visible de pantallas principales ${rol}`, async ({ page }) => {
     await mkdir('tmp/pdfs', { recursive: true });
     await entrar(page, rol);
+    for (const atajo of ['Control+k', 'Meta+k']) {
+      await page.keyboard.press(atajo);
+      const paleta = page.getByRole('dialog', { name: 'Buscar en el sistema' });
+      await expect(paleta).toBeVisible();
+      await paleta.getByRole('combobox').fill('expediente digital');
+      await expect(
+        paleta
+          .getByRole('option')
+          .filter({ hasText: rol === 'EMPLEADO' ? 'Mis datos de contacto' : 'Empleados' }),
+      ).toBeVisible();
+      await page.keyboard.press('Escape');
+    }
     for (const [ruta, titulo] of rutas[rol]) {
       await page.goto(ruta);
       await expect(page).toHaveTitle(`${titulo} | nomina2`);

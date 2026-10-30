@@ -4316,3 +4316,132 @@ Estado: implementada el 29/10/2026 en `v1.2`. Alcance C8; sin despliegue operati
 5. Despliegue operativo no solicitado: V043 se aplica con el runner habitual al reconstruir API.
    RH debe validar el tope y el texto de la plantilla antes del uso real. Se mantiene el pendiente
    transversal de actualización mayor de Zod documentado en R3-11; no corresponde a esta fase.
+
+## Ronda 3 — FASE R3-13: cierre de la ronda
+
+Estado: implementada y aceptada el 29/10/2026 en `v1.2`. Sin despliegue operativo.
+
+### Hecho y correcciones
+
+- Revisados AGENTS.md y adendos v1/v1.1/v1.2, progreso de la ronda y pruebas existentes.
+  Se conserva el alcance del cierre: sin migraciones nuevas ni cambios a cálculos confirmados.
+- Nuevos E2E reales para ingreso 24/10 sin anticipo ni boleta cero, pago con anticipo cero e
+  incentivo Q66.67; ingreso 08/10 con Q2,533.33 de anticipo, incentivo mensual Q200 y devengado
+  Q7,400. Historial paginado conserva ingresos Q7,400 e IGSS Q347.76 sin sumar otra vez el anticipo.
+- Bono 14 extemporáneo desde UI con motivo obligatorio, confirmación, PDF e idempotencia;
+  una huella de snapshot, SHA del PDF, neto y estado prueba que el Pago de octubre queda intacto.
+- Matriz anónima a través de nginx sobre todas las familias nuevas de consulta/exportación;
+  comprueba 401 JSON. Expediente/actas prueban además archivos reales existentes, tanto vista
+  como descarga. Jefe rechaza ficha salarial, expediente y antecedentes del miembro del equipo.
+- Ampliados títulos/escáner de estados a módulos nuevos, directorio/saldos del jefe; la matriz
+  de ayuda/hints/axe incluye Actas, alta, saldos, estadísticas y Documentos/Actas de la ficha.
+- Se reprodujo que «expediente digital» no encontraba una ruta en ADMIN, RH ni EMPLEADO:
+  tres regresiones fallaron antes del arreglo. Sinónimos compartidos y ayuda apuntan a Empleados
+  → ficha → Documentos o Mis datos → Consultar mi expediente; se prueban Ctrl y ⌘ K en los tres roles.
+- La regresión integrada encontró contaminación entre specs: el finiquito inactivaba Ajeno,
+  las jefaturas dejaban de estar vacías y los pagos/ausencias modificaban otros escenarios.
+  El runner ahora construye imágenes una vez y prepara BD, API y volumen nuevos por spec,
+  conserva los flujos seriales dentro de cada archivo y retira recursos entre módulos.
+  Los informes quedan separados en playwright-report/ y tmp/e2e/; resumen en tmp/e2e-resumen.json.
+  No se relajan reglas ni aserciones para hacer compatibles fixtures que se contradicen.
+- Una expectativa Oracle anterior exigía «BONO_14» en el mensaje del finiquito; se actualiza
+  deliberadamente a «Bono 14» conforme a C2, manteniendo 409 y el bloqueo de la obligación pendiente.
+- README incorpora matriz reproducible y actualización/respaldo; DECISIONES registra alcance,
+  seguridad, supuestos contables y el pendiente transversal de Zod ya existente.
+
+### Migración y datos conservados
+
+- Nuevo `verify:migration:v1.1`, incluido en verify:all: reconstruye `v1.1` V035 desde Git,
+  semillas/servicios originales y transacciones de regresión, aplica V036–V043 y compara las
+  76 tablas previas, todas sus PK/columnas, BLOB/CLOB, snapshots, saldos y restricciones.
+- Se confirmó por consulta que la instalación local aún estaba en V035. La modalidad
+  `--copy-installed` usa Data Pump y una SCN única, compara el clon con el origen en ese corte
+  y migra exclusivamente el clon. Dump en directorio 0700, SQL/identificadores validados,
+  fallos sin volcar datos personales y limpieza de trabajos, dump, directorio y esquema.
+- **Copia instalada: 2,339 filas originales conservadas de 2,339, en 76 tablas; 2,357 finales**
+  en esas tablas tras catálogos/semillas aditivas. Empleados 36→36, nóminas 37→37, detalles
+  259→259, documentos 1→1, kardex 1→1; usuarios 38 originales conservados, 39 totales por el
+  ADMIN exclusivo de prueba insertado únicamente en el clon. No se tocó el usuario operativo.
+- El comparador previo trataba una corrección histórica de catálogo como si acabara de ocurrir,
+  y rechazaba nombres editados legítimamente después. Ahora considera solo correcciones nuevas;
+  se añade esa historia a la fixture reproducible de v1.1. Las filas de auditoría previas también
+  deben conservarse. El cotejo de origen/clon y la repetición usan igualdad sin imprimir valores.
+- La primera importación excedió el límite de preparación de 120 s; se concede hasta 300 s
+  a Data Pump y se limpian también trabajos interrumpidos. La copia junto con E2E y otra suite
+  agotó temporalmente USERS (ORA-01658); retirado el clon, se repiten las suites afectadas.
+  No se amplía ni vacía el tablespace operativo, ni se borran datos ajenos a esta aceptación.
+- Runner y semillas repetidos sin diferencias; cero objetos inválidos y restricciones activas.
+  Informes locales ignorados: migracion-v1.1-v1.2.json y migracion-instalada-v1.1-v1.2.json.
+  Diagnóstico scripts/diagnostico-anticipos.sql probado por verify:pagos: casos correctos y
+  anomalías de ingreso/egreso, sin modificar snapshots ni bitácora.
+
+### Supuestos y pendientes operativos
+
+- Validar con el contador los criterios C1 de incentivo/anticipo y convención de días, la
+  conciliación mensual, atraso de prestaciones y proyección/apertura fiscal. RH valida umbral
+  de vacaciones, días de suspensión y plantilla de actas. Detalle en DECISIONES, sin certificación legal.
+- Se conserva el aviso previo GHSA-mrhx-c7xc-m3w5 de Zod; su actualización mayor exige una fase
+  de compatibilidad. No se declara corregida por las restricciones de entrada de C7/C8.
+- El despliegue operativo no se ejecuta: el ensayo usa una copia y otra instalación Compose
+  vacía. La BD operativa debe conservar V035 y los servicios/volúmenes originales.
+
+### Validación de cierre
+
+- **961 pruebas aprobadas**: 543 backend, 409 frontend y nueve del exportador. Backend completo
+  repetido dentro de la imagen **Node 20: 543/543**. Lint, TypeScript estricto (incluido E2E),
+  builds, formato, secretos y diff correctos. Se conserva el aviso conocido de chunks Vite >500 kB.
+- **283 Oracle/Supertest aprobadas en 18 suites Node 20**, con esquemas desechables: empleados,
+  pagos/diagnóstico, novedades, vacaciones, catálogos, jefaturas/permisos, horarios, empresa,
+  ubicaciones, códigos, seguridad, prestaciones, solicitudes, tableros, comisiones, actas,
+  expedientes y comunicación. Repetidas las afectadas tras retirar el clon de migración.
+- Actualizadas dos expectativas antiguas de comunicación: alertas ahora comprueba exactamente
+  dos contratos, periodo, empleado sin jefatura y jefatura sin jefe; la versión del sistema se
+  compara con el manifiesto vigente, en lugar de exigir V035. No se debilitan sus controles.
+- Migraciones desde cero y cortes v0.0/v1/v1.1 hasta V043: correctas, restricciones válidas,
+  repetición sin diferencias y limpieza confirmada. La fixture v1.1 actualizada conserva
+  **756/756 filas originales** (772 totales finales en las 76 tablas previas), incluida una
+  corrección histórica editada después. Copia instalada: conteos detallados arriba.
+- Infraestructura operativa consultada sin escrituras: salud API/Oracle thin, nginx, TLS, SPA,
+  módulos JS y worker PDF correctos.
+- Matriz Playwright de ayuda aprobada: **158 vistas y 2,303 pasos**, incluidos módulos nuevos,
+  campos, teclado, axe A/AA y portal móvil. **91/91 E2E aprobados en 16 specs aislados**.
+  La expectativa antigua del recorrido de Inicio se corrigió y su archivo se repitió (3/3);
+  los informes finales de los 16 archivos tienen cero fallos, omitidas o pruebas inestables.
+  Resumen agregado: tmp/r3-13-aceptacion.json; informes por archivo en tmp/e2e/.
+- El primer arranque limpio encontró **ENOSPC** en el disco Docker. Se retiraron 1.768 GB de
+  caché sin uso y doce imágenes sin etiqueta cuyo package.json confirmó nomina2. Como no bastó,
+  se retiró la imagen descargable gvenzl/oracle-xe:21-full (6.74 GB), sin ningún contenedor
+  asociado; digest conservado en tmp/r3-13-imagen-oracle-cache.json. Se recuperaron 8.8 GB libres.
+  Ningún contenedor previo, volumen ni respaldo etiquetado se borró. Repetición limpia aprobada: V043, cero pendientes y objetos inválidos; HTTPS, login, cambio
+  obligatorio, sesión Secure, ayuda/axe, catálogo de actas y archivos sin sesión rechazados.
+  Proyecto de aceptación y volúmenes retirados al finalizar.
+- El comando npm test sin límite de workers reprodujo saturación de jsdom al competir con
+  Docker: timeout de acciones de catálogos y espera de login. Se fija maxWorkers=2 en la
+  configuración de ambos workspaces (jsdom y hashes Argon2), igual que las pasadas completas
+  ya aprobadas, sin elevar tiempos ni
+  cambiar aserciones. El comando estándar se repite con esa configuración.
+- La prueba de Inicio esperaba el primer paso de ayuda de R2 y omitía el nuevo aviso R3-7.
+  Ahora verifica ese aviso y después los cuatro recuadros originales, en orden; se repite el
+  archivo para conservar todas sus aserciones y la nueva explicación de saldos.
+- La espera unitaria de login ADMIN incluía por azar compilar la pantalla lazy de Inicio:
+  se precarga el módulo real en beforeAll, sin sustituirlo, manteniendo ruta, pantalla, mensajes,
+  permisos y los límites de espera originales. Las repeticiones finales se ejecutan en secuencia.
+
+### Cómo reproducir y resultado
+
+1. Node 20 y npm ci; `npm run lint`, `npm test`, `npm run typecheck`, `npm run build`,
+   `npm run format:check` y `npm run verify:secrets` aprobados; npm test usa dos workers por workspace.
+2. Oracle saludable: `npm run db:verify`, `npm run verify:migration`,
+   `npm run verify:migration:v1`, `npm run verify:migration:v1.1`. Para copia instalada todavía
+   en V035: `npm run verify:migration:v1.1 -- --copy-installed` (solo Oracle local).
+3. Imagen Node 20 de pruebas según README y las 18 suites verify de módulos con `-- --docker`.
+   `npm run test:e2e -- --production` comprueba todo el build con aislamiento por spec;
+   `npm run verify:infra` y `npm run verify:clean` verifican infraestructura e instalación vacía.
+   `npm run verify:all` reúne los pasos en secuencia. Necesita espacio libre en Docker.
+4. Criterio de arranque aprobado: otro proyecto Compose con volúmenes y credenciales nuevos,
+   `up --build --wait`, V043, cero pendientes/objetos inválidos, autenticación y archivos privados.
+   Los contenedores/volúmenes de aceptación y esquemas de prueba fueron retirados; cero trabajos
+   Data Pump pendientes. Servicios operativos previos saludables, sin reconstruirlos ni migrarlos.
+5. No quedan pendientes técnicos del alcance R3-13. Permanecen la validación contable/RH y la
+   actualización mayor de Zod registradas arriba; no se presenta el cierre técnico como aprobación
+   legal ni como resolución de ese aviso transversal de dependencia.

@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, it, expect, vi } from 'vitest';
 import { Providers } from '../../../app/providers';
 import { rutas } from '../../../app/router';
 import type { Rol } from '../api/auth';
@@ -31,6 +31,10 @@ function mostrar(ruta = '/login') {
   return router;
 }
 beforeEach(() => localStorage.clear());
+beforeAll(async () => {
+  // Compila la pantalla lazy antes de medir las esperas del flujo de autenticación.
+  await import('../../inicio/pages/InicioPage');
+});
 describe('autenticación y guards', () => {
   it('explica la redirección anónima y consume su motivo después de un login exitoso', async () => {
     vi.stubGlobal(

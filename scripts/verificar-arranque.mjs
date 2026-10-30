@@ -134,6 +134,24 @@ try {
   assert.equal(sistema.version, versionEsperada);
   assert.equal(sistema.migracionesPendientes, 0);
   assert.equal(sistema.objetosInvalidos, 0);
+  for (const ruta of ['/api/actas/reglas', '/api/catalogos/tipos-acta']) {
+    const respuesta = await contexto.request.get(`https://127.0.0.1:${WEB_HTTPS_PORT}${ruta}`);
+    assert.equal(respuesta.status(), 200, ruta);
+  }
+  const anonimo = await navegador.newContext({ ignoreHTTPSErrors: true });
+  try {
+    for (const ruta of [
+      '/api/actas/1/pdf',
+      '/api/actas/adjuntos/1',
+      '/api/expedientes/documentos/1',
+    ]) {
+      const respuesta = await anonimo.request.get(`https://127.0.0.1:${WEB_HTTPS_PORT}${ruta}`);
+      assert.equal(respuesta.status(), 401, ruta);
+      assert.match(respuesta.headers()['content-type'], /application\/json/);
+    }
+  } finally {
+    await anonimo.close();
+  }
   await mkdir('tmp', { recursive: true });
   await writeFile(
     'tmp/aceptacion-limpia.json',
@@ -147,6 +165,8 @@ try {
         sesionSecure: true,
         ayudaSoloManual: true,
         axeSinInfracciones: true,
+        catalogoActasYReglas: true,
+        archivosExigenAutenticacion: true,
       },
       null,
       2,

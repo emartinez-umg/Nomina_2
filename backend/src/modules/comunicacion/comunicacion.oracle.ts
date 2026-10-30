@@ -1,4 +1,6 @@
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
+import { fileURLToPath } from 'node:url';
+import { cargarMigraciones } from '../../shared/db/migraciones.archivos.js';
 import request from 'supertest';
 import type { Express } from 'express';
 import type { BindParameters } from 'oracledb';
@@ -463,7 +465,9 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
       (f: { tipo: string }) => f.tipo === 'CUMPLEANOS',
     ))
       expect(cumple.anios).toBe(0);
-    expect(r.body.data.alertas).toHaveLength(3);
+    expect(r.body.data.alertas.map((a: { tipo: string }) => a.tipo).sort()).toEqual(
+      ['CONTRATO', 'CONTRATO', 'PERIODO', 'SIN_JEFATURA', 'SIN_JEFE'].sort(),
+    );
     await ejecutar(
       "UPDATE PERIODOS_NOMINA SET ESTADO='CERRADO',APROBADO_EN=SYSDATE,APROBADO_POR=:actor,CERRADO_EN=SYSDATE,CERRADO_POR=:actor WHERE ID_PERIODO_NOMINA=:id",
       { id, actor: admin.idUsuario },
@@ -478,7 +482,10 @@ describe('FASE 11: comunicaciones y tableros con Oracle real', () => {
   it('admin refleja usuarios/sesiones/estado sin hashes y filtra auditoría', async () => {
     const r = await administrador.agent.get('/api/tableros/admin').expect(200);
     expect(r.body.data.usuarios.find((u: { rol: string }) => u.rol === 'EMPLEADO').activos).toBe(2);
-    expect(r.body.data.sistema.version).toBe(35);
+    const versiones = await cargarMigraciones(
+      fileURLToPath(new URL('../../../../db/migrations', import.meta.url)),
+    );
+    expect(r.body.data.sistema.version).toBe(Math.max(...versiones.map((m) => m.version)));
     expect(r.body.data.sistema.objetosInvalidos).toBe(0);
     expect(r.body.data.sistema.sesionesActivas).toBe(4);
     expect(JSON.stringify(r.body.data)).not.toMatch(/TOKEN_HASH|CSRF_HASH|argon2id/);

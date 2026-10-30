@@ -133,6 +133,7 @@ npm run verify:secrets
 npm run db:verify
 npm run verify:migration
 npm run verify:migration:v1
+npm run verify:migration:v1.1
 npm run verify:security
 npm run verify:prestaciones
 npm run verify:solicitudes
@@ -150,7 +151,7 @@ compilación, índices de FK/filtros y seeds repetibles. Las suites Oracle/Super
 permisos, fechas, cálculos, propiedad, concurrencia y rollback real de auditoría. Administran únicamente
 esquemas aleatorios `N2TEST_*`/`N2SEC_*`; la API usa un usuario dedicado sin privilegios administrativos.
 
-`test:e2e` crea un esquema `N2E2E_*`, levanta API/Vite en 3018/5178 y ejecuta Chromium con autenticación,
+`test:e2e` crea un esquema `N2E2E_*` por spec, levanta API/Vite en 3018/5178 y ejecuta Chromium con autenticación,
 cookies y CSRF reales. Prueba los tres roles, alta de empleado, vacaciones/aprobación, anticipo/pago mensual/cierre,
 constancia/entrega/descarga y recorre las páginas por rol con ayuda, hints, axe y portal móvil a 390 px.
 No reutiliza sesiones ni respuestas simuladas. Fixtures solo en el esquema desechable, retirado al salir.
@@ -158,7 +159,9 @@ Con `npm run test:e2e -- --production` se construyen y ejecutan las imágenes re
 con `NODE_ENV=production`, TLS y Oracle temporal. El preparo de fixtures termina antes del entrypoint
 de la API; no se incluyen fixtures en esa imagen. Usa la red `nomina2_default` del Compose de trabajo,
 API de prueba en 3018 y web en 8448. `verify:all` ejecuta esta modalidad.
-El informe local queda en `playwright-report`; no se graban trazas ni videos con credenciales.
+Cada spec usa BD, API y archivos nuevos; las imágenes se construyen una vez por ejecución. El informe
+local queda en `playwright-report/<spec>` y `tmp/e2e/<spec>/resultados.json`, con resumen global en
+`tmp/e2e-resumen.json`; no se graban trazas ni videos con credenciales.
 
 `verify:clean` construye **otro proyecto Compose**, con claves aleatorias, puertos libres y volúmenes
 vacíos. Comprueba HTTPS, login inicial, cambio obligatorio y sesión Secure; luego elimina únicamente
@@ -172,7 +175,7 @@ Si el host no usa Node 20, las suites Oracle admiten:
 ```bash
 docker build --target build -f backend/Dockerfile -t nomina2-security-tests .
 npm run verify:security -- --docker
-# Los otros tres verify:* también admiten -- --docker.
+# Todas las suites Oracle verify:* de módulos también admiten -- --docker.
 ```
 
 Permisos de equipo (R3-8): aplicar V040 mediante el runner habitual y reconstruir API/web.
@@ -346,12 +349,12 @@ Pruebas: `npm run verify:pagos`, `npm run verify:prestaciones` y
 
 La rama `v1` incluye A2–A12. Antes de actualizar una instalación, respalda Oracle y conserva su
 volumen y `.env`. Ejecuta `docker compose up --build -d --wait --wait-timeout 900`: la API aplica
-V021–V035 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
+las migraciones pendientes hasta V043 y seeds sin sustituir credenciales ni datos existentes. No edites migraciones aplicadas
 ni elimines el volumen. Un fallo de migración detiene el arranque para revisión.
 
 `npm run verify:migration` exige Git con la etiqueta `v0.0`, Node 20, `npm ci` y Oracle saludable.
 Reconstruye una copia aislada de v0 con sus servicios/seeds originales, añade historia de regresión
-y la migra a la última versión (V035). Compara conteos de las 55 tablas anteriores, todas sus PK y columnas, préstamos,
+y la migra a la última versión. Compara conteos de las 55 tablas anteriores, todas sus PK y columnas, préstamos,
 cuotas cobradas/pendientes, vacaciones, snapshots y bytes documentales; admite únicamente cambios
 con archivo del original o versionado explícito. Comprueba idempotencia y retira la copia. El reporte
 local `tmp/migracion-v0-v1.json` contiene conteos y huella, sin datos personales ni contraseñas.
@@ -531,3 +534,49 @@ V043 usa el mismo volumen privado y respaldo conjunto de R3-11 para sus adjuntos
 quedan en Oracle. La exportación compartible excluye registros, historial y adjuntos de actas.
 Ver [operación, API y decisiones C8](docs/ACTAS.md). Pruebas: `npm run verify:actas -- --docker`
 y `npm run test:e2e -- --production actas.spec.ts`, además de lint/suite habituales.
+
+### Cierre de Ronda 3 (R3-13)
+
+La rama `v1.2` aplica V036–V043 de forma aditiva; los pagos confirmados conservan importes,
+snapshots y comprobantes. Prepara `.env` según el inicio de este documento y ejecuta
+`docker compose up --build -d --wait --wait-timeout 900`. La API aplica migraciones/seeds;
+nginx sirve el build con HTTPS y el volumen privado conserva expediente y adjuntos de actas.
+Respalda juntos Oracle, `.env` y `nomina2-expedientes` antes de actualizar; consulta también
+[Expediente](docs/EXPEDIENTE.md) y [Actas](docs/ACTAS.md).
+
+| Criterio                                                               | Regresión reproducible                                                      |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Alta posterior al 15, bonificación proporcional y pago real            | `ronda3.spec.ts`, `verify:pagos`                                            |
+| Historial sin duplicación, bruto/neto y marca parcial en Inicio        | `dashboard-rh.spec.ts`, `verify:pagos`, `verify:tableros`                   |
+| Bono 14 atrasado independiente, motivo y planillas intactas            | `ronda3.spec.ts`, `verify:pagos`                                            |
+| Títulos, años reales y ausencia de estados internos visibles           | `interfaz.spec.ts`, `equipo.spec.ts`                                        |
+| Jefe inmediato, jerarquía, concesión y revocación                      | `jefaturas.spec.ts`, `equipo.spec.ts`, `verify:jefaturas`                   |
+| Colisiones confirmadas y saldos con marca roja accesible               | `vacaciones-colisiones.spec.ts`, `vacaciones-saldos.spec.ts`                |
+| Comisiones como RH y jefe, exportaciones y alcance                     | `comisiones-estadisticas.spec.ts`, `verify:comisiones`                      |
+| Expediente y actas completos, propiedad, auditoría y archivos privados | `expediente.spec.ts`, `actas.spec.ts`, `verify:expedientes`, `verify:actas` |
+| Menús, Ctrl/⌘ K, hints, recorridos y accesibilidad por rol             | `cierre.spec.ts`, `interfaz.spec.ts`, `equipo.spec.ts`                      |
+| Arranque desde volúmenes vacíos, catálogo y autenticación de archivos  | `verify:clean`                                                              |
+
+Ejecuta `npm run test:e2e -- --production` para toda la matriz sobre API/nginx reales,
+o añade un nombre de spec para seleccionar un caso. `npm run verify:all` incluye calidad,
+las suites Oracle secuenciales, migraciones desde v0/v1/v1.1, E2E y arranque limpio.
+Requiere Node 20, `npm ci`, Chromium instalado y el Oracle de Compose saludable.
+
+`npm run verify:migration:v1.1` reconstruye el corte Git `v1.1` (V035) con sus seeds y
+transacciones de regresión; migra hasta la versión actual y compara las 76 tablas previas,
+PK, columnas, BLOB/CLOB, snapshots y saldos. Repetir migraciones y seeds no cambia los datos.
+Reporte local: `tmp/migracion-v1.1-v1.2.json`.
+Para ensayar con la **BD local instalada todavía en V035**, ejecuta
+`npm run verify:migration:v1.1 -- --copy-installed`: Data Pump crea una copia consistente a
+una única SCN en un esquema aleatorio, comprueba que sea idéntica al origen y migra solo la
+copia. No escribe en el esquema original. Exige Oracle local de este Compose; el dump se
+mantiene en un directorio 0700 del contenedor y se retira junto con trabajos/esquema temporales.
+Reporte sin datos personales: `tmp/migracion-instalada-v1.1-v1.2.json`. Una instalación ya
+actualizada no admite esta modalidad; el ensayo reproducible de Git sigue disponible.
+
+El diagnóstico histórico es de **solo lectura**: `scripts/diagnostico-anticipos.sql`.
+`verify:pagos` lo ejecuta contra casos correctos y anómalos y comprueba que no modifica
+snapshots ni bitácora. Un hallazgo se revisa con el contador; solo ADMIN revierte con motivo y
+confirma un cálculo nuevo según [Nómina v1](docs/NOMINA_V1.md). No hay correcciones automáticas.
+Los supuestos contables pendientes y límites de aceptación figuran en
+[DECISIONES](docs/DECISIONES.md#ronda-3--cierre-r3-13) y [PROGRESO_V1](docs/PROGRESO_V1.md).

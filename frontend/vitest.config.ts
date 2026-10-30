@@ -9,5 +9,7 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     clearMocks: true,
     restoreMocks: true,
+    // Limita la memoria de jsdom al ejecutar la aceptación junto con Docker/Oracle.
+    maxWorkers: 2,
   },
 });

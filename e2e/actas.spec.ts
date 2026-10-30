@@ -14,7 +14,10 @@ async function entrar(page: Page, usuario = 'revisor.pruebas') {
 }
 let acta: number, persona: number, codigo: string;
 test.describe.serial('R3-12: actas, firma, suspensión y consulta propia', () => {
-  test('RH registra, adjunta evidencia, emite con ausencia, imprime y firma', async ({ page }) => {
+  test('RH registra, adjunta evidencia, emite con ausencia, imprime y firma', async ({
+    page,
+    request,
+  }) => {
     const errores: string[] = [];
     page.on('pageerror', (e) => errores.push(e.message));
     await entrar(page);
@@ -84,6 +87,15 @@ test.describe.serial('R3-12: actas, firma, suspensión y consulta propia', () =>
     await expect(
       page.locator('[data-tour="actas-acciones"]').getByText('Firmada', { exact: true }),
     ).toBeVisible();
+    const detalle = (await (await page.request.get(`/api/actas/${acta}`)).json()).data;
+    for (const ruta of [
+      `/api/actas/${acta}/pdf`,
+      ...detalle.adjuntos.map((a: { id: number }) => `/api/actas/adjuntos/${a.id}?vista=1`),
+    ]) {
+      const privado = await request.get(ruta);
+      expect(privado.status()).toBe(401);
+      expect(privado.headers()['content-type']).toContain('application/json');
+    }
     await page.getByRole('button', { name: 'Ayuda de esta página' }).click();
     await expect(page.locator('.driver-popover')).toBeVisible();
     await page.keyboard.press('Escape');

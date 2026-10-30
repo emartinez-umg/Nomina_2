@@ -8,7 +8,13 @@ export default defineConfig({
   timeout: 120000,
   expect: { timeout: 15000 },
   forbidOnly: !!process.env.CI,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never' }],
+    ...(process.env.E2E_REPORT_FILE
+      ? [['json', { outputFile: process.env.E2E_REPORT_FILE }] as ['json', { outputFile: string }]]
+      : []),
+  ],
   use: {
     ...devices['Desktop Chrome'],
     baseURL: produccion ? 'https://localhost:8448' : 'http://127.0.0.1:5178',

@@ -142,6 +142,14 @@ describe('Configuración única de navegación', () => {
   });
 });
 describe('Búsqueda tolerante con sinónimos', () => {
+  it.each(roles)('encuentra el expediente digital desde el acceso permitido a %s', (rol) => {
+    const opcion = opcionesNavegacion(rol).find(
+      (o) => o.id === (rol === 'EMPLEADO' ? 'mis-datos' : 'empleados'),
+    )!;
+    expect(
+      puntuarBusqueda(opcion.id, 'expediente digital', [opcion.titulo, ...opcion.palabras]),
+    ).toBeGreaterThan(0);
+  });
   it.each(['boleta', 'boltea', 'boletta', 'nomina', 'nómina', 'salario', 'pagos', 'reporte igss'])(
     'encuentra Planilla con %s',
     (consulta) => {
